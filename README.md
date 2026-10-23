@@ -27,11 +27,11 @@ Link: https://cursor.com/canvas/store-f783d059-8304-409e-8eee-8c518ae04f8b/91900
 - The perfect standard score is a regression check, not a benchmark.
 
 ## 3. Whitepaper
-- PDF and Word in `docs/`, same numbers as the report and prototype, states the synthetic-data limit up front.
+- PDF and Word in `docs/`. The copy-edited rebuild is 10 pages and dated 23 October 2026. It states the synthetic-data limit up front.
 - Includes a Related work and novelty section. The search notes are in [docs/prior-art.md](docs/prior-art.md).
 
 ## 4. Log detector with honeypot (agent-watch)
-- Python 3.10+ with Flask. v5 adds harness-archetype labels, a static HTML replay, and a benchmark kit. The v3 run was 339 passed and 1 skipped; this branch re-runs the suite and records the actual count in the pull request. The skip needs pydantic and the sibling `rogue-ai-pipeline` tree.
+- Python 3.10+ with Flask. v5 adds harness-archetype labels, a static HTML replay, and a benchmark kit. This tree: 447 passed, 0 skipped, 0 failed. The extra pass is `test_export_validates_against_sibling_pipeline_schema_if_available`, which skips unless pydantic is installed and the sibling `rogue-ai-pipeline` tree is present (the 446 passed / 1 skipped count). These are synthetic regression checks.
 - Parses Nginx/Apache and JSON gateway logs, builds sessions, flags adaptive scraping, tool-chaining and rate-limit evasion.
 - Rules-and-threshold scoring using timing entropy and navigation depth separates humans, static bots and goal-directed agents. Every score has plain-language reasons.
 - Alerts as terminal summaries and JSON.
@@ -40,7 +40,7 @@ Link: https://cursor.com/canvas/store-f783d059-8304-409e-8eee-8c518ae04f8b/91900
 - Synthetic demo: 5/5 humans, 5/5 static bots, 3/3 adaptive agents labelled correctly. Live run against the simulated agent: flagged critical, mainly for following the canary instruction.
 
 ## 5. Multi-layer pipeline (rogue-ai-pipeline)
-- v5 accepts the harness-archetype label and copies it onto leads and STIX. The v3 run was 258 passed with mypy clean; this branch re-runs pytest and mypy and records the actual result in the pull request. STIX 2.1 export is checked with the OASIS validator in the suite.
+- v5 accepts the harness-archetype label and copies it onto leads and STIX. This tree: 331 passed, 0 failed, and `mypy rogue_pipeline run.py` reports no issues. STIX 2.1 export is checked with the OASIS validator in the suite. The numbers below are synthetic regression checks, not benchmarks.
 - Layers: schema validation with keyed pseudonymization; Isolation Forest with feature explanations; rule gates mapped to ATLAS T0051, T0053, T0086; networkx coordination graph that suppresses cron jobs and orchestrator pools; fused scoring that only creates low-severity "human review" leads; hash-chained audit log.
 - Synthetic evaluation, 5 seeds:
   - Standard: precision 0.85, recall 0.97, false-positive rate 0.03

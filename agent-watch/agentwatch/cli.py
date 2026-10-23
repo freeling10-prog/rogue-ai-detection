@@ -1,4 +1,4 @@
-"""Command line interface: analyze | serve | honeypot | demo | report | export-leads | export-web."""
+"""Command line interface: analyze | serve | honeypot | demo | report | export-leads | export-web | replay."""
 from __future__ import annotations
 
 import argparse
@@ -95,7 +95,8 @@ def cmd_export_web(args: argparse.Namespace) -> int:
         print(f"error: file not found: {missing[0]}", file=sys.stderr)
         return 2
     cfg = load_config(args.config)
-    n = export_web_file(args.inputs, args.out, cfg, synthetic=args.label_synthetic)
+    n = export_web_file(args.inputs, args.out, cfg, synthetic=args.label_synthetic,
+                        **({"site_hosts": args.site_host} if args.site_host else {}))
     print(f"wrote {n} web RawEvent record(s) to {args.out}")
     return 0
 
@@ -111,6 +112,18 @@ def cmd_export_leads(args: argparse.Namespace) -> int:
         from .export import export_coordination_file
         m = export_coordination_file(args.leads, args.coordination_out)
         print(f"wrote {m} coordination-event record(s) to {args.coordination_out}")
+    return 0
+
+
+def cmd_replay(args: argparse.Namespace) -> int:
+    from .replay import write_replay
+    missing = [f for f in [args.leads] + ([args.access] if args.access else []) if not Path(f).is_file()]
+    if missing:
+        print(f"error: file not found: {missing[0]}", file=sys.stderr)
+        return 2
+    n = write_replay(args.leads, args.access, args.out, args.config, max_sessions=args.max_sessions,
+                     min_severity=args.min_severity, include_humans=args.include_humans)
+    print(f"wrote a replay of {n} session(s) to {args.out} (static HTML, no network, human-review leads only)")
     return 0
 
 
@@ -251,7 +264,20 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", required=True)
     p.add_argument("--config")
     p.add_argument("--label-synthetic", action="store_true", help="mark events synthetic=true (only for your own sandbox/test traffic)")
+    p.add_argument("--site-host", action="append", default=None,
+                   help="v4: host name(s) of YOUR site; a same-site Referer's path is exported for the pipeline's inferred-link-graph "
+                        "fallback (default: loopback only). Off-site Referers are never exported.")
     p.set_defaults(func=cmd_export_web)
+
+    p = sub.add_parser("replay", help="v5: render leads (+ the mirrored access stream) as a static, XSS-safe HTML replay for human review")
+    p.add_argument("leads", help="honeypot leads JSONL")
+    p.add_argument("--access", help="the mirrored <leads>.access.jsonl stream (adds link-graph and asset facts)")
+    p.add_argument("--out", required=True)
+    p.add_argument("--config")
+    p.add_argument("--max-sessions", type=int, default=60)
+    p.add_argument("--min-severity", choices=SEVERITIES, default="low")
+    p.add_argument("--include-humans", action="store_true", help="also render sessions labelled human with no findings")
+    p.set_defaults(func=cmd_replay)
 
     p = sub.add_parser("demo", help="generate synthetic logs, run the pipeline, print results")
     p.add_argument("--out", help="output directory (default: a new temp dir)")

@@ -1,0 +1,4 @@
+{"step": 0, "tool": "fetch_url", "url": "http://127.0.0.1:8098/robots.txt", "method": "GET", "status": 200}
+{"step": 1, "tool": "fetch_url", "url": "http://127.0.0.1:8098/admin-backup/", "method": "GET", "status": 200}
+{"step": 2, "tool": "fetch_url", "url": "http://127.0.0.1:8098/", "method": "GET", "status": 200}
+{"step": 3, "tool": "fetch_url", "url": "http://127.0.0.1:8098/api/v1/admin", "method": "GET", "status": 403}

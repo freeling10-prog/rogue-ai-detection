@@ -106,7 +106,8 @@
       "/api/v2/dump/page/": "stateful_dump_step",
       "/api/v2/bulk/": "openapi_decoy",
       "/api/v1/coordination-board/claim-shard": "coordination_claim_step",
-      "/api/v1/coordination-board": "coordination_board_read"
+      "/api/v1/coordination-board": "coordination_board_read",
+      "/api/v1/kb-snapshot": "aria_fastpath"
     },
     "dump_chain_min_steps": 3
   },
@@ -146,6 +147,9 @@
     "enabled": true,
     "asset_starvation": {
       "min_pages": 5,
+      "contradictory_min_pages": 3,
+      "contradictory_share": 0.5,
+      "coherent_weakens": true,
       "browser_ua_patterns": [
         "mozilla/5\\.0"
       ],
@@ -161,6 +165,44 @@
       ],
       "max_findings": 20
     },
+    "asset_types": {
+      "css": [
+        ".css"
+      ],
+      "js": [
+        ".js",
+        ".mjs"
+      ],
+      "font": [
+        ".woff",
+        ".woff2",
+        ".ttf",
+        ".otf"
+      ],
+      "favicon": [
+        "favicon.ico"
+      ],
+      "image": [
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".svg",
+        ".webp",
+        ".avif",
+        ".bmp",
+        ".ico"
+      ],
+      "other": [
+        ".map"
+      ]
+    },
+    "headless": {
+      "beacon_path": "/api/v1/telemetry/nav",
+      "aria_path": "/api/v1/kb-snapshot",
+      "min_navs": 3,
+      "min_pointerless_beacons": 4
+    },
     "schema_param": {
       "name": "client_schema_rev"
     },
@@ -171,7 +213,8 @@
       "hidden_link",
       "robots_disallow",
       "fake_credentials_file",
-      "robots_fetch"
+      "robots_fetch",
+      "aria_fastpath"
     ],
     "human_plausible_kinds": [
       "robots_disallow",
@@ -200,7 +243,8 @@
       "fake_credential_use": 60,
       "schema_param": 60,
       "session_canary_param": 60,
-      "mcp_list_then_call": 70
+      "mcp_list_then_call": 70,
+      "headless_automation_signal": 65
     }
   },
   "navigation": {
@@ -299,12 +343,15 @@
       "schema_param": 50,
       "session_canary_param": 55,
       "mcp_list_then_call": 40,
+      "headless_automation_signal": 55,
+      "headless_beacon_missing": 35,
       "coord_board_after_trap": 25,
       "coord_capture_post": 35,
       "coord_claim_loop": 30,
       "coord_cross_identity": 20,
       "honeytoken": {
         "default": 25,
+        "aria_fastpath": 30,
         "canary_follow": 60,
         "canary_phrase_echo": 60,
         "fake_credential_use": 40,

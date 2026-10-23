@@ -22,7 +22,7 @@ import math
 import re
 import statistics
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Optional
 
 from .detectors import is_asset, page_requests, run_detectors, ttna_stats
 from .models import Finding, Request, Session
@@ -123,6 +123,7 @@ class SessionResult:
     benign_reason: str = ""
     actor_type: str = ""             # goal_directed_agent | accidental_scraper | possible_mimic | static_bot | human
     floors: list[str] = field(default_factory=list)   # which single events set a score floor (max-pooling), for the report
+    fingerprint: Optional[Any] = None                # v5: harness archetype (agentwatch.fingerprint.Fingerprint), explainable, not scored
 
     @property
     def honeytoken_hits(self) -> list[Finding]:
@@ -262,6 +263,16 @@ def _agent(feat: dict[str, Any], findings: list[Finding], cfg: dict[str, Any], r
         score += pts
         reasons.append(f"+{pts} {len(earlier)} jump(s) to URLs offered on an earlier page but not the previous one, no valid Referer "
                        "(weak: breadth-first crawlers, new tabs and typed bookmarks look the same)")
+    hl = [f for f in webf if f.kind == "headless_automation_signal"]
+    if any(f.data.get("strong") for f in hl):
+        strong_hl = next(f for f in hl if f.data.get("strong"))
+        score += w["headless_automation_signal"]
+        reasons.append(f"+{w['headless_automation_signal']} headless/browser-automation signal ({strong_hl.data['reason']}): {strong_hl.summary}")
+    elif hl:
+        score += w["headless_beacon_missing"]
+        reasons.append(f"+{w['headless_beacon_missing']} {hl[0].summary}")
+    for f in (f for f in findings if f.detector == "web_advisory"):
+        reasons.append(f"0 advisory (no points): {f.summary}")
     for kind, text in (("schema_param", "camouflaged schema parameter used (read the decoy openapi.json and used what it advertised)"),
                        ("session_canary_param", "replayed the per-session canary that is only served inside machine-readable docs"),
                        ("mcp_list_then_call", "MCP tools/list followed by a valid tools/call")):
@@ -282,6 +293,10 @@ def _agent(feat: dict[str, Any], findings: list[Finding], cfg: dict[str, Any], r
     return _clamp(score)
 
 
+def _strong_headless(f: Finding) -> bool:
+    return f.detector == "web" and f.kind == "headless_automation_signal" and bool(f.data.get("strong"))
+
+
 def score_session(session: Session, cfg: dict[str, Any]) -> SessionResult:
     """Detect, score, label and grade one session."""
     findings = run_detectors(session, cfg)
@@ -300,7 +315,7 @@ def score_session(session: Session, cfg: dict[str, Any]) -> SessionResult:
         # max-pooling: a single high-signal event sets a floor that benign padding cannot dilute
         # (a person can type /admin-backup/ or /.env, so those alone do not force a machine label; an invisible link can't be clicked)
         needs_machine = ({f.kind for f in hits} - set(ccfg["human_plausible_kinds"])) \
-            or any(f.kind in ("schema_param", "session_canary_param", "mcp_list_then_call") for f in webf)
+            or any(f.kind in ("schema_param", "session_canary_param", "mcp_list_then_call") or _strong_headless(f) for f in webf)
         if needs_machine:
             if auto < fl["automation_any_decoy"]:
                 reasons.append(f"+{fl['automation_any_decoy'] - auto} floor: decoy contact sets the automation score to at least "
@@ -308,7 +323,7 @@ def score_session(session: Session, cfg: dict[str, Any]) -> SessionResult:
                 auto = fl["automation_any_decoy"]
                 floors_applied.append("automation:decoy_contact")
         cands = [(fl["agent"][f.kind], f.kind) for f in hits if f.kind in fl["agent"]]
-        cands += [(fl["agent"][f.kind], f.kind) for f in webf if f.kind in fl["agent"]]
+        cands += [(fl["agent"][f.kind], f.kind) for f in webf if f.kind in fl["agent"] and (f.kind != "headless_automation_signal" or _strong_headless(f))]
         if cands:
             value, kind = max(cands)
             if agent < value:
@@ -338,7 +353,8 @@ def score_session(session: Session, cfg: dict[str, Any]) -> SessionResult:
 
     # accidental scraper vs goal-directed agent (a lone invisible-link hit must not read as 'high' while labelled human)
     hit_kinds = {f.kind for f in hits}
-    strong = hit_kinds & set(ccfg["strong_kinds"]) or {f.kind for f in webf if f.kind in ("schema_param", "session_canary_param", "mcp_list_then_call")}
+    strong = hit_kinds & set(ccfg["strong_kinds"]) or {f.kind for f in webf if f.kind in ("schema_param", "session_canary_param", "mcp_list_then_call")
+                                                      or _strong_headless(f)}
     adaptive = any((f.detector in ("tool_chain", "multi_turn", "coordination"))
                    or (f.detector == "adaptation" and f.kind not in ("no_adaptation", "backoff")) for f in findings)
     non_passive = hit_kinds - passive
@@ -351,7 +367,7 @@ def score_session(session: Session, cfg: dict[str, Any]) -> SessionResult:
         reasons.append("classified as a likely accidental scraper, not a goal-directed agent: only passive decoys touched "
                        f"({', '.join(sorted(hit_kinds))}), no adaptation, no schema/MCP/error-hint use. Contact is not intent; "
                        "severity is capped at medium")
-    elif any(f.kind == "asset_starvation" or (f.kind == "unlinked_jump" and not f.data.get("offered_earlier")) for f in webf):
+    elif any(f.kind in ("asset_starvation", "headless_automation_signal") or (f.kind == "unlinked_jump" and not f.data.get("offered_earlier")) for f in webf):
         actor = "possible_mimic"
     else:
         actor = label
@@ -367,8 +383,9 @@ def score_session(session: Session, cfg: dict[str, Any]) -> SessionResult:
     else:
         sev = "medium" if agent >= th["medium"] else "info"
     reasons.sort(key=_reason_rank)   # biggest contributors first, deductions/notes last
+    from .fingerprint import fingerprint_session            # v5: descriptive only - never feeds back into the scores above
     return SessionResult(session, feat, findings, auto, agent, label, sev, reasons, benign, benign_reason,
-                         actor_type=actor, floors=floors_applied)
+                         actor_type=actor, floors=floors_applied, fingerprint=fingerprint_session(session, findings, cfg))
 
 
 def analyze_sessions(sessions: list[Session], cfg: dict[str, Any]) -> list[SessionResult]:

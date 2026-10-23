@@ -19,6 +19,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import ipaddress
+import json as _json
 import os
 import re
 import secrets
@@ -30,7 +31,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Optional, Sequence
 
-from flask import Flask, Response, g, jsonify, request
+from flask import Flask, Response, g, has_request_context, jsonify, request
 from markupsafe import escape
 from werkzeug.exceptions import HTTPException, RequestEntityTooLarge
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -40,6 +41,24 @@ from .state import StateStore
 from .leads import (DEFAULT_MAX_LOG_BYTES, MAX_BODY_BYTES, MAX_PATH, LeadWriter,
                     make_lead, sanitize_headers, sanitize_query, sanitize_text, utc_iso)
 
+BEACON_PATH = "/api/v1/telemetry/nav"     # v4: minimal interaction beacon (three booleans, nothing else)
+BEACON_KEYS = ("webdriver_present", "pointer_trail_seen", "dom_automation_props")
+BEACON_MAX_BYTES = 256
+BEACON_RATE_PER_MIN = 60
+BEACON_RATE_MAX_KEYS = 2000
+# Inline script, same-origin only.  On a click on an internal link it POSTs ONE small JSON object with three booleans:
+# navigator.webdriver === true; whether pointer/touch movement happened before the click; whether Playwright/CDP-style
+# globals exist on window.  No identifiers, no fingerprinting surface beyond these three bits, no third-party requests.
+BEACON_SCRIPT = (
+    "<script>(function(){var m=0,f=function(){m=1};"
+    "addEventListener('pointermove',f,{passive:true});addEventListener('touchmove',f,{passive:true});"
+    "addEventListener('touchstart',f,{passive:true});"
+    "addEventListener('click',function(e){var t=e.target,a=t&&t.closest&&t.closest('a[href^=\"/\"]');if(!a)return;"
+    "var p=false;try{for(var k in window){if(/^(__playwright|__pw|cdc_|\\$cdc_|__nightmare|_phantom|callPhantom|__selenium|__webdriver)/.test(k)){p=true;break}}}catch(_){}"
+    "try{fetch('" + BEACON_PATH + "',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',keepalive:true,"
+    "body:JSON.stringify({webdriver_present:navigator.webdriver===true,pointer_trail_seen:!!m,dom_automation_props:p})})}catch(_){}"
+    "},true)})();</script>"
+)
 SCHEMA_PARAM = "client_schema_rev"        # camouflaged, required-looking parameter advertised only in /openapi.json
 SCHEMA_PARAM_DEFAULT = "2026.04-ai"       # its "default" value in the decoy schema
 ACCESS_SCHEMA = "agentwatch.access/1"     # mirrored request stream (every request, decoy or not)
@@ -312,6 +331,10 @@ class Context:
         }
         if lead_event_id:
             rec["lead_event_id"] = lead_event_id
+        if g.get("beacon_offered"):
+            rec["beacon_script"] = True                  # this response embedded the interaction beacon (so one is expected)
+        if g.get("beacon"):
+            rec["beacon"] = g.beacon                     # exactly the three validated booleans
         if self.behind_proxy:       # JA4 is only trustworthy when set by an edge we control (see docs/ja4-tls-fingerprinting.md)
             ja4 = request.headers.get("X-JA4", "").strip()
             if _JA4.match(ja4):
@@ -466,11 +489,13 @@ def get_context() -> Context:
 # app factory
 # --------------------------------------------------------------------------
 def _html(body: str, title: str = "Acme Synthetic Corp") -> Response:
+    if has_request_context():
+        g.beacon_offered = True
     # Pages reference a stylesheet, a script, a favicon and a logo (all served `no-store`, so a warm cache cannot
     # explain a client that never fetches them): a browser-like client loads them, a text-only agent does not.
     return Response(f"<!doctype html><html><head><meta charset='utf-8'><title>{escape(title)}</title>"
                     "<link rel='stylesheet' href='/static/site.css'><link rel='icon' href='/favicon.ico'>"
-                    "<script src='/static/site.js' defer></script></head>"
+                    "<script src='/static/site.js' defer></script>" + BEACON_SCRIPT + "</head>"
                     f"<body><img src='/static/logo.svg' alt='' width='24' height='24'>{body}</body></html>",
                     mimetype="text/html")
 
@@ -546,6 +571,38 @@ def create_app(
     @app.get("/about")
     def about() -> Response:
         return _html("<h1>About</h1><p>Nothing to see; this is a synthetic honeypot site.</p>")
+
+    beacon_rate: dict[str, list[float]] = {}
+    beacon_lock = threading.Lock()
+
+    @app.post(BEACON_PATH)
+    def telemetry_nav() -> Response:
+        """Interaction beacon: accepts ONLY {webdriver_present, pointer_trail_seen, dom_automation_props} as booleans.
+        Size-limited (256 B), rate-capped per client IP, 204 with no body; anything else is rejected and nothing is stored
+        beyond the three booleans on the mirrored access record (the usual request metadata is logged like for any request)."""
+        now = ctx.clock().timestamp()
+        key = ctx.client_ip()
+        with beacon_lock:
+            if len(beacon_rate) > BEACON_RATE_MAX_KEYS:
+                beacon_rate.clear()
+            window = [t for t in beacon_rate.get(key, []) if now - t < 60.0]
+            limited = len(window) >= BEACON_RATE_PER_MIN
+            if not limited:
+                window.append(now)
+            beacon_rate[key] = window
+        if limited:
+            return Response("", status=429, headers={"Retry-After": "30"})
+        raw = ctx.read_body(BEACON_MAX_BYTES)
+        if len(raw) > BEACON_MAX_BYTES:
+            return Response("", status=413)
+        try:
+            doc = _json.loads(raw.decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            return Response("", status=400)
+        if not isinstance(doc, dict) or any(not isinstance(doc.get(k), bool) for k in BEACON_KEYS):
+            return Response("", status=400)
+        g.beacon = {k: bool(doc[k]) for k in BEACON_KEYS}
+        return Response("", status=204)
 
     @app.get("/static/site.css")
     def asset_css() -> Response:

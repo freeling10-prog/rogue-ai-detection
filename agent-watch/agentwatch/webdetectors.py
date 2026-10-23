@@ -4,8 +4,13 @@ A live demo showed that a client with a browser User-Agent, human-paced timing a
 and no alert, because every detector either needed a decoy hit or averaged over the whole session.  These detectors
 look at single facts about the request stream instead:
 
-* ``asset_starvation``  >= N HTML pages, a User-Agent that *claims* to be a browser, and zero CSS/JS/image/favicon fetches
-                        (plus, when the log carries headers, missing/mismatched ``Sec-Fetch-*`` on the page loads);
+* ``asset_starvation``  (v4 definition) >= N HTML pages from a client that claims to be a browser with zero *core* sub-resources
+                        (.css/.js), or contradictory ``Sec-Fetch-*`` on page loads.  Omitting only images/fonts/favicon is how
+                        people with images blocked browse and is NOT starvation; coherent ``navigate``/``document`` headers on
+                        the starved pages make it advisory-only (they are also what a person with scripts+styles blocked sends);
+* ``headless_automation_signal``  (v4) a browser-backed client (it loads assets, so starvation cannot fire) that follows the
+                        ARIA fast-path decoy, reports ``webdriver``/automation globals in the client beacon, or clicks through
+                        >= 3 pages after fetching our script without ever sending the beacon that script would send;
 * ``unlinked_jump``     per transition: the client asked for a URL the previous page never linked and gave no valid
                         Referer.  The honeypot serves its own pages, so the link graph is known exactly (the mirrored
                         access stream records the links each response offered).  Abstains when the log has no link graph;
@@ -51,32 +56,119 @@ def claims_browser(session: Session, cfg: dict[str, Any]) -> bool:
     return any(re.search(p, ua, re.I) for p in pats) and not any(re.search(p, ua, re.I) for p in bots)
 
 
+def asset_kind(req: Request, cfg: dict[str, Any]) -> Optional[str]:
+    """Sub-resource type of a request path: css | js | font | favicon | image | other, or None if it is not an asset."""
+    path = req.path.lower()
+    base = path.rsplit("/", 1)[-1]
+    types = cfg["web"]["asset_types"]
+    for kind in ("favicon", "css", "js", "font", "image", "other"):
+        for pat in types.get(kind, []):
+            if (pat.startswith(".") and path.endswith(pat)) or (not pat.startswith(".") and base == pat):
+                return kind
+    return "other" if _is_asset(req, cfg) else None
+
+
+def _sec_fetch_state(r: Request) -> str:
+    """'absent' (no Sec-Fetch-Mode/Dest), 'coherent' (navigate + a document-like destination) or 'contradictory'."""
+    mode, dest = r.headers.get("sec-fetch-mode", ""), r.headers.get("sec-fetch-dest", "")
+    if not mode and not dest:
+        return "absent"
+    if mode == "navigate" and dest in ("document", "iframe", "frame", "embed", "object"):
+        return "coherent"
+    return "contradictory"
+
+
 def detect_asset_starvation(session: Session, cfg: dict[str, Any]) -> list[Finding]:
     acfg = cfg["web"]["asset_starvation"]
     if not claims_browser(session, cfg):
         return []                     # a client that declares itself a script/bot is not pretending to be a browser
     pages = [r for r in session.requests if is_html_page(r, cfg)]
+    states = [_sec_fetch_state(r) for r in pages if r.headers_logged]
+    checked = [x for x in states if x != "absent"]
+    contra = sum(1 for x in checked if x == "contradictory")
+    coherent = sum(1 for x in checked if x == "coherent")
+    # (1) contradictory Sec-Fetch-*: a browser engine never sends e.g. Mode=cors with Dest=document on a navigation
+    if acfg["sec_fetch_check"] and len(checked) >= acfg["contradictory_min_pages"] and contra / len(checked) >= acfg["contradictory_share"]:
+        return [Finding("web", "asset_starvation",
+                        f"{contra}/{len(checked)} page loads carry contradictory Sec-Fetch-* headers (a browser engine would not send them)",
+                        pages[:3], {"pages": len(pages), "reason": "contradictory_sec_fetch", "sec_fetch": True,
+                                    "sec_fetch_checked": len(checked), "sec_fetch_mismatch": contra})]
     if len(pages) < acfg["min_pages"]:
         return []
-    if any(_is_asset(r, cfg) for r in session.requests):
-        return []
-    mismatch = 0
-    checked = 0
-    if acfg["sec_fetch_check"]:
-        for r in pages:
-            if not r.headers_logged:
-                continue
-            checked += 1
-            mode, dest = r.headers.get("sec-fetch-mode", ""), r.headers.get("sec-fetch-dest", "")
-            if not mode or dest not in ("document", "iframe", "frame"):
-                mismatch += 1
-    sec = bool(checked) and mismatch / checked >= acfg["sec_fetch_min_share"]
-    note = (f"; {mismatch}/{checked} page loads lack the Sec-Fetch-* headers a browser sends" if checked else
+    kinds = {asset_kind(r, cfg) for r in session.requests} - {None}
+    if kinds & {"css", "js"}:
+        return []                     # loads stylesheets/scripts: a rendering client, even if it blocks images/fonts/favicon
+    note_kinds = f"; sub-resources fetched: {', '.join(sorted(kinds)) or 'none'}"
+    if acfg["coherent_weakens"] and checked and coherent / len(checked) >= 0.9:
+        # a person with styles AND scripts blocked / a reader mode sends exactly this; a script that copies browser headers does too
+        return [Finding("web_advisory", "asset_starvation_coherent",
+                        f"{len(pages)} HTML pages with zero .css/.js fetches but coherent Sec-Fetch navigate/document headers on every "
+                        f"page{note_kinds} (advisory only: reader modes, blocked styles+scripts and header-copying scripts look the same)",
+                        pages[:3], {"pages": len(pages)})]
+    mismatch = sum(1 for x in states if x == "absent")
+    sec = bool(states) and mismatch / len(states) >= acfg["sec_fetch_min_share"]
+    note = (f"; {mismatch}/{len(states)} page loads lack the Sec-Fetch-* headers a browser sends" if states else
             "; Sec-Fetch-* headers are not in this log format (not checked)")
     return [Finding(
         "web", "asset_starvation",
-        f"{len(pages)} HTML pages with a browser-like User-Agent and zero CSS/JS/image/favicon fetches{note}",
-        pages[:3], {"pages": len(pages), "sec_fetch_checked": checked, "sec_fetch_mismatch": mismatch, "sec_fetch": sec})]
+        f"{len(pages)} HTML pages with a browser-like User-Agent and zero .css/.js fetches{note_kinds}{note}",
+        pages[:3], {"pages": len(pages), "reason": "no_core_subresources", "sec_fetch_checked": len(states),
+                    "sec_fetch_mismatch": mismatch, "sec_fetch": sec})]
+
+
+def detect_headless(session: Session, cfg: dict[str, Any]) -> list[Finding]:
+    """v4: browser-backed clients.  A client that fetches the page's styles/scripts and follows real links looks like a person in
+    every HTTP-level feature, so this uses the two non-visual traps: the ARIA fast-path decoy and the interaction beacon.
+
+    The beacon (``POST /api/v1/telemetry/nav``) carries three booleans only: ``webdriver_present``, ``pointer_trail_seen``,
+    ``dom_automation_props``.  Conservative by design: missing beacons are only counted when the client fetched our script
+    (a JS-disabled browser never fetches it), and a pointer-less trail is advisory only (keyboard / screen-reader users)."""
+    h = cfg["web"]["headless"]
+    reqs = session.requests
+    pages = [r for r in reqs if is_html_page(r, cfg)]
+    kinds = {asset_kind(r, cfg) for r in reqs} - {None}
+    browser_backed = claims_browser(session, cfg) and len(pages) >= 2 and bool(kinds & {"css", "js"})
+    beacons = [r for r in reqs if r.method == "POST" and r.path == h["beacon_path"]]
+    parsed = [r for r in beacons if r.beacon is not None]
+    out: list[Finding] = []
+    reasons: set[str] = set()
+    for r in parsed:
+        if r.beacon is None:
+            continue
+        if r.beacon["webdriver_present"] and "webdriver_present" not in reasons:
+            reasons.add("webdriver_present")
+            out.append(Finding("web", "headless_automation_signal",
+                               "the client's own script reported navigator.webdriver === true (browser automation is driving it)",
+                               [r], {"reason": "webdriver_present", "strong": True}))
+        if r.beacon["dom_automation_props"] and "dom_automation_props" not in reasons:
+            reasons.add("dom_automation_props")
+            out.append(Finding("web", "headless_automation_signal",
+                               "the client's own script found automation bindings on window (Playwright/CDP-style globals)",
+                               [r], {"reason": "dom_automation_props", "strong": True}))
+    aria = [r for r in reqs if r.decoy_kind == "aria_fastpath" or (r.path == h["aria_path"] and "aria-fastpath" in r.query)]
+    if aria and browser_backed:
+        out.append(Finding("web", "headless_automation_signal",
+                           "a browser-backed client (it loads our styles/scripts) followed the muted ARIA 'AI Assistant Fast-Path' "
+                           "element that people do not click (an agent reading the accessibility tree chose it)",
+                           aria[:1], {"reason": "aria_fastpath", "strong": True}))
+    # a beacon is only EXPECTED when the page the client clicked from embedded it (plain logs from sites without it: never)
+    offered = {p.path for p in pages if p.beacon_offered}
+    navs = [r for r in pages[1:] if r.referer and _path_of(r.referer) in offered]
+    if browser_backed and "js" in kinds and not beacons and len(navs) >= h["min_navs"]:
+        out.append(Finding("web", "headless_automation_signal",
+                           f"fetched our script and clicked through {len(navs)} pages but never sent the interaction beacon that script "
+                           "sends on every internal navigation (it did not run it; MODERATE: ad/tracker blockers can block the beacon too)",
+                           navs[:3], {"reason": "beacon_missing", "strong": False, "navigations": len(navs)}))
+    elif not beacons and len(navs) >= h["min_navs"] and "js" not in kinds:
+        out.append(Finding("web_advisory", "beacon_absent_no_js",
+                           f"{len(navs)} click-through navigations and no beacon, but our script was never fetched (JavaScript off or a "
+                           "privacy tool): advisory only", navs[:3], {"navigations": len(navs)}))
+    if len(parsed) >= h["min_pointerless_beacons"] and not any(r.beacon and r.beacon["pointer_trail_seen"] for r in parsed):
+        out.append(Finding("web_advisory", "no_pointer_trail",
+                           f"{len(parsed)} click-through beacons, none preceded by pointer/touch movement (advisory only: keyboard and "
+                           "screen-reader users never move a pointer; a stealth browser agent does not either)", parsed[:3],
+                           {"beacons": len(parsed)}))
+    return out
 
 
 def _path_of(url: str) -> str:
@@ -172,6 +264,6 @@ def run_web_detectors(session: Session, cfg: dict[str, Any]) -> list[Finding]:
     if not cfg["web"]["enabled"]:
         return []
     out: list[Finding] = []
-    for fn in (detect_asset_starvation, detect_unlinked_jump, detect_schema_param, detect_session_canary, detect_mcp_flow):
+    for fn in (detect_asset_starvation, detect_headless, detect_unlinked_jump, detect_schema_param, detect_session_canary, detect_mcp_flow):
         out.extend(fn(session, cfg))
     return out

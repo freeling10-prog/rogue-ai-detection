@@ -21,6 +21,7 @@ from pydantic import ValidationError
 from .config import NormalizationCfg, WebCfg
 from .pseudonymize import Pseudonymizer
 from .identity import IdentityGate
+from .scrub import Scrubber
 from .schema import REDACTION_RE, NormalizedEvent, RawEvent, WebFlags
 
 _NUM = re.compile(r"\d+")
@@ -113,6 +114,8 @@ class Normalizer:
         self.pseudo = pseudo
         self.identity = identity
         self.web = web or WebCfg()
+        # v4: encoded-secret scrubber (keyed by the pseudonymization key, domain "scrub") applied to raw free-text fields at ingest
+        self.scrubber: Optional[Scrubber] = Scrubber(lambda v: pseudo.token("scrub", v, "")) if cfg.scrub_raw_fields else None
         self._sens = [re.compile(p, re.I) for p in cfg.sensitive_patterns]
         self._scan_ua = [re.compile(p, re.I) for p in self.web.scanner_ua_patterns]
         self._scan_path = [re.compile(p, re.I) for p in self.web.scanner_path_patterns]
@@ -139,7 +142,13 @@ class Normalizer:
             content_kind=w.content_kind, ua_class=ua_class, scanner_path=any(p.search(raw.resource) for p in self._scan_path),
             referer_valid=w.referer_valid, linked_from_prev=w.linked_from_prev, offered_earlier=w.offered_earlier,
             sec_fetch_mismatch=w.sec_fetch_mismatch, strong_signal=w.strong_signal, decoy_kind=w.decoy_kind, mcp=w.mcp,
-            has_ja4=w.ja4 is not None)
+            has_ja4=w.ja4 is not None, asset_kind=w.asset_kind,
+            beacon=None if w.beacon is None else (w.beacon.webdriver_present, w.beacon.pointer_trail_seen, w.beacon.dom_automation_props),
+            beacon_offered=w.beacon_offered, referer_present=w.referer_present, sec_fetch_state=w.sec_fetch_state,
+            harness_archetype=w.harness_archetype, harness_confidence=w.harness_confidence,
+            referer_key=self.pseudo.resource(w.referer_path) if w.referer_path else None,
+            path_key=self.pseudo.resource(raw.resource.split("?", 1)[0]),
+            is_entry=raw.resource.split("?", 1)[0] in self.web.link_entry_paths)
 
     # -- helpers -----------------------------------------------------------------------------------
     def _is_external(self, host: Optional[str]) -> bool:
@@ -160,7 +169,29 @@ class Normalizer:
             out.append(f"{kind}:{loc}:{e['msg']}")
         return out
 
+    def _scrub_raw(self, raw: RawEvent) -> RawEvent:
+        """Replace secrets (also percent/\\u-encoded or newline/tab-split ones) in free-text fields by keyed markers BEFORE anything is
+        hashed, so a raw secret can never reach a shingle, a token pseudonym or a resource key."""
+        sc = self.scrubber
+        if sc is None:
+            return raw
+        upd: Dict[str, Any] = {"resource": sc.scrub_text(raw.resource)}
+        if raw.text:
+            upd["text"] = sc.scrub_text(raw.text)
+        if raw.request_token:
+            upd["request_token"] = sc.scrub_text(raw.request_token)
+        if raw.response_tokens:
+            upd["response_tokens"] = [sc.scrub_text(t) for t in raw.response_tokens]
+        if raw.capture is not None and self.cfg.keep_capture:
+            c = raw.capture
+            upd["capture"] = c.model_copy(update={"system_prompt_summary": sc.scrub_text(c.system_prompt_summary),
+                                                  "current_objective": sc.scrub_text(c.current_objective), "message": sc.scrub_text(c.message),
+                                                  "declared_tools": [sc.scrub_text(t) for t in c.declared_tools]})
+        return raw.model_copy(update=upd)
+
     def to_normalized(self, raw: RawEvent) -> NormalizedEvent:
+        orig = raw                                    # identity verification must see the event exactly as it was signed
+        raw = self._scrub_raw(raw)
         p = self.pseudo
         is_msg = raw.action == "message"
         shingles = frozenset(
@@ -173,7 +204,7 @@ class Normalizer:
         marker = lambda t: bool(REDACTION_RE.fullmatch(t))
         sens = self._is_sensitive(raw.resource)
         ext = self._is_external(raw.dest_host)
-        dec = self.identity.evaluate(raw) if self.identity is not None else None
+        dec = self.identity.evaluate(orig) if self.identity is not None else None
         return NormalizedEvent(
             event_id=raw.event_id,
             ts=raw.ts,

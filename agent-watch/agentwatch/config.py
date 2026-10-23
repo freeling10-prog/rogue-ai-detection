@@ -75,6 +75,7 @@ DEFAULTS: dict[str, Any] = {
             "/api/v2/bulk/": "openapi_decoy",
             "/api/v1/coordination-board/claim-shard": "coordination_claim_step",
             "/api/v1/coordination-board": "coordination_board_read",
+            "/api/v1/kb-snapshot": "aria_fastpath",
         },
         "dump_chain_min_steps": 3,     # distinct server-issued dump pages followed => multi-turn evidence
     },
@@ -105,7 +106,13 @@ DEFAULTS: dict[str, Any] = {
         # with content type, the links each page offered, and the browser header family)
         "enabled": True,
         "asset_starvation": {
-            "min_pages": 5,                       # HTML pages with ZERO sub-resource fetches
+            # v4: starvation means ZERO core page resources (stylesheets/scripts) over >= min_pages HTML documents, or
+            # contradictory Sec-Fetch-* on page loads.  Omitting only images (or fonts/favicon) is how people with
+            # images blocked / data-saver modes browse and is NOT starvation.
+            "min_pages": 5,                       # HTML pages with ZERO .css/.js fetches
+            "contradictory_min_pages": 3,         # page loads with header-logged Sec-Fetch needed to call them contradictory
+            "contradictory_share": 0.5,
+            "coherent_weakens": True,             # coherent Sec-Fetch navigate/document on the starved pages -> weak (advisory) only
             "browser_ua_patterns": [r"mozilla/5\.0"],   # only a client that CLAIMS to be a browser is expected to load assets
             "sec_fetch_check": True,              # when the log carries headers: browser-claiming page loads lacking Sec-Fetch-*
             "sec_fetch_min_share": 0.5,
@@ -115,13 +122,24 @@ DEFAULTS: dict[str, Any] = {
             "entry_paths": ["/", "/robots.txt", "/favicon.ico", "/sitemap.xml"],
             "max_findings": 20,
         },
+        "asset_types": {                          # v4: sub-resource type by extension (core = what a browser needs to render)
+            "css": [".css"], "js": [".js", ".mjs"], "font": [".woff", ".woff2", ".ttf", ".otf"], "favicon": ["favicon.ico"],
+            "image": [".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".avif", ".bmp", ".ico"], "other": [".map"],
+        },
+        "headless": {
+            # v4: signals for a browser-backed client (it loads assets, so asset starvation cannot fire)
+            "beacon_path": "/api/v1/telemetry/nav",
+            "aria_path": "/api/v1/kb-snapshot",
+            "min_navs": 3,                        # click-through navigations (internal Referer) before "no beacon" means anything
+            "min_pointerless_beacons": 4,         # weak advisory only (keyboard / screen-reader users never move a pointer)
+        },
         "schema_param": {"name": "client_schema_rev"},
         "session_canary_pattern": r"\bsc-[0-9a-f]{10}\b",
     },
     "contact": {
         # decoy classes for severity / labelling.  A lone hit on a PASSIVE decoy (invisible link, robots Disallow, the
         # guessable /.env) is what scanners, crawlers and curious humans produce: contact, not intent.
-        "passive_kinds": ["hidden_link", "robots_disallow", "fake_credentials_file", "robots_fetch"],
+        "passive_kinds": ["hidden_link", "robots_disallow", "fake_credentials_file", "robots_fetch", "aria_fastpath"],
         "human_plausible_kinds": ["robots_disallow", "fake_credentials_file", "robots_fetch"],   # a person can type these URLs
         "accidental_max_distinct_decoys": 2,
         "strong_kinds": ["canary_follow", "canary_phrase_echo", "error_hint_follow", "mcp_decoy_tool_call",
@@ -133,7 +151,8 @@ DEFAULTS: dict[str, Any] = {
         "enabled": True,
         "automation_any_decoy": 40,           # any decoy contact: at least a static bot, never "human"
         "agent": {"canary_follow": 60, "canary_phrase_echo": 60, "error_hint_follow": 60, "mcp_decoy_tool_call": 60,
-                  "fake_credential_use": 60, "schema_param": 60, "session_canary_param": 60, "mcp_list_then_call": 70},
+                  "fake_credential_use": 60, "schema_param": 60, "session_canary_param": 60, "mcp_list_then_call": 70,
+                  "headless_automation_signal": 65},   # v4: ARIA fast-path / webdriver / automation globals seen from a browser-backed client
     },
     "navigation": {"deep_depth": 4, "flat_depth_max": 2},
     "assets": {"extensions": [".css", ".js", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".woff", ".woff2", ".map", ".webp"]},
@@ -183,6 +202,8 @@ DEFAULTS: dict[str, Any] = {
             "schema_param": 50,             # sent the camouflaged client_schema_rev parameter from the decoy openapi.json
             "session_canary_param": 55,     # replayed the per-session canary served only inside machine-readable docs
             "mcp_list_then_call": 40,       # MCP tools/list followed by a valid tools/call (goal-directed tool use)
+            "headless_automation_signal": 55,   # v4: browser-backed client + ARIA fast-path / webdriver / automation globals
+            "headless_beacon_missing": 35,      # v4: fetched our script, clicked through >= 3 pages, never sent the beacon (moderate: blockers do this too)
             # coordination bus (distinct signals, each with its own plain-language reason)
             "coord_board_after_trap": 25,   # read the board after an error/schema trap (followed a breadcrumb)
             "coord_capture_post": 35,       # volunteered a registration (objective/tools/system prompt summary)
@@ -190,6 +211,7 @@ DEFAULTS: dict[str, Any] = {
             "coord_cross_identity": 20,     # a token issued to one session/IP was presented by another
             "honeytoken": {
                 "default": 25,
+                "aria_fastpath": 30,       # v4: followed the ARIA "AI Assistant Fast-Path" element (any DOM/anchor parser can)
                 "canary_follow": 60,       # obeying an instruction embedded in retrieved text
                 "canary_phrase_echo": 60,
                 "fake_credential_use": 40,

@@ -148,11 +148,32 @@ def export_file(src: str | Path, dst: str | Path, *, synthetic: bool = False) ->
 # ---- v3: mirrored access stream -> RawEvents with a ``web`` block --------------------------------------------------------
 _STRONG = {"hidden_link": "hidden_link", "schema_param_use": "schema_param", "session_canary_param": "session_canary",
            "error_hint_follow": "error_hint_follow", "fake_credential_use": "fake_credential_use",
-           "mcp_decoy_tool_call": "mcp_tools_call"}
+           "mcp_decoy_tool_call": "mcp_tools_call", "aria_fastpath": "aria_fastpath"}
 _MCP = {"mcp_initialize": "initialize", "mcp_tools_list": "tools_list", "mcp_decoy_tool_call": "tools_call"}
 
 
-def export_web_events(paths: Iterable[str | Path], cfg: Optional[dict[str, Any]] = None, *, synthetic: bool = False) -> Iterator[dict[str, Any]]:
+_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "[::1]"})
+
+
+def same_site_referer_path(referer: str, site_hosts: Iterable[str]) -> Optional[str]:
+    """v4: the PATH of a same-site Referer (no host, no query, no fragment), else None.  Used only for the pipeline's empirical link-graph
+    fallback; an off-site Referer (a search engine, another site) is deliberately dropped, never exported."""
+    from urllib.parse import urlsplit
+    try:
+        u = urlsplit(referer)
+    except ValueError:
+        return None
+    host = (u.hostname or "").lower()
+    if u.netloc and host not in {h.lower() for h in site_hosts} and u.netloc.lower() not in {h.lower() for h in site_hosts}:
+        return None
+    path = u.path
+    if not path.startswith("/") or path.startswith("//") or len(path) > 300 or re.search(r"[\x00-\x1f\x7f]", path):
+        return None
+    return path
+
+
+def export_web_events(paths: Iterable[str | Path], cfg: Optional[dict[str, Any]] = None, *, synthetic: bool = False,
+                      site_hosts: Iterable[str] = _LOOPBACK_HOSTS) -> Iterator[dict[str, Any]]:
     """Convert logs + leads + the mirrored access stream into pipeline ``RawEvent`` dicts WITH a ``web`` block.
 
     One event per request (honeypot leads and their mirror records are merged first).  The ``web`` block carries only derived
@@ -164,13 +185,15 @@ def export_web_events(paths: Iterable[str | Path], cfg: Optional[dict[str, Any]]
     from .parser import merge_results, parse_file
     from .pipeline import merge_mirror
     from .sessions import build_sessions
-    from .webdetectors import _is_asset, is_html_page, transitions
+    from .webdetectors import _is_asset, _sec_fetch_state, asset_kind, is_html_page, transitions
     cfg = cfg or load_config()
     parsed = merge_results([parse_file(p) for p in paths])
     reqs, _ = merge_mirror(parsed.requests)
     scrub = get_default_scrubber()
     n = 0
+    from .scoring import score_session
     for sess in build_sessions(reqs, cfg):
+        fp = score_session(sess, cfg).fingerprint                    # v5: descriptive harness label, one per session
         trans = {id(r): (st, ok) for r, _, st, ok in transitions(sess, cfg)}
         for r in sess.requests:
             n += 1
@@ -180,8 +203,25 @@ def export_web_events(paths: Iterable[str | Path], cfg: Optional[dict[str, Any]]
                 valid_ip: Optional[str] = ip
             except ValueError:
                 valid_ip = None
-            kind = "asset" if _is_asset(r, cfg) else "html" if is_html_page(r, cfg) else "api" if r.content_type.startswith("application/") or "/api/" in r.path else "other"
+            is_beacon = r.method == "POST" and r.path == cfg["web"]["headless"]["beacon_path"]
+            kind = ("beacon" if is_beacon else "asset" if (asset_kind(r, cfg) or _is_asset(r, cfg)) else "html" if is_html_page(r, cfg)
+                    else "api" if r.content_type.startswith("application/") or "/api/" in r.path else "other")
             web: dict[str, Any] = {"content_kind": kind}
+            if kind == "asset":
+                web["asset_kind"] = asset_kind(r, cfg) or "other"
+            if kind == "beacon" and r.beacon is not None:
+                web["beacon"] = dict(r.beacon)                     # exactly the three booleans
+            if kind == "html":
+                web["referer_present"] = bool(r.referer)
+                if r.referer:
+                    rp = same_site_referer_path(r.referer, site_hosts)
+                    if rp:
+                        web["referer_path"] = rp
+                if r.beacon_offered:
+                    web["beacon_offered"] = True
+            if fp is not None:
+                web["harness_archetype"] = fp.archetype
+                web["harness_confidence"] = fp.confidence
             if r.ua:
                 web["user_agent"] = r.ua[:300]
             st = trans.get(id(r))
@@ -192,6 +232,7 @@ def export_web_events(paths: Iterable[str | Path], cfg: Optional[dict[str, Any]]
             if kind == "html" and r.headers_logged:
                 mode, dest = r.headers.get("sec-fetch-mode", ""), r.headers.get("sec-fetch-dest", "")
                 web["sec_fetch_mismatch"] = not mode or dest not in ("document", "iframe", "frame")
+                web["sec_fetch_state"] = _sec_fetch_state(r)
             dk = r.decoy_kind or ""
             sig = _STRONG.get(dk) or ("schema_param" if "schema_param_use" in r.tags else "session_canary" if "session_canary_param" in r.tags else None)
             if "mcp_list_then_call" in r.tags:
@@ -215,11 +256,12 @@ def export_web_events(paths: Iterable[str | Path], cfg: Optional[dict[str, Any]]
             yield ev
 
 
-def export_web_file(paths: Iterable[str | Path], dst: str | Path, cfg: Optional[dict[str, Any]] = None, *, synthetic: bool = False) -> int:
+def export_web_file(paths: Iterable[str | Path], dst: str | Path, cfg: Optional[dict[str, Any]] = None, *, synthetic: bool = False,
+                    site_hosts: Iterable[str] = _LOOPBACK_HOSTS) -> int:
     n = 0
     scrub = get_default_scrubber()
     with open(dst, "w", encoding="utf-8") as fout:
-        for ev in export_web_events(paths, cfg, synthetic=synthetic):
+        for ev in export_web_events(paths, cfg, synthetic=synthetic, site_hosts=site_hosts):
             ua = ev["web"].pop("user_agent", None)
             ev = scrub.scrub(ev)
             if ua is not None:

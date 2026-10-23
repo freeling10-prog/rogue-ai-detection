@@ -37,6 +37,8 @@ class Request:
     lead_event_id: str = ""                    # on a mirrored access record: the lead that describes the same request
     tags: list[str] = field(default_factory=list)  # lead tags (e.g. schema_param_use, mcp_list_then_call)
     headers_logged: bool = False               # the log format carries the browser-header family (mirror / leads)
+    beacon_offered: bool = False               # v4: the mirrored response embedded the interaction beacon script
+    beacon: Optional[dict[str, bool]] = None   # v4: the three booleans of a client-interaction beacon POST (nothing else is kept)
     ja4: str = ""                              # OPTIONAL TLS fingerprint from a trusted edge; parsed only, never scored
     ja4h: str = ""                             # OPTIONAL HTTP-header fingerprint (JA4H); parsed only, never scored
 

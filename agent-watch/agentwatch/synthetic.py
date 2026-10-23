@@ -37,8 +37,8 @@ from pathlib import Path
 from typing import Any, Optional
 
 from .honeypot import create_honeypot_app
-from .simagent import run_board_reader, run_coordination_agent, run_discovery_agent, run_obedient_agent
-from .webagents import WEB_PLAN, actor_ip, pace_for, run_web_client
+from .simagent import run_board_reader, run_coordination_agent, run_discovery_agent, run_mcp_runner, run_obedient_agent
+from .webagents import WEB_PLAN, WEB_PLAN_V4, actor_ip, pace_for, run_web_client
 
 T0 = datetime(2026, 10, 22, 10, 0, 0, tzinfo=timezone.utc)
 BROWSER_UAS = [
@@ -317,6 +317,11 @@ class Generator:
             prev = "https://shop.example.invalid/products"
         self.truth.append(Truth(name, "human", ip, "reading time grows with page size (+ assets)"))
 
+    def mcp_runner(self, name: str, ip: str, start: float) -> None:
+        """v5 (extended demo only): a thin MCP client library: initialize -> tools/list -> tools/call and nothing else."""
+        self.trails.append({"ip": ip, "ua": "mcp-client-synth/0.2", "at": start, "kinds": ["mcp_runner"], "delay": lambda b: self.rng.uniform(0.6, 1.4)})
+        self.truth.append(Truth(name, "agent", ip, "JSON-RPC 2.0 initialize -> tools/list -> tools/call with structured args, no browsing"))
+
     # -- v3 web clients (extended demo only): browsers, scraper, crawler and four mimics ------------------------
     def web_client(self, name: str, ip: str, start: float, variant: str, label: str, note: str, *, benign: bool = False) -> None:
         """A simulated web client that browses the honeypot's own pages (see webagents.py for what each variant does)."""
@@ -353,6 +358,8 @@ class Generator:
                     run_obedient_agent(fetch, ua, before_step=advance)
                 elif kind.startswith("web:"):
                     run_web_client(fetch, kind[4:], before_step=advance)
+                elif kind == "mcp_runner":
+                    run_mcp_runner(fetch, ua, before_step=advance)
                 elif kind == "coordination":
                     run_coordination_agent(fetch, ua, before_step=advance)
                 elif kind == "relay":
@@ -391,10 +398,12 @@ def _json_line(e: Event) -> str:
 def add_web_actors(g: "Generator") -> None:
     """The v3 extended demo: browsers and scrapers on the honeypot site plus the four mimic variants (see webagents.WEB_PLAN)."""
     n = 0
-    for variant, label, note, copies, benign in WEB_PLAN:
+    for variant, label, note, copies, benign in WEB_PLAN + WEB_PLAN_V4:
         for k in range(copies):
             g.web_client(f"web:{variant} #{k + 1}", actor_ip(n, label), 600 + 40 * n, variant, label, note, benign=benign)
             n += 1
+    for k in range(2):                                    # v5: a pure MCP tool runner cohort (harness fingerprinting needs one)
+        g.mcp_runner(f"mcp:tool_runner #{k + 1}", f"192.0.2.{200 + k}", 600 + 40 * (n + k))
 
 
 def generate_demo(out_dir: str | Path, seed: int = 7, extended: bool = False) -> dict[str, Any]:

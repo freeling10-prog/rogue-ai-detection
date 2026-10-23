@@ -1,0 +1,12 @@
+{
+  "$comment": "One line of transcript.jsonl as written by redteam/llm_agent.py --transcript (query strings already stripped by the harness). Extra keys are tolerated.",
+  "type": "object",
+  "required": ["step", "tool", "url", "method", "status"],
+  "properties": {
+    "step": {"type": "integer", "minimum": 0},
+    "tool": {"type": "string", "minLength": 1},
+    "url": {"type": "string", "minLength": 1},
+    "method": {"enum": ["GET", "HEAD", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]},
+    "status": {"type": "integer", "minimum": 0}
+  }
+}

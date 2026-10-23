@@ -10,6 +10,7 @@ digest_hex_len = 16
 require_synthetic = true      # refuse events not labeled synthetic=true (this build is synthetic-data only)
 max_text_len = 2000
 shingle_size = 3
+scrub_raw_fields = true       # v4: keyed encoded-secret scrubber (%40, %2540, \\uXXXX, newline/CR/TAB-split tokens) on resource/text/tokens BEFORE hashing
 
 [tools]
 write_tools = ["send_email", "http_post", "upload_file", "write_file", "post_webhook"]
@@ -55,6 +56,12 @@ w_rules = 0.9
 w_sequence = 0.5            # applies only when the sequence gate passes; must ALSO stay below lead_threshold (validated)
 w_graph = 0.8
 lead_threshold = 0.55
+# v4 two-signal corroboration gate: a lead needs a floor (R10/R11), or >= 2 independent families (statistical = IF + sequence counted ONCE,
+# rule gate, coordination graph), or one deterministic family that is strong alone (rule >= rule_solo_min, cluster >= graph_solo_min).
+corroboration_gate = true
+anomaly_min = 0.3             # an Isolation Forest score below this is not a family
+rule_solo_min = 0.65          # >1 (e.g. 1.01) removes the solo-rule exception
+graph_solo_min = 0.8          # >1 removes the solo-cluster exception ("strict" gate: costs most recall, see README)
 
 [frozen]                      # frozen baseline (train-baseline / detect --baseline)
 n_folds = 5
@@ -82,4 +89,12 @@ unlinked_min_never_offered = 2
 floors_enabled = true
 floor_weak = 0.58             # a single hidden-link / decoy contact: reaches the review queue, below review_first (0.75)
 floor_strong = 0.8            # used what a decoy offered (schema param, MCP tools/call, canary, error-hint follow)
+# --- v4: R8 revision, R11 (beacon / ARIA / browser-agent inconsistency), R9 link-graph fallback ---
+core_asset_kinds = ["css", "js"]   # R8: a client that loaded any of these rendered the page; skipping IMAGES is never starvation
+beacon_min_navs = 3                # R11: click-through page loads (Referer present) before "no beacon" means anything
+strength_browser_inconsistency = 0.55
+link_graph_fallback = true         # R9 when the log has no offered-links record: infer the allowed link graph from Referer transitions
+link_min_support = 2               # other clients that must have taken a transition (leave-one-out)
+link_fallback_min_jumps = 4
+link_fallback_strength = 0.5
 # scanner_ua_patterns / scanner_path_patterns / declared_bot_ua_patterns / browser_ua_patterns: lists of regexes (see config.py defaults)

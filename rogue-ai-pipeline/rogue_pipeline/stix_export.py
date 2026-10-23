@@ -10,7 +10,7 @@
 * Agent identifiers are PSEUDONYMS (keyed HMAC). They are only meaningful to whoever holds the key.
 * Honeypot leads (rules R6/R7, deterministic cross-IP token-handoff clusters) add ATLAS techniques
   (AML.T0051 / T0053 / T0086, approximate) and custom indicator properties (``x_`` prefix, as STIX requires):
-  ``x_untrusted_agent_capture`` (sanitized AND re-truncated captured agent metadata; ATTACKER-CONTROLLED data, never
+  ``x_harness_archetype`` (v5: collector-supplied harness label + confidence, descriptive only), ``x_untrusted_agent_capture`` (sanitized AND re-truncated captured agent metadata; ATTACKER-CONTROLLED data, never
   to be executed, rendered, or put in an LLM prompt) and ``x_cross_ip_token_handoff`` (token class, issuing/presenting
   pseudonyms). Capture text is never placed in ``description`` or ``name``.
 * Sharing: TLP:CLEAR marking is applied only because the data is synthetic. Real sharing needs a TLP decision,
@@ -84,6 +84,10 @@ def _capture_props(lead: Dict[str, Any]) -> Dict[str, Any]:
                 "truncated_at_export": any(len(str(cap.get(k, ""))) > EXPORT_FIELD_CHARS for k in ("system_prompt_summary", "current_objective", "message")),
             }
             break
+    hn = lead.get("harness")
+    if hn and hn.get("archetype"):
+        props["x_harness_archetype"] = {"archetype": _cut(hn["archetype"], 40), "confidence": _cut(hn.get("confidence", "low"), 10),
+                                        "note": "descriptive label of the client harness from deterministic rules; not an attribution and not a verdict"}
     cl = lead.get("cluster")
     if cl:
         ho = [e for e in cl.get("edges", []) if e.get("kind") == "cross_ip_token_handoff"]

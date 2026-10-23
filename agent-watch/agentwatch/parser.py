@@ -99,6 +99,9 @@ def _first(d: dict[str, Any], keys: Iterable[str]) -> Any:
     return None
 
 
+BEACON_KEYS = ("webdriver_present", "pointer_trail_seen", "dom_automation_props")
+
+
 def parse_json_line(line: str, line_no: int = 0) -> tuple[Optional[Request], bool]:
     """Parse one JSON-lines record.
 
@@ -156,6 +159,10 @@ def parse_json_line(line: str, line_no: int = 0) -> tuple[Optional[Request], boo
     req.content_type = str(obj.get("content_type") or "")[:100]
     req.lead_event_id = str(obj.get("lead_event_id") or "")[:64]
     req.headers_logged = schema in (ACCESS_SCHEMA, LEAD_SCHEMA)
+    req.beacon_offered = obj.get("beacon_script") is True
+    bc = obj.get("beacon")
+    if isinstance(bc, dict) and all(isinstance(bc.get(k), bool) for k in BEACON_KEYS):
+        req.beacon = {k: bool(bc[k]) for k in BEACON_KEYS}       # strictly the three booleans; anything else is dropped
     ja4 = str(obj.get("ja4") or "").strip()
     ja4h = str(obj.get("ja4h") or "").strip()
     req.ja4 = ja4 if JA4_RE.match(ja4) else ""        # optional; malformed values are dropped, a missing one is normal

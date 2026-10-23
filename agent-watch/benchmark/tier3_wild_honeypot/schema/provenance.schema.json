@@ -1,0 +1,18 @@
+{
+  "$comment": "agentwatch.bench.tier3.provenance/1 - provenance.json that must sit next to wild logs in the slot. These are the operator's ASSERTIONS; nothing here is verified by the toolkit.",
+  "type": "object",
+  "required": ["schema", "tier", "host_label", "isolated_edge_host", "servers", "pulled_at", "window_start", "window_end"],
+  "properties": {
+    "schema": {"const": "agentwatch.bench.tier3.provenance/1"},
+    "tier": {"const": "tier3_wild_honeypot"},
+    "host_label": {"type": "string", "minLength": 1, "$comment": "a label, not a hostname/IP you want to keep private"},
+    "isolated_edge_host": {"const": true, "$comment": "the honeypot ran on a host with no credentials, no private network access and nothing of value"},
+    "servers": {"type": "array", "minItems": 1, "items": {"enum": ["nginx", "gunicorn", "caddy", "other"]}},
+    "pulled_at": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z?$"},
+    "window_start": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z?$"},
+    "window_end": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z?$"},
+    "same_author_synthetic": {"const": false},
+    "archetype_labels": {"enum": ["none", "tool_assigned", "analyst_assigned"], "$comment": "who wrote harness_archetype values, if present"},
+    "notes": {"type": "string"}
+  }
+}

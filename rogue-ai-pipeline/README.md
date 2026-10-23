@@ -271,6 +271,102 @@ same events with the `web` block stripped (v2 cannot represent it).
 * Scanner path/UA lists are examples; a scanner with a browser UA whose requests are < 80% scanner paths is not filtered.
 * No real traffic, no real agents, no real LLM was involved. Counts are tiny (1-5 clients per group per seed, 5 seeds).
 
+## v4: browser-backed mimics, a two-signal gate, per-layer attribution, an inferred link graph
+> Everything in v4 and v5 was measured on **synthetic clients written by the same author as the rules**. These are regression checks,
+> not benchmarks; honeypot / collector contact is not intent; every output is a lead for a human, never an automatic action.
+
+* **R8 revised (images-blocked is not starvation).** R8 now looks at *which* assets were skipped. Core assets are CSS/JS. A browser-claiming
+  client that loads core CSS/JS, or that sends coherent `Sec-Fetch-Dest: document` / `Mode: navigate` on at least 80% of its pages, makes R8
+  abstain. R8 is reserved for >= 5 HTML documents with zero CSS/JS, or >= 3 pages with contradictory `Sec-Fetch-*` covering >= 50% of pages.
+  Older events without `asset_kind` count as core (v3 behaviour).
+* **R11 browser-backed mimic** (wired into the R10 floor tiers). Strong tier (floor 0.80, `goal_directed`): `webdriver` or DOM automation
+  globals reported by the beacon, or an ARIA-canary hit by a client that loads our CSS/JS. Weak tier (floor 0.58, `possible_mimic`):
+  the client fetched the beacon script but never sent the beacon, or it fetched no assets, sent no beacon and clicked through >= 3 pages
+  on a beacon-offering site with a non-coherent `Sec-Fetch` state. The beacon carries **three booleans only** (webdriver, pointer trail,
+  DOM automation globals), is size-limited and rate-capped on the collector, and stores no identifier. **A person with JavaScript off, or an
+  ad/tracker blocker that blocks the beacon, produces no beacon and can therefore trigger the weak tier. That is a known false positive
+  (see the table: `human_beacon_blocked`).**
+* **Two-signal corroboration gate** (`[fusion] corroboration_gate`, default on; `false` restores v3 fusion exactly). A lead needs a floor
+  (R10/R11), or >= 2 independent signal families, or one *deterministic* family strong enough alone. Families: statistical (Isolation Forest
+  + sequence model count **once**; the forest counts only at score >= `anomaly_min` 0.3), rules, graph. A solo rule needs strength >=
+  `rule_solo_min` 0.65; a solo graph cluster needs density >= `graph_solo_min` 0.8. Blocked candidates are counted, kept in
+  `PipelineResult.gated_out` and audited (`gate_blocked`); they are never silently dropped.
+* **Per-layer attribution** (`rogue_pipeline/attribution.py`; `scripts/eval_web.py`; `python run.py evaluate`). Leave-one-out on the
+  noisy-or names the layer(s) a lead *needed* (`rule:R3(+1)`, `graph:timing_content`, `isolation_forest+sequence_model`, `floor:R11`).
+  A floor is named only when it lifted the lead over the threshold.
+* **R9 empirical fallback.** When the collector recorded no `offered_links` (plain nginx/Apache logs), R9 can infer an allowed link graph
+  from **Referer transitions seen from other clients** (pseudonymized `referer_key` / `path_key`; edges need >= `link_min_support` 2 agents
+  and the batch needs >= 2x that many; entry paths exempt; leave-one-out so a client cannot vouch for itself). `python run.py detect
+  --link-reference reference.jsonl` learns the graph from a *separate* reference file. Caveat: two clients making the same unsupported
+  move validate each other inside one batch (use `--link-reference`). Strength 0.5, needs >= 4 jumps.
+* **Scrubber parity** (`rogue_pipeline/scrub.py`, `normalization.scrub_raw_fields`, default on). Port of agent-watch's scrubber: `%40`, `%20`,
+  `%2540`, `\uXXXX`, newline/CR/TAB-split tokens are recognised and replaced by a keyed marker `[REDACTED_<TYPE>_SHA256:<10hex>]`
+  (HMAC under the pipeline key). Identity verification still uses the original event.
+
+### v4 before/after (5 seeds pooled; synthetic; regression check, NOT a benchmark)
+`python scripts/eval_web.py --v2-tree <v2 tree> --v3-tree <v3 tree> --out DIR` and `python run.py evaluate --seeds 5`;
+full tables in `sample_outputs/web_evaluation.md` and `sample_outputs/evaluation.md`. v2/v3 columns run the same events through the old code.
+
+| metric | v2 | v3 | v4 |
+| --- | --- | --- | --- |
+| `mimic_assets` (loads CSS/JS, correct Sec-Fetch) recall, pipeline | 0 / 15 | 0 / 15 | **15 / 15** (`possible_mimic`, review queue) |
+| ... how: | - | - | R11 weak tier: fetched our script, never sent the beacon, on a beacon-offering site. **Works only because the simulated mimic does not run JS.** |
+| `mimic_linked_nosec` (collector records no Sec-Fetch) recall | 0 / 15 | 0 / 15 | 15 / 15, all `possible_mimic` |
+| all 9 mimic cohorts (135 clients) with a lead | 0 % | 33 % | 78 % (105 / 135) |
+| misses that remain | | | `mimic_browser_stealth` 0 / 15, `mimic_header_forger` 0 / 15 (forged coherent headers are trusted) |
+| strong browser-agent cohorts (webdriver, ARIA) | 0 / 30 | 0 / 30 | 30 / 30, `goal_directed`, `review_first` |
+| "images blocked" humans (20) with a lead | 0 | 0 | 0 (the agent-watch collector side went **15 / 15 -> 0 / 15**, see its README) |
+| **new hard-negative cost**: humans with the beacon blocked (15) / no assets and no Sec-Fetch (10) | 0 | 0 | **15 / 15 and 10 / 10 get a weak lead.** This is the price of catching the two rows above: those people look identical to the mimics |
+| accidental scrapers (15) | 0 / 15 | 15 / 15 | 15 / 15 |
+| commodity scanners with a lead (40) | 33 | 0 | 0 |
+| unrelated benign **background** leads (380 agents, sim policy) | 14 | 14 | 14 (gate removes none here: none were statistical-only) |
+
+Per-layer attribution of benign leads, v4, pooled over 5 seeds:
+
+| population | layer needed | leads | what they are |
+| --- | --- | --- | --- |
+| background benign | rule R3 | 9 | partner integrations touching external hosts, by design hard negatives |
+| background benign | rule R1(+1) / R2 | 4 / 1 | tool adopters (`tool_adopter`), by design hard negatives |
+| web benign | floor R11 | 25 | the beacon-blocked / no-Sec-Fetch humans above |
+
+With **no suppression policy** declared (the harness a v3 reader would run) there are 68 background leads: 50 of them `graph:timing_content`
+(orchestrator pools that the sim's declared suppression groups would explain). The 14 vs 68 difference is a harness artifact of
+declared policy, not a v4 change; both are reported.
+
+**Gate trade-off, in `run.py evaluate` (5 seeds, 565 benign agents, scenario recall pooled):**
+
+| evasiveness | variant | overall recall | core-scenario recall | FPR |
+| --- | --- | --- | --- | --- |
+| 0.0 | gate OFF (v3 fusion) | 0.92 | 1.00 | 0.06 |
+| 0.0 | **gate ON (v4)** | 0.91 | 0.97 | **0.04** |
+| 0.0 | strictest gate (every non-floor lead needs 2 families) | 0.47 | 0.41 | 0.02 |
+| 0.5 | gate OFF / ON | 0.78 / 0.72 | 0.56 / 0.35 | 0.07 / 0.05 |
+| 1.0 | gate OFF / ON | 0.69 / 0.61 | 0.24 / **0.00** | 0.06 / 0.04 |
+
+What the gate removes, honestly: **11 benign leads at evasiveness 0** (7 `compliance_scanner`, 4 `noisy_denied`, all "Isolation Forest +
+sequence model" only) and 2 injected `access_prober` agents that were also statistical-only. In the evasive scenarios every lead that existed
+*only* because Isolation Forest and the sequence model agreed is gone, so core recall there falls to 0. Set `corroboration_gate = false` if
+your priority is recall. The strict gate is not recommended.
+
+### Limits of v4 (read these)
+* Same-author synthetic traffic; each mimic was built against the rules. Nothing was run against a real browser, a real automation framework or
+  a real LLM agent (the optional loopback-only Chrome smoke test was NOT run).
+* **JS-disabled humans produce no beacon.** So do ad/tracker blockers and some privacy tools. Our weak tier cannot tell them from a mimic
+  that never ran our script (15 / 15 false positives in the simulation). The weak tier is a review queue entry, not an accusation.
+* A stealth browser that runs our JS and sends a realistic beacon, or a header forger that sends coherent `Sec-Fetch-*`, still evades.
+* R9 fallback is circular when only one batch is available (two clients with the same unsupported move validate each other).
+* The corroboration gate trades recall for fewer statistical-only false alarms (numbers above). It does not make anything more accurate on real data.
+* The beacon needs a site that embeds it; plain logs from other sites never trigger R11.
+
+## v5: harness archetype carried through (descriptive only)
+agent-watch (v5) labels each session with a **harness archetype** (`mcp_tool_runner`, `schema_driven_api_agent`, `stateful_coordinator`,
+`prompt_injected_crawler`, `headless_or_http_mimic`, `commodity_or_static_scanner`, or `unclassified`) plus a confidence of low / medium / high
+and plain-language reasons. `export-web` puts `harness_archetype` and `harness_confidence` in the strict `web` block (enumerated values; an invented
+archetype is rejected). The pipeline **never scores on them**: they are attached to the lead (`Lead.harness`, `"harness"` in `leads.json`) and to the
+STIX 2.1 indicator as the custom property `x_harness_archetype` (`archetype`, `confidence`, a note saying it is a descriptive label, not an attribution).
+The label is never placed in `name` or `description`. The bundle still passes the pinned `stix2-validator==3.2.0` (tested). Confidence means how much
+of the archetype's signature was observed, not a probability. The label is a hint for a reviewer; contact is not intent.
+
 ## Quick start
 
 ```bash
@@ -314,7 +410,7 @@ Policy file: `{"declared_tools": {"agent-7": ["search_docs","http_post"]}, "supp
 * The HMAC key is the secret that protects people: whoever holds it can re-link pseudonyms. Rotate it to unlink old data.
 
 ## Tests
-`python -m pytest -q` runs 258 tests (about 4-5 minutes), grouped by topic: **v3 web evidence** (strict `web` block, UA discarded, R8/R9/R10 positives and near-misses, floors vs padding, scanner pre-filter incl. spoofed-UA exemption and baseline hygiene, accidental vs goal-directed labels, a checked-in agent-watch export sample, `demo --web`), normalization (schema, quarantine, HMAC),
+`python -m pytest -q` runs 331 tests (the slow suite takes several minutes), grouped by topic: **v4/v5** (`tests/test_v4_pipeline.py`: R8 revision, R11 tiers, corroboration gate, attribution, R9 fallback, scrubber parity, v4 cohorts; `tests/test_v5_pipeline.py`: harness label on leads and STIX, never scored), **v3 web evidence** (strict `web` block, UA discarded, R8/R9/R10 positives and near-misses, floors vs padding, scanner pre-filter incl. spoofed-UA exemption and baseline hygiene, accidental vs goal-directed labels, a checked-in agent-watch export sample, `demo --web`), normalization (schema, quarantine, HMAC),
 Layer 1, Layer 2 (each rule: positive, near-miss negative, evidence, ATLAS), Layer 3 (both-signals requirement, each suppression
 with an off-switch counter-test), fusion/audit (guardrails, tamper detection), evaluation/STIX/CLI, **baseline + sequence**
 (round trip, tamper, online == in-population score, timing independence, guardrails, evasive/mimic/holdout checks),
@@ -434,6 +530,7 @@ proves the validator rejects an invalid bundle.
   disclosure processes that this repository does not supply.
 
 ## What was NOT tested
+* **v4/v5**: no real browser, automation framework, LLM agent or real traffic. The beacon, ARIA canary and R11 were exercised only against the author's simulated clients (and, in agent-watch, in-process Flask test clients). The harness label was checked against the author's own cohorts. The gate's effect on real populations is unknown.
 * **v3 web evidence**: only synthetic clients written by the same author as the rules; the agent-watch export was exercised on a checked-in sample and on an in-process demo, never on real web traffic, a real LLM agent or a real scanner population. `ja4` is parsed and validated only; no TLS fingerprint capture exists (see agent-watch `docs/ja4-tls-fingerprinting.md`).
 * **No real remote host.** `deploy/sync_and_score.sh` was run end to end only with **stub `rsync`/`ssh` executables** against a local
   directory (plus `--dry-run`). Real rsync was **not installed** on the build machine, so rsync flag behaviour (`--ignore-existing`,

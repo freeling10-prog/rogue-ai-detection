@@ -30,6 +30,7 @@ class PseudonymizationCfg(_Strict):
 
 
 class NormalizationCfg(_Strict):
+    scrub_raw_fields: bool = True        # v4: keyed encoded-secret scrubber on resource/text/tokens at ingest (%40, %2540, \uXXXX, split tokens)
     require_synthetic: bool = True
     keep_capture: bool = True      # keep sanitized honeypot capture metadata on events (False: drop it at normalization)
     max_text_len: int = Field(2000, ge=1)
@@ -123,6 +124,16 @@ class FusionCfg(_Strict):
     lead_threshold: float = Field(0.55, gt=0, le=1)
     band_review_first: float = 0.75
     band_review: float = 0.60
+    # --- v4: two-signal corroboration gate -------------------------------------------------------------------------
+    # A lead needs (a) a floor from a strong single-event rule (R10 decoy contact / R11 browser-agent inconsistency), or
+    # (b) >= 2 INDEPENDENT signal families among {statistical (Isolation Forest / sequence surprise: both compare against
+    # benign reference behaviour and share inputs, so they count as ONE family), rule gate, coordination graph}, or
+    # (c) one deterministic family that is strong on its own: a rule of strength >= rule_solo_min (0.65: two-fact rules such as R8 "no CSS/JS AND wrong Sec-Fetch"), or a cluster of density
+    # >= graph_solo_min.  Setting both *_solo_min to 1.01 gives the strictest reading (every non-floor lead needs two families).
+    corroboration_gate: bool = True
+    anomaly_min: float = Field(0.3, ge=0, le=1)         # an Isolation Forest score below this does not count as a family at all
+    rule_solo_min: float = Field(0.65, ge=0)            # >1 disables the solo-rule exception
+    graph_solo_min: float = Field(0.8, ge=0)            # >1 disables the solo-cluster exception
 
     @model_validator(mode="after")
     def _anomaly_alone_cannot_lead(self) -> "FusionCfg":
@@ -213,6 +224,15 @@ class WebCfg(_Strict):
     strength_unlinked_jump: float = Field(0.55, ge=0, le=1)
     strength_unlinked_jump_cap: float = Field(0.8, ge=0, le=1)
     strong_distinct_decoys: int = Field(3, ge=2)       # this many different decoy kinds touched => adaptive, not accidental
+    # --- v4 ---------------------------------------------------------------------------------------------------------
+    core_asset_kinds: List[str] = ["css", "js"]        # R8: a client that loaded any of these is a rendering client
+    beacon_min_navs: int = Field(3, ge=1)              # R11: click-through page loads (Referer present) before "no beacon" means anything
+    strength_browser_inconsistency: float = Field(0.55, ge=0, le=1)
+    link_graph_fallback: bool = True                   # R9: learn the allowed link graph from Referer transitions when offered links are absent
+    link_min_support: int = Field(2, ge=1)             # distinct clients that must have taken a Referer transition for it to be "allowed"
+    link_fallback_min_jumps: int = Field(4, ge=2)      # unsupported transitions before the fallback R9 fires (noisier than the exact graph)
+    link_fallback_strength: float = Field(0.5, ge=0, le=1)
+    link_entry_paths: List[str] = ["/", "/robots.txt", "/sitemap.xml"]
     floors_enabled: bool = True
     floor_weak: float = Field(0.58, ge=0, le=1)        # single hidden-link/decoy contact: reaches the queue, below review_first
     floor_strong: float = Field(0.8, ge=0, le=1)       # decoy-protocol use that needs reading/parsing (schema, MCP call, canary)

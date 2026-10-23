@@ -1,0 +1,319 @@
+{
+ "type": "bundle",
+ "id": "bundle--ab61c1d6-0f7c-4c07-84b9-eb09f989fff5",
+ "objects": [
+  {
+   "type": "identity",
+   "spec_version": "2.1",
+   "id": "identity--c709be7b-c18c-5b7a-8ecc-1f49e348c200",
+   "created": "2026-10-23T03:06:28.000Z",
+   "modified": "2026-10-23T03:06:28.000Z",
+   "name": "Rogue AI Detection prototype (SYNTHETIC DATA)",
+   "identity_class": "system",
+   "description": "Demonstration producer. All indicators derive from synthetic data and are not real intelligence."
+  },
+  {
+   "type": "indicator",
+   "spec_version": "2.1",
+   "id": "indicator--8e457949-3a78-5111-9cf8-8173cd4b19b0",
+   "created_by_ref": "identity--c709be7b-c18c-5b7a-8ecc-1f49e348c200",
+   "created": "2026-10-23T03:06:28.000Z",
+   "modified": "2026-10-23T03:06:28.000Z",
+   "name": "collusion_cluster candidate: agent-055",
+   "description": "Possible coordinated group of 5 agents; evidence: content, graph, timing (timing -log10p 8.2, content cosine 0.97, 197 messages).",
+   "indicator_types": [
+    "anomalous-activity"
+   ],
+   "pattern": "[user-account:user_id = 'agent-055']",
+   "pattern_type": "stix",
+   "valid_from": "2026-01-01T05:59:14.000Z",
+   "confidence": 75,
+   "labels": [
+    "synthetic-example",
+    "collusion_cluster"
+   ],
+   "external_references": [
+    {
+     "source_name": "mitre-atlas",
+     "external_id": "AML.T0118",
+     "url": "https://atlas.mitre.org/techniques/AML.T0118",
+     "description": "Autonomous AI Agent Communication"
+    }
+   ],
+   "x_synthetic": true,
+   "x_review_status": "unreviewed - a behavioral flag, not an attribution"
+  },
+  {
+   "type": "indicator",
+   "spec_version": "2.1",
+   "id": "indicator--855ccb55-462e-54bd-922a-5172a93fb8f0",
+   "created_by_ref": "identity--c709be7b-c18c-5b7a-8ecc-1f49e348c200",
+   "created": "2026-10-23T03:06:28.000Z",
+   "modified": "2026-10-23T03:06:28.000Z",
+   "name": "collusion_cluster candidate: agent-056",
+   "description": "Possible coordinated group of 5 agents; evidence: content, graph, timing (timing -log10p 8.2, content cosine 0.97, 197 messages).",
+   "indicator_types": [
+    "anomalous-activity"
+   ],
+   "pattern": "[user-account:user_id = 'agent-056']",
+   "pattern_type": "stix",
+   "valid_from": "2026-01-01T05:59:14.000Z",
+   "confidence": 75,
+   "labels": [
+    "synthetic-example",
+    "collusion_cluster"
+   ],
+   "external_references": [
+    {
+     "source_name": "mitre-atlas",
+     "external_id": "AML.T0118",
+     "url": "https://atlas.mitre.org/techniques/AML.T0118",
+     "description": "Autonomous AI Agent Communication"
+    }
+   ],
+   "x_synthetic": true,
+   "x_review_status": "unreviewed - a behavioral flag, not an attribution"
+  },
+  {
+   "type": "indicator",
+   "spec_version": "2.1",
+   "id": "indicator--9f86c80d-32a1-55b3-9e61-fed387cb7a7f",
+   "created_by_ref": "identity--c709be7b-c18c-5b7a-8ecc-1f49e348c200",
+   "created": "2026-10-23T03:06:28.000Z",
+   "modified": "2026-10-23T03:06:28.000Z",
+   "name": "collusion_cluster candidate: agent-057",
+   "description": "Possible coordinated group of 5 agents; evidence: content, graph, timing (timing -log10p 8.2, content cosine 0.97, 197 messages).",
+   "indicator_types": [
+    "anomalous-activity"
+   ],
+   "pattern": "[user-account:user_id = 'agent-057']",
+   "pattern_type": "stix",
+   "valid_from": "2026-01-01T05:59:14.000Z",
+   "confidence": 75,
+   "labels": [
+    "synthetic-example",
+    "collusion_cluster"
+   ],
+   "external_references": [
+    {
+     "source_name": "mitre-atlas",
+     "external_id": "AML.T0118",
+     "url": "https://atlas.mitre.org/techniques/AML.T0118",
+     "description": "Autonomous AI Agent Communication"
+    }
+   ],
+   "x_synthetic": true,
+   "x_review_status": "unreviewed - a behavioral flag, not an attribution"
+  },
+  {
+   "type": "indicator",
+   "spec_version": "2.1",
+   "id": "indicator--1578e8b4-8ee1-514f-bcc7-06bee7483248",
+   "created_by_ref": "identity--c709be7b-c18c-5b7a-8ecc-1f49e348c200",
+   "created": "2026-10-23T03:06:28.000Z",
+   "modified": "2026-10-23T03:06:28.000Z",
+   "name": "collusion_cluster candidate: agent-058",
+   "description": "Possible coordinated group of 5 agents; evidence: content, graph, timing (timing -log10p 8.2, content cosine 0.97, 197 messages).",
+   "indicator_types": [
+    "anomalous-activity"
+   ],
+   "pattern": "[user-account:user_id = 'agent-058']",
+   "pattern_type": "stix",
+   "valid_from": "2026-01-01T05:59:14.000Z",
+   "confidence": 75,
+   "labels": [
+    "synthetic-example",
+    "collusion_cluster"
+   ],
+   "external_references": [
+    {
+     "source_name": "mitre-atlas",
+     "external_id": "AML.T0118",
+     "url": "https://atlas.mitre.org/techniques/AML.T0118",
+     "description": "Autonomous AI Agent Communication"
+    }
+   ],
+   "x_synthetic": true,
+   "x_review_status": "unreviewed - a behavioral flag, not an attribution"
+  },
+  {
+   "type": "indicator",
+   "spec_version": "2.1",
+   "id": "indicator--cb71b40b-adc8-5e0c-8caa-b94a6941ff1a",
+   "created_by_ref": "identity--c709be7b-c18c-5b7a-8ecc-1f49e348c200",
+   "created": "2026-10-23T03:06:28.000Z",
+   "modified": "2026-10-23T03:06:28.000Z",
+   "name": "collusion_cluster candidate: agent-059",
+   "description": "Possible coordinated group of 5 agents; evidence: content, graph, timing (timing -log10p 8.2, content cosine 0.97, 197 messages).",
+   "indicator_types": [
+    "anomalous-activity"
+   ],
+   "pattern": "[user-account:user_id = 'agent-059']",
+   "pattern_type": "stix",
+   "valid_from": "2026-01-01T05:59:14.000Z",
+   "confidence": 75,
+   "labels": [
+    "synthetic-example",
+    "collusion_cluster"
+   ],
+   "external_references": [
+    {
+     "source_name": "mitre-atlas",
+     "external_id": "AML.T0118",
+     "url": "https://atlas.mitre.org/techniques/AML.T0118",
+     "description": "Autonomous AI Agent Communication"
+    }
+   ],
+   "x_synthetic": true,
+   "x_review_status": "unreviewed - a behavioral flag, not an attribution"
+  },
+  {
+   "type": "indicator",
+   "spec_version": "2.1",
+   "id": "indicator--8a2709ae-52c0-5dce-9945-56042037b377",
+   "created_by_ref": "identity--c709be7b-c18c-5b7a-8ecc-1f49e348c200",
+   "created": "2026-10-23T03:06:28.000Z",
+   "modified": "2026-10-23T03:06:28.000Z",
+   "name": "access_probe candidate: agent-054",
+   "description": "Possible unauthorized access probing: 172 denied of 281 access requests, 229 against sensitive out-of-scope paths.",
+   "indicator_types": [
+    "anomalous-activity"
+   ],
+   "pattern": "[user-account:user_id = 'agent-054']",
+   "pattern_type": "stix",
+   "valid_from": "2026-01-01T05:54:20.000Z",
+   "confidence": 75,
+   "labels": [
+    "synthetic-example",
+    "access_probe"
+   ],
+   "external_references": [
+    {
+     "source_name": "mitre-atlas",
+     "external_id": "AML.T0075",
+     "url": "https://atlas.mitre.org/techniques/AML.T0075",
+     "description": "Enterprise Resource Discovery"
+    }
+   ],
+   "x_synthetic": true,
+   "x_review_status": "unreviewed - a behavioral flag, not an attribution"
+  },
+  {
+   "type": "indicator",
+   "spec_version": "2.1",
+   "id": "indicator--483f25b0-d54a-5852-8694-91629d056aa0",
+   "created_by_ref": "identity--c709be7b-c18c-5b7a-8ecc-1f49e348c200",
+   "created": "2026-10-23T03:06:28.000Z",
+   "modified": "2026-10-23T03:06:28.000Z",
+   "name": "access_probe candidate: agent-053",
+   "description": "Possible unauthorized access probing: 124 denied of 230 access requests, 175 against sensitive out-of-scope paths.",
+   "indicator_types": [
+    "anomalous-activity"
+   ],
+   "pattern": "[user-account:user_id = 'agent-053']",
+   "pattern_type": "stix",
+   "valid_from": "2026-01-01T04:13:32.000Z",
+   "confidence": 75,
+   "labels": [
+    "synthetic-example",
+    "access_probe"
+   ],
+   "external_references": [
+    {
+     "source_name": "mitre-atlas",
+     "external_id": "AML.T0075",
+     "url": "https://atlas.mitre.org/techniques/AML.T0075",
+     "description": "Enterprise Resource Discovery"
+    }
+   ],
+   "x_synthetic": true,
+   "x_review_status": "unreviewed - a behavioral flag, not an attribution"
+  },
+  {
+   "type": "indicator",
+   "spec_version": "2.1",
+   "id": "indicator--080f3a71-1418-57a1-9f55-75bbf7bb9cc9",
+   "created_by_ref": "identity--c709be7b-c18c-5b7a-8ecc-1f49e348c200",
+   "created": "2026-10-23T03:06:28.000Z",
+   "modified": "2026-10-23T03:06:28.000Z",
+   "name": "injection_exfil candidate: agent-061",
+   "description": "Possible injection-driven exfiltration through a new tool: after reading external content, used `http_post` (first use) to send data off-system (4 time(s), up to 85235 bytes).",
+   "indicator_types": [
+    "anomalous-activity"
+   ],
+   "pattern": "[user-account:user_id = 'agent-061']",
+   "pattern_type": "stix",
+   "valid_from": "2026-01-01T03:19:36.000Z",
+   "confidence": 75,
+   "labels": [
+    "synthetic-example",
+    "injection_exfil"
+   ],
+   "external_references": [
+    {
+     "source_name": "mitre-atlas",
+     "external_id": "AML.T0051",
+     "url": "https://atlas.mitre.org/techniques/AML.T0051",
+     "description": "LLM Prompt Injection"
+    },
+    {
+     "source_name": "mitre-atlas",
+     "external_id": "AML.T0086",
+     "url": "https://atlas.mitre.org/techniques/AML.T0086",
+     "description": "Exfiltration via AI Agent Tool Invocation"
+    },
+    {
+     "source_name": "mitre-atlas",
+     "external_id": "AML.T0053",
+     "url": "https://atlas.mitre.org/techniques/AML.T0053",
+     "description": "AI Agent Tool Invocation"
+    }
+   ],
+   "x_synthetic": true,
+   "x_review_status": "unreviewed - a behavioral flag, not an attribution"
+  },
+  {
+   "type": "indicator",
+   "spec_version": "2.1",
+   "id": "indicator--11c97508-1b95-5e87-88c0-d8f1874e1560",
+   "created_by_ref": "identity--c709be7b-c18c-5b7a-8ecc-1f49e348c200",
+   "created": "2026-10-23T03:06:28.000Z",
+   "modified": "2026-10-23T03:06:28.000Z",
+   "name": "injection_exfil candidate: agent-060",
+   "description": "Possible injection-driven exfiltration through a new tool: after reading external content, used `http_post` (first use) to send data off-system (4 time(s), up to 86314 bytes).",
+   "indicator_types": [
+    "anomalous-activity"
+   ],
+   "pattern": "[user-account:user_id = 'agent-060']",
+   "pattern_type": "stix",
+   "valid_from": "2026-01-01T03:19:29.000Z",
+   "confidence": 55,
+   "labels": [
+    "synthetic-example",
+    "injection_exfil"
+   ],
+   "external_references": [
+    {
+     "source_name": "mitre-atlas",
+     "external_id": "AML.T0051",
+     "url": "https://atlas.mitre.org/techniques/AML.T0051",
+     "description": "LLM Prompt Injection"
+    },
+    {
+     "source_name": "mitre-atlas",
+     "external_id": "AML.T0086",
+     "url": "https://atlas.mitre.org/techniques/AML.T0086",
+     "description": "Exfiltration via AI Agent Tool Invocation"
+    },
+    {
+     "source_name": "mitre-atlas",
+     "external_id": "AML.T0053",
+     "url": "https://atlas.mitre.org/techniques/AML.T0053",
+     "description": "AI Agent Tool Invocation"
+    }
+   ],
+   "x_synthetic": true,
+   "x_review_status": "unreviewed - a behavioral flag, not an attribution"
+  }
+ ]
+}

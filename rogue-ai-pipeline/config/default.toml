@@ -1,0 +1,74 @@
+# Default thresholds. Every value here can be overridden; unknown keys are rejected (strict validation).
+# The HMAC key is NEVER stored here - only the name of the environment variable that holds it.
+
+[pseudonymization]
+key_env = "ROGUE_PIPELINE_HMAC_KEY"
+min_key_bytes = 16
+digest_hex_len = 16
+
+[normalization]
+require_synthetic = true      # refuse events not labeled synthetic=true (this build is synthetic-data only)
+max_text_len = 2000
+shingle_size = 3
+
+[tools]
+write_tools = ["send_email", "http_post", "upload_file", "write_file", "post_webhook"]
+
+[layer1]
+n_estimators = 300
+random_state = 0
+flag_threshold = 0.5
+top_k_explanations = 3
+
+[layer2]
+baseline_min_events = 20
+baseline_min_seconds = 3600.0
+untrusted_window_s = 300.0
+immediate_window_s = 60.0
+min_exfil_bytes = 1000
+access_min_denied = 10
+access_min_denied_ratio = 0.2
+access_min_sensitive = 5
+
+[layer3]
+window_s = 15.0
+min_neg_log10_p = 8.0
+min_shared_windows = 4
+max_df_frac = 0.15
+min_cosine = 0.5
+weight_timing = 0.5
+weight_state = 0.6            # shared semantic state across IPs/sessions (needs >= min_state_tokens distinct tokens)
+min_state_tokens = 3
+weight_redacted = 0.6         # same agent-watch redaction marker in two sessions: moderate confidence, subject to suppression
+redacted_max_sessions = 6     # markers seen in more sessions than this are 'popular' and ignored
+weight_content = 0.5
+edge_threshold = 0.55         # above either single-signal maximum (0.5) => timing AND content are both required
+min_cluster_size = 2
+split_below_density = 0.7     # components less dense than this are split into communities (Louvain)
+suppress_declared_groups = true
+suppress_periodic = true
+suppress_fanout = true
+
+[fusion]
+w_anomaly = 0.5               # must stay below lead_threshold: anomaly score alone can never create a lead
+w_rules = 0.9
+w_sequence = 0.5            # applies only when the sequence gate passes; must ALSO stay below lead_threshold (validated)
+w_graph = 0.8
+lead_threshold = 0.55
+
+[frozen]                      # frozen baseline (train-baseline / detect --baseline)
+n_folds = 5
+min_reference_agents = 30
+min_session_events = 8        # fewer events => "insufficient evidence", never a guess
+
+[sequence]                    # Markov action-order model (timing-independent), a fusion gate
+enabled = true
+gate = 0.6
+window = 30
+min_transitions = 20
+
+[identity]                    # simulated HTTP Message Signatures + network allowlists, applied BEFORE scoring
+enabled = true
+max_skew_s = 300.0
+# [[identity.ip_allowlist]]
+# cidr = "203.0.113.0/24"; label = "partner-egress"; exempt_rules = ["R3", "R4"]; allow_dest_suffixes = [".partner.example"]

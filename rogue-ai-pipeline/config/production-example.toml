@@ -1,0 +1,12 @@
+# Example overrides for a PRODUCTION run (python run.py detect --production --config config/production-example.toml ...).
+# Secrets are never stored here. Production requires PIPELINE_HMAC_SECRET in the environment (see README).
+
+[pseudonymization]
+key_env = "ROGUE_PIPELINE_HMAC_KEY"   # dev-only variable; IGNORED in production (PIPELINE_HMAC_SECRET is used instead)
+min_key_bytes = 16
+
+[normalization]
+# DELIBERATE OPERATOR DECISION: this pipeline was built and tested on synthetic data only. Setting this to false lets it
+# ingest events that are not labelled synthetic (e.g. real agent-watch leads). Only do so for traffic you are authorised
+# to analyse; nothing about detection quality on real traffic has been measured.
+require_synthetic = false

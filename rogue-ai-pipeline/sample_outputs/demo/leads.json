@@ -1,0 +1,4908 @@
+[
+  {
+    "agent": "ag_98da521dfc4fdf61",
+    "anomaly_explanations": [
+      "Denied-to-allowed request ratio: 0.49 versus a population median of 0.02 (about 20.3x the typical value) - many more refused requests than peers (robust z=+27.6).",
+      "Requests touching sensitive resources: 150 versus a population median of 0 - touching sensitive resources far more than peers (robust z=+15.3).",
+      "Spread of activity across the 24 hours of the day: 0.63 versus a population median of 0.70 - activity concentrated in a few hours (robust z=-4.7)."
+    ],
+    "automatic_action": "none",
+    "cluster": null,
+    "components": {
+      "graph_density": 0.0,
+      "isolation_forest": 0.8608,
+      "rules": 1.0,
+      "sequence": 1.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-d78a978a89b7",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [
+      {
+        "atlas": [
+          {
+            "id": "AML.T0075",
+            "name": "Enterprise Resource Discovery",
+            "url": "https://atlas.mitre.org/techniques/AML.T0075"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0040116",
+            "summary": "access status=denied dest=api.corp.example sensitive-resource",
+            "ts": 1772476392.906
+          },
+          {
+            "event_id": "e0040117",
+            "summary": "access status=denied dest=api.corp.example sensitive-resource",
+            "ts": 1772476395.752
+          },
+          {
+            "event_id": "e0040119",
+            "summary": "access status=denied dest=api.corp.example sensitive-resource",
+            "ts": 1772476398.977
+          },
+          {
+            "event_id": "e0040118",
+            "summary": "access status=denied dest=api.corp.example sensitive-resource",
+            "ts": 1772476399.037
+          },
+          {
+            "event_id": "e0040121",
+            "summary": "access status=denied dest=api.corp.example sensitive-resource",
+            "ts": 1772476403.528
+          },
+          {
+            "event_id": "e0040124",
+            "summary": "access status=denied dest=api.corp.example sensitive-resource",
+            "ts": 1772476413.786
+          },
+          {
+            "event_id": "e0040125",
+            "summary": "access status=denied dest=api.corp.example sensitive-resource",
+            "ts": 1772476416.187
+          },
+          {
+            "event_id": "e0040122",
+            "summary": "access status=denied dest=api.corp.example sensitive-resource",
+            "ts": 1772476417.648
+          }
+        ],
+        "explanation": "107 of 324 requests were denied (103 on sensitive resources, 98 distinct). Consistent with an agent enumerating resources it is not authorised to use.",
+        "extra": {
+          "denied": 107,
+          "distinct_resources": 98,
+          "sensitive_denied": 103
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R5",
+        "strength": 1.0,
+        "title": "Access probing: many denied requests on sensitive resources"
+      }
+    ],
+    "score": 0.9715,
+    "sequence": {
+      "evidence_event_ids": [
+        "e0040146",
+        "e0040147",
+        "e0040154"
+      ],
+      "explanation": "Action-sequence surprise: worst window 4.03 bits per transition versus a benign median of 2.93 and 99th percentile of 3.97; unusual transitions: tool:transform -> access:sensitive!denied: p=0.0000 (14.7 bits) at event e0040146; access:sensitive!denied -> access:sensitive!denied: p=0.1000 (3.3 bits) at event e0040147; tool:retrieve -> access:sensitive: p=0.0000 (14.6 bits) at event e0040154",
+      "mean_bits": 3.09,
+      "n_transitions": 323,
+      "score": 1.0,
+      "worst_window_bits": 4.031
+    },
+    "severity": "low"
+  },
+  {
+    "agent": "ag_e942d6dcdca8dd5c",
+    "anomaly_explanations": [
+      "Denied-to-allowed request ratio: 0.52 versus a population median of 0.02 (about 21.5x the typical value) - many more refused requests than peers (robust z=+29.2).",
+      "Requests touching sensitive resources: 150 versus a population median of 0 - touching sensitive resources far more than peers (robust z=+15.3).",
+      "Spread of activity across the 24 hours of the day: 0.65 versus a population median of 0.70 - activity concentrated in a few hours (robust z=-3.8)."
+    ],
+    "automatic_action": "none",
+    "cluster": null,
+    "components": {
+      "graph_density": 0.0,
+      "isolation_forest": 0.8371,
+      "rules": 1.0,
+      "sequence": 1.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-7c7744507215",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [
+      {
+        "atlas": [
+          {
+            "id": "AML.T0075",
+            "name": "Enterprise Resource Discovery",
+            "url": "https://atlas.mitre.org/techniques/AML.T0075"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0039882",
+            "summary": "access status=denied dest=api.corp.example sensitive-resource",
+            "ts": 1772422136.379
+          },
+          {
+            "event_id": "e0039884",
+            "summary": "access status=denied dest=api.corp.example sensitive-resource",
+            "ts": 1772422141.916
+          },
+          {
+            "event_id": "e0039886",
+            "summary": "access status=denied dest=api.corp.example sensitive-resource",
+            "ts": 1772422155.734
+          },
+          {
+            "event_id": "e0039887",
+            "summary": "access status=denied dest=api.corp.example sensitive-resource",
+            "ts": 1772422157.034
+          },
+          {
+            "event_id": "e0039888",
+            "summary": "access status=denied dest=api.corp.example sensitive-resource",
+            "ts": 1772422162.552
+          },
+          {
+            "event_id": "e0039889",
+            "summary": "access status=denied dest=api.corp.example sensitive-resource",
+            "ts": 1772422168.65
+          },
+          {
+            "event_id": "e0039898",
+            "summary": "access status=denied dest=api.corp.example sensitive-resource",
+            "ts": 1772422177.491
+          },
+          {
+            "event_id": "e0039893",
+            "summary": "access status=denied dest=api.corp.example sensitive-resource",
+            "ts": 1772422191.093
+          }
+        ],
+        "explanation": "112 of 327 requests were denied (111 on sensitive resources, 109 distinct). Consistent with an agent enumerating resources it is not authorised to use.",
+        "extra": {
+          "denied": 112,
+          "distinct_resources": 109,
+          "sensitive_denied": 111
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R5",
+        "strength": 1.0,
+        "title": "Access probing: many denied requests on sensitive resources"
+      }
+    ],
+    "score": 0.9709,
+    "sequence": {
+      "evidence_event_ids": [
+        "e0039723",
+        "e0039822",
+        "e0039843"
+      ],
+      "explanation": "Action-sequence surprise: worst window 3.97 bits per transition versus a benign median of 2.93 and 99th percentile of 3.97; unusual transitions: tool:transform -> read:untrusted: p=0.0573 (4.1 bits) at event e0039723; read:int -> access:sensitive!denied: p=0.0000 (14.7 bits) at event e0039822; read:int -> access:sensitive!denied: p=0.0000 (14.7 bits) at event e0039843",
+      "mean_bits": 3.359,
+      "n_transitions": 326,
+      "score": 1.0,
+      "worst_window_bits": 3.968
+    },
+    "severity": "low"
+  },
+  {
+    "agent": "ag_98a31ed7ceb00f9b",
+    "anomaly_explanations": [
+      "Denied-to-allowed request ratio: 0.40 versus a population median of 0.02 (about 16.4x the typical value) - many more refused requests than peers (robust z=+22.1).",
+      "Requests touching sensitive resources: 150 versus a population median of 0 - touching sensitive resources far more than peers (robust z=+15.3).",
+      "Spread of activity across the 24 hours of the day: 0.66 versus a population median of 0.70 - activity concentrated in a few hours (robust z=-2.9)."
+    ],
+    "automatic_action": "none",
+    "cluster": null,
+    "components": {
+      "graph_density": 0.0,
+      "isolation_forest": 0.6975,
+      "rules": 1.0,
+      "sequence": 1.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-47bf64cf965c",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [
+      {
+        "atlas": [
+          {
+            "id": "AML.T0075",
+            "name": "Enterprise Resource Discovery",
+            "url": "https://atlas.mitre.org/techniques/AML.T0075"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0039126",
+            "summary": "access status=denied dest=api.corp.example sensitive-resource",
+            "ts": 1772472666.304
+          },
+          {
+            "event_id": "e0039128",
+            "summary": "access status=denied dest=api.corp.example sensitive-resource",
+            "ts": 1772472671.637
+          },
+          {
+            "event_id": "e0039129",
+            "summary": "access status=denied dest=api.corp.example sensitive-resource",
+            "ts": 1772472672.353
+          },
+          {
+            "event_id": "e0039131",
+            "summary": "access status=denied dest=api.corp.example sensitive-resource",
+            "ts": 1772472674.037
+          },
+          {
+            "event_id": "e0039130",
+            "summary": "access status=denied dest=api.corp.example sensitive-resource",
+            "ts": 1772472682.156
+          },
+          {
+            "event_id": "e0039132",
+            "summary": "access status=denied dest=api.corp.example sensitive-resource",
+            "ts": 1772472683.1
+          },
+          {
+            "event_id": "e0039134",
+            "summary": "access status=denied dest=api.corp.example sensitive-resource",
+            "ts": 1772472688.641
+          },
+          {
+            "event_id": "e0039133",
+            "summary": "access status=denied dest=api.corp.example sensitive-resource",
+            "ts": 1772472700.142
+          }
+        ],
+        "explanation": "106 of 372 requests were denied (104 on sensitive resources, 104 distinct). Consistent with an agent enumerating resources it is not authorised to use.",
+        "extra": {
+          "denied": 106,
+          "distinct_resources": 104,
+          "sensitive_denied": 104
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R5",
+        "strength": 1.0,
+        "title": "Access probing: many denied requests on sensitive resources"
+      }
+    ],
+    "score": 0.9674,
+    "sequence": {
+      "evidence_event_ids": [
+        "e0039125",
+        "e0039135",
+        "e0039151"
+      ],
+      "explanation": "Action-sequence surprise: worst window 4.41 bits per transition versus a benign median of 2.93 and 99th percentile of 3.97; unusual transitions: tool:retrieve -> access:sensitive: p=0.0000 (14.6 bits) at event e0039125; tool:productivity -> access:sensitive!denied: p=0.0001 (13.3 bits) at event e0039135; tool:retrieve -> access:sensitive!denied: p=0.0000 (14.6 bits) at event e0039151",
+      "mean_bits": 3.233,
+      "n_transitions": 371,
+      "score": 1.0,
+      "worst_window_bits": 4.407
+    },
+    "severity": "low"
+  },
+  {
+    "agent": "ag_ada95f9578ae974b",
+    "anomaly_explanations": [
+      "Denied-to-allowed request ratio: 0.35 versus a population median of 0.02 (about 14.5x the typical value) - many more refused requests than peers (robust z=+19.3).",
+      "Requests touching sensitive resources: 150 versus a population median of 0 - touching sensitive resources far more than peers (robust z=+15.3).",
+      "Event rate: 0.80 events/min versus a population median of 0.46 events/min (about 1.7x the typical value) - far busier than peers (robust z=+1.7)."
+    ],
+    "automatic_action": "none",
+    "cluster": null,
+    "components": {
+      "graph_density": 0.0,
+      "isolation_forest": 0.6025,
+      "rules": 1.0,
+      "sequence": 0.9485
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-427fd57f7234",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [
+      {
+        "atlas": [
+          {
+            "id": "AML.T0075",
+            "name": "Enterprise Resource Discovery",
+            "url": "https://atlas.mitre.org/techniques/AML.T0075"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0039555",
+            "summary": "access status=denied dest=api.corp.example sensitive-resource",
+            "ts": 1772449140.877
+          },
+          {
+            "event_id": "e0039557",
+            "summary": "access status=denied dest=api.corp.example sensitive-resource",
+            "ts": 1772449148.274
+          },
+          {
+            "event_id": "e0039559",
+            "summary": "access status=denied dest=api.corp.example sensitive-resource",
+            "ts": 1772449150.518
+          },
+          {
+            "event_id": "e0039562",
+            "summary": "access status=denied dest=api.corp.example sensitive-resource",
+            "ts": 1772449158.982
+          },
+          {
+            "event_id": "e0039561",
+            "summary": "access status=denied dest=api.corp.example sensitive-resource",
+            "ts": 1772449161.538
+          },
+          {
+            "event_id": "e0039560",
+            "summary": "access status=denied dest=api.corp.example sensitive-resource",
+            "ts": 1772449162.926
+          },
+          {
+            "event_id": "e0039568",
+            "summary": "access status=denied dest=api.corp.example sensitive-resource",
+            "ts": 1772449167.454
+          },
+          {
+            "event_id": "e0039565",
+            "summary": "access status=denied dest=api.corp.example sensitive-resource",
+            "ts": 1772449171.2
+          }
+        ],
+        "explanation": "112 of 430 requests were denied (101 on sensitive resources, 97 distinct). Consistent with an agent enumerating resources it is not authorised to use.",
+        "extra": {
+          "denied": 112,
+          "distinct_resources": 97,
+          "sensitive_denied": 101
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R5",
+        "strength": 1.0,
+        "title": "Access probing: many denied requests on sensitive resources"
+      }
+    ],
+    "score": 0.9633,
+    "sequence": {
+      "evidence_event_ids": [
+        "e0039495",
+        "e0039496",
+        "e0039497"
+      ],
+      "explanation": "Action-sequence surprise: worst window 3.91 bits per transition versus a benign median of 2.93 and 99th percentile of 3.97; unusual transitions: tool:transform -> access:sensitive!denied: p=0.0000 (14.7 bits) at event e0039495; access:sensitive!denied -> access:sensitive: p=0.1000 (3.3 bits) at event e0039496; tool:transform -> access:sensitive: p=0.0000 (14.7 bits) at event e0039497",
+      "mean_bits": 2.991,
+      "n_transitions": 429,
+      "score": 0.9485,
+      "worst_window_bits": 3.912
+    },
+    "severity": "low"
+  },
+  {
+    "agent": "ag_260da60b2382dc80",
+    "anomaly_explanations": [
+      "Share of late tool calls using tools not used earlier: 0.07 versus a population median of 0.00 - recently started using new tools (robust z=+81.7).",
+      "Share of late external calls to hosts not contacted earlier: 1.00 versus a population median of 0.00 - recently started contacting new external hosts (robust z=+21.8).",
+      "Share of events sent to or fetched from external hosts: 0.06 versus a population median of 0.00 - much more external traffic than peers (robust z=+1.1)."
+    ],
+    "automatic_action": "none",
+    "cluster": null,
+    "components": {
+      "graph_density": 0.0,
+      "isolation_forest": 1.0,
+      "rules": 0.95,
+      "sequence": 0.6955
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-80f8518990db",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [
+      {
+        "atlas": [
+          {
+            "id": "AML.T0051",
+            "name": "LLM Prompt Injection",
+            "url": "https://atlas.mitre.org/techniques/AML.T0051"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0050572",
+            "summary": "read status=allowed dest=api.corp.example untrusted-content",
+            "ts": 1772461048.117
+          },
+          {
+            "event_id": "e0050698",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-sp3.example.org (external) bytes=41444",
+            "ts": 1772461073.01
+          }
+        ],
+        "explanation": "After reading untrusted content, the agent invoked tool(s) ['send_email'] that it neither used in its baseline period nor declared, within 300s. Consistent with injected instructions steering the agent.",
+        "extra": {
+          "episodes": 1,
+          "new_tools": [
+            "send_email"
+          ]
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R1",
+        "strength": 0.75,
+        "title": "Untrusted content followed by a sudden shift in tool usage"
+      },
+      {
+        "atlas": [
+          {
+            "id": "AML.T0086",
+            "name": "Exfiltration via AI Agent Tool Invocation",
+            "url": "https://atlas.mitre.org/techniques/AML.T0086"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0050699",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-sp3.example.org (external) bytes=28806",
+            "ts": 1772459784.527
+          }
+        ],
+        "explanation": "1 write/send call(s) moved 28806 bytes to 1 external host(s) never contacted before (['drop-sp3.example.org']). Consistent with data leaving via an agent tool.",
+        "extra": {
+          "bytes": 28806,
+          "new_hosts": [
+            "drop-sp3.example.org"
+          ]
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R3",
+        "strength": 0.8,
+        "title": "Write-capable tool sending data to a new external destination"
+      },
+      {
+        "atlas": [
+          {
+            "id": "AML.T0053",
+            "name": "AI Agent Tool Invocation",
+            "url": "https://atlas.mitre.org/techniques/AML.T0053"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0050699",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-sp3.example.org (external) bytes=28806",
+            "ts": 1772459784.527
+          },
+          {
+            "event_id": "e0050701",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-sp3.example.org (external) bytes=7510",
+            "ts": 1772459813.336
+          },
+          {
+            "event_id": "e0050703",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-sp3.example.org (external) bytes=20817",
+            "ts": 1772459917.415
+          },
+          {
+            "event_id": "e0050694",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-sp3.example.org (external) bytes=37617",
+            "ts": 1772460926.295
+          },
+          {
+            "event_id": "e0050696",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-sp3.example.org (external) bytes=23220",
+            "ts": 1772460963.124
+          },
+          {
+            "event_id": "e0050698",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-sp3.example.org (external) bytes=41444",
+            "ts": 1772461073.01
+          }
+        ],
+        "explanation": "6 call(s) to tool(s) ['send_email'] that are not in the agent's declared tool list (['calendar', 'http_post', 'search_docs', 'summarize']).",
+        "extra": {
+          "count": 6,
+          "tools": [
+            "send_email"
+          ]
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R2",
+        "strength": 0.95,
+        "title": "Tool calls outside the agent's declared purpose"
+      }
+    ],
+    "score": 0.9527,
+    "sequence": {
+      "evidence_event_ids": [
+        "e0050699",
+        "e0050697",
+        "e0050698"
+      ],
+      "explanation": "Action-sequence surprise: worst window 3.65 bits per transition versus a benign median of 2.93 and 99th percentile of 3.97; unusual transitions: read:int -> tool:egress:ext: p=0.0115 (6.4 bits) at event e0050699; tool:productivity -> tool:egress:ext: p=0.0097 (6.7 bits) at event e0050697; tool:transform -> tool:egress:ext: p=0.0072 (7.1 bits) at event e0050698",
+      "mean_bits": 3.084,
+      "n_transitions": 256,
+      "score": 0.6955,
+      "worst_window_bits": 3.65
+    },
+    "severity": "low"
+  },
+  {
+    "agent": "ag_9beb0855d8d8159b",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": null,
+    "components": {
+      "graph_density": 0.0,
+      "isolation_forest": 0.165,
+      "rules": 1.0,
+      "sequence": 0.9316
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-f91f5a8b0aef",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [
+      {
+        "atlas": [
+          {
+            "id": "AML.T0051",
+            "name": "LLM Prompt Injection",
+            "url": "https://atlas.mitre.org/techniques/AML.T0051"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0040723",
+            "summary": "read status=allowed dest=blog-29.example.net (external) untrusted-content",
+            "ts": 1772472240.733
+          },
+          {
+            "event_id": "e0040724",
+            "summary": "tool_call status=allowed tool=upload_file dest=api.corp.example",
+            "ts": 1772472249.686
+          },
+          {
+            "event_id": "e0040725",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-2.example.org (external) bytes=18125",
+            "ts": 1772472272.106
+          },
+          {
+            "event_id": "e0040727",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-2.example.org (external) bytes=16562",
+            "ts": 1772472309.94
+          },
+          {
+            "event_id": "e0040728",
+            "summary": "read status=allowed dest=blog-46.example.net (external) untrusted-content",
+            "ts": 1772473259.122
+          },
+          {
+            "event_id": "e0040729",
+            "summary": "tool_call status=allowed tool=upload_file dest=api.corp.example",
+            "ts": 1772473274.007
+          },
+          {
+            "event_id": "e0040730",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-2.example.org (external) bytes=19091",
+            "ts": 1772473298.047
+          },
+          {
+            "event_id": "e0040732",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-2.example.org (external) bytes=28816",
+            "ts": 1772473332.373
+          }
+        ],
+        "explanation": "After reading untrusted content, the agent invoked tool(s) ['send_email', 'upload_file'] that it neither used in its baseline period nor declared, within 300s. Consistent with injected instructions steering the agent.",
+        "extra": {
+          "episodes": 2,
+          "new_tools": [
+            "send_email",
+            "upload_file"
+          ]
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R1",
+        "strength": 0.8,
+        "title": "Untrusted content followed by a sudden shift in tool usage"
+      },
+      {
+        "atlas": [
+          {
+            "id": "AML.T0086",
+            "name": "Exfiltration via AI Agent Tool Invocation",
+            "url": "https://atlas.mitre.org/techniques/AML.T0086"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0040725",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-2.example.org (external) bytes=18125",
+            "ts": 1772472272.106
+          }
+        ],
+        "explanation": "1 write/send call(s) moved 18125 bytes to 1 external host(s) never contacted before (['drop-2.example.org']). Consistent with data leaving via an agent tool.",
+        "extra": {
+          "bytes": 18125,
+          "new_hosts": [
+            "drop-2.example.org"
+          ]
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R3",
+        "strength": 0.8,
+        "title": "Write-capable tool sending data to a new external destination"
+      },
+      {
+        "atlas": [
+          {
+            "id": "AML.T0051",
+            "name": "LLM Prompt Injection",
+            "url": "https://atlas.mitre.org/techniques/AML.T0051"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0040723",
+            "summary": "read status=allowed dest=blog-29.example.net (external) untrusted-content",
+            "ts": 1772472240.733
+          },
+          {
+            "event_id": "e0040725",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-2.example.org (external) bytes=18125",
+            "ts": 1772472272.106
+          }
+        ],
+        "explanation": "1 outbound call(s) to previously unseen external hosts within 60s of reading untrusted content. Consistent with injected instructions.",
+        "extra": {
+          "episodes": 1
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R4",
+        "strength": 0.7,
+        "title": "Immediate call to a new external destination after reading untrusted text"
+      },
+      {
+        "atlas": [
+          {
+            "id": "AML.T0053",
+            "name": "AI Agent Tool Invocation",
+            "url": "https://atlas.mitre.org/techniques/AML.T0053"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0040724",
+            "summary": "tool_call status=allowed tool=upload_file dest=api.corp.example",
+            "ts": 1772472249.686
+          },
+          {
+            "event_id": "e0040725",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-2.example.org (external) bytes=18125",
+            "ts": 1772472272.106
+          },
+          {
+            "event_id": "e0040727",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-2.example.org (external) bytes=16562",
+            "ts": 1772472309.94
+          },
+          {
+            "event_id": "e0040729",
+            "summary": "tool_call status=allowed tool=upload_file dest=api.corp.example",
+            "ts": 1772473274.007
+          },
+          {
+            "event_id": "e0040730",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-2.example.org (external) bytes=19091",
+            "ts": 1772473298.047
+          },
+          {
+            "event_id": "e0040732",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-2.example.org (external) bytes=28816",
+            "ts": 1772473332.373
+          },
+          {
+            "event_id": "e0040734",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-2.example.org (external) bytes=16648",
+            "ts": 1772473338.898
+          }
+        ],
+        "explanation": "7 call(s) to tool(s) ['send_email', 'upload_file'] that are not in the agent's declared tool list (['calendar', 'http_post', 'search_docs', 'summarize']).",
+        "extra": {
+          "count": 7,
+          "tools": [
+            "send_email",
+            "upload_file"
+          ]
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R2",
+        "strength": 1.0,
+        "title": "Tool calls outside the agent's declared purpose"
+      }
+    ],
+    "score": 0.951,
+    "sequence": {
+      "evidence_event_ids": [
+        "e0040526",
+        "e0040724",
+        "e0040729"
+      ],
+      "explanation": "Action-sequence surprise: worst window 3.89 bits per transition versus a benign median of 2.93 and 99th percentile of 3.97; unusual transitions: read:untrusted -> message: p=0.0110 (6.5 bits) at event e0040526; message -> tool:egress: p=0.0000 (14.7 bits) at event e0040724; read:untrusted -> tool:egress: p=0.0001 (13.6 bits) at event e0040729",
+      "mean_bits": 2.97,
+      "n_transitions": 314,
+      "score": 0.9316,
+      "worst_window_bits": 3.895
+    },
+    "severity": "low"
+  },
+  {
+    "agent": "ag_19d28ab3efe1e425",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": null,
+    "components": {
+      "graph_density": 0.0,
+      "isolation_forest": 0.4648,
+      "rules": 1.0,
+      "sequence": 0.6183
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-f781be72d546",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [
+      {
+        "atlas": [
+          {
+            "id": "AML.T0053",
+            "name": "AI Agent Tool Invocation",
+            "url": "https://atlas.mitre.org/techniques/AML.T0053"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0040415",
+            "summary": "tool_call status=allowed tool=upload_file dest=api.corp.example",
+            "ts": 1772435975.427
+          },
+          {
+            "event_id": "e0040416",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-1.example.org (external) bytes=23627",
+            "ts": 1772435989.429
+          },
+          {
+            "event_id": "e0040418",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-1.example.org (external) bytes=40172",
+            "ts": 1772436025.777
+          },
+          {
+            "event_id": "e0040420",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-1.example.org (external) bytes=19551",
+            "ts": 1772436119.408
+          },
+          {
+            "event_id": "e0040410",
+            "summary": "tool_call status=allowed tool=upload_file dest=api.corp.example",
+            "ts": 1772444051.563
+          },
+          {
+            "event_id": "e0040411",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-1.example.org (external) bytes=46239",
+            "ts": 1772444075.821
+          },
+          {
+            "event_id": "e0040413",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-1.example.org (external) bytes=27954",
+            "ts": 1772444131.803
+          }
+        ],
+        "explanation": "7 call(s) to tool(s) ['send_email', 'upload_file'] that are not in the agent's declared tool list (['calendar', 'http_post', 'summarize', 'translate']).",
+        "extra": {
+          "count": 7,
+          "tools": [
+            "send_email",
+            "upload_file"
+          ]
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R2",
+        "strength": 1.0,
+        "title": "Tool calls outside the agent's declared purpose"
+      }
+    ],
+    "score": 0.947,
+    "sequence": {
+      "evidence_event_ids": [
+        "e0040406",
+        "e0040410",
+        "e0040413"
+      ],
+      "explanation": "Action-sequence surprise: worst window 3.57 bits per transition versus a benign median of 2.93 and 99th percentile of 3.97; unusual transitions: tool:transform -> tool:egress:ext: p=0.0072 (7.1 bits) at event e0040406; read:untrusted -> tool:egress: p=0.0001 (13.6 bits) at event e0040410; tool:transform -> tool:egress:ext: p=0.0072 (7.1 bits) at event e0040413",
+      "mean_bits": 2.995,
+      "n_transitions": 184,
+      "score": 0.6183,
+      "worst_window_bits": 3.571
+    },
+    "severity": "low"
+  },
+  {
+    "agent": "ag_2cb286b00d9dd231",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": {
+      "atlas": [
+        {
+          "id": "AML.T0051",
+          "name": "LLM Prompt Injection",
+          "url": "https://atlas.mitre.org/techniques/AML.T0051"
+        }
+      ],
+      "density": 1.0,
+      "edge_kinds": [
+        "cross_ip_token_handoff"
+      ],
+      "edges": [
+        {
+          "a": "ag_2cb286b00d9dd231",
+          "b": "ag_82353550766da16c",
+          "content_cosine": 0.0,
+          "kind": "cross_ip_token_handoff",
+          "shared_windows": 0,
+          "state_tokens": 1,
+          "timing_neg_log10_p": 0.0,
+          "weight": 1.0
+        }
+      ],
+      "evidence_event_ids": [
+        "e0052013",
+        "e0052015"
+      ],
+      "mean_weight": 1.0,
+      "members": [
+        "ag_2cb286b00d9dd231",
+        "ag_82353550766da16c"
+      ],
+      "reasons": [
+        "Session ag_82353550766da16c was issued a handoff_token on IP ip_26469b589f522aa6; session ag_2cb286b00d9dd231 presented that exact token from a different IP ip_365310dbdff52057. The token was never issued to anyone else, so these sessions share state (deterministic cross-IP handoff, 1 token(s)).",
+        "suppression logic not applied: a honeypot-issued token was handed to another session and the token holder is not a declared orchestrator"
+      ]
+    },
+    "components": {
+      "graph_density": 1.0,
+      "isolation_forest": 0.0,
+      "rules": 0.8,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-e64dc0588203",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [
+      {
+        "atlas": [
+          {
+            "id": "AML.T0051",
+            "name": "LLM Prompt Injection",
+            "url": "https://atlas.mitre.org/techniques/AML.T0051"
+          },
+          {
+            "id": "AML.T0086",
+            "name": "Exfiltration via AI Agent Tool Invocation",
+            "url": "https://atlas.mitre.org/techniques/AML.T0086"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0052015",
+            "summary": "write status=allowed dest=api.corp.example honeypot=coordination_board bytes=90",
+            "ts": 1772442275.091
+          }
+        ],
+        "explanation": "The agent made 1 request(s) to honeypot coordination-board endpoints that no legitimate workflow points to (0 token(s) issued to it, 1 token presentation(s)). Consistent with an agent acting on instructions it found in untrusted content.",
+        "extra": {
+          "board_events": 1,
+          "tokens_issued": 0,
+          "tokens_presented": 1
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R6",
+        "strength": 0.8,
+        "title": "Engaged the decoy coordination-board protocol"
+      }
+    ],
+    "score": 0.944,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_7b8aa47f36080f3b",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": {
+      "atlas": [
+        {
+          "id": "AML.T0051",
+          "name": "LLM Prompt Injection",
+          "url": "https://atlas.mitre.org/techniques/AML.T0051"
+        }
+      ],
+      "density": 1.0,
+      "edge_kinds": [
+        "cross_ip_token_handoff"
+      ],
+      "edges": [
+        {
+          "a": "ag_7b8aa47f36080f3b",
+          "b": "ag_b2976d0d337d9fe5",
+          "content_cosine": 0.0,
+          "kind": "cross_ip_token_handoff",
+          "shared_windows": 0,
+          "state_tokens": 1,
+          "timing_neg_log10_p": 0.0,
+          "weight": 1.0
+        }
+      ],
+      "evidence_event_ids": [
+        "e0052007",
+        "e0052009"
+      ],
+      "mean_weight": 1.0,
+      "members": [
+        "ag_7b8aa47f36080f3b",
+        "ag_b2976d0d337d9fe5"
+      ],
+      "reasons": [
+        "Session ag_7b8aa47f36080f3b was issued a handoff_token on IP ip_ac184dcb2227e325; session ag_b2976d0d337d9fe5 presented that exact token from a different IP ip_fdd9e812653b9543. The token was never issued to anyone else, so these sessions share state (deterministic cross-IP handoff, 1 token(s)).",
+        "suppression logic not applied: a honeypot-issued token was handed to another session and the token holder is not a declared orchestrator"
+      ]
+    },
+    "components": {
+      "graph_density": 1.0,
+      "isolation_forest": 0.0,
+      "rules": 0.8,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-13e78a2dfd3d",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [
+      {
+        "atlas": [
+          {
+            "id": "AML.T0051",
+            "name": "LLM Prompt Injection",
+            "url": "https://atlas.mitre.org/techniques/AML.T0051"
+          },
+          {
+            "id": "AML.T0086",
+            "name": "Exfiltration via AI Agent Tool Invocation",
+            "url": "https://atlas.mitre.org/techniques/AML.T0086"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0052007",
+            "summary": "read status=allowed dest=api.corp.example honeypot=coordination_board",
+            "ts": 1772446419.741
+          },
+          {
+            "event_id": "e0052008",
+            "summary": "write status=allowed dest=api.corp.example honeypot=coordination_board bytes=120",
+            "ts": 1772446424.741
+          }
+        ],
+        "explanation": "The agent made 2 request(s) to honeypot coordination-board endpoints that no legitimate workflow points to (1 token(s) issued to it, 1 token presentation(s)). Consistent with an agent acting on instructions it found in untrusted content.",
+        "extra": {
+          "board_events": 2,
+          "tokens_issued": 1,
+          "tokens_presented": 1
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R6",
+        "strength": 0.8,
+        "title": "Engaged the decoy coordination-board protocol"
+      }
+    ],
+    "score": 0.944,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_82353550766da16c",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": {
+      "atlas": [
+        {
+          "id": "AML.T0051",
+          "name": "LLM Prompt Injection",
+          "url": "https://atlas.mitre.org/techniques/AML.T0051"
+        }
+      ],
+      "density": 1.0,
+      "edge_kinds": [
+        "cross_ip_token_handoff"
+      ],
+      "edges": [
+        {
+          "a": "ag_2cb286b00d9dd231",
+          "b": "ag_82353550766da16c",
+          "content_cosine": 0.0,
+          "kind": "cross_ip_token_handoff",
+          "shared_windows": 0,
+          "state_tokens": 1,
+          "timing_neg_log10_p": 0.0,
+          "weight": 1.0
+        }
+      ],
+      "evidence_event_ids": [
+        "e0052013",
+        "e0052015"
+      ],
+      "mean_weight": 1.0,
+      "members": [
+        "ag_2cb286b00d9dd231",
+        "ag_82353550766da16c"
+      ],
+      "reasons": [
+        "Session ag_82353550766da16c was issued a handoff_token on IP ip_26469b589f522aa6; session ag_2cb286b00d9dd231 presented that exact token from a different IP ip_365310dbdff52057. The token was never issued to anyone else, so these sessions share state (deterministic cross-IP handoff, 1 token(s)).",
+        "suppression logic not applied: a honeypot-issued token was handed to another session and the token holder is not a declared orchestrator"
+      ]
+    },
+    "components": {
+      "graph_density": 1.0,
+      "isolation_forest": 0.0,
+      "rules": 0.8,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-0cc2191f6c30",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [
+      {
+        "atlas": [
+          {
+            "id": "AML.T0051",
+            "name": "LLM Prompt Injection",
+            "url": "https://atlas.mitre.org/techniques/AML.T0051"
+          },
+          {
+            "id": "AML.T0086",
+            "name": "Exfiltration via AI Agent Tool Invocation",
+            "url": "https://atlas.mitre.org/techniques/AML.T0086"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0052013",
+            "summary": "read status=allowed dest=api.corp.example honeypot=coordination_board",
+            "ts": 1772441741.134
+          },
+          {
+            "event_id": "e0052014",
+            "summary": "write status=allowed dest=api.corp.example honeypot=coordination_board bytes=120",
+            "ts": 1772441746.134
+          }
+        ],
+        "explanation": "The agent made 2 request(s) to honeypot coordination-board endpoints that no legitimate workflow points to (1 token(s) issued to it, 1 token presentation(s)). Consistent with an agent acting on instructions it found in untrusted content.",
+        "extra": {
+          "board_events": 2,
+          "tokens_issued": 1,
+          "tokens_presented": 1
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R6",
+        "strength": 0.8,
+        "title": "Engaged the decoy coordination-board protocol"
+      }
+    ],
+    "score": 0.944,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_b2976d0d337d9fe5",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": {
+      "atlas": [
+        {
+          "id": "AML.T0051",
+          "name": "LLM Prompt Injection",
+          "url": "https://atlas.mitre.org/techniques/AML.T0051"
+        }
+      ],
+      "density": 1.0,
+      "edge_kinds": [
+        "cross_ip_token_handoff"
+      ],
+      "edges": [
+        {
+          "a": "ag_7b8aa47f36080f3b",
+          "b": "ag_b2976d0d337d9fe5",
+          "content_cosine": 0.0,
+          "kind": "cross_ip_token_handoff",
+          "shared_windows": 0,
+          "state_tokens": 1,
+          "timing_neg_log10_p": 0.0,
+          "weight": 1.0
+        }
+      ],
+      "evidence_event_ids": [
+        "e0052007",
+        "e0052009"
+      ],
+      "mean_weight": 1.0,
+      "members": [
+        "ag_7b8aa47f36080f3b",
+        "ag_b2976d0d337d9fe5"
+      ],
+      "reasons": [
+        "Session ag_7b8aa47f36080f3b was issued a handoff_token on IP ip_ac184dcb2227e325; session ag_b2976d0d337d9fe5 presented that exact token from a different IP ip_fdd9e812653b9543. The token was never issued to anyone else, so these sessions share state (deterministic cross-IP handoff, 1 token(s)).",
+        "suppression logic not applied: a honeypot-issued token was handed to another session and the token holder is not a declared orchestrator"
+      ]
+    },
+    "components": {
+      "graph_density": 1.0,
+      "isolation_forest": 0.0,
+      "rules": 0.8,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-b43c6f67eb38",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [
+      {
+        "atlas": [
+          {
+            "id": "AML.T0051",
+            "name": "LLM Prompt Injection",
+            "url": "https://atlas.mitre.org/techniques/AML.T0051"
+          },
+          {
+            "id": "AML.T0086",
+            "name": "Exfiltration via AI Agent Tool Invocation",
+            "url": "https://atlas.mitre.org/techniques/AML.T0086"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0052009",
+            "summary": "write status=allowed dest=api.corp.example honeypot=coordination_board bytes=90",
+            "ts": 1772446872.422
+          }
+        ],
+        "explanation": "The agent made 1 request(s) to honeypot coordination-board endpoints that no legitimate workflow points to (0 token(s) issued to it, 1 token presentation(s)). Consistent with an agent acting on instructions it found in untrusted content.",
+        "extra": {
+          "board_events": 1,
+          "tokens_issued": 0,
+          "tokens_presented": 1
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R6",
+        "strength": 0.8,
+        "title": "Engaged the decoy coordination-board protocol"
+      }
+    ],
+    "score": 0.944,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_f4bce80589a23c8e",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": {
+      "atlas": [
+        {
+          "id": "AML.T0051",
+          "name": "LLM Prompt Injection",
+          "url": "https://atlas.mitre.org/techniques/AML.T0051"
+        }
+      ],
+      "density": 1.0,
+      "edge_kinds": [
+        "cross_ip_token_handoff"
+      ],
+      "edges": [
+        {
+          "a": "ag_f4bce80589a23c8e",
+          "b": "ag_fcf1679fd57a69a8",
+          "content_cosine": 0.0,
+          "kind": "cross_ip_token_handoff",
+          "shared_windows": 0,
+          "state_tokens": 1,
+          "timing_neg_log10_p": 0.0,
+          "weight": 1.0
+        }
+      ],
+      "evidence_event_ids": [
+        "e0052010",
+        "e0052012"
+      ],
+      "mean_weight": 1.0,
+      "members": [
+        "ag_f4bce80589a23c8e",
+        "ag_fcf1679fd57a69a8"
+      ],
+      "reasons": [
+        "Session ag_fcf1679fd57a69a8 was issued a verification_nonce on IP ip_abca31258bc0047b; session ag_f4bce80589a23c8e presented that exact token from a different IP ip_c9dd834a6ddfbbf8. The token was never issued to anyone else, so these sessions share state (deterministic cross-IP handoff, 1 token(s)).",
+        "suppression logic not applied: a honeypot-issued token was handed to another session and the token holder is not a declared orchestrator"
+      ]
+    },
+    "components": {
+      "graph_density": 1.0,
+      "isolation_forest": 0.0,
+      "rules": 0.8,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-c851f5b1c77b",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [
+      {
+        "atlas": [
+          {
+            "id": "AML.T0051",
+            "name": "LLM Prompt Injection",
+            "url": "https://atlas.mitre.org/techniques/AML.T0051"
+          },
+          {
+            "id": "AML.T0086",
+            "name": "Exfiltration via AI Agent Tool Invocation",
+            "url": "https://atlas.mitre.org/techniques/AML.T0086"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0052012",
+            "summary": "write status=allowed dest=api.corp.example honeypot=coordination_board bytes=90",
+            "ts": 1772423450.255
+          }
+        ],
+        "explanation": "The agent made 1 request(s) to honeypot coordination-board endpoints that no legitimate workflow points to (0 token(s) issued to it, 1 token presentation(s)). Consistent with an agent acting on instructions it found in untrusted content.",
+        "extra": {
+          "board_events": 1,
+          "tokens_issued": 0,
+          "tokens_presented": 1
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R6",
+        "strength": 0.8,
+        "title": "Engaged the decoy coordination-board protocol"
+      }
+    ],
+    "score": 0.944,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_fcf1679fd57a69a8",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": {
+      "atlas": [
+        {
+          "id": "AML.T0051",
+          "name": "LLM Prompt Injection",
+          "url": "https://atlas.mitre.org/techniques/AML.T0051"
+        }
+      ],
+      "density": 1.0,
+      "edge_kinds": [
+        "cross_ip_token_handoff"
+      ],
+      "edges": [
+        {
+          "a": "ag_f4bce80589a23c8e",
+          "b": "ag_fcf1679fd57a69a8",
+          "content_cosine": 0.0,
+          "kind": "cross_ip_token_handoff",
+          "shared_windows": 0,
+          "state_tokens": 1,
+          "timing_neg_log10_p": 0.0,
+          "weight": 1.0
+        }
+      ],
+      "evidence_event_ids": [
+        "e0052010",
+        "e0052012"
+      ],
+      "mean_weight": 1.0,
+      "members": [
+        "ag_f4bce80589a23c8e",
+        "ag_fcf1679fd57a69a8"
+      ],
+      "reasons": [
+        "Session ag_fcf1679fd57a69a8 was issued a verification_nonce on IP ip_abca31258bc0047b; session ag_f4bce80589a23c8e presented that exact token from a different IP ip_c9dd834a6ddfbbf8. The token was never issued to anyone else, so these sessions share state (deterministic cross-IP handoff, 1 token(s)).",
+        "suppression logic not applied: a honeypot-issued token was handed to another session and the token holder is not a declared orchestrator"
+      ]
+    },
+    "components": {
+      "graph_density": 1.0,
+      "isolation_forest": 0.0,
+      "rules": 0.8,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-0e62c123dae9",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [
+      {
+        "atlas": [
+          {
+            "id": "AML.T0051",
+            "name": "LLM Prompt Injection",
+            "url": "https://atlas.mitre.org/techniques/AML.T0051"
+          },
+          {
+            "id": "AML.T0086",
+            "name": "Exfiltration via AI Agent Tool Invocation",
+            "url": "https://atlas.mitre.org/techniques/AML.T0086"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0052010",
+            "summary": "read status=allowed dest=api.corp.example honeypot=coordination_board",
+            "ts": 1772422855.704
+          },
+          {
+            "event_id": "e0052011",
+            "summary": "write status=allowed dest=api.corp.example honeypot=coordination_board bytes=120",
+            "ts": 1772422860.704
+          }
+        ],
+        "explanation": "The agent made 2 request(s) to honeypot coordination-board endpoints that no legitimate workflow points to (1 token(s) issued to it, 1 token presentation(s)). Consistent with an agent acting on instructions it found in untrusted content.",
+        "extra": {
+          "board_events": 2,
+          "tokens_issued": 1,
+          "tokens_presented": 1
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R6",
+        "strength": 0.8,
+        "title": "Engaged the decoy coordination-board protocol"
+      }
+    ],
+    "score": 0.944,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_2559a16cfe9efa27",
+    "anomaly_explanations": [
+      "Share of late tool calls using tools not used earlier: 0.06 versus a population median of 0.00 - recently started using new tools (robust z=+70.5).",
+      "Share of late external calls to hosts not contacted earlier: 0.69 versus a population median of 0.00 - recently started contacting new external hosts (robust z=+15.1).",
+      "Share of events sent to or fetched from external hosts: 0.06 versus a population median of 0.00 - much more external traffic than peers (robust z=+1.1)."
+    ],
+    "automatic_action": "none",
+    "cluster": null,
+    "components": {
+      "graph_density": 0.0,
+      "isolation_forest": 1.0,
+      "rules": 0.9,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-dc7f4d4cd083",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [
+      {
+        "atlas": [
+          {
+            "id": "AML.T0086",
+            "name": "Exfiltration via AI Agent Tool Invocation",
+            "url": "https://atlas.mitre.org/techniques/AML.T0086"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0050247",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-sp1.example.org (external) bytes=53029",
+            "ts": 1772451533.127
+          }
+        ],
+        "explanation": "1 write/send call(s) moved 53029 bytes to 1 external host(s) never contacted before (['drop-sp1.example.org']). Consistent with data leaving via an agent tool.",
+        "extra": {
+          "bytes": 53029,
+          "new_hosts": [
+            "drop-sp1.example.org"
+          ]
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R3",
+        "strength": 0.8,
+        "title": "Write-capable tool sending data to a new external destination"
+      },
+      {
+        "atlas": [
+          {
+            "id": "AML.T0053",
+            "name": "AI Agent Tool Invocation",
+            "url": "https://atlas.mitre.org/techniques/AML.T0053"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0050247",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-sp1.example.org (external) bytes=53029",
+            "ts": 1772451533.127
+          },
+          {
+            "event_id": "e0050249",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-sp1.example.org (external) bytes=14405",
+            "ts": 1772451599.303
+          },
+          {
+            "event_id": "e0050250",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-sp1.example.org (external) bytes=22300",
+            "ts": 1772459234.881
+          },
+          {
+            "event_id": "e0050252",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-sp1.example.org (external) bytes=25587",
+            "ts": 1772459280.377
+          },
+          {
+            "event_id": "e0050254",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-sp1.example.org (external) bytes=53015",
+            "ts": 1772459346.923
+          }
+        ],
+        "explanation": "5 call(s) to tool(s) ['send_email'] that are not in the agent's declared tool list (['calendar', 'http_post', 'search_docs', 'summarize']).",
+        "extra": {
+          "count": 5,
+          "tools": [
+            "send_email"
+          ]
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R2",
+        "strength": 0.9,
+        "title": "Tool calls outside the agent's declared purpose"
+      }
+    ],
+    "score": 0.905,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_1e9c13cce7a5b679",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": null,
+    "components": {
+      "graph_density": 0.0,
+      "isolation_forest": 0.0,
+      "rules": 1.0,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-e8cb77a2bace",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [
+      {
+        "atlas": [
+          {
+            "id": "AML.T0051",
+            "name": "LLM Prompt Injection",
+            "url": "https://atlas.mitre.org/techniques/AML.T0051"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0038328",
+            "summary": "read status=allowed dest=api.corp.example untrusted-content",
+            "ts": 1772450012.964
+          },
+          {
+            "event_id": "e0038329",
+            "summary": "tool_call status=allowed tool=create_ticket dest=api.corp.example",
+            "ts": 1772450049.995
+          },
+          {
+            "event_id": "e0038330",
+            "summary": "read status=allowed dest=api.corp.example untrusted-content",
+            "ts": 1772450576.726
+          },
+          {
+            "event_id": "e0038331",
+            "summary": "tool_call status=allowed tool=create_ticket dest=api.corp.example",
+            "ts": 1772450608.524
+          },
+          {
+            "event_id": "e0038336",
+            "summary": "read status=allowed dest=api.corp.example untrusted-content",
+            "ts": 1772453580.938
+          },
+          {
+            "event_id": "e0038337",
+            "summary": "tool_call status=allowed tool=create_ticket dest=api.corp.example",
+            "ts": 1772453608.481
+          },
+          {
+            "event_id": "e0038334",
+            "summary": "read status=allowed dest=api.corp.example untrusted-content",
+            "ts": 1772456118.26
+          },
+          {
+            "event_id": "e0038335",
+            "summary": "tool_call status=allowed tool=create_ticket dest=api.corp.example",
+            "ts": 1772456171.687
+          }
+        ],
+        "explanation": "After reading untrusted content, the agent invoked tool(s) ['create_ticket'] that it neither used in its baseline period nor declared, within 300s. Consistent with injected instructions steering the agent.",
+        "extra": {
+          "episodes": 6,
+          "new_tools": [
+            "create_ticket"
+          ]
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R1",
+        "strength": 1.0,
+        "title": "Untrusted content followed by a sudden shift in tool usage"
+      },
+      {
+        "atlas": [
+          {
+            "id": "AML.T0053",
+            "name": "AI Agent Tool Invocation",
+            "url": "https://atlas.mitre.org/techniques/AML.T0053"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0038329",
+            "summary": "tool_call status=allowed tool=create_ticket dest=api.corp.example",
+            "ts": 1772450049.995
+          },
+          {
+            "event_id": "e0038331",
+            "summary": "tool_call status=allowed tool=create_ticket dest=api.corp.example",
+            "ts": 1772450608.524
+          },
+          {
+            "event_id": "e0038337",
+            "summary": "tool_call status=allowed tool=create_ticket dest=api.corp.example",
+            "ts": 1772453608.481
+          },
+          {
+            "event_id": "e0038335",
+            "summary": "tool_call status=allowed tool=create_ticket dest=api.corp.example",
+            "ts": 1772456171.687
+          },
+          {
+            "event_id": "e0038327",
+            "summary": "tool_call status=allowed tool=create_ticket dest=api.corp.example",
+            "ts": 1772457750.167
+          },
+          {
+            "event_id": "e0038333",
+            "summary": "tool_call status=allowed tool=create_ticket dest=api.corp.example",
+            "ts": 1772464171.764
+          }
+        ],
+        "explanation": "6 call(s) to tool(s) ['create_ticket'] that are not in the agent's declared tool list (['calendar', 'http_post', 'read_file', 'translate']).",
+        "extra": {
+          "count": 6,
+          "tools": [
+            "create_ticket"
+          ]
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R2",
+        "strength": 0.95,
+        "title": "Tool calls outside the agent's declared purpose"
+      }
+    ],
+    "score": 0.9,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_b06db4687e769deb",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": null,
+    "components": {
+      "graph_density": 0.0,
+      "isolation_forest": 0.1592,
+      "rules": 0.9,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-040139c1c829",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [
+      {
+        "atlas": [
+          {
+            "id": "AML.T0051",
+            "name": "LLM Prompt Injection",
+            "url": "https://atlas.mitre.org/techniques/AML.T0051"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0041084",
+            "summary": "read status=allowed dest=api.corp.example untrusted-content",
+            "ts": 1772468598.834
+          },
+          {
+            "event_id": "e0041264",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-4.example.org (external) bytes=24854",
+            "ts": 1772468898.168
+          }
+        ],
+        "explanation": "After reading untrusted content, the agent invoked tool(s) ['send_email'] that it neither used in its baseline period nor declared, within 300s. Consistent with injected instructions steering the agent.",
+        "extra": {
+          "episodes": 1,
+          "new_tools": [
+            "send_email"
+          ]
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R1",
+        "strength": 0.75,
+        "title": "Untrusted content followed by a sudden shift in tool usage"
+      },
+      {
+        "atlas": [
+          {
+            "id": "AML.T0086",
+            "name": "Exfiltration via AI Agent Tool Invocation",
+            "url": "https://atlas.mitre.org/techniques/AML.T0086"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0041264",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-4.example.org (external) bytes=24854",
+            "ts": 1772468898.168
+          }
+        ],
+        "explanation": "1 write/send call(s) moved 24854 bytes to 1 external host(s) never contacted before (['drop-4.example.org']). Consistent with data leaving via an agent tool.",
+        "extra": {
+          "bytes": 24854,
+          "new_hosts": [
+            "drop-4.example.org"
+          ]
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R3",
+        "strength": 0.8,
+        "title": "Write-capable tool sending data to a new external destination"
+      },
+      {
+        "atlas": [
+          {
+            "id": "AML.T0053",
+            "name": "AI Agent Tool Invocation",
+            "url": "https://atlas.mitre.org/techniques/AML.T0053"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0041264",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-4.example.org (external) bytes=24854",
+            "ts": 1772468898.168
+          },
+          {
+            "event_id": "e0041266",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-4.example.org (external) bytes=5743",
+            "ts": 1772468963.233
+          },
+          {
+            "event_id": "e0041267",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-4.example.org (external) bytes=44642",
+            "ts": 1772480315.269
+          },
+          {
+            "event_id": "e0041269",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-4.example.org (external) bytes=23751",
+            "ts": 1772480374.937
+          },
+          {
+            "event_id": "e0041271",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-4.example.org (external) bytes=47968",
+            "ts": 1772480467.403
+          }
+        ],
+        "explanation": "5 call(s) to tool(s) ['send_email'] that are not in the agent's declared tool list (['calendar', 'http_post', 'read_file', 'translate']).",
+        "extra": {
+          "count": 5,
+          "tools": [
+            "send_email"
+          ]
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R2",
+        "strength": 0.9,
+        "title": "Tool calls outside the agent's declared purpose"
+      }
+    ],
+    "score": 0.8251,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_e01f075e0c4b97a0",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": {
+      "atlas": [],
+      "density": 1.0,
+      "edge_kinds": [
+        "timing_content"
+      ],
+      "edges": [
+        {
+          "a": "ag_dc37e6a87ae6d6a5",
+          "b": "ag_e01f075e0c4b97a0",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 87,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 59.14,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_7e6335c846530c43",
+          "b": "ag_dc37e6a87ae6d6a5",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 110,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 54.05,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_978247692c41a02d",
+          "b": "ag_dc37e6a87ae6d6a5",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 89,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 53.64,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_7e6335c846530c43",
+          "b": "ag_e01f075e0c4b97a0",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 85,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 46.36,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_978247692c41a02d",
+          "b": "ag_e01f075e0c4b97a0",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 75,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 52.3,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_7e6335c846530c43",
+          "b": "ag_978247692c41a02d",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 98,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 52.23,
+          "weight": 1.0
+        }
+      ],
+      "evidence_event_ids": [
+        "e0043561",
+        "e0043580",
+        "e0043619",
+        "e0043911",
+        "e0043910",
+        "e0043919",
+        "e0043918",
+        "e0043649",
+        "e0043926",
+        "e0043927",
+        "e0043935",
+        "e0043934"
+      ],
+      "mean_weight": 1.0,
+      "members": [
+        "ag_7e6335c846530c43",
+        "ag_978247692c41a02d",
+        "ag_dc37e6a87ae6d6a5",
+        "ag_e01f075e0c4b97a0"
+      ],
+      "reasons": [
+        "ag_7e6335c846530c43 and ag_978247692c41a02d: 98 shared activity windows (surprise -log10 p = 52); content similarity 1.00 (edge weight 1.00)",
+        "ag_7e6335c846530c43 and ag_dc37e6a87ae6d6a5: 110 shared activity windows (surprise -log10 p = 54); content similarity 1.00 (edge weight 1.00)",
+        "ag_7e6335c846530c43 and ag_e01f075e0c4b97a0: 85 shared activity windows (surprise -log10 p = 46); content similarity 1.00 (edge weight 1.00)",
+        "ag_978247692c41a02d and ag_dc37e6a87ae6d6a5: 89 shared activity windows (surprise -log10 p = 54); content similarity 1.00 (edge weight 1.00)",
+        "ag_978247692c41a02d and ag_e01f075e0c4b97a0: 75 shared activity windows (surprise -log10 p = 52); content similarity 1.00 (edge weight 1.00)",
+        "ag_dc37e6a87ae6d6a5 and ag_e01f075e0c4b97a0: 87 shared activity windows (surprise -log10 p = 59); content similarity 1.00 (edge weight 1.00)"
+      ]
+    },
+    "components": {
+      "graph_density": 1.0,
+      "isolation_forest": 0.1636,
+      "rules": 0.0,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-e0d70afb80a8",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [],
+    "score": 0.8164,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_30d918accd0d4d0a",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": {
+      "atlas": [],
+      "density": 1.0,
+      "edge_kinds": [
+        "timing_content"
+      ],
+      "edges": [
+        {
+          "a": "ag_1696b03d154ff42f",
+          "b": "ag_8ba7953bc320a30e",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 103,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 62.19,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_1696b03d154ff42f",
+          "b": "ag_3b916b272fa8fcd6",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 107,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 59.61,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_3b916b272fa8fcd6",
+          "b": "ag_8ba7953bc320a30e",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 100,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 59.34,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_30d918accd0d4d0a",
+          "b": "ag_8ba7953bc320a30e",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 108,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 57.37,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_1696b03d154ff42f",
+          "b": "ag_30d918accd0d4d0a",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 111,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 52.51,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_30d918accd0d4d0a",
+          "b": "ag_3b916b272fa8fcd6",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 111,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 53.17,
+          "weight": 1.0
+        }
+      ],
+      "evidence_event_ids": [
+        "e0041837",
+        "e0041871",
+        "e0041873",
+        "e0042345",
+        "e0042344",
+        "e0042353",
+        "e0042352",
+        "e0042360",
+        "e0042361",
+        "e0042368",
+        "e0042369",
+        "e0042376"
+      ],
+      "mean_weight": 1.0,
+      "members": [
+        "ag_1696b03d154ff42f",
+        "ag_30d918accd0d4d0a",
+        "ag_3b916b272fa8fcd6",
+        "ag_8ba7953bc320a30e"
+      ],
+      "reasons": [
+        "ag_1696b03d154ff42f and ag_30d918accd0d4d0a: 111 shared activity windows (surprise -log10 p = 53); content similarity 1.00 (edge weight 1.00)",
+        "ag_1696b03d154ff42f and ag_3b916b272fa8fcd6: 107 shared activity windows (surprise -log10 p = 60); content similarity 1.00 (edge weight 1.00)",
+        "ag_1696b03d154ff42f and ag_8ba7953bc320a30e: 103 shared activity windows (surprise -log10 p = 62); content similarity 1.00 (edge weight 1.00)",
+        "ag_30d918accd0d4d0a and ag_3b916b272fa8fcd6: 111 shared activity windows (surprise -log10 p = 53); content similarity 1.00 (edge weight 1.00)",
+        "ag_30d918accd0d4d0a and ag_8ba7953bc320a30e: 108 shared activity windows (surprise -log10 p = 57); content similarity 1.00 (edge weight 1.00)",
+        "ag_3b916b272fa8fcd6 and ag_8ba7953bc320a30e: 100 shared activity windows (surprise -log10 p = 59); content similarity 1.00 (edge weight 1.00)"
+      ]
+    },
+    "components": {
+      "graph_density": 1.0,
+      "isolation_forest": 0.1613,
+      "rules": 0.0,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-b6fc43eee0f2",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [],
+    "score": 0.8161,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_978247692c41a02d",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": {
+      "atlas": [],
+      "density": 1.0,
+      "edge_kinds": [
+        "timing_content"
+      ],
+      "edges": [
+        {
+          "a": "ag_dc37e6a87ae6d6a5",
+          "b": "ag_e01f075e0c4b97a0",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 87,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 59.14,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_7e6335c846530c43",
+          "b": "ag_dc37e6a87ae6d6a5",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 110,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 54.05,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_978247692c41a02d",
+          "b": "ag_dc37e6a87ae6d6a5",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 89,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 53.64,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_7e6335c846530c43",
+          "b": "ag_e01f075e0c4b97a0",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 85,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 46.36,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_978247692c41a02d",
+          "b": "ag_e01f075e0c4b97a0",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 75,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 52.3,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_7e6335c846530c43",
+          "b": "ag_978247692c41a02d",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 98,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 52.23,
+          "weight": 1.0
+        }
+      ],
+      "evidence_event_ids": [
+        "e0043561",
+        "e0043580",
+        "e0043619",
+        "e0043911",
+        "e0043910",
+        "e0043919",
+        "e0043918",
+        "e0043649",
+        "e0043926",
+        "e0043927",
+        "e0043935",
+        "e0043934"
+      ],
+      "mean_weight": 1.0,
+      "members": [
+        "ag_7e6335c846530c43",
+        "ag_978247692c41a02d",
+        "ag_dc37e6a87ae6d6a5",
+        "ag_e01f075e0c4b97a0"
+      ],
+      "reasons": [
+        "ag_7e6335c846530c43 and ag_978247692c41a02d: 98 shared activity windows (surprise -log10 p = 52); content similarity 1.00 (edge weight 1.00)",
+        "ag_7e6335c846530c43 and ag_dc37e6a87ae6d6a5: 110 shared activity windows (surprise -log10 p = 54); content similarity 1.00 (edge weight 1.00)",
+        "ag_7e6335c846530c43 and ag_e01f075e0c4b97a0: 85 shared activity windows (surprise -log10 p = 46); content similarity 1.00 (edge weight 1.00)",
+        "ag_978247692c41a02d and ag_dc37e6a87ae6d6a5: 89 shared activity windows (surprise -log10 p = 54); content similarity 1.00 (edge weight 1.00)",
+        "ag_978247692c41a02d and ag_e01f075e0c4b97a0: 75 shared activity windows (surprise -log10 p = 52); content similarity 1.00 (edge weight 1.00)",
+        "ag_dc37e6a87ae6d6a5 and ag_e01f075e0c4b97a0: 87 shared activity windows (surprise -log10 p = 59); content similarity 1.00 (edge weight 1.00)"
+      ]
+    },
+    "components": {
+      "graph_density": 1.0,
+      "isolation_forest": 0.1058,
+      "rules": 0.0,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-76574ec1d79a",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [],
+    "score": 0.8106,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_7e6335c846530c43",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": {
+      "atlas": [],
+      "density": 1.0,
+      "edge_kinds": [
+        "timing_content"
+      ],
+      "edges": [
+        {
+          "a": "ag_dc37e6a87ae6d6a5",
+          "b": "ag_e01f075e0c4b97a0",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 87,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 59.14,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_7e6335c846530c43",
+          "b": "ag_dc37e6a87ae6d6a5",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 110,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 54.05,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_978247692c41a02d",
+          "b": "ag_dc37e6a87ae6d6a5",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 89,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 53.64,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_7e6335c846530c43",
+          "b": "ag_e01f075e0c4b97a0",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 85,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 46.36,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_978247692c41a02d",
+          "b": "ag_e01f075e0c4b97a0",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 75,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 52.3,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_7e6335c846530c43",
+          "b": "ag_978247692c41a02d",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 98,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 52.23,
+          "weight": 1.0
+        }
+      ],
+      "evidence_event_ids": [
+        "e0043561",
+        "e0043580",
+        "e0043619",
+        "e0043911",
+        "e0043910",
+        "e0043919",
+        "e0043918",
+        "e0043649",
+        "e0043926",
+        "e0043927",
+        "e0043935",
+        "e0043934"
+      ],
+      "mean_weight": 1.0,
+      "members": [
+        "ag_7e6335c846530c43",
+        "ag_978247692c41a02d",
+        "ag_dc37e6a87ae6d6a5",
+        "ag_e01f075e0c4b97a0"
+      ],
+      "reasons": [
+        "ag_7e6335c846530c43 and ag_978247692c41a02d: 98 shared activity windows (surprise -log10 p = 52); content similarity 1.00 (edge weight 1.00)",
+        "ag_7e6335c846530c43 and ag_dc37e6a87ae6d6a5: 110 shared activity windows (surprise -log10 p = 54); content similarity 1.00 (edge weight 1.00)",
+        "ag_7e6335c846530c43 and ag_e01f075e0c4b97a0: 85 shared activity windows (surprise -log10 p = 46); content similarity 1.00 (edge weight 1.00)",
+        "ag_978247692c41a02d and ag_dc37e6a87ae6d6a5: 89 shared activity windows (surprise -log10 p = 54); content similarity 1.00 (edge weight 1.00)",
+        "ag_978247692c41a02d and ag_e01f075e0c4b97a0: 75 shared activity windows (surprise -log10 p = 52); content similarity 1.00 (edge weight 1.00)",
+        "ag_dc37e6a87ae6d6a5 and ag_e01f075e0c4b97a0: 87 shared activity windows (surprise -log10 p = 59); content similarity 1.00 (edge weight 1.00)"
+      ]
+    },
+    "components": {
+      "graph_density": 1.0,
+      "isolation_forest": 0.0972,
+      "rules": 0.0,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-9a4002d2a863",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [],
+    "score": 0.8097,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_3b916b272fa8fcd6",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": {
+      "atlas": [],
+      "density": 1.0,
+      "edge_kinds": [
+        "timing_content"
+      ],
+      "edges": [
+        {
+          "a": "ag_1696b03d154ff42f",
+          "b": "ag_8ba7953bc320a30e",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 103,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 62.19,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_1696b03d154ff42f",
+          "b": "ag_3b916b272fa8fcd6",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 107,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 59.61,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_3b916b272fa8fcd6",
+          "b": "ag_8ba7953bc320a30e",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 100,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 59.34,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_30d918accd0d4d0a",
+          "b": "ag_8ba7953bc320a30e",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 108,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 57.37,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_1696b03d154ff42f",
+          "b": "ag_30d918accd0d4d0a",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 111,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 52.51,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_30d918accd0d4d0a",
+          "b": "ag_3b916b272fa8fcd6",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 111,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 53.17,
+          "weight": 1.0
+        }
+      ],
+      "evidence_event_ids": [
+        "e0041837",
+        "e0041871",
+        "e0041873",
+        "e0042345",
+        "e0042344",
+        "e0042353",
+        "e0042352",
+        "e0042360",
+        "e0042361",
+        "e0042368",
+        "e0042369",
+        "e0042376"
+      ],
+      "mean_weight": 1.0,
+      "members": [
+        "ag_1696b03d154ff42f",
+        "ag_30d918accd0d4d0a",
+        "ag_3b916b272fa8fcd6",
+        "ag_8ba7953bc320a30e"
+      ],
+      "reasons": [
+        "ag_1696b03d154ff42f and ag_30d918accd0d4d0a: 111 shared activity windows (surprise -log10 p = 53); content similarity 1.00 (edge weight 1.00)",
+        "ag_1696b03d154ff42f and ag_3b916b272fa8fcd6: 107 shared activity windows (surprise -log10 p = 60); content similarity 1.00 (edge weight 1.00)",
+        "ag_1696b03d154ff42f and ag_8ba7953bc320a30e: 103 shared activity windows (surprise -log10 p = 62); content similarity 1.00 (edge weight 1.00)",
+        "ag_30d918accd0d4d0a and ag_3b916b272fa8fcd6: 111 shared activity windows (surprise -log10 p = 53); content similarity 1.00 (edge weight 1.00)",
+        "ag_30d918accd0d4d0a and ag_8ba7953bc320a30e: 108 shared activity windows (surprise -log10 p = 57); content similarity 1.00 (edge weight 1.00)",
+        "ag_3b916b272fa8fcd6 and ag_8ba7953bc320a30e: 100 shared activity windows (surprise -log10 p = 59); content similarity 1.00 (edge weight 1.00)"
+      ]
+    },
+    "components": {
+      "graph_density": 1.0,
+      "isolation_forest": 0.0517,
+      "rules": 0.0,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-ba3acc1ee673",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [],
+    "score": 0.8052,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_1696b03d154ff42f",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": {
+      "atlas": [],
+      "density": 1.0,
+      "edge_kinds": [
+        "timing_content"
+      ],
+      "edges": [
+        {
+          "a": "ag_1696b03d154ff42f",
+          "b": "ag_8ba7953bc320a30e",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 103,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 62.19,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_1696b03d154ff42f",
+          "b": "ag_3b916b272fa8fcd6",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 107,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 59.61,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_3b916b272fa8fcd6",
+          "b": "ag_8ba7953bc320a30e",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 100,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 59.34,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_30d918accd0d4d0a",
+          "b": "ag_8ba7953bc320a30e",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 108,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 57.37,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_1696b03d154ff42f",
+          "b": "ag_30d918accd0d4d0a",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 111,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 52.51,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_30d918accd0d4d0a",
+          "b": "ag_3b916b272fa8fcd6",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 111,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 53.17,
+          "weight": 1.0
+        }
+      ],
+      "evidence_event_ids": [
+        "e0041837",
+        "e0041871",
+        "e0041873",
+        "e0042345",
+        "e0042344",
+        "e0042353",
+        "e0042352",
+        "e0042360",
+        "e0042361",
+        "e0042368",
+        "e0042369",
+        "e0042376"
+      ],
+      "mean_weight": 1.0,
+      "members": [
+        "ag_1696b03d154ff42f",
+        "ag_30d918accd0d4d0a",
+        "ag_3b916b272fa8fcd6",
+        "ag_8ba7953bc320a30e"
+      ],
+      "reasons": [
+        "ag_1696b03d154ff42f and ag_30d918accd0d4d0a: 111 shared activity windows (surprise -log10 p = 53); content similarity 1.00 (edge weight 1.00)",
+        "ag_1696b03d154ff42f and ag_3b916b272fa8fcd6: 107 shared activity windows (surprise -log10 p = 60); content similarity 1.00 (edge weight 1.00)",
+        "ag_1696b03d154ff42f and ag_8ba7953bc320a30e: 103 shared activity windows (surprise -log10 p = 62); content similarity 1.00 (edge weight 1.00)",
+        "ag_30d918accd0d4d0a and ag_3b916b272fa8fcd6: 111 shared activity windows (surprise -log10 p = 53); content similarity 1.00 (edge weight 1.00)",
+        "ag_30d918accd0d4d0a and ag_8ba7953bc320a30e: 108 shared activity windows (surprise -log10 p = 57); content similarity 1.00 (edge weight 1.00)",
+        "ag_3b916b272fa8fcd6 and ag_8ba7953bc320a30e: 100 shared activity windows (surprise -log10 p = 59); content similarity 1.00 (edge weight 1.00)"
+      ]
+    },
+    "components": {
+      "graph_density": 1.0,
+      "isolation_forest": 0.0508,
+      "rules": 0.0,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-a89abbfd8e9a",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [],
+    "score": 0.8051,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_8ba7953bc320a30e",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": {
+      "atlas": [],
+      "density": 1.0,
+      "edge_kinds": [
+        "timing_content"
+      ],
+      "edges": [
+        {
+          "a": "ag_1696b03d154ff42f",
+          "b": "ag_8ba7953bc320a30e",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 103,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 62.19,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_1696b03d154ff42f",
+          "b": "ag_3b916b272fa8fcd6",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 107,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 59.61,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_3b916b272fa8fcd6",
+          "b": "ag_8ba7953bc320a30e",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 100,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 59.34,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_30d918accd0d4d0a",
+          "b": "ag_8ba7953bc320a30e",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 108,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 57.37,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_1696b03d154ff42f",
+          "b": "ag_30d918accd0d4d0a",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 111,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 52.51,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_30d918accd0d4d0a",
+          "b": "ag_3b916b272fa8fcd6",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 111,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 53.17,
+          "weight": 1.0
+        }
+      ],
+      "evidence_event_ids": [
+        "e0041837",
+        "e0041871",
+        "e0041873",
+        "e0042345",
+        "e0042344",
+        "e0042353",
+        "e0042352",
+        "e0042360",
+        "e0042361",
+        "e0042368",
+        "e0042369",
+        "e0042376"
+      ],
+      "mean_weight": 1.0,
+      "members": [
+        "ag_1696b03d154ff42f",
+        "ag_30d918accd0d4d0a",
+        "ag_3b916b272fa8fcd6",
+        "ag_8ba7953bc320a30e"
+      ],
+      "reasons": [
+        "ag_1696b03d154ff42f and ag_30d918accd0d4d0a: 111 shared activity windows (surprise -log10 p = 53); content similarity 1.00 (edge weight 1.00)",
+        "ag_1696b03d154ff42f and ag_3b916b272fa8fcd6: 107 shared activity windows (surprise -log10 p = 60); content similarity 1.00 (edge weight 1.00)",
+        "ag_1696b03d154ff42f and ag_8ba7953bc320a30e: 103 shared activity windows (surprise -log10 p = 62); content similarity 1.00 (edge weight 1.00)",
+        "ag_30d918accd0d4d0a and ag_3b916b272fa8fcd6: 111 shared activity windows (surprise -log10 p = 53); content similarity 1.00 (edge weight 1.00)",
+        "ag_30d918accd0d4d0a and ag_8ba7953bc320a30e: 108 shared activity windows (surprise -log10 p = 57); content similarity 1.00 (edge weight 1.00)",
+        "ag_3b916b272fa8fcd6 and ag_8ba7953bc320a30e: 100 shared activity windows (surprise -log10 p = 59); content similarity 1.00 (edge weight 1.00)"
+      ]
+    },
+    "components": {
+      "graph_density": 1.0,
+      "isolation_forest": 0.0323,
+      "rules": 0.0,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-eef55b8f917a",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [],
+    "score": 0.8032,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_dc37e6a87ae6d6a5",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": {
+      "atlas": [],
+      "density": 1.0,
+      "edge_kinds": [
+        "timing_content"
+      ],
+      "edges": [
+        {
+          "a": "ag_dc37e6a87ae6d6a5",
+          "b": "ag_e01f075e0c4b97a0",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 87,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 59.14,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_7e6335c846530c43",
+          "b": "ag_dc37e6a87ae6d6a5",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 110,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 54.05,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_978247692c41a02d",
+          "b": "ag_dc37e6a87ae6d6a5",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 89,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 53.64,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_7e6335c846530c43",
+          "b": "ag_e01f075e0c4b97a0",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 85,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 46.36,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_978247692c41a02d",
+          "b": "ag_e01f075e0c4b97a0",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 75,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 52.3,
+          "weight": 1.0
+        },
+        {
+          "a": "ag_7e6335c846530c43",
+          "b": "ag_978247692c41a02d",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 98,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 52.23,
+          "weight": 1.0
+        }
+      ],
+      "evidence_event_ids": [
+        "e0043561",
+        "e0043580",
+        "e0043619",
+        "e0043911",
+        "e0043910",
+        "e0043919",
+        "e0043918",
+        "e0043649",
+        "e0043926",
+        "e0043927",
+        "e0043935",
+        "e0043934"
+      ],
+      "mean_weight": 1.0,
+      "members": [
+        "ag_7e6335c846530c43",
+        "ag_978247692c41a02d",
+        "ag_dc37e6a87ae6d6a5",
+        "ag_e01f075e0c4b97a0"
+      ],
+      "reasons": [
+        "ag_7e6335c846530c43 and ag_978247692c41a02d: 98 shared activity windows (surprise -log10 p = 52); content similarity 1.00 (edge weight 1.00)",
+        "ag_7e6335c846530c43 and ag_dc37e6a87ae6d6a5: 110 shared activity windows (surprise -log10 p = 54); content similarity 1.00 (edge weight 1.00)",
+        "ag_7e6335c846530c43 and ag_e01f075e0c4b97a0: 85 shared activity windows (surprise -log10 p = 46); content similarity 1.00 (edge weight 1.00)",
+        "ag_978247692c41a02d and ag_dc37e6a87ae6d6a5: 89 shared activity windows (surprise -log10 p = 54); content similarity 1.00 (edge weight 1.00)",
+        "ag_978247692c41a02d and ag_e01f075e0c4b97a0: 75 shared activity windows (surprise -log10 p = 52); content similarity 1.00 (edge weight 1.00)",
+        "ag_dc37e6a87ae6d6a5 and ag_e01f075e0c4b97a0: 87 shared activity windows (surprise -log10 p = 59); content similarity 1.00 (edge weight 1.00)"
+      ]
+    },
+    "components": {
+      "graph_density": 1.0,
+      "isolation_forest": 0.0315,
+      "rules": 0.0,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-9296c7d3cbd2",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [],
+    "score": 0.8032,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_25c32e1769576bdd",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": {
+      "atlas": [],
+      "density": 1.0,
+      "edge_kinds": [
+        "shared_redacted_token"
+      ],
+      "edges": [
+        {
+          "a": "ag_25c32e1769576bdd",
+          "b": "ag_5dfc223b989f30e0",
+          "content_cosine": 1.0,
+          "kind": "shared_redacted_token",
+          "shared_windows": 29,
+          "state_tokens": 1,
+          "timing_neg_log10_p": 1.77,
+          "weight": 1.0
+        }
+      ],
+      "evidence_event_ids": [
+        "e0051431",
+        "e0051117",
+        "e0051122",
+        "e0051132",
+        "e0051133",
+        "e0051134",
+        "e0051137",
+        "e0051138",
+        "e0051142",
+        "e0051148",
+        "e0051152",
+        "e0051162"
+      ],
+      "mean_weight": 1.0,
+      "members": [
+        "ag_25c32e1769576bdd",
+        "ag_5dfc223b989f30e0"
+      ],
+      "reasons": [
+        "ag_25c32e1769576bdd and ag_5dfc223b989f30e0 both presented 1 identical redacted secret marker(s). The markers are opaque hashes (never un-redacted): the same secret appeared in both sessions. Moderate confidence - a secret can be shared, leaked or copied (edge weight 1.00)."
+      ]
+    },
+    "components": {
+      "graph_density": 1.0,
+      "isolation_forest": 0.0,
+      "rules": 0.0,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-0bdebf92fbac",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [],
+    "score": 0.8,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_4477e17834d798cb",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": {
+      "atlas": [],
+      "density": 1.0,
+      "edge_kinds": [
+        "shared_redacted_token"
+      ],
+      "edges": [
+        {
+          "a": "ag_4477e17834d798cb",
+          "b": "ag_71db2367df80d602",
+          "content_cosine": 1.0,
+          "kind": "shared_redacted_token",
+          "shared_windows": 34,
+          "state_tokens": 1,
+          "timing_neg_log10_p": 7.05,
+          "weight": 1.0
+        }
+      ],
+      "evidence_event_ids": [
+        "e0051723",
+        "e0051435",
+        "e0051718",
+        "e0051441",
+        "e0051448",
+        "e0051450",
+        "e0051452",
+        "e0051471",
+        "e0051485",
+        "e0051491",
+        "e0051493",
+        "e0051497"
+      ],
+      "mean_weight": 1.0,
+      "members": [
+        "ag_4477e17834d798cb",
+        "ag_71db2367df80d602"
+      ],
+      "reasons": [
+        "ag_4477e17834d798cb and ag_71db2367df80d602 both presented 1 identical redacted secret marker(s). The markers are opaque hashes (never un-redacted): the same secret appeared in both sessions. Moderate confidence - a secret can be shared, leaked or copied (edge weight 1.00)."
+      ]
+    },
+    "components": {
+      "graph_density": 1.0,
+      "isolation_forest": 0.0,
+      "rules": 0.0,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-1a61f1937c92",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [],
+    "score": 0.8,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_56e909fb956fcaed",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": {
+      "atlas": [],
+      "density": 1.0,
+      "edge_kinds": [
+        "timing_content"
+      ],
+      "edges": [
+        {
+          "a": "ag_56e909fb956fcaed",
+          "b": "ag_74b36ac982e520ff",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 49,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 12.59,
+          "weight": 1.0
+        }
+      ],
+      "evidence_event_ids": [
+        "e0047471",
+        "e0047485",
+        "e0047487",
+        "e0047501",
+        "e0047502",
+        "e0047520",
+        "e0047532",
+        "e0047534",
+        "e0047533",
+        "e0047538",
+        "e0047547",
+        "e0047553"
+      ],
+      "mean_weight": 1.0,
+      "members": [
+        "ag_56e909fb956fcaed",
+        "ag_74b36ac982e520ff"
+      ],
+      "reasons": [
+        "ag_56e909fb956fcaed and ag_74b36ac982e520ff: 49 shared activity windows (surprise -log10 p = 13); content similarity 1.00 (edge weight 1.00)"
+      ]
+    },
+    "components": {
+      "graph_density": 1.0,
+      "isolation_forest": 0.0,
+      "rules": 0.0,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-d750b270f451",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [],
+    "score": 0.8,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_5dfc223b989f30e0",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": {
+      "atlas": [],
+      "density": 1.0,
+      "edge_kinds": [
+        "shared_redacted_token"
+      ],
+      "edges": [
+        {
+          "a": "ag_25c32e1769576bdd",
+          "b": "ag_5dfc223b989f30e0",
+          "content_cosine": 1.0,
+          "kind": "shared_redacted_token",
+          "shared_windows": 29,
+          "state_tokens": 1,
+          "timing_neg_log10_p": 1.77,
+          "weight": 1.0
+        }
+      ],
+      "evidence_event_ids": [
+        "e0051431",
+        "e0051117",
+        "e0051122",
+        "e0051132",
+        "e0051133",
+        "e0051134",
+        "e0051137",
+        "e0051138",
+        "e0051142",
+        "e0051148",
+        "e0051152",
+        "e0051162"
+      ],
+      "mean_weight": 1.0,
+      "members": [
+        "ag_25c32e1769576bdd",
+        "ag_5dfc223b989f30e0"
+      ],
+      "reasons": [
+        "ag_25c32e1769576bdd and ag_5dfc223b989f30e0 both presented 1 identical redacted secret marker(s). The markers are opaque hashes (never un-redacted): the same secret appeared in both sessions. Moderate confidence - a secret can be shared, leaked or copied (edge weight 1.00)."
+      ]
+    },
+    "components": {
+      "graph_density": 1.0,
+      "isolation_forest": 0.0,
+      "rules": 0.0,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-660a91fa902e",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [],
+    "score": 0.8,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_71db2367df80d602",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": {
+      "atlas": [],
+      "density": 1.0,
+      "edge_kinds": [
+        "shared_redacted_token"
+      ],
+      "edges": [
+        {
+          "a": "ag_4477e17834d798cb",
+          "b": "ag_71db2367df80d602",
+          "content_cosine": 1.0,
+          "kind": "shared_redacted_token",
+          "shared_windows": 34,
+          "state_tokens": 1,
+          "timing_neg_log10_p": 7.05,
+          "weight": 1.0
+        }
+      ],
+      "evidence_event_ids": [
+        "e0051723",
+        "e0051435",
+        "e0051718",
+        "e0051441",
+        "e0051448",
+        "e0051450",
+        "e0051452",
+        "e0051471",
+        "e0051485",
+        "e0051491",
+        "e0051493",
+        "e0051497"
+      ],
+      "mean_weight": 1.0,
+      "members": [
+        "ag_4477e17834d798cb",
+        "ag_71db2367df80d602"
+      ],
+      "reasons": [
+        "ag_4477e17834d798cb and ag_71db2367df80d602 both presented 1 identical redacted secret marker(s). The markers are opaque hashes (never un-redacted): the same secret appeared in both sessions. Moderate confidence - a secret can be shared, leaked or copied (edge weight 1.00)."
+      ]
+    },
+    "components": {
+      "graph_density": 1.0,
+      "isolation_forest": 0.0,
+      "rules": 0.0,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-8c9fffa79182",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [],
+    "score": 0.8,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_74b36ac982e520ff",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": {
+      "atlas": [],
+      "density": 1.0,
+      "edge_kinds": [
+        "timing_content"
+      ],
+      "edges": [
+        {
+          "a": "ag_56e909fb956fcaed",
+          "b": "ag_74b36ac982e520ff",
+          "content_cosine": 1.0,
+          "kind": "timing_content",
+          "shared_windows": 49,
+          "state_tokens": 0,
+          "timing_neg_log10_p": 12.59,
+          "weight": 1.0
+        }
+      ],
+      "evidence_event_ids": [
+        "e0047471",
+        "e0047485",
+        "e0047487",
+        "e0047501",
+        "e0047502",
+        "e0047520",
+        "e0047532",
+        "e0047534",
+        "e0047533",
+        "e0047538",
+        "e0047547",
+        "e0047553"
+      ],
+      "mean_weight": 1.0,
+      "members": [
+        "ag_56e909fb956fcaed",
+        "ag_74b36ac982e520ff"
+      ],
+      "reasons": [
+        "ag_56e909fb956fcaed and ag_74b36ac982e520ff: 49 shared activity windows (surprise -log10 p = 13); content similarity 1.00 (edge weight 1.00)"
+      ]
+    },
+    "components": {
+      "graph_density": 1.0,
+      "isolation_forest": 0.0,
+      "rules": 0.0,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-13a52060f07b",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [],
+    "score": 0.8,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_2057b867b2b2883a",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": null,
+    "components": {
+      "graph_density": 0.0,
+      "isolation_forest": 0.2401,
+      "rules": 0.85,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-3cc92e120f99",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [
+      {
+        "atlas": [
+          {
+            "id": "AML.T0051",
+            "name": "LLM Prompt Injection",
+            "url": "https://atlas.mitre.org/techniques/AML.T0051"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0050344",
+            "summary": "read status=allowed dest=api.corp.example untrusted-content",
+            "ts": 1772457367.251
+          },
+          {
+            "event_id": "e0050445",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-sp2.example.org (external) bytes=53014",
+            "ts": 1772457536.65
+          },
+          {
+            "event_id": "e0050447",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-sp2.example.org (external) bytes=40561",
+            "ts": 1772457561.492
+          }
+        ],
+        "explanation": "After reading untrusted content, the agent invoked tool(s) ['send_email'] that it neither used in its baseline period nor declared, within 300s. Consistent with injected instructions steering the agent.",
+        "extra": {
+          "episodes": 1,
+          "new_tools": [
+            "send_email"
+          ]
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R1",
+        "strength": 0.75,
+        "title": "Untrusted content followed by a sudden shift in tool usage"
+      },
+      {
+        "atlas": [
+          {
+            "id": "AML.T0086",
+            "name": "Exfiltration via AI Agent Tool Invocation",
+            "url": "https://atlas.mitre.org/techniques/AML.T0086"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0050445",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-sp2.example.org (external) bytes=53014",
+            "ts": 1772457536.65
+          }
+        ],
+        "explanation": "1 write/send call(s) moved 53014 bytes to 1 external host(s) never contacted before (['drop-sp2.example.org']). Consistent with data leaving via an agent tool.",
+        "extra": {
+          "bytes": 53014,
+          "new_hosts": [
+            "drop-sp2.example.org"
+          ]
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R3",
+        "strength": 0.8,
+        "title": "Write-capable tool sending data to a new external destination"
+      },
+      {
+        "atlas": [
+          {
+            "id": "AML.T0053",
+            "name": "AI Agent Tool Invocation",
+            "url": "https://atlas.mitre.org/techniques/AML.T0053"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0050445",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-sp2.example.org (external) bytes=53014",
+            "ts": 1772457536.65
+          },
+          {
+            "event_id": "e0050447",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-sp2.example.org (external) bytes=40561",
+            "ts": 1772457561.492
+          },
+          {
+            "event_id": "e0050441",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-sp2.example.org (external) bytes=32434",
+            "ts": 1772471055.978
+          },
+          {
+            "event_id": "e0050443",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-sp2.example.org (external) bytes=37881",
+            "ts": 1772471131.683
+          }
+        ],
+        "explanation": "4 call(s) to tool(s) ['send_email'] that are not in the agent's declared tool list (['calendar', 'http_post', 'search_docs', 'summarize']).",
+        "extra": {
+          "count": 4,
+          "tools": [
+            "send_email"
+          ]
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R2",
+        "strength": 0.85,
+        "title": "Tool calls outside the agent's declared purpose"
+      }
+    ],
+    "score": 0.7932,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_bc33c55bd7564dbe",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": null,
+    "components": {
+      "graph_density": 0.0,
+      "isolation_forest": 0.4672,
+      "rules": 0.8,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-e5c12ae791d3",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [
+      {
+        "atlas": [
+          {
+            "id": "AML.T0086",
+            "name": "Exfiltration via AI Agent Tool Invocation",
+            "url": "https://atlas.mitre.org/techniques/AML.T0086"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0038782",
+            "summary": "tool_call status=allowed tool=http_post dest=hooks.newpartner-2.example.net (external) bytes=16433",
+            "ts": 1772440492.022
+          }
+        ],
+        "explanation": "1 write/send call(s) moved 16433 bytes to 1 external host(s) never contacted before (['hooks.newpartner-2.example.net']). Consistent with data leaving via an agent tool.",
+        "extra": {
+          "bytes": 16433,
+          "new_hosts": [
+            "hooks.newpartner-2.example.net"
+          ]
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R3",
+        "strength": 0.8,
+        "title": "Write-capable tool sending data to a new external destination"
+      }
+    ],
+    "score": 0.7854,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_2028b68e9e900e9f",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": null,
+    "components": {
+      "graph_density": 0.0,
+      "isolation_forest": 0.4528,
+      "rules": 0.8,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-7c93012e4c19",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [
+      {
+        "atlas": [
+          {
+            "id": "AML.T0086",
+            "name": "Exfiltration via AI Agent Tool Invocation",
+            "url": "https://atlas.mitre.org/techniques/AML.T0086"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0038607",
+            "summary": "tool_call status=allowed tool=http_post dest=hooks.newpartner-1.example.net (external) bytes=10380",
+            "ts": 1772444600.026
+          }
+        ],
+        "explanation": "1 write/send call(s) moved 10380 bytes to 1 external host(s) never contacted before (['hooks.newpartner-1.example.net']). Consistent with data leaving via an agent tool.",
+        "extra": {
+          "bytes": 10380,
+          "new_hosts": [
+            "hooks.newpartner-1.example.net"
+          ]
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R3",
+        "strength": 0.8,
+        "title": "Write-capable tool sending data to a new external destination"
+      }
+    ],
+    "score": 0.7834,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_23b69c53f2c6fd5c",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": null,
+    "components": {
+      "graph_density": 0.0,
+      "isolation_forest": 0.0632,
+      "rules": 0.85,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-59ed7c7c2f69",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [
+      {
+        "atlas": [
+          {
+            "id": "AML.T0086",
+            "name": "Exfiltration via AI Agent Tool Invocation",
+            "url": "https://atlas.mitre.org/techniques/AML.T0086"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0040975",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-3.example.org (external) bytes=22054",
+            "ts": 1772464769.764
+          }
+        ],
+        "explanation": "1 write/send call(s) moved 22054 bytes to 1 external host(s) never contacted before (['drop-3.example.org']). Consistent with data leaving via an agent tool.",
+        "extra": {
+          "bytes": 22054,
+          "new_hosts": [
+            "drop-3.example.org"
+          ]
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R3",
+        "strength": 0.8,
+        "title": "Write-capable tool sending data to a new external destination"
+      },
+      {
+        "atlas": [
+          {
+            "id": "AML.T0053",
+            "name": "AI Agent Tool Invocation",
+            "url": "https://atlas.mitre.org/techniques/AML.T0053"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0040975",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-3.example.org (external) bytes=22054",
+            "ts": 1772464769.764
+          },
+          {
+            "event_id": "e0040977",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-3.example.org (external) bytes=8397",
+            "ts": 1772464823.213
+          },
+          {
+            "event_id": "e0040979",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-3.example.org (external) bytes=25686",
+            "ts": 1772478212.015
+          },
+          {
+            "event_id": "e0040981",
+            "summary": "tool_call status=allowed tool=send_email dest=drop-3.example.org (external) bytes=6025",
+            "ts": 1772478285.695
+          }
+        ],
+        "explanation": "4 call(s) to tool(s) ['send_email'] that are not in the agent's declared tool list (['http_post', 'read_file', 'summarize', 'translate']).",
+        "extra": {
+          "count": 4,
+          "tools": [
+            "send_email"
+          ]
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R2",
+        "strength": 0.85,
+        "title": "Tool calls outside the agent's declared purpose"
+      }
+    ],
+    "score": 0.7724,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_03b7c637ea8e7271",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": null,
+    "components": {
+      "graph_density": 0.0,
+      "isolation_forest": 0.0,
+      "rules": 0.85,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-c0f8639d610e",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_flags": [
+      {
+        "atlas": [
+          {
+            "id": "AML.T0051",
+            "name": "LLM Prompt Injection",
+            "url": "https://atlas.mitre.org/techniques/AML.T0051"
+          },
+          {
+            "id": "AML.T0086",
+            "name": "Exfiltration via AI Agent Tool Invocation",
+            "url": "https://atlas.mitre.org/techniques/AML.T0086"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0052002",
+            "summary": "read status=allowed dest=api.corp.example honeypot=coordination_board",
+            "ts": 1772424309.195
+          },
+          {
+            "event_id": "e0052003",
+            "summary": "write status=allowed dest=api.corp.example honeypot=coordination_board bytes=120",
+            "ts": 1772424314.195
+          },
+          {
+            "event_id": "e0052004",
+            "summary": "write status=allowed dest=api.corp.example honeypot=coordination_board bytes=120",
+            "ts": 1772424317.195
+          },
+          {
+            "event_id": "e0052005",
+            "summary": "write status=allowed dest=api.corp.example honeypot=coordination_board bytes=120",
+            "ts": 1772424320.195
+          }
+        ],
+        "explanation": "The agent made 4 request(s) to honeypot coordination-board endpoints that no legitimate workflow points to (1 token(s) issued to it, 3 token presentation(s)). Consistent with an agent acting on instructions it found in untrusted content.",
+        "extra": {
+          "board_events": 4,
+          "tokens_issued": 1,
+          "tokens_presented": 3
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R6",
+        "strength": 0.8,
+        "title": "Engaged the decoy coordination-board protocol"
+      },
+      {
+        "atlas": [
+          {
+            "id": "AML.T0051",
+            "name": "LLM Prompt Injection",
+            "url": "https://atlas.mitre.org/techniques/AML.T0051"
+          },
+          {
+            "id": "AML.T0053",
+            "name": "AI Agent Tool Invocation",
+            "url": "https://atlas.mitre.org/techniques/AML.T0053"
+          },
+          {
+            "id": "AML.T0086",
+            "name": "Exfiltration via AI Agent Tool Invocation",
+            "url": "https://atlas.mitre.org/techniques/AML.T0086"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0052006",
+            "summary": "message status=allowed dest=api.corp.example honeypot=cognitive_capture",
+            "ts": 1772424409.195
+          }
+        ],
+        "explanation": "The agent sent its own configuration (system-prompt summary / tools / objective / message) to a decoy in 1 request(s). The captured text is attacker-controlled and shown only as sanitized, truncated data.",
+        "extra": {
+          "capture": {
+            "attacker_controlled": true,
+            "current_objective": "summarise Q3 invoices",
+            "declared_tools": [
+              "search_docs",
+              "send_email"
+            ],
+            "message": "joining the board",
+            "sanitized_chars_removed": 0,
+            "system_prompt_summary": "You are a helpful assistant for the finance team.",
+            "truncated": false,
+            "untrusted": true
+          },
+          "capture_events": 1
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R7",
+        "strength": 0.85,
+        "title": "Disclosed its own context to a decoy (cognitive capture)"
+      }
+    ],
+    "score": 0.765,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_32074d8389a6c512",
+    "anomaly_explanations": [
+      "Requests touching sensitive resources: 419 versus a population median of 0 - touching sensitive resources far more than peers (robust z=+42.9).",
+      "Event rate: 1.26 events/min versus a population median of 0.46 events/min (about 2.7x the typical value) - far busier than peers (robust z=+4.1).",
+      "Spread of activity across the 24 hours of the day: 0.61 versus a population median of 0.70 - activity concentrated in a few hours (robust z=-6.1)."
+    ],
+    "automatic_action": "none",
+    "cluster": null,
+    "components": {
+      "graph_density": 0.0,
+      "isolation_forest": 0.9101,
+      "rules": 0.0,
+      "sequence": 1.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-13115e7f1124",
+    "priority_band": "review",
+    "recommended_action": "human_review",
+    "rule_flags": [],
+    "score": 0.7275,
+    "sequence": {
+      "evidence_event_ids": [
+        "e0036713",
+        "e0036720",
+        "e0036728"
+      ],
+      "explanation": "Action-sequence surprise: worst window 4.31 bits per transition versus a benign median of 2.93 and 99th percentile of 3.97; unusual transitions: read:untrusted -> read:sensitive: p=0.0012 (9.7 bits) at event e0036713; tool:transform -> read:sensitive: p=0.0018 (9.1 bits) at event e0036720; read:untrusted -> read:sensitive: p=0.0012 (9.7 bits) at event e0036728",
+      "mean_bits": 2.314,
+      "n_transitions": 673,
+      "score": 1.0,
+      "worst_window_bits": 4.315
+    },
+    "severity": "low"
+  },
+  {
+    "agent": "ag_efbf2a6ad54c12f9",
+    "anomaly_explanations": [
+      "Requests touching sensitive resources: 414 versus a population median of 0 - touching sensitive resources far more than peers (robust z=+42.4).",
+      "Event rate: 1.84 events/min versus a population median of 0.46 events/min (about 4.0x the typical value) - far busier than peers (robust z=+7.1).",
+      "Spread of activity across the 24 hours of the day: 0.67 versus a population median of 0.70 - activity concentrated in a few hours (robust z=-2.4)."
+    ],
+    "automatic_action": "none",
+    "cluster": null,
+    "components": {
+      "graph_density": 0.0,
+      "isolation_forest": 0.8857,
+      "rules": 0.0,
+      "sequence": 1.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-a765dcdc003f",
+    "priority_band": "review",
+    "recommended_action": "human_review",
+    "rule_flags": [],
+    "score": 0.7214,
+    "sequence": {
+      "evidence_event_ids": [
+        "e0037673",
+        "e0037676",
+        "e0037678"
+      ],
+      "explanation": "Action-sequence surprise: worst window 5.53 bits per transition versus a benign median of 2.93 and 99th percentile of 3.97; unusual transitions: read:untrusted -> read:sensitive: p=0.0012 (9.7 bits) at event e0037673; read:untrusted -> read:sensitive: p=0.0012 (9.7 bits) at event e0037676; tool:transform -> read:sensitive: p=0.0018 (9.1 bits) at event e0037678",
+      "mean_bits": 3.059,
+      "n_transitions": 988,
+      "score": 1.0,
+      "worst_window_bits": 5.528
+    },
+    "severity": "low"
+  },
+  {
+    "agent": "ag_1ccf0a38bc2d0001",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": null,
+    "components": {
+      "graph_density": 0.0,
+      "isolation_forest": 0.0,
+      "rules": 0.8,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-cc861511dbe2",
+    "priority_band": "review",
+    "recommended_action": "human_review",
+    "rule_flags": [
+      {
+        "atlas": [
+          {
+            "id": "AML.T0051",
+            "name": "LLM Prompt Injection",
+            "url": "https://atlas.mitre.org/techniques/AML.T0051"
+          },
+          {
+            "id": "AML.T0086",
+            "name": "Exfiltration via AI Agent Tool Invocation",
+            "url": "https://atlas.mitre.org/techniques/AML.T0086"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0052020",
+            "summary": "read status=allowed dest=api.corp.example honeypot=coordination_board",
+            "ts": 1772432916.512
+          },
+          {
+            "event_id": "e0052021",
+            "summary": "write status=allowed dest=api.corp.example honeypot=coordination_board bytes=120",
+            "ts": 1772432921.512
+          }
+        ],
+        "explanation": "The agent made 2 request(s) to honeypot coordination-board endpoints that no legitimate workflow points to (1 token(s) issued to it, 1 token presentation(s)). Consistent with an agent acting on instructions it found in untrusted content.",
+        "extra": {
+          "board_events": 2,
+          "tokens_issued": 1,
+          "tokens_presented": 1
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R6",
+        "strength": 0.8,
+        "title": "Engaged the decoy coordination-board protocol"
+      }
+    ],
+    "score": 0.72,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_3f8d14710f967599",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": null,
+    "components": {
+      "graph_density": 0.0,
+      "isolation_forest": 0.0,
+      "rules": 0.8,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-31857121f460",
+    "priority_band": "review",
+    "recommended_action": "human_review",
+    "rule_flags": [
+      {
+        "atlas": [
+          {
+            "id": "AML.T0051",
+            "name": "LLM Prompt Injection",
+            "url": "https://atlas.mitre.org/techniques/AML.T0051"
+          },
+          {
+            "id": "AML.T0086",
+            "name": "Exfiltration via AI Agent Tool Invocation",
+            "url": "https://atlas.mitre.org/techniques/AML.T0086"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0051998",
+            "summary": "read status=allowed dest=api.corp.example honeypot=coordination_board",
+            "ts": 1772456911.058
+          },
+          {
+            "event_id": "e0051999",
+            "summary": "write status=allowed dest=api.corp.example honeypot=coordination_board bytes=120",
+            "ts": 1772456916.058
+          },
+          {
+            "event_id": "e0052000",
+            "summary": "write status=allowed dest=api.corp.example honeypot=coordination_board bytes=120",
+            "ts": 1772456919.058
+          },
+          {
+            "event_id": "e0052001",
+            "summary": "write status=allowed dest=api.corp.example honeypot=coordination_board bytes=120",
+            "ts": 1772456922.058
+          }
+        ],
+        "explanation": "The agent made 4 request(s) to honeypot coordination-board endpoints that no legitimate workflow points to (1 token(s) issued to it, 3 token presentation(s)). Consistent with an agent acting on instructions it found in untrusted content.",
+        "extra": {
+          "board_events": 4,
+          "tokens_issued": 1,
+          "tokens_presented": 3
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R6",
+        "strength": 0.8,
+        "title": "Engaged the decoy coordination-board protocol"
+      }
+    ],
+    "score": 0.72,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_49b7c79b275c3662",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": null,
+    "components": {
+      "graph_density": 0.0,
+      "isolation_forest": 0.0,
+      "rules": 0.8,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-3594bd5113bb",
+    "priority_band": "review",
+    "recommended_action": "human_review",
+    "rule_flags": [
+      {
+        "atlas": [
+          {
+            "id": "AML.T0051",
+            "name": "LLM Prompt Injection",
+            "url": "https://atlas.mitre.org/techniques/AML.T0051"
+          },
+          {
+            "id": "AML.T0086",
+            "name": "Exfiltration via AI Agent Tool Invocation",
+            "url": "https://atlas.mitre.org/techniques/AML.T0086"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0052022",
+            "summary": "read status=allowed dest=api.corp.example honeypot=coordination_board",
+            "ts": 1772433465.646
+          },
+          {
+            "event_id": "e0052023",
+            "summary": "write status=allowed dest=api.corp.example honeypot=coordination_board bytes=120",
+            "ts": 1772433470.646
+          }
+        ],
+        "explanation": "The agent made 2 request(s) to honeypot coordination-board endpoints that no legitimate workflow points to (1 token(s) issued to it, 1 token presentation(s)). Consistent with an agent acting on instructions it found in untrusted content.",
+        "extra": {
+          "board_events": 2,
+          "tokens_issued": 1,
+          "tokens_presented": 1
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R6",
+        "strength": 0.8,
+        "title": "Engaged the decoy coordination-board protocol"
+      }
+    ],
+    "score": 0.72,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_6b6f1076d4ccb907",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": null,
+    "components": {
+      "graph_density": 0.0,
+      "isolation_forest": 0.0,
+      "rules": 0.8,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-ff585a21d10b",
+    "priority_band": "review",
+    "recommended_action": "human_review",
+    "rule_flags": [
+      {
+        "atlas": [
+          {
+            "id": "AML.T0051",
+            "name": "LLM Prompt Injection",
+            "url": "https://atlas.mitre.org/techniques/AML.T0051"
+          },
+          {
+            "id": "AML.T0086",
+            "name": "Exfiltration via AI Agent Tool Invocation",
+            "url": "https://atlas.mitre.org/techniques/AML.T0086"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0052018",
+            "summary": "read status=allowed dest=api.corp.example honeypot=coordination_board",
+            "ts": 1772439758.185
+          },
+          {
+            "event_id": "e0052019",
+            "summary": "write status=allowed dest=api.corp.example honeypot=coordination_board bytes=120",
+            "ts": 1772439763.185
+          }
+        ],
+        "explanation": "The agent made 2 request(s) to honeypot coordination-board endpoints that no legitimate workflow points to (1 token(s) issued to it, 1 token presentation(s)). Consistent with an agent acting on instructions it found in untrusted content.",
+        "extra": {
+          "board_events": 2,
+          "tokens_issued": 1,
+          "tokens_presented": 1
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R6",
+        "strength": 0.8,
+        "title": "Engaged the decoy coordination-board protocol"
+      }
+    ],
+    "score": 0.72,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_b3796f8b69f4088e",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": null,
+    "components": {
+      "graph_density": 0.0,
+      "isolation_forest": 0.0,
+      "rules": 0.8,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-ea571abb01be",
+    "priority_band": "review",
+    "recommended_action": "human_review",
+    "rule_flags": [
+      {
+        "atlas": [
+          {
+            "id": "AML.T0051",
+            "name": "LLM Prompt Injection",
+            "url": "https://atlas.mitre.org/techniques/AML.T0051"
+          },
+          {
+            "id": "AML.T0086",
+            "name": "Exfiltration via AI Agent Tool Invocation",
+            "url": "https://atlas.mitre.org/techniques/AML.T0086"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0052026",
+            "summary": "read status=allowed dest=api.corp.example honeypot=coordination_board",
+            "ts": 1772437347.506
+          },
+          {
+            "event_id": "e0052027",
+            "summary": "write status=allowed dest=api.corp.example honeypot=coordination_board bytes=120",
+            "ts": 1772437352.506
+          }
+        ],
+        "explanation": "The agent made 2 request(s) to honeypot coordination-board endpoints that no legitimate workflow points to (1 token(s) issued to it, 1 token presentation(s)). Consistent with an agent acting on instructions it found in untrusted content.",
+        "extra": {
+          "board_events": 2,
+          "tokens_issued": 1,
+          "tokens_presented": 1
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R6",
+        "strength": 0.8,
+        "title": "Engaged the decoy coordination-board protocol"
+      }
+    ],
+    "score": 0.72,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_eba5ef92f18fc18e",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": null,
+    "components": {
+      "graph_density": 0.0,
+      "isolation_forest": 0.0,
+      "rules": 0.8,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-09df5e391c75",
+    "priority_band": "review",
+    "recommended_action": "human_review",
+    "rule_flags": [
+      {
+        "atlas": [
+          {
+            "id": "AML.T0051",
+            "name": "LLM Prompt Injection",
+            "url": "https://atlas.mitre.org/techniques/AML.T0051"
+          },
+          {
+            "id": "AML.T0086",
+            "name": "Exfiltration via AI Agent Tool Invocation",
+            "url": "https://atlas.mitre.org/techniques/AML.T0086"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0052016",
+            "summary": "read status=allowed dest=api.corp.example honeypot=coordination_board",
+            "ts": 1772439588.047
+          },
+          {
+            "event_id": "e0052017",
+            "summary": "write status=allowed dest=api.corp.example honeypot=coordination_board bytes=120",
+            "ts": 1772439593.047
+          }
+        ],
+        "explanation": "The agent made 2 request(s) to honeypot coordination-board endpoints that no legitimate workflow points to (1 token(s) issued to it, 1 token presentation(s)). Consistent with an agent acting on instructions it found in untrusted content.",
+        "extra": {
+          "board_events": 2,
+          "tokens_issued": 1,
+          "tokens_presented": 1
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R6",
+        "strength": 0.8,
+        "title": "Engaged the decoy coordination-board protocol"
+      }
+    ],
+    "score": 0.72,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_f8db84c95dc22c43",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": null,
+    "components": {
+      "graph_density": 0.0,
+      "isolation_forest": 0.0,
+      "rules": 0.8,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-03cda951355c",
+    "priority_band": "review",
+    "recommended_action": "human_review",
+    "rule_flags": [
+      {
+        "atlas": [
+          {
+            "id": "AML.T0051",
+            "name": "LLM Prompt Injection",
+            "url": "https://atlas.mitre.org/techniques/AML.T0051"
+          },
+          {
+            "id": "AML.T0086",
+            "name": "Exfiltration via AI Agent Tool Invocation",
+            "url": "https://atlas.mitre.org/techniques/AML.T0086"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "e0052024",
+            "summary": "read status=allowed dest=api.corp.example honeypot=coordination_board",
+            "ts": 1772436992.5
+          },
+          {
+            "event_id": "e0052025",
+            "summary": "write status=allowed dest=api.corp.example honeypot=coordination_board bytes=120",
+            "ts": 1772436997.5
+          }
+        ],
+        "explanation": "The agent made 2 request(s) to honeypot coordination-board endpoints that no legitimate workflow points to (1 token(s) issued to it, 1 token presentation(s)). Consistent with an agent acting on instructions it found in untrusted content.",
+        "extra": {
+          "board_events": 2,
+          "tokens_issued": 1,
+          "tokens_presented": 1
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R6",
+        "strength": 0.8,
+        "title": "Engaged the decoy coordination-board protocol"
+      }
+    ],
+    "score": 0.72,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_9f63fe232924f3f0",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": {
+      "atlas": [],
+      "density": 0.6,
+      "edge_kinds": [
+        "semantic_state"
+      ],
+      "edges": [
+        {
+          "a": "ag_36e044b789791178",
+          "b": "ag_5251462ecf89c432",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        },
+        {
+          "a": "ag_36e044b789791178",
+          "b": "ag_9f63fe232924f3f0",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        },
+        {
+          "a": "ag_9f63fe232924f3f0",
+          "b": "ag_a1497de2a20fdea1",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        },
+        {
+          "a": "ag_44601abe5ce7b5ef",
+          "b": "ag_5251462ecf89c432",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        }
+      ],
+      "evidence_event_ids": [
+        "e0049910",
+        "e0049911",
+        "e0049912",
+        "e0049913",
+        "e0049916",
+        "e0049917",
+        "e0049918",
+        "e0049919",
+        "e0049896",
+        "e0049897",
+        "e0049898",
+        "e0049899"
+      ],
+      "mean_weight": 0.6,
+      "members": [
+        "ag_36e044b789791178",
+        "ag_44601abe5ce7b5ef",
+        "ag_5251462ecf89c432",
+        "ag_9f63fe232924f3f0",
+        "ag_a1497de2a20fdea1"
+      ],
+      "reasons": [
+        "ag_36e044b789791178 and ag_5251462ecf89c432: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)",
+        "ag_36e044b789791178 and ag_9f63fe232924f3f0: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)",
+        "ag_44601abe5ce7b5ef and ag_5251462ecf89c432: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)",
+        "ag_9f63fe232924f3f0 and ag_a1497de2a20fdea1: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)"
+      ]
+    },
+    "components": {
+      "graph_density": 0.6,
+      "isolation_forest": 0.4123,
+      "rules": 0.0,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-9865c95b3e18",
+    "priority_band": "review",
+    "recommended_action": "human_review",
+    "rule_flags": [],
+    "score": 0.5872,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_5251462ecf89c432",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": {
+      "atlas": [],
+      "density": 0.6,
+      "edge_kinds": [
+        "semantic_state"
+      ],
+      "edges": [
+        {
+          "a": "ag_36e044b789791178",
+          "b": "ag_5251462ecf89c432",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        },
+        {
+          "a": "ag_36e044b789791178",
+          "b": "ag_9f63fe232924f3f0",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        },
+        {
+          "a": "ag_9f63fe232924f3f0",
+          "b": "ag_a1497de2a20fdea1",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        },
+        {
+          "a": "ag_44601abe5ce7b5ef",
+          "b": "ag_5251462ecf89c432",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        }
+      ],
+      "evidence_event_ids": [
+        "e0049910",
+        "e0049911",
+        "e0049912",
+        "e0049913",
+        "e0049916",
+        "e0049917",
+        "e0049918",
+        "e0049919",
+        "e0049896",
+        "e0049897",
+        "e0049898",
+        "e0049899"
+      ],
+      "mean_weight": 0.6,
+      "members": [
+        "ag_36e044b789791178",
+        "ag_44601abe5ce7b5ef",
+        "ag_5251462ecf89c432",
+        "ag_9f63fe232924f3f0",
+        "ag_a1497de2a20fdea1"
+      ],
+      "reasons": [
+        "ag_36e044b789791178 and ag_5251462ecf89c432: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)",
+        "ag_36e044b789791178 and ag_9f63fe232924f3f0: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)",
+        "ag_44601abe5ce7b5ef and ag_5251462ecf89c432: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)",
+        "ag_9f63fe232924f3f0 and ag_a1497de2a20fdea1: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)"
+      ]
+    },
+    "components": {
+      "graph_density": 0.6,
+      "isolation_forest": 0.4015,
+      "rules": 0.0,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-0a855d63b95d",
+    "priority_band": "review",
+    "recommended_action": "human_review",
+    "rule_flags": [],
+    "score": 0.5844,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_d9cced2c3572df79",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": {
+      "atlas": [],
+      "density": 0.6,
+      "edge_kinds": [
+        "semantic_state"
+      ],
+      "edges": [
+        {
+          "a": "ag_9af0b0f29bb39a65",
+          "b": "ag_b32cfbe93f1cfa07",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        },
+        {
+          "a": "ag_9b067b9135c2f0c3",
+          "b": "ag_b6b5d983674b0fa9",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        },
+        {
+          "a": "ag_9af0b0f29bb39a65",
+          "b": "ag_9b067b9135c2f0c3",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        },
+        {
+          "a": "ag_b32cfbe93f1cfa07",
+          "b": "ag_d9cced2c3572df79",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        }
+      ],
+      "evidence_event_ids": [
+        "e0049966",
+        "e0049967",
+        "e0049968",
+        "e0049969",
+        "e0049972",
+        "e0049973",
+        "e0049974",
+        "e0049975",
+        "e0049994",
+        "e0049995",
+        "e0049996",
+        "e0049997"
+      ],
+      "mean_weight": 0.6,
+      "members": [
+        "ag_9af0b0f29bb39a65",
+        "ag_9b067b9135c2f0c3",
+        "ag_b32cfbe93f1cfa07",
+        "ag_b6b5d983674b0fa9",
+        "ag_d9cced2c3572df79"
+      ],
+      "reasons": [
+        "ag_9af0b0f29bb39a65 and ag_9b067b9135c2f0c3: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)",
+        "ag_9af0b0f29bb39a65 and ag_b32cfbe93f1cfa07: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)",
+        "ag_9b067b9135c2f0c3 and ag_b6b5d983674b0fa9: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)",
+        "ag_b32cfbe93f1cfa07 and ag_d9cced2c3572df79: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)"
+      ]
+    },
+    "components": {
+      "graph_density": 0.6,
+      "isolation_forest": 0.3996,
+      "rules": 0.0,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-5f8a6bffcb51",
+    "priority_band": "review",
+    "recommended_action": "human_review",
+    "rule_flags": [],
+    "score": 0.5839,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_9af0b0f29bb39a65",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": {
+      "atlas": [],
+      "density": 0.6,
+      "edge_kinds": [
+        "semantic_state"
+      ],
+      "edges": [
+        {
+          "a": "ag_9af0b0f29bb39a65",
+          "b": "ag_b32cfbe93f1cfa07",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        },
+        {
+          "a": "ag_9b067b9135c2f0c3",
+          "b": "ag_b6b5d983674b0fa9",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        },
+        {
+          "a": "ag_9af0b0f29bb39a65",
+          "b": "ag_9b067b9135c2f0c3",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        },
+        {
+          "a": "ag_b32cfbe93f1cfa07",
+          "b": "ag_d9cced2c3572df79",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        }
+      ],
+      "evidence_event_ids": [
+        "e0049966",
+        "e0049967",
+        "e0049968",
+        "e0049969",
+        "e0049972",
+        "e0049973",
+        "e0049974",
+        "e0049975",
+        "e0049994",
+        "e0049995",
+        "e0049996",
+        "e0049997"
+      ],
+      "mean_weight": 0.6,
+      "members": [
+        "ag_9af0b0f29bb39a65",
+        "ag_9b067b9135c2f0c3",
+        "ag_b32cfbe93f1cfa07",
+        "ag_b6b5d983674b0fa9",
+        "ag_d9cced2c3572df79"
+      ],
+      "reasons": [
+        "ag_9af0b0f29bb39a65 and ag_9b067b9135c2f0c3: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)",
+        "ag_9af0b0f29bb39a65 and ag_b32cfbe93f1cfa07: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)",
+        "ag_9b067b9135c2f0c3 and ag_b6b5d983674b0fa9: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)",
+        "ag_b32cfbe93f1cfa07 and ag_d9cced2c3572df79: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)"
+      ]
+    },
+    "components": {
+      "graph_density": 0.6,
+      "isolation_forest": 0.3901,
+      "rules": 0.0,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-9807f089649e",
+    "priority_band": "review",
+    "recommended_action": "human_review",
+    "rule_flags": [],
+    "score": 0.5814,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_b6b5d983674b0fa9",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": {
+      "atlas": [],
+      "density": 0.6,
+      "edge_kinds": [
+        "semantic_state"
+      ],
+      "edges": [
+        {
+          "a": "ag_9af0b0f29bb39a65",
+          "b": "ag_b32cfbe93f1cfa07",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        },
+        {
+          "a": "ag_9b067b9135c2f0c3",
+          "b": "ag_b6b5d983674b0fa9",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        },
+        {
+          "a": "ag_9af0b0f29bb39a65",
+          "b": "ag_9b067b9135c2f0c3",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        },
+        {
+          "a": "ag_b32cfbe93f1cfa07",
+          "b": "ag_d9cced2c3572df79",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        }
+      ],
+      "evidence_event_ids": [
+        "e0049966",
+        "e0049967",
+        "e0049968",
+        "e0049969",
+        "e0049972",
+        "e0049973",
+        "e0049974",
+        "e0049975",
+        "e0049994",
+        "e0049995",
+        "e0049996",
+        "e0049997"
+      ],
+      "mean_weight": 0.6,
+      "members": [
+        "ag_9af0b0f29bb39a65",
+        "ag_9b067b9135c2f0c3",
+        "ag_b32cfbe93f1cfa07",
+        "ag_b6b5d983674b0fa9",
+        "ag_d9cced2c3572df79"
+      ],
+      "reasons": [
+        "ag_9af0b0f29bb39a65 and ag_9b067b9135c2f0c3: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)",
+        "ag_9af0b0f29bb39a65 and ag_b32cfbe93f1cfa07: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)",
+        "ag_9b067b9135c2f0c3 and ag_b6b5d983674b0fa9: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)",
+        "ag_b32cfbe93f1cfa07 and ag_d9cced2c3572df79: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)"
+      ]
+    },
+    "components": {
+      "graph_density": 0.6,
+      "isolation_forest": 0.3901,
+      "rules": 0.0,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-248c35348683",
+    "priority_band": "review",
+    "recommended_action": "human_review",
+    "rule_flags": [],
+    "score": 0.5814,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_36e044b789791178",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": {
+      "atlas": [],
+      "density": 0.6,
+      "edge_kinds": [
+        "semantic_state"
+      ],
+      "edges": [
+        {
+          "a": "ag_36e044b789791178",
+          "b": "ag_5251462ecf89c432",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        },
+        {
+          "a": "ag_36e044b789791178",
+          "b": "ag_9f63fe232924f3f0",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        },
+        {
+          "a": "ag_9f63fe232924f3f0",
+          "b": "ag_a1497de2a20fdea1",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        },
+        {
+          "a": "ag_44601abe5ce7b5ef",
+          "b": "ag_5251462ecf89c432",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        }
+      ],
+      "evidence_event_ids": [
+        "e0049910",
+        "e0049911",
+        "e0049912",
+        "e0049913",
+        "e0049916",
+        "e0049917",
+        "e0049918",
+        "e0049919",
+        "e0049896",
+        "e0049897",
+        "e0049898",
+        "e0049899"
+      ],
+      "mean_weight": 0.6,
+      "members": [
+        "ag_36e044b789791178",
+        "ag_44601abe5ce7b5ef",
+        "ag_5251462ecf89c432",
+        "ag_9f63fe232924f3f0",
+        "ag_a1497de2a20fdea1"
+      ],
+      "reasons": [
+        "ag_36e044b789791178 and ag_5251462ecf89c432: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)",
+        "ag_36e044b789791178 and ag_9f63fe232924f3f0: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)",
+        "ag_44601abe5ce7b5ef and ag_5251462ecf89c432: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)",
+        "ag_9f63fe232924f3f0 and ag_a1497de2a20fdea1: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)"
+      ]
+    },
+    "components": {
+      "graph_density": 0.6,
+      "isolation_forest": 0.3833,
+      "rules": 0.0,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-a9b764f39c1a",
+    "priority_band": "review",
+    "recommended_action": "human_review",
+    "rule_flags": [],
+    "score": 0.5797,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_a1497de2a20fdea1",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": {
+      "atlas": [],
+      "density": 0.6,
+      "edge_kinds": [
+        "semantic_state"
+      ],
+      "edges": [
+        {
+          "a": "ag_36e044b789791178",
+          "b": "ag_5251462ecf89c432",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        },
+        {
+          "a": "ag_36e044b789791178",
+          "b": "ag_9f63fe232924f3f0",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        },
+        {
+          "a": "ag_9f63fe232924f3f0",
+          "b": "ag_a1497de2a20fdea1",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        },
+        {
+          "a": "ag_44601abe5ce7b5ef",
+          "b": "ag_5251462ecf89c432",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        }
+      ],
+      "evidence_event_ids": [
+        "e0049910",
+        "e0049911",
+        "e0049912",
+        "e0049913",
+        "e0049916",
+        "e0049917",
+        "e0049918",
+        "e0049919",
+        "e0049896",
+        "e0049897",
+        "e0049898",
+        "e0049899"
+      ],
+      "mean_weight": 0.6,
+      "members": [
+        "ag_36e044b789791178",
+        "ag_44601abe5ce7b5ef",
+        "ag_5251462ecf89c432",
+        "ag_9f63fe232924f3f0",
+        "ag_a1497de2a20fdea1"
+      ],
+      "reasons": [
+        "ag_36e044b789791178 and ag_5251462ecf89c432: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)",
+        "ag_36e044b789791178 and ag_9f63fe232924f3f0: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)",
+        "ag_44601abe5ce7b5ef and ag_5251462ecf89c432: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)",
+        "ag_9f63fe232924f3f0 and ag_a1497de2a20fdea1: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)"
+      ]
+    },
+    "components": {
+      "graph_density": 0.6,
+      "isolation_forest": 0.3715,
+      "rules": 0.0,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-7c77116da6d1",
+    "priority_band": "review",
+    "recommended_action": "human_review",
+    "rule_flags": [],
+    "score": 0.5766,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_b32cfbe93f1cfa07",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": {
+      "atlas": [],
+      "density": 0.6,
+      "edge_kinds": [
+        "semantic_state"
+      ],
+      "edges": [
+        {
+          "a": "ag_9af0b0f29bb39a65",
+          "b": "ag_b32cfbe93f1cfa07",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        },
+        {
+          "a": "ag_9b067b9135c2f0c3",
+          "b": "ag_b6b5d983674b0fa9",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        },
+        {
+          "a": "ag_9af0b0f29bb39a65",
+          "b": "ag_9b067b9135c2f0c3",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        },
+        {
+          "a": "ag_b32cfbe93f1cfa07",
+          "b": "ag_d9cced2c3572df79",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        }
+      ],
+      "evidence_event_ids": [
+        "e0049966",
+        "e0049967",
+        "e0049968",
+        "e0049969",
+        "e0049972",
+        "e0049973",
+        "e0049974",
+        "e0049975",
+        "e0049994",
+        "e0049995",
+        "e0049996",
+        "e0049997"
+      ],
+      "mean_weight": 0.6,
+      "members": [
+        "ag_9af0b0f29bb39a65",
+        "ag_9b067b9135c2f0c3",
+        "ag_b32cfbe93f1cfa07",
+        "ag_b6b5d983674b0fa9",
+        "ag_d9cced2c3572df79"
+      ],
+      "reasons": [
+        "ag_9af0b0f29bb39a65 and ag_9b067b9135c2f0c3: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)",
+        "ag_9af0b0f29bb39a65 and ag_b32cfbe93f1cfa07: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)",
+        "ag_9b067b9135c2f0c3 and ag_b6b5d983674b0fa9: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)",
+        "ag_b32cfbe93f1cfa07 and ag_d9cced2c3572df79: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)"
+      ]
+    },
+    "components": {
+      "graph_density": 0.6,
+      "isolation_forest": 0.3688,
+      "rules": 0.0,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-6d5637ec6f3e",
+    "priority_band": "review",
+    "recommended_action": "human_review",
+    "rule_flags": [],
+    "score": 0.5759,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_44601abe5ce7b5ef",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": {
+      "atlas": [],
+      "density": 0.6,
+      "edge_kinds": [
+        "semantic_state"
+      ],
+      "edges": [
+        {
+          "a": "ag_36e044b789791178",
+          "b": "ag_5251462ecf89c432",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        },
+        {
+          "a": "ag_36e044b789791178",
+          "b": "ag_9f63fe232924f3f0",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        },
+        {
+          "a": "ag_9f63fe232924f3f0",
+          "b": "ag_a1497de2a20fdea1",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        },
+        {
+          "a": "ag_44601abe5ce7b5ef",
+          "b": "ag_5251462ecf89c432",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        }
+      ],
+      "evidence_event_ids": [
+        "e0049910",
+        "e0049911",
+        "e0049912",
+        "e0049913",
+        "e0049916",
+        "e0049917",
+        "e0049918",
+        "e0049919",
+        "e0049896",
+        "e0049897",
+        "e0049898",
+        "e0049899"
+      ],
+      "mean_weight": 0.6,
+      "members": [
+        "ag_36e044b789791178",
+        "ag_44601abe5ce7b5ef",
+        "ag_5251462ecf89c432",
+        "ag_9f63fe232924f3f0",
+        "ag_a1497de2a20fdea1"
+      ],
+      "reasons": [
+        "ag_36e044b789791178 and ag_5251462ecf89c432: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)",
+        "ag_36e044b789791178 and ag_9f63fe232924f3f0: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)",
+        "ag_44601abe5ce7b5ef and ag_5251462ecf89c432: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)",
+        "ag_9f63fe232924f3f0 and ag_a1497de2a20fdea1: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)"
+      ]
+    },
+    "components": {
+      "graph_density": 0.6,
+      "isolation_forest": 0.3622,
+      "rules": 0.0,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-a0ce200da32b",
+    "priority_band": "review",
+    "recommended_action": "human_review",
+    "rule_flags": [],
+    "score": 0.5742,
+    "sequence": null,
+    "severity": "low"
+  },
+  {
+    "agent": "ag_9b067b9135c2f0c3",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": {
+      "atlas": [],
+      "density": 0.6,
+      "edge_kinds": [
+        "semantic_state"
+      ],
+      "edges": [
+        {
+          "a": "ag_9af0b0f29bb39a65",
+          "b": "ag_b32cfbe93f1cfa07",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        },
+        {
+          "a": "ag_9b067b9135c2f0c3",
+          "b": "ag_b6b5d983674b0fa9",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        },
+        {
+          "a": "ag_9af0b0f29bb39a65",
+          "b": "ag_9b067b9135c2f0c3",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        },
+        {
+          "a": "ag_b32cfbe93f1cfa07",
+          "b": "ag_d9cced2c3572df79",
+          "content_cosine": 0.0,
+          "kind": "semantic_state",
+          "shared_windows": 0,
+          "state_tokens": 4,
+          "timing_neg_log10_p": 0.0,
+          "weight": 0.6
+        }
+      ],
+      "evidence_event_ids": [
+        "e0049966",
+        "e0049967",
+        "e0049968",
+        "e0049969",
+        "e0049972",
+        "e0049973",
+        "e0049974",
+        "e0049975",
+        "e0049994",
+        "e0049995",
+        "e0049996",
+        "e0049997"
+      ],
+      "mean_weight": 0.6,
+      "members": [
+        "ag_9af0b0f29bb39a65",
+        "ag_9b067b9135c2f0c3",
+        "ag_b32cfbe93f1cfa07",
+        "ag_b6b5d983674b0fa9",
+        "ag_d9cced2c3572df79"
+      ],
+      "reasons": [
+        "ag_9af0b0f29bb39a65 and ag_9b067b9135c2f0c3: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)",
+        "ag_9af0b0f29bb39a65 and ag_b32cfbe93f1cfa07: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)",
+        "ag_9b067b9135c2f0c3 and ag_b6b5d983674b0fa9: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)",
+        "ag_b32cfbe93f1cfa07 and ag_d9cced2c3572df79: 4 token(s) issued only to one session were presented by the other (edge weight 0.60)"
+      ]
+    },
+    "components": {
+      "graph_density": 0.6,
+      "isolation_forest": 0.3277,
+      "rules": 0.0,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "lead_id": "lead-8549be3c045f",
+    "priority_band": "review",
+    "recommended_action": "human_review",
+    "rule_flags": [],
+    "score": 0.5652,
+    "sequence": null,
+    "severity": "low"
+  }
+]

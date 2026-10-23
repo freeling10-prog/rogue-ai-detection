@@ -154,10 +154,14 @@ def test_below_gate_sequence_score_is_ignored():
 
 
 def test_two_unsupervised_signals_together_can_raise_a_low_severity_lead_only():
-    """Documented design choice: IF + sequence both at maximum clear the threshold, and the lead is still low severity/human review."""
+    """Documented design choice: IF + sequence both at maximum clear the threshold, and the lead is still low severity/human review.
+    v4 EDIT (deliberate): this was true of the v3 fusion only; the v4 two-signal corroboration gate now blocks a purely statistical
+    lead by default (IF + sequence are ONE family), so the original behaviour is asserted with the gate switched off, and the
+    new default is asserted right after (see also tests/test_v4_pipeline.py)."""
     anom = {"x": AgentAnomaly("x", 0.9, 1.0, True)}
     seq = {"x": SequenceResult("x", 1.0, 9.0, 4.0, 40)}
-    leads = fuse(FusionCfg(), anom, [], [], "t", seq, 0.6)
+    assert fuse(FusionCfg(), anom, [], [], "t", seq, 0.6) == []
+    leads = fuse(FusionCfg(corroboration_gate=False), anom, [], [], "t", seq, 0.6)
     assert len(leads) == 1 and leads[0].severity == "low" and leads[0].automatic_action == "none"
     assert leads[0].components["sequence"] == 1.0 and leads[0].sequence["score"] == 1.0
 

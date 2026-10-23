@@ -20,6 +20,9 @@ Rules (all deterministic, no learning):
                                      CSS/JS/image/favicon (stronger when Sec-Fetch-* is also wrong)
   R9  unlinked_jump                  (web) >= N per-transition moves to a URL that no page ever offered this client, without a
                                      valid Referer (breadth-first queue moves that were offered earlier do not count)
+  R11 browser_agent_inconsistency    (web, v4) a client that fetches HTML + scripts/styles like a browser but reports webdriver /
+                                     automation properties through the interaction beacon, hits the ARIA canary, or clicks through
+                                     several pages on a beacon-offering site without ever sending the beacon (weak, corroborate!)
   R10 strong_signal_floor            (web) a SINGLE high-signal event (decoy contact, session canary, schema parameter,
                                      error-hint follow, MCP tools/call) - sets a score FLOOR in fusion that benign padding
                                      cannot dilute.  A lone hidden-link/decoy contact gets the lower "weak" floor.
@@ -32,7 +35,7 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Dict, FrozenSet, List, Optional, Sequence, Set
+from typing import Dict, FrozenSet, List, Mapping, Optional, Sequence, Set
 
 from .atlas import ATLAS_MAPPING_NOTE, ATLAS_TECHNIQUES, atlas_ref
 from .config import Layer2Cfg, ResolvedPolicy, ToolsCfg, WebCfg
@@ -80,6 +83,53 @@ def _strength(base: float, n: int) -> float:
     return round(min(1.0, base + 0.05 * max(0, n - 1)), 3)
 
 
+class LinkGraph:
+    """Empirical link graph (v4) learned from Referer transitions in the benign reference population when the collector recorded no
+    offered links.  Everything is pseudonymous resource keys.  Leave-one-out: when judging client A, A's own transitions never
+    support A's moves (support must come from >= ``link_min_support`` OTHER clients), so a client cannot validate itself."""
+
+    def __init__(self) -> None:
+        self.edges: Dict[tuple, Set[str]] = {}       # (referer_key, resource_key) -> clients that took it
+        self.direct: Dict[str, Set[str]] = {}        # resource_key -> clients that requested it with no referer
+        self.agents: Set[str] = set()
+
+    @classmethod
+    def learn(cls, by_agent: Mapping[str, Sequence[NormalizedEvent]]) -> "LinkGraph":
+        g = cls()
+        for a, evs in by_agent.items():
+            for e in evs:
+                w = e.web
+                if w is None or w.content_kind != "html" or e.status != "allowed" or w.linked_from_prev is not None:
+                    continue
+                g.agents.add(a)
+                if w.referer_key:
+                    g.edges.setdefault((w.referer_key, w.path_key or e.resource_key), set()).add(a)
+                else:
+                    g.direct.setdefault(w.path_key or e.resource_key, set()).add(a)
+        return g
+
+    def merged(self, other: "LinkGraph") -> "LinkGraph":
+        g = LinkGraph()
+        for src in (self, other):
+            for k, v in src.edges.items():
+                g.edges.setdefault(k, set()).update(v)
+            for k2, v2 in src.direct.items():
+                g.direct.setdefault(k2, set()).update(v2)
+            g.agents |= src.agents
+        return g
+
+    def usable(self, w: WebCfg) -> bool:
+        return len(self.agents) >= 2 * w.link_min_support
+
+    def allowed(self, agent: str, e: NormalizedEvent, w: WebCfg) -> bool:
+        wf = e.web
+        if wf is None or wf.is_entry:
+            return True
+        if wf.referer_key:
+            return len(self.edges.get((wf.referer_key, wf.path_key or e.resource_key), set()) - {agent}) >= w.link_min_support
+        return len(self.direct.get(wf.path_key or e.resource_key, set()) - {agent}) >= w.link_min_support
+
+
 class RuleEngine:
     def __init__(self, cfg: Layer2Cfg, tools: ToolsCfg, policy: ResolvedPolicy, web: Optional[WebCfg] = None) -> None:
         self.cfg = cfg
@@ -87,6 +137,7 @@ class RuleEngine:
         self.write_tools: FrozenSet[str] = frozenset(tools.write_tools)
         self.policy = policy
         self.exempted: Counter = Counter()      # rule id -> events that WOULD have been evidence but were allowlisted
+        self.link_graph: Optional["LinkGraph"] = None   # v4: empirical link graph for the R9 fallback (set by the pipeline)
 
     def _exempt(self, e: NormalizedEvent, rule: str) -> bool:
         """Per-event allowlist (verified identity / IP / ASN), decided during normalization. Only the single event
@@ -127,8 +178,10 @@ class RuleEngine:
         flags += self._r7(agent, evs)
         if self.web.enabled:
             flags += self._r8(agent, evs)
-            flags += self._r9(agent, evs)
+            r9 = self._r9(agent, evs)
+            flags += r9 or self._r9_fallback(agent, evs)
             flags += self._r10(agent, evs)
+            flags += self._r11(agent, evs)
         return flags
 
     def evaluate(self, by_agent: Dict[str, List[NormalizedEvent]]) -> List[RuleFlag]:
@@ -286,27 +339,49 @@ class RuleEngine:
             [_ev(e) for e in caps[: self.cfg.max_evidence]], extra=extra)]
 
     # -- R8 / R9 / R10: web-collector evidence (single facts, not session averages) -----------------------------------
+    def _core(self, e: NormalizedEvent) -> bool:
+        """Is this a CSS/JS (core rendering) asset fetch?  Legacy events without an asset kind count as core."""
+        w = e.web
+        return w is not None and w.content_kind == "asset" and (w.asset_kind is None or w.asset_kind in self.web.core_asset_kinds)
+
     def _r8(self, agent: str, evs: Sequence[NormalizedEvent]) -> List[RuleFlag]:
+        """v4: selective blocking is NOT starvation.  A browser-claiming client that loaded core CSS/JS, or whose Sec-Fetch-* headers
+        are valid and coherent, is not flagged merely for skipping images (image-blocking humans, data-saver modes, reader modes).
+        R8 is reserved for >= N HTML pages with no core asset AND missing/incoherent Sec-Fetch-*, or contradictory Sec-Fetch-* headers."""
         w = self.web
         web = [e for e in evs if e.web is not None]
-        if not web or any(e.web is not None and e.web.content_kind == "asset" for e in web):
-            return []
-        if not any(e.web is not None and e.web.ua_class == "browser" for e in web):
+        if not web or not any(e.web is not None and e.web.ua_class == "browser" for e in web):
             return []                          # a client that declares itself a script/bot is not pretending to be a browser
         pages = [e for e in web if e.web is not None and e.web.content_kind == "html" and e.status == "allowed"]
         if len(pages) < w.asset_starvation_min_pages:
             return []
         checked = [e for e in pages if e.web is not None and e.web.sec_fetch_mismatch is not None]
         mism = [e for e in checked if e.web is not None and e.web.sec_fetch_mismatch]
+        contra = [e for e in pages if e.web is not None and e.web.sec_fetch_state == "contradictory"]
+        coherent = [e for e in pages if e.web is not None and e.web.sec_fetch_state == "coherent"]
+        n_core = sum(1 for e in web if self._core(e))
+        extra: Dict[str, object] = {"pages": len(pages), "sec_fetch_mismatch": len(mism), "sec_fetch_checked": len(checked),
+                 "contradictory": len(contra), "core_assets": n_core}
+        note = (" Contact/behaviour evidence only: text-mode browsers, reader modes and ad-blockers look the same.")
+        if len(contra) >= 3 and len(contra) / len(pages) >= 0.5:
+            return [RuleFlag(
+                "R8", "Browser-like client with contradictory Sec-Fetch headers", agent, [atlas_ref("AML.T0075")],
+                w.strength_asset_starvation_sec_fetch,
+                f"{len(contra)}/{len(pages)} page loads carry Sec-Fetch-* headers that contradict a top-level navigation "
+                f"(e.g. Dest/Mode of an embedded sub-resource on a document request), with a browser-like User-Agent." + note,
+                [_ev(e) for e in contra[: self.cfg.max_evidence]], extra=extra)]
+        if n_core:
+            return []                          # it rendered the page: only images (or nothing else) were skipped
+        if coherent and len(coherent) / len(pages) >= 0.8:
+            return []                          # valid, coherent Sec-Fetch-Dest: document / Mode: navigate on (nearly) every page load
         sec = bool(checked) and len(mism) / len(checked) >= 0.5
         return [RuleFlag(
-            "R8", "Browser-like client that never fetches page assets", agent, [atlas_ref("AML.T0075")],
+            "R8", "Browser-like client that never fetches CSS/JS", agent, [atlas_ref("AML.T0075")],
             w.strength_asset_starvation_sec_fetch if sec else w.strength_asset_starvation,
-            f"{len(pages)} HTML pages requested with a browser-like User-Agent and zero CSS/JS/image/favicon fetches"
+            f"{len(pages)} HTML pages requested with a browser-like User-Agent and zero CSS/JS fetches"
             + (f"; {len(mism)}/{len(checked)} page loads also lack the Sec-Fetch-* headers a browser sends" if checked else
-               "; Sec-Fetch-* headers were not supplied by the collector (not checked)")
-            + ". Contact/behaviour evidence only: text-mode browsers, reader modes and ad-blockers look the same.",
-            [_ev(e) for e in pages[: self.cfg.max_evidence]], extra={"pages": len(pages), "sec_fetch_mismatch": len(mism), "sec_fetch_checked": len(checked)})]
+               "; Sec-Fetch-* headers were not supplied by the collector (not checked)") + "." + note,
+            [_ev(e) for e in pages[: self.cfg.max_evidence]], extra=extra)]
 
     def _r9(self, agent: str, evs: Sequence[NormalizedEvent]) -> List[RuleFlag]:
         w = self.web
@@ -322,6 +397,81 @@ class RuleEngine:
             f"({earlier} further queue-style move(s) to URLs offered earlier were not counted). Consistent with guessed or "
             f"remembered URLs; a person who types addresses does the same.",
             [_ev(e) for e in never[: self.cfg.max_evidence]], extra={"never_offered": len(never), "offered_earlier": earlier})]
+
+    def _r9_fallback(self, agent: str, evs: Sequence[NormalizedEvent]) -> List[RuleFlag]:
+        """v4: R9 when the collector recorded no offered links (ordinary nginx/Apache logs).  The allowed link graph is inferred
+        from Referer transitions other clients took in the benign reference (``LinkGraph``); an HTML move that is not an entry
+        point, is not a transition >= ``link_min_support`` other clients took, and is not a popular direct-landing page counts
+        as a jump.  Noisier than the exact graph (hence higher count, lower strength): it only knows what the log population shows."""
+        w, g = self.web, self.link_graph
+        if not w.link_graph_fallback or g is None or not g.usable(w):
+            return []
+        pages = [e for e in evs if e.web is not None and e.web.content_kind == "html" and e.status == "allowed"
+                 and e.web.linked_from_prev is None and e.web.offered_earlier is None]
+        if len(pages) < w.link_fallback_min_jumps:
+            return []
+        jumps = [e for e in pages if e.web is not None and not g.allowed(agent, e, w)]
+        if len(jumps) < w.link_fallback_min_jumps:
+            return []
+        return [RuleFlag(
+            "R9", "Moves to URLs that no observed navigation path leads to (inferred link graph)", agent, [atlas_ref("AML.T0075")],
+            w.link_fallback_strength,
+            f"{len(jumps)} of {len(pages)} page moves went to a URL that other clients reach only by direct landing or by a different "
+            f"referring page, and that this client did not reach through a known Referer transition. The link graph here is INFERRED from "
+            f"benign Referer transitions (no offered-links record exists in this log), so a person with bookmarks looks the same.",
+            [_ev(e) for e in jumps[: self.cfg.max_evidence]], extra={"fallback": True, "jumps": len(jumps), "pages": len(pages)})]
+
+    def _r11(self, agent: str, evs: Sequence[NormalizedEvent]) -> List[RuleFlag]:
+        """v4: browser-backed mimic detection from the minimal interaction beacon and the ARIA canary.  Strong signals (a client
+        that reports webdriver/automation properties, or follows the visually-muted ARIA fast-path link while loading page
+        assets like a browser) get the strong floor; 'clicked through pages on a beacon-offering site and never sent the beacon' is
+        weak (JS-disabled humans and privacy tools do exactly this) and gets the weak floor, so it needs corroboration."""
+        w = self.web
+        web = [e for e in evs if e.web is not None]
+        if not web or not any(e.web is not None and e.web.ua_class == "browser" for e in web):
+            return []
+        pages = [e for e in web if e.web is not None and e.web.content_kind == "html" and e.status == "allowed"]
+        beacons = [e for e in web if e.web is not None and e.web.content_kind == "beacon" and e.web.beacon is not None]
+        loaded_js = any(e.web is not None and e.web.content_kind == "asset" and e.web.asset_kind == "js" for e in web)
+        loaded_core = any(self._core(e) for e in web)
+        reasons: List[str] = []
+        ev: List[NormalizedEvent] = []
+        strong = False
+        for e in beacons:
+            b = e.web.beacon if e.web is not None else None
+            if b is None:
+                continue
+            if b[0]:                           # (webdriver_present, pointer_trail_seen, dom_automation_props)
+                reasons.append("webdriver_present"); ev.append(e); strong = True
+            if b[2]:
+                reasons.append("dom_automation_props"); ev.append(e); strong = True
+        aria = [e for e in web if e.web is not None and e.web.strong_signal == "aria_fastpath"]
+        if aria and (loaded_core or len(pages) >= 2):
+            reasons.append("aria_canary_hit"); ev += aria; strong = True
+        if not strong:
+            navs = [e for e in pages if e.web is not None and e.web.referer_present]
+            offered = any(e.web is not None and e.web.beacon_offered for e in pages)
+            coherent = bool(pages) and all(e.web is not None and e.web.sec_fetch_state == "coherent" for e in pages)
+            if offered and not beacons and len(navs) >= w.beacon_min_navs:
+                if loaded_js:
+                    reasons.append("beacon_missing_after_script_fetch"); ev += navs
+                elif not loaded_core and not coherent and len(pages) >= w.asset_starvation_min_pages:
+                    reasons.append("no_render_no_beacon"); ev += navs
+        if not reasons:
+            return []
+        uniq = sorted(set(reasons))
+        floor = w.floor_strong if strong else w.floor_weak
+        return [RuleFlag(
+            "R11", "Browser-backed client behaving like automation" if strong else "Browser-like client with navigation but no beacon", agent,
+            [atlas_ref("AML.T0075")], round(max(w.strength_browser_inconsistency, floor if strong else 0.0), 3),
+            f"Signals: {uniq}. " + ("The client reported automation properties through the beacon, or followed a visually-muted ARIA decoy "
+                                    "a person does not normally activate (a screen-reader user can; the decoy is read-only, synthetic)."
+                                    if strong else
+                                    "Clicked through pages and fetched/rendered like a browser but never sent the tiny interaction beacon. "
+                                    "JS-disabled humans, privacy tools and blocked beacons do this too: weak evidence, queue-only, corroborate.")
+            + " Contact/behaviour evidence only, not intent.",
+            [_ev(e) for e in ev[: self.cfg.max_evidence]],
+            extra={"floor": round(floor, 3) if w.floors_enabled else None, "tier": "strong" if strong else "weak", "reasons": uniq})]
 
     def _r10(self, agent: str, evs: Sequence[NormalizedEvent]) -> List[RuleFlag]:
         w = self.web
@@ -351,6 +501,6 @@ RULE_ATLAS: Dict[str, List[str]] = {
     "R1": ["AML.T0051"], "R2": ["AML.T0053"], "R3": ["AML.T0086"], "R4": ["AML.T0051"], "R5": ["AML.T0075"],
     # R6/R7 emit a subset of these depending on the evidence (T0051 is always present)
     "R6": ["AML.T0051", "AML.T0053", "AML.T0086"], "R7": ["AML.T0051", "AML.T0053", "AML.T0086"],
-    "R8": ["AML.T0075"], "R9": ["AML.T0075"], "R10": ["AML.T0075"],
+    "R8": ["AML.T0075"], "R9": ["AML.T0075"], "R10": ["AML.T0075"], "R11": ["AML.T0075"],
 }
 assert all(t in ATLAS_TECHNIQUES for ts in RULE_ATLAS.values() for t in ts)

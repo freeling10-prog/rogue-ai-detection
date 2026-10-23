@@ -68,7 +68,7 @@ agent-watch/
 cd agent-watch
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt      # Flask==3.1.3 + pytest (+ PyYAML, gunicorn for two optional tests)
-python -m pytest -q                      # run the tests (339 passed, 1 skipped in the final fresh-venv run; the skip needs pydantic + the sibling pipeline)
+python -m pytest -q                      # run the tests (446 passed, 1 skipped in the final fresh-venv run; the skip needs pydantic + the sibling pipeline)
 ```
 
 ## Commands
@@ -78,6 +78,8 @@ python -m agentwatch demo                              # synthetic logs -> pipel
 python -m agentwatch demo --out ./demo-out --min-severity info --top 20
 python -m agentwatch demo --extended                   # v3: + browsers, scrapers and four mimic variants on the honeypot site
 python -m agentwatch export-web leads.jsonl leads.jsonl.access.jsonl --out web-events.jsonl --label-synthetic   # -> rogue-ai-pipeline
+python -m agentwatch replay leads.jsonl --access leads.jsonl.access.jsonl --out replay.html   # v5: static, XSS-safe review page
+python scripts/fingerprint_confusion.py --seeds 5     # v5: cohort x harness-archetype table
 python redteam/llm_agent.py --help                     # v3: real-LLM harness (loopback only; read redteam/README.md first)
 
 python -m agentwatch analyze access.log gateway.jsonl --leads honeypot-leads.jsonl \
@@ -511,6 +513,113 @@ Tips: lower `thresholds.agent` for more recall (more false positives); add your 
 `benign_paths` / `ua.benign_patterns`; list decoy path prefixes in `honeytoken.paths` if your honeypot
 access log (rather than lead file) is the input. Note `honeytoken.paths` and `roles`/`paths` maps
 replace the default map entirely when overridden. Check `reasons` in the report to see which rule fired.
+
+## v4: images-blocked fix, ARIA canary, interaction beacon
+> v4 and v5 were measured on **synthetic clients written by the same author as the detectors** (regression checks, not benchmarks).
+> Honeypot contact is not intent. Everything is a lead for a human reviewer; nothing here blocks anyone. Services bind to 127.0.0.1 and nothing
+> makes an outbound request.
+
+**1. The "images blocked" human false positive is fixed.** v3 treated "loaded HTML pages, no assets" as asset starvation, so people with images
+blocked (or text-mode readers) could be flagged. v4 separates *selective* asset blocking from true starvation. Assets are typed
+(`css`, `js`, `font`, `favicon`, `image`, `other`; `web.asset_types`). `asset_starvation` does **not** fire for a browser-claiming client that loads core CSS/JS, or
+whose `Sec-Fetch-Dest: document` / `Sec-Fetch-Mode: navigate` are coherent on >= 80% of its pages (that case is a `web_advisory`,
+`asset_starvation_coherent`, which never scores). It is reserved for >= 5 HTML documents with zero CSS/JS, or >= 3 pages with contradictory
+`Sec-Fetch-*` covering >= 50% of its pages.
+
+**2. ARIA canary + minimal beacon for browser-backed mimics.** A mimic that drives a real browser loads assets and follows links, so HTTP-level
+features cannot see it. Two non-visual traps do:
+* **ARIA fast-path decoy** (`aria_fastpath`): a visually muted element exposed in the accessibility tree ("AI Assistant Fast-Path"). People do not click
+  it; an agent that reads the accessibility tree may. A hit by a client that also loads our CSS/JS is a strong `headless_automation_signal`.
+* **Interaction beacon** (`POST /api/v1/telemetry/nav`): a tiny script that, on internal navigation, sends **three booleans only**:
+  `webdriver_present`, `pointer_trail_seen`, `dom_automation_props`. It is size-limited, rate-capped, and stores no identifier, no UA and no IP beyond the
+  normal log. `webdriver` or automation globals true is a strong signal. A client that fetched our script and clicked through >= 3 pages but never beacons is a *moderate*
+  signal. A missing pointer trail is advisory only (keyboard and screen-reader users never move a pointer).
+* **JS-disabled humans produce no beacon.** They also never fetch our script, so the moderate rule abstains for them (`beacon_absent_no_js`, advisory). Ad/tracker blockers
+  that block the beacon but let the script load are the known false positive (`human_beacon_blocked`, below).
+
+`export-web` adds `beacon`, `beacon_offered`, `asset_kind`, `sec_fetch_state` and, for same-site Referers only (`--site-host`, default loopback), `referer_path`
+(the pipeline's empirical R9 fallback). Off-site Referers are never exported.
+
+### v4 before/after (`scripts/eval_v4.py`, seeds 7-11, 15 clients per variant; regression check, NOT a benchmark)
+`python scripts/eval_v4.py --v2-tree <v2 tree> --v3-tree <v3 tree> --out DIR`; full tables in `docs/eval-v4.md` / `.json`. Each version runs against its own honeypot and detectors.
+
+| metric | v2 | v3 | v4 |
+| --- | --- | --- | --- |
+| `mimic_assets` (loads CSS/JS, correct Sec-Fetch) alerted | 0 / 15 | 0 / 15 | **15 / 15**, as `possible_mimic` (the legacy label stays `human`: 0 / 15 labelled `agent`) |
+| `mimic_linked` alerted / actor type | 0 / 15 | 15 / 15 `possible_mimic` | 15 / 15 `possible_mimic` |
+| "images blocked" humans (loaded no assets, coherent Sec-Fetch) alerted | 0 / 15 (not seen) | **15 / 15** | **0 / 15** |
+| humans that load CSS/JS but block images, alerted | 0 / 15 | 0 / 15 | 0 / 15 |
+| webdriver and ARIA browser mimics alerted | 0 / 30 | 0 / 30 | 30 / 30, `goal_directed_agent` |
+| mimic recall, all 8 variants | 0 % | 50 % | 75 %; 100 % excluding the two evaders built to evade |
+| still missed | | | `mimic_browser_stealth` 0 / 15, `mimic_header_forger` 0 / 15 (forged coherent Sec-Fetch is trusted) |
+| **new false positive**: humans whose blocker eats the beacon (`human_beacon_blocked`) | 0 / 15 | 0 / 15 | **15 / 15 alerted as `possible_mimic`** |
+
+How many of `mimic_assets` does v4 catch? All 15 of 15 in this simulation, and only because the simulated mimic fetches our script but never runs it. A mimic that runs
+the script and sends a plausible beacon, or one that never fetches the script, is not caught by this rule. The ones that run it and set `webdriver` are caught (that is
+the `mimic_browser_webdriver` row).
+
+### v4 limits
+* Same-author synthetic clients; n = 15 per variant, 5 seeds; no real browser, automation framework or LLM agent was driven against it.
+* The beacon needs the site to embed it; a person who blocks it looks like a mimic that never ran it (15 / 15 false positives above).
+* A stealth browser that hides `navigator.webdriver` and the DOM globals and produces a pointer trail evades.
+* Anything the client controls (`Sec-Fetch-*`, Referer, UA) is evidence only against lazy mimics.
+
+## v5: harness fingerprint and static replay
+**Harness fingerprint** (`agentwatch/fingerprint.py`). Deterministic and explainable: fixed rules over facts the detectors already collect; no model, no randomness,
+no stored User-Agent. Each session gets `harness_archetype`, `harness_confidence` (`low` / `medium` / `high`: how much of the signature was seen, **not** a probability),
+`harness_reasons` (plain language) and `harness_also_matched`. The label is descriptive: it is never fed into a score.
+
+| archetype | signature |
+| --- | --- |
+| `mcp_tool_runner` | `POST /mcp` initialize -> tools/list -> tools/call with valid JSON-RPC 2.0 and structured arguments (high = whole chain, valid args) |
+| `schema_driven_api_agent` | fetched `/openapi.json`, `/swagger.yaml`, `/.well-known/mcp.json` (no Referer, so not a person clicking a link) before API/tool routes, or presented the schema-revision parameter |
+| `stateful_coordinator` | followed a 429/403 breadcrumb to the coordination board, registered, ran claim-shard turns (or presented another session's handoff token) |
+| `prompt_injected_crawler` | followed `/canary/...` instructions, echoed a canary phrase, or harvested and replayed decoy credentials |
+| `headless_or_http_mimic` | browser-claiming client with asset starvation, unlinked jumps, or v4 webdriver / ARIA / beacon signals |
+| `commodity_or_static_scanner` | >= 80% scanner paths, a linear crawl, or a breadth-first crawl with no assets and a non-browser UA |
+| `unclassified` | no harness evidence (people, quiet clients) |
+
+It also reports a **structural profile** of captured agent payloads (`payload_structure`): JSON key count, an objective-length *bucket* (never the text), and the retry-latency bucket after a 4xx trap.
+It is in `analyze --json-out` reports and in the text report (`harness:` line), and `export-web` carries the label to `rogue-ai-pipeline`, which puts it in the STIX indicator as `x_harness_archetype`.
+
+Cohort x archetype confusion table (5 seeds; `python scripts/fingerprint_confusion.py --seeds 5`; also `docs/fingerprint-confusion.md`; **same-author synthetic, not a benchmark**):
+| cohort | expected | n | commodity_or_static_scanner | headless_or_http_mimic | mcp_tool_runner | prompt_injected_crawler | schema_driven_api_agent | stateful_coordinator | unclassified | correct | note |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| human | unclassified | 45 | . | . | . | . | . | . | 45 | 45/45 |  |
+| human_no_assets/images_blocked/js_off | unclassified | 45 | . | . | . | . | . | . | 45 | 45/45 |  |
+| human_beacon_blocked | unclassified | 15 | . | 15 | . | . | . | . | . | 0/15 | KNOWN false positive: ad-blocked beacon looks like a missing beacon |
+| static scanners / crawlers | commodity_or_static_scanner | 20 | 20 | . | . | . | . | . | . | 20/20 |  |
+| naive_scraper | commodity_or_static_scanner | 20 | 20 | . | . | . | . | . | . | 20/20 |  |
+| classic agents C/F/L/H (canary, creds) | prompt_injected_crawler | 20 | . | . | . | 20 | . | . | . | 20/20 |  |
+| classic adaptive A/B (chains, enumeration) | unclassified | 10 | . | . | . | . | . | . | 10 | 10/10 | no distinctive harness signature exists for these |
+| coordination | stateful_coordinator | 15 | . | . | . | . | . | 15 | . | 15/15 |  |
+| mcp tool runner | mcp_tool_runner | 10 | . | . | 10 | . | . | . | . | 10/10 |  |
+| mimic_basic | headless_or_http_mimic | 15 | . | 15 | . | . | . | . | . | 15/15 |  |
+| mimic_linked | headless_or_http_mimic | 15 | . | 15 | . | . | . | . | . | 15/15 |  |
+| mimic_assets | headless_or_http_mimic | 15 | . | 15 | . | . | . | . | . | 15/15 |  |
+| mimic_schema | schema_driven_api_agent | 15 | . | . | . | . | 15 | . | . | 15/15 |  |
+| mimic_aria / webdriver | headless_or_http_mimic | 30 | . | 30 | . | . | . | . | . | 30/30 |  |
+| mimic_browser_stealth | headless_or_http_mimic | 15 | . | . | . | . | . | . | 15 | 0/15 | KNOWN miss: nothing observable distinguishes it |
+| mimic_header_forger | headless_or_http_mimic | 15 | . | . | . | . | . | . | 15 | 0/15 | KNOWN miss: forged coherent Sec-Fetch is trusted |
+
+Overall 275/320 sessions got their intended archetype.  Same-author synthetic cohorts; not a benchmark.
+
+**Static replay for human review** (`agentwatch/replay.py`):
+`python -m agentwatch replay leads.jsonl --access leads.jsonl.access.jsonl --out replay.html`. One self-contained HTML file with
+`<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">` and no external requests. Per session: a summary
+(session id, actor type, harness archetype with reasons, agent/automation scores, which of R8-R11 apply, approximate ATLAS ids), a **causal step timeline** (time, +delta, method,
+scrubbed path, whether the previous page offered that path with unlinked jumps in amber/red, status, traps: 429 peer_hint, canary prompt, handoff-token reference, ARIA, beacon), and
+a triage checklist ("Likely benign automation", "Accidental scraper", "Goal-directed agent - escalate"; the suggested box is pre-ticked, a person decides). Agent-supplied payloads (system-prompt
+summary, declared tools, objective, `/mcp` tool arguments, headers, user agent) sit in a box badged `UNTRUSTED AGENT INPUT - SCRUBBED`. Safety design: every wire string is sanitised, run through the
+secret scrubber, then HTML-escaped at a single point; the page is fully server-rendered, the small inline script only toggles filters and `hidden`, never evals, parses or writes HTML, and no JSON blob is embedded.
+ATLAS ids (AML.T0051, T0053, T0080, T0086, T0118) are an **approximate** mapping from the signals seen, not findings. A hostile payload (`</script><script>alert(1)</script>`) in objectives, headers, paths and tool arguments is tested.
+
+### v5 limits
+* The archetype rules and the simulated harnesses share an author. Real frameworks differ, and a harness can imitate any signature. The table shows the known misses (stealth browser, header forger) and the known false positive (beacon-blocked humans).
+* The classic adaptive agents (chain scraper, ID enumerator) have no distinctive harness signature and stay `unclassified`.
+* `mcp_tool_runner` high confidence depends on the server having seen the tools/list before the call; a client that guesses tool names gets a lower confidence.
+* The replay is a viewer. It decides nothing, and its triage suggestion is a lead for a person.
+* Benchmark toolkit: see `docs/benchmark-protocol.md` and `benchmark/` (built separately; not described here).
 
 ## Known limitations
 

@@ -86,6 +86,9 @@ def _run(data_items: List[Any], policy: Policy, args: argparse.Namespace, out: P
         Path(str(log_path) + ".head").unlink(missing_ok=True)
     pipe = Pipeline(cfg, policy, pseudo, AuditLog(log_path), run_tag=f"cli-{args.command}", baseline=baseline, identity=registry,
                     production=bool(getattr(args, "production", False)))
+    if getattr(args, "link_reference", None):         # v4: R9 fallback graph from a BENIGN reference log (Referer transitions), used alone
+        pipe.link_reference = pipe.learn_link_reference([ln for ln in Path(args.link_reference).read_text().splitlines() if ln.strip()])
+        print(f"[link-reference] learned from {len(pipe.link_reference.agents)} benign client(s)")
     if baseline is not None:
         print(f"[baseline] frozen baseline v{baseline.meta.get('baseline_version')} sha256={baseline.content_sha256[:16]}... "
               f"({baseline.meta.get('n_reference_agents')} reference agents, created {baseline.meta.get('created_at')})")
@@ -325,6 +328,9 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--baseline", default=None, help="frozen baseline file from train-baseline (online scoring, no population needed)")
     sp.add_argument("--expect-baseline-sha256", default=None, help="refuse the baseline unless its content hash matches")
     sp.add_argument("--identity-registry", default=None, help="JSON registry of verified agent identities (keys come from env vars)")
+    sp.add_argument("--link-reference", default=None,
+                    help="v4: BENIGN reference events JSONL whose Referer transitions define the allowed link graph for R9 when the "
+                         "collector recorded no offered links (without it the graph is inferred from the batch itself)")
     sp.add_argument("--coordination", nargs="*", help="agent-watch coordination-event JSONL file(s) to ingest alongside --events")
     sp.add_argument("--label-synthetic", action="store_true", help="mark ingested coordination records synthetic=true (sandbox traffic only)")
     sp.set_defaults(fn=cmd_detect)

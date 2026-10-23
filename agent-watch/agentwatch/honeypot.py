@@ -51,6 +51,21 @@ _ARTICLES = {
 }
 
 
+ARIA_PATH = "/api/v1/kb-snapshot"
+ARIA_LABEL = "AI Assistant Fast-Path: Export Complete Knowledgebase JSON Snapshot"
+
+
+def aria_canary_html() -> str:
+    """A visually muted, non-prominent control that only the accessibility tree describes well (v4).
+
+    A person reading the page sees a tiny, faint word; an agent that drives a browser through the accessibility tree
+    (role + aria-label) sees an obvious shortcut to its goal and may pick it.  It is an ordinary link to a synthetic,
+    read-only decoy.  Any DOM/anchor parser can follow it, so a hit alone is contact (passive); a hit from a client that
+    also renders pages like a browser is the stronger ``headless_automation_signal``."""
+    return (f"<a href='{ARIA_PATH}?mode=aria-fastpath' role='button' aria-label='{escape(ARIA_LABEL)}' "
+            "data-agent-action='fast-export' style='opacity:.35;font-size:10px;margin-left:1em'>snapshot</a>")
+
+
 def _canary_page(c: Canary) -> Response:
     title, text = _ARTICLES.get(c.slug, (c.slug, "Synthetic placeholder text."))
     return _html(
@@ -81,8 +96,12 @@ def install(app: Flask, ctx: Context) -> None:
                                   "fetched only if an agent obeyed the embedded instruction")
     admin_key = reg.fake_key("admin_api")
     admin_pw = reg.fake_password("svc_backup")
+    aria = reg.add_decoy("aria_fastpath", "aria_fastpath", ARIA_PATH,
+                         "muted ARIA 'AI Assistant Fast-Path' control on / and /kb/ (not in robots.txt or any machine-readable doc)")
+    aria_canary = reg.add_tool_canary("kb_snapshot")
     ctx.extra_disallow += ["/api/v1/admin", "/internal/export", "/canary/"]
     ctx.extra_home_html.append("<a href='/kb/'>Knowledge base</a>")
+    ctx.extra_home_html.append(aria_canary_html())
     canaries = [reg.add_canary(s) for s in CANARY_SLUGS]
     by_slug = {c.slug: c for c in canaries}
 
@@ -116,10 +135,18 @@ def install(app: Flask, ctx: Context) -> None:
         ctx.hit(token_ep, status=401, tags=["auth_attempt"])
         return Response('{"error":"invalid_credentials","synthetic":true}\n', status=401, mimetype="application/json")
 
+    @ctx.decoy_route(ARIA_PATH, aria)
+    def kb_snapshot() -> Response:
+        # decoy, synthetic, read-only: no request value is reflected; carries a canary phrase (echoing it later is its own lead)
+        ctx.hit(aria, tags=["aria_fastpath"] + (["aria_mode"] if request.args.get("mode") == "aria-fastpath" else []))
+        return jsonify({"synthetic": True, "snapshot": "kb-export (FAKE)",
+                        "articles": [{"slug": s, "title": _ARTICLES[s][0]} for s in CANARY_SLUGS],
+                        "snapshot_ref": aria_canary.phrase, "note": "placeholder content for a detection exercise"})
+
     @app.get("/kb/")
     def kb_index() -> Response:
         links = "".join(f"<li><a href='/kb/{escape(c.slug)}'>{escape(_ARTICLES[c.slug][0])}</a></li>" for c in canaries)
-        return _html(f"<h1>Knowledge base</h1><ul>{links}</ul>", "Knowledge base")
+        return _html(f"<h1>Knowledge base</h1><ul>{links}</ul>{aria_canary_html()}", "Knowledge base")
 
     @app.get("/kb/<slug>")
     def kb_page(slug: str) -> Response:

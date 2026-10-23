@@ -31,6 +31,7 @@ def merge_mirror(requests: list[Request]) -> tuple[list[Request], int]:
         if lead.served_links is None:
             lead.served_links = r.served_links
         lead.content_type = lead.content_type or r.content_type
+        lead.beacon_offered = lead.beacon_offered or r.beacon_offered
         lead.ja4, lead.ja4h = lead.ja4 or r.ja4, lead.ja4h or r.ja4h
         merged += 1
     return kept, merged

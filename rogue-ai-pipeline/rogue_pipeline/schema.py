@@ -12,7 +12,7 @@ import math
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, List, Literal, Optional
+from typing import Any, List, Literal, Optional, Tuple
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr, field_validator, model_validator
 
@@ -123,6 +123,16 @@ _DECOY_KIND = re.compile(r"^[a-z0-9_]{1,40}$")
 _JA4 = re.compile(r"^[tqd][0-9]{2}[di][0-9]{4}[a-z0-9]{2}_[0-9a-f]{12}_[0-9a-f]{12}$")
 
 
+class BeaconMeta(BaseModel):
+    """The three booleans of the client-interaction beacon - nothing else is accepted (extra fields are rejected)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    webdriver_present: StrictBool
+    pointer_trail_seen: StrictBool
+    dom_automation_props: StrictBool
+
+
 class WebMeta(BaseModel):
     """Optional per-request facts from a web collector (the agent-watch honeypot's mirrored access stream).
 
@@ -133,13 +143,22 @@ class WebMeta(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     user_agent: Optional[StrictStr] = Field(default=None, max_length=300)
-    content_kind: Literal["html", "asset", "api", "other"] = "other"
+    content_kind: Literal["html", "asset", "api", "beacon", "other"] = "other"
+    asset_kind: Optional[Literal["css", "js", "font", "favicon", "image", "other"]] = None   # v4: sub-resource type (content_kind == asset)
+    beacon: Optional[BeaconMeta] = None                 # v4: the three booleans of an interaction-beacon POST
+    beacon_offered: Optional[StrictBool] = None         # v4: this page embedded the interaction beacon (one is expected on a click)
+    harness_archetype: Optional[Literal["mcp_tool_runner", "schema_driven_api_agent", "stateful_coordinator", "prompt_injected_crawler",
+                                        "headless_or_http_mimic", "commodity_or_static_scanner", "unclassified"]] = None   # v5: agent-watch harness label
+    harness_confidence: Optional[Literal["low", "medium", "high"]] = None
+    referer_present: Optional[StrictBool] = None        # v4: a Referer header was present on this page load (click-through)
+    referer_path: Optional[StrictStr] = Field(default=None, max_length=300)   # v4: path of a same-site Referer (for the empirical link graph)
+    sec_fetch_state: Optional[Literal["coherent", "contradictory", "absent"]] = None    # v4: Sec-Fetch-Mode/Dest on this page load
     referer_valid: Optional[StrictBool] = None          # Referer present AND names a page this client was served
     linked_from_prev: Optional[StrictBool] = None       # target was linked from the previous page (None: entry page / unknown)
     offered_earlier: Optional[StrictBool] = None        # not linked from the previous page, but some earlier page offered it
     sec_fetch_mismatch: Optional[StrictBool] = None     # page load without browser-style Sec-Fetch-* (None: not logged)
     strong_signal: Optional[Literal["hidden_link", "decoy_hit", "session_canary", "schema_param", "error_hint_follow",
-                                    "mcp_tools_call", "mcp_list_then_call", "fake_credential_use"]] = None
+                                    "mcp_tools_call", "mcp_list_then_call", "fake_credential_use", "aria_fastpath"]] = None
     decoy_kind: Optional[StrictStr] = None
     mcp: Optional[Literal["initialize", "tools_list", "tools_call"]] = None
     ja4: Optional[StrictStr] = None                     # optional TLS fingerprint supplied by an edge proxy (NOT produced here)
@@ -149,6 +168,13 @@ class WebMeta(BaseModel):
     def _ua(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and _CTRL.search(v):
             raise ValueError("control characters are not allowed")
+        return v
+
+    @field_validator("referer_path")
+    @classmethod
+    def _rp(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and (not v.startswith("/") or v.startswith("//") or _CTRL.search(v)):
+            raise ValueError("referer_path must be a site-relative path without control characters")
         return v
 
     @field_validator("decoy_kind")
@@ -302,6 +328,17 @@ class WebFlags:
     decoy_kind: Optional[str] = None
     mcp: Optional[str] = None
     has_ja4: bool = False
+    # v4
+    asset_kind: Optional[str] = None
+    beacon: Optional[Tuple[bool, bool, bool]] = None    # (webdriver_present, pointer_trail_seen, dom_automation_props)
+    beacon_offered: Optional[bool] = None
+    referer_present: Optional[bool] = None
+    sec_fetch_state: Optional[str] = None
+    harness_archetype: Optional[str] = None             # v5: descriptive label from the collector (never scored by the pipeline)
+    harness_confidence: Optional[str] = None
+    referer_key: Optional[str] = None                   # pseudonym of the same-site Referer path (never the path itself)
+    path_key: Optional[str] = None                      # pseudonym of the requested path without its query string
+    is_entry: bool = False                              # the requested path is a static entry point (/, /robots.txt, /sitemap.xml)
 
 
 @dataclass(frozen=True, slots=True)

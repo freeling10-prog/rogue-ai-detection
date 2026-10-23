@@ -102,9 +102,11 @@ def test_newline_percent_and_unicode_escapes_do_not_hide_a_secret(scrub):
     encoded_email = EMAIL.replace("@", "%40")
     double_email = EMAIL.replace("@", "%2540")
     unicode_email = EMAIL.replace("@", "\\u0040")
+    # \\u0025 is '%', so \\u002540 is the percent-encoding of '@' written as a unicode escape.
+    unicode_percent_email = EMAIL.replace("@", "\\u002540")
     assert "\\n" in escaped and "\n" not in escaped
     for raw in (split_nl, split_tab, SK[:6] + "\r\n" + SK[6:], escaped,
-                f"e={encoded_email}", f"e={double_email}", f"e={unicode_email}",
+                f"e={encoded_email}", f"e={double_email}", f"e={unicode_email}", f"e={unicode_percent_email}",
                 f"Bearer%20{BEARER_TOKEN}", f"Bearer+{BEARER_TOKEN}",
                 "note " + SK[:12] + "%0a" + SK[12:]):
         out = scrub.scrub_text(raw)
@@ -113,6 +115,7 @@ def test_newline_percent_and_unicode_escapes_do_not_hide_a_secret(scrub):
         assert EMAIL.lower() not in out.lower() and encoded_email not in out and BEARER_TOKEN not in out
     assert h(scrub.scrub_text(SK)) == h(scrub.scrub_text(split_nl)) == h(scrub.scrub_text(escaped))
     assert h(scrub.scrub_text(EMAIL)) == h(scrub.scrub_text(encoded_email)) == h(scrub.scrub_text(double_email))
+    assert h(scrub.scrub_text(EMAIL)) == h(scrub.scrub_text(unicode_percent_email))
     assert h(scrub.scrub_text(f"Bearer {BEARER_TOKEN}")) == h(scrub.scrub_text(f"Bearer%20{BEARER_TOKEN}"))
     # a newline that is not hiding a secret stays a visible escape (log injection stays neutralised)
     assert scrub.scrub_text(sanitize_text("hello\nworld", 100)) == "hello\\nworld"

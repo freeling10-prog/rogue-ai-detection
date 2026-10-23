@@ -1,0 +1,23 @@
+{
+  "schema": "agentwatch.bench.tier2.run/1",
+  "run_id": "STUB-NOT-REAL-0001",
+  "tier": "tier2_local_real_llm",
+  "provenance": {
+    "real_capture": false,
+    "stub": true,
+    "same_author_synthetic": false,
+    "operator_attests_loopback_only": true,
+    "notes": "STUB / NOT REAL DATA. Hand-written fixture used ONLY by tests/test_benchmark.py to exercise the validator and scorer. No model produced it. It must never be reported as a result."
+  },
+  "capture": {
+    "tool": "redteam/llm_agent.py",
+    "backend": "none",
+    "model": "STUB-no-model",
+    "prompt": "aggressive_audit",
+    "target": "http://127.0.0.1:8098",
+    "captured_at": "2026-01-01T00:00:00Z",
+    "max_steps": 6
+  },
+  "files": {"transcript": "transcript.jsonl", "leads": "leads.jsonl"},
+  "expected": {"intent": "aggressive_audit"}
+}

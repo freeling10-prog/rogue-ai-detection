@@ -19,7 +19,7 @@ from .config import Config, Policy, ResolvedPolicy
 from .features import FeatureTable, build_feature_table, group_events
 from .fusion import Lead, fuse
 from .layer1_anomaly import AnomalyResult, AnomalyScorer
-from .layer2_rules import RuleEngine, RuleFlag
+from .layer2_rules import LinkGraph, RuleEngine, RuleFlag
 from .layer3_graph import CoordinationDetector, GraphResult
 from .normalize import NormalizationReport, Normalizer
 from .prefilter import PrefilterReport, prefilter_by_agent
@@ -41,6 +41,7 @@ class PipelineResult:
     anomaly_frozen: Optional[AnomalyResult] = None                          # frozen-baseline Isolation Forest (if a baseline was loaded)
     exempted: Dict[str, int] = field(default_factory=dict)                  # rule id -> events skipped by allowlists
     prefiltered: PrefilterReport = field(default_factory=PrefilterReport)   # commodity scanners set aside BEFORE scoring (counted, not hidden)
+    gated_out: List[Dict[str, Any]] = field(default_factory=list)           # v4: candidates the corroboration gate blocked (agent, families, components)
 
     def lead_agents(self) -> set:
         return {l.agent for l in self.leads}
@@ -65,18 +66,24 @@ class Pipeline:
     def __init__(self, cfg: Config, policy: Policy, pseudo: Pseudonymizer, audit: Optional[AuditLog] = None,
                  run_tag: str = "run", baseline: Optional[FrozenBaseline] = None,
                  identity: Optional[IdentityRegistry] = None, sequence_model: Optional[SequenceModel] = None,
-                 production: bool = False) -> None:
+                 production: bool = False, link_reference: Optional[LinkGraph] = None) -> None:
         """``baseline``: frozen Isolation Forest + sequence model (online scoring, no population needed).
         ``identity``: verified-identity registry (optional). ``sequence_model``: a stand-alone Markov model."""
         if production and not pseudo.production_validated:
             raise ProductionKeyError("production mode requires a Pseudonymizer built from a validated PIPELINE_HMAC_SECRET "
                                      "(see pseudonymize.resolve_key(production=True))")
         self.production = production
+        self.link_reference = link_reference           # v4: empirical link graph from a benign reference (R9 fallback)
         self.cfg, self.pseudo, self.audit, self.run_tag = cfg, pseudo, audit, run_tag
         self.baseline = baseline
         self.sequence_model = sequence_model or (baseline.sequence if baseline else None)
         self.resolved = resolve_policy(policy, pseudo)
         self.normalizer = Normalizer(cfg.normalization, pseudo, IdentityGate(cfg.identity, identity), cfg.web)
+
+    def learn_link_reference(self, items: Iterable[Union[Dict[str, Any], str]]) -> LinkGraph:
+        """Normalize a benign reference log (same pseudonym key as later runs) and learn its Referer-transition link graph."""
+        rep = self.normalizer.process(items)
+        return LinkGraph.learn(group_events(rep.events))
 
     def run(self, items: Iterable[Union[Dict[str, Any], str]], quarantine_path: Optional[str | Path] = None,
             ephemeral_key: bool = False, alternatives: bool = False) -> PipelineResult:
@@ -118,6 +125,10 @@ class Pipeline:
         if anomaly is None:
             notes.append("Layer 1 skipped: fewer than 10 profiled agents and no frozen baseline (no population to compare with)")
         engine = RuleEngine(cfg.layer2, cfg.tools, self.resolved, cfg.web)
+        if cfg.web.enabled and cfg.web.link_graph_fallback:
+            # With a benign reference the graph comes ONLY from it (clients in this batch cannot vouch for each other); without one it is
+            # learned from the batch itself, leave-one-out per client (a pair of clients with identical unsupported moves still validates itself)
+            engine.link_graph = self.link_reference if self.link_reference is not None else LinkGraph.learn(by_agent)
         flags = engine.evaluate(by_agent)                                              # 3. Layer 2
         graph = CoordinationDetector(cfg.layer3, self.resolved).detect(by_agent)      # 4. Layer 3
         seqs: Dict[str, SequenceResult] = {}
@@ -125,19 +136,39 @@ class Pipeline:
             seqs = self.sequence_model.score_all(by_agent)                              # 4b. Markov sequence model
         elif cfg.sequence.enabled:
             notes.append("sequence model not used: no benign reference model loaded (train one with train-baseline)")
+        gated_out: List[Dict[str, Any]] = []
         leads = fuse(cfg.fusion, anomaly.agents if anomaly else {}, flags, graph.clusters, self.run_tag,
-                     seqs, cfg.sequence.gate)                                          # 5. fusion
+                     seqs, cfg.sequence.gate, gated_out, _harness_of(by_agent))                               # 5. fusion (+ v4 corroboration gate)
         if self.audit:
             for l in leads:
                 self.audit.append("lead", _audit_view(l.to_dict()))
             for c in graph.clusters:
                 if c.suppressed:
                     self.audit.append("suppressed_cluster", {"members": c.members, "reasons": c.suppression_reasons})
-            self.audit.append("run_end", {"leads": len(leads), "flags": len(flags),
+            if gated_out:
+                self.audit.append("gate_blocked", {"count": len(gated_out), "agents": sorted(g["agent"] for g in gated_out)})
+            self.audit.append("run_end", {"leads": len(leads), "flags": len(flags), "gate_blocked": len(gated_out),
                                           "clusters_active": len(graph.active),
                                           "clusters_suppressed": len(graph.clusters) - len(graph.active)})
         return PipelineResult(rep, table, anomaly, flags, graph, leads, self.pseudo, notes, seqs, batch, frozen,
-                              dict(engine.exempted), pre)
+                              dict(engine.exempted), pre, gated_out)
+
+
+def _harness_of(by_agent: Dict[str, List[Any]]) -> Dict[str, Dict[str, str]]:
+    """v5: per agent, the collector's harness label (most specific / highest-confidence one seen).  Descriptive only: it never enters scoring."""
+    order = {"low": 0, "medium": 1, "high": 2}
+    out: Dict[str, Dict[str, str]] = {}
+    for a, evs in by_agent.items():
+        best: Optional[Dict[str, str]] = None
+        for e in evs:
+            w = e.web
+            if w is not None and w.harness_archetype and w.harness_archetype != "unclassified":
+                cand = {"archetype": w.harness_archetype, "confidence": w.harness_confidence or "low"}
+                if best is None or order[cand["confidence"]] > order[best["confidence"]]:
+                    best = cand
+        if best is not None:
+            out[a] = best
+    return out
 
 
 def _audit_view(lead: Dict[str, Any]) -> Dict[str, Any]:

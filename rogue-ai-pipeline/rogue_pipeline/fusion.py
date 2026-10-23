@@ -13,6 +13,12 @@ SAFETY INVARIANTS (enforced here in code, and again in tests):
 
 Fusion rule (noisy-or):  score = 1 - prod_i (1 - w_i * s_i)  over i in {anomaly, rules, graph}.
 
+v4 addition - TWO-SIGNAL CORROBORATION GATE (``FusionCfg.corroboration_gate``): a candidate whose score passes the threshold is
+emitted only if it has (a) a floor from a strong single-event rule (R10 / R11), or (b) >= 2 independent signal families (statistical
+= Isolation Forest + sequence surprise counted once; rule gate; coordination graph), or (c) one deterministic family that is strong by
+itself (a rule of strength >= rule_solo_min (0.65), a cluster of density >= graph_solo_min).  This removes leads made only of statistical
+surprise or of a single low-weight rule; it costs recall wherever a true positive had no other family (reported by the evaluation).
+
 v3 additions (still leads only - severity stays "low"):
   * FLOORS: a rule flag may carry ``extra["floor"]`` (R10: a single high-signal event).  After noisy-or the score is
     ``max(score, floor)``.  Nothing in the fusion is an average over the session, so unrelated benign events can never
@@ -53,6 +59,9 @@ class Lead:
     sequence: Optional[Dict[str, Any]] = None
     actor_class: str = "unclassified"
     floor_applied: Optional[float] = None
+    families: List[str] = field(default_factory=list)       # v4: independent signal families that were present
+    gate_reason: str = ""                                    # v4: why the corroboration gate let this lead through
+    harness: Optional[Dict[str, str]] = None                 # v5: descriptive harness label from the collector {archetype, confidence}; never scored
     severity: str = SEVERITY
     recommended_action: str = RECOMMENDED_ACTION
     automatic_action: str = AUTOMATIC_ACTION
@@ -78,7 +87,8 @@ class Lead:
                 "extra": f.extra,
             } for f in self.rule_flags],
             "cluster": self.cluster, "sequence": self.sequence, "actor_class": self.actor_class,
-            "floor_applied": self.floor_applied, "disclaimer": self.disclaimer,
+            "floor_applied": self.floor_applied, "families": self.families, "gate_reason": self.gate_reason, "harness": self.harness,
+            "disclaimer": self.disclaimer,
         }
 
 
@@ -86,17 +96,46 @@ def classify_actor(flags: List[RuleFlag]) -> str:
     """Triage hint from the web rules.  ``unclassified`` when no web rule fired (all non-web leads)."""
     by = {f.rule_id: f for f in flags}
     r10 = by.get("R10")
-    if not (r10 or "R8" in by or "R9" in by):
+    r11 = by.get("R11")
+    if not (r10 or r11 or "R8" in by or "R9" in by):
         return "unclassified"
     if "R6" in by or "R7" in by:
         return "goal_directed"
+    if r11 is not None and r11.extra.get("tier") == "strong":
+        return "goal_directed"                  # webdriver/automation property or ARIA fast-path hit on a browser-backed client
     if r10 is not None and r10.extra.get("tier") == "strong":
         return "goal_directed"
     if "R8" in by and "R9" in by:
         return "goal_directed"                  # no asset loads AND guessed URLs: two independent facts, same client
-    if "R8" in by or "R9" in by:
+    if "R8" in by or "R9" in by or r11 is not None:
         return "possible_mimic"
     return "accidental_scraper"                 # R10 weak tier only: one hidden-link / decoy contact, nothing adaptive
+
+
+def _families(cfg: FusionCfg, s_a: float, fl: List[RuleFlag], cl: Optional[Cluster], sq: Optional[SequenceResult]) -> List[str]:
+    out: List[str] = []
+    if s_a >= cfg.anomaly_min or sq is not None:
+        out.append("statistical")          # Isolation Forest and the sequence model share inputs: ONE family
+    if fl:
+        out.append("rules")
+    if cl is not None:
+        out.append("graph")
+    return out
+
+
+def gate_decision(cfg: FusionCfg, families: List[str], s_r: float, cl: Optional[Cluster], floor: Optional[float]) -> str:
+    """Return the reason a lead may be emitted, or ``""`` if the corroboration gate blocks it."""
+    if not cfg.corroboration_gate:
+        return "gate_off"
+    if floor is not None:
+        return "floor"
+    if len(families) >= 2:
+        return "families:" + "+".join(families)
+    if families == ["rules"] and s_r >= cfg.rule_solo_min:
+        return "solo_rule"
+    if families == ["graph"] and cl is not None and cl.density >= cfg.graph_solo_min:
+        return "solo_graph"
+    return ""
 
 
 def _lead_id(agent: str, run_tag: str) -> str:
@@ -104,9 +143,11 @@ def _lead_id(agent: str, run_tag: str) -> str:
 
 
 def fuse(cfg: FusionCfg, anomalies: Dict[str, AgentAnomaly], flags: List[RuleFlag], clusters: List[Cluster],
-         run_tag: str = "run", sequences: Optional[Dict[str, SequenceResult]] = None, seq_gate: float = 0.6) -> List[Lead]:
+         run_tag: str = "run", sequences: Optional[Dict[str, SequenceResult]] = None, seq_gate: float = 0.6,
+         gated_out: Optional[List[Dict[str, Any]]] = None, harness: Optional[Dict[str, Dict[str, str]]] = None) -> List[Lead]:
     """Return leads sorted by score (descending). ``sequences`` (optional) are Markov sequence scores; only those at
-    or above ``seq_gate`` take part."""
+    or above ``seq_gate`` take part.  ``gated_out`` (optional list) receives one record per candidate the v4 corroboration
+    gate blocked (agent, score, families, components): blocked candidates are counted and attributable, never silently lost."""
     gated = {a: r for a, r in (sequences or {}).items() if r.score >= seq_gate}
     by_rule: Dict[str, List[RuleFlag]] = {}
     for f in flags:
@@ -136,13 +177,22 @@ def fuse(cfg: FusionCfg, anomalies: Dict[str, AgentAnomaly], flags: List[RuleFla
             score = max(score, floor)
         if score < cfg.lead_threshold or (not fl and cl is None and sq is None):
             continue
+        fams = _families(cfg, s_a, fl, cl, sq)
+        why = gate_decision(cfg, fams, s_r, cl, floor)
+        if not why:
+            if gated_out is not None:
+                gated_out.append({"agent": a, "score": round(score, 4), "families": fams, "floor": floor,
+                                  "components": {"isolation_forest": round(s_a, 4), "rules": round(s_r, 4), "graph_density": round(s_g, 4),
+                                                 "sequence": round(s_q, 4)}, "rules": sorted(f.rule_id for f in fl),
+                                  "edge_kinds": list(cl.kinds) if cl else []})
+            continue
         band = "review_first" if score >= cfg.band_review_first else "review"
         leads.append(Lead(
             lead_id=_lead_id(a, run_tag), agent=a, score=round(score, 4), priority_band=band,
             components={"isolation_forest": round(s_a, 4), "rules": round(s_r, 4), "graph_density": round(s_g, 4),
                         "sequence": round(s_q, 4)},
             anomaly_explanations=[c.text for c in (an.contributions if an else [])],
-            rule_flags=fl, actor_class=classify_actor(fl), floor_applied=floor,
+            rule_flags=fl, actor_class=classify_actor(fl), floor_applied=floor, families=fams, gate_reason=why, harness=(harness or {}).get(a),
             cluster=None if cl is None else {
                 "members": cl.members, "density": cl.density, "mean_weight": cl.mean_weight,
                 "evidence_event_ids": cl.evidence_event_ids, "edge_kinds": cl.kinds, "reasons": cl.reasons,

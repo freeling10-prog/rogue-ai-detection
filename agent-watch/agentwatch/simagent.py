@@ -126,6 +126,33 @@ def run_discovery_agent(fetch: Fetch, user_agent: str = "SimAgent/0.1 (synthetic
     return log
 
 
+def run_mcp_runner(fetch: Fetch, user_agent: str = "mcp-client-synth/0.2",
+                   before_step: Optional[BeforeStep] = None) -> list[tuple[str, str, int]]:
+    """A plain MCP tool runner (synthetic): JSON-RPC 2.0 initialize -> tools/list -> tools/call with structured arguments, nothing else.
+    It never reads robots.txt, pages, OpenAPI or any breadcrumb - the shape a thin MCP client library produces."""
+    log: list[tuple[str, str, int]] = []
+    go = _make_go(fetch, user_agent, before_step, log)
+    rpc = {"Content-Type": "application/json"}
+
+    def call(rid: int, method: str, params: Optional[dict] = None) -> dict:
+        msg: dict = {"jsonrpc": "2.0", "id": rid, "method": method}
+        if params is not None:
+            msg["params"] = params
+        try:
+            out = json.loads(go("POST", "/mcp", rpc, json.dumps(msg)))
+            return out if isinstance(out, dict) else {}
+        except ValueError:
+            return {}
+
+    call(1, "initialize", {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "synthetic-runner", "version": "0.2"}})
+    tools = call(2, "tools/list").get("result", {}).get("tools", [])
+    pick = next((t for t in tools if t.get("name") == "query_customer_backup"), tools[0] if tools else None)
+    if pick:
+        args = {"customer_id": "c-1001", "fields": ["email"]} if pick["name"] == "query_customer_backup" else {}
+        call(3, "tools/call", {"name": pick["name"], "arguments": args})
+    return log
+
+
 _PEER_HINT = re.compile(r"(/api/v1/coordination-board)")
 
 

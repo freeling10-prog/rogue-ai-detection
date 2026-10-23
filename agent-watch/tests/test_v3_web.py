@@ -70,7 +70,10 @@ def test_asset_starvation_fires_at_five_pages():
 
 def test_asset_starvation_needs_five_pages_and_zero_assets():
     assert detect_asset_starvation(sess(starving(4)), CFG) == []
-    assert detect_asset_starvation(sess(starving(8) + [asset(30, "/favicon.ico")]), CFG) == []
+    # v4 (deliberate change): the v3 assertion here was `starving(8) + [favicon] == []` ("any single asset exempts").  That let a
+    # client that fetched ONE favicon or image slip through; v4 exempts only .css/.js (core resources), see tests/test_v4_web.py
+    assert detect_asset_starvation(sess(starving(8) + [asset(30, "/static/site.css")]), CFG) == []
+    assert len(detect_asset_starvation(sess(starving(8) + [asset(30, "/favicon.ico")]), CFG)) == 1
 
 
 def test_asset_starvation_not_for_declared_scripts():
@@ -81,8 +84,10 @@ def test_asset_starvation_not_for_declared_scripts():
 def test_asset_starvation_sec_fetch_mismatch_is_reported():
     f = detect_asset_starvation(sess(starving(6, with_headers={})), CFG)
     assert f[0].data["sec_fetch"] is True and f[0].data["sec_fetch_mismatch"] == 6
+    # v4 (deliberate change): coherent Sec-Fetch navigate/document headers on every starved page no longer make a scoring
+    # `asset_starvation` finding; it is advisory only (a person with styles+scripts blocked sends exactly this)
     ok = detect_asset_starvation(sess(starving(6, with_headers=SEC_OK)), CFG)
-    assert ok[0].data["sec_fetch"] is False and ok[0].data["sec_fetch_checked"] == 6
+    assert [f.kind for f in ok] == ["asset_starvation_coherent"] and ok[0].detector == "web_advisory"
 
 
 def test_asset_starvation_is_not_diluted_by_padding():
@@ -94,10 +99,13 @@ def test_asset_starvation_is_not_diluted_by_padding():
 
 
 def test_asset_starvation_text_mode_browser_is_an_admitted_false_positive():
-    """A person with images/scripts blocked looks identical: contact/behaviour evidence only, and the finding says so."""
-    r = score_session(sess(starving(8, with_headers=SEC_OK)), CFG)
+    """A person with styles AND scripts blocked and NO Sec-Fetch evidence in the log looks identical: contact/behaviour evidence
+    only.  v4 (deliberate change): with coherent Sec-Fetch headers it is advisory and scores 0 (it used to alert at medium)."""
+    r = score_session(sess(starving(8, with_headers={})), CFG)
     assert r.agent_score > 0 and r.label != "agent" and r.actor_type == "possible_mimic"
     assert SEVERITIES.index(r.severity) <= SEVERITIES.index("medium")
+    r2 = score_session(sess(starving(8, with_headers=SEC_OK)), CFG)
+    assert r2.agent_score == 0 and r2.actor_type != "possible_mimic" and SEVERITIES.index(r2.severity) <= SEVERITIES.index("low")
 
 
 # =========================== (ii) unlinked jump / link graph ===========================
@@ -512,10 +520,13 @@ def test_mimic_linked_is_alerted_but_not_labelled_agent(ext):
 
 def test_known_failures_are_documented_by_tests(ext):
     """The honest negatives.  If a future change makes these pass, update the README limits too."""
-    for t, r in ext["groups"]["web:mimic_assets"]:                       # evades by construction
+    # v4 (deliberate change): in v3 mimic_assets evaded and human_no_assets was a false positive.  v4 catches the first (it fetches
+    # the script but never runs it, so no beacon) and no longer alerts on the second (coherent Sec-Fetch -> advisory).  The v4
+    # evaders/false positives are asserted in tests/test_v4_web.py.
+    for t, r in ext["groups"]["web:mimic_assets"]:
+        assert r.actor_type == "possible_mimic" and r.label != "agent" and SEVERITIES.index(r.severity) >= SEVERITIES.index("medium")
+    for t, r in ext["groups"]["web:human_no_assets"]:
         assert r.label == "human" and r.severity == "info"
-    for t, r in ext["groups"]["web:human_no_assets"]:                    # false positive
-        assert r.actor_type == "possible_mimic" and r.severity == "medium"
 
 
 def test_without_the_mirror_the_v2_blind_spot_returns(ext):
@@ -538,7 +549,11 @@ def test_export_web_emits_strict_derived_facts(ext, tmp_path):
     assert main(["export-web", str(ext["art"]["leads"]), str(ext["art"]["access_mirror"]), "--out", str(out), "--label-synthetic"]) == 0
     rows = [json.loads(x) for x in out.read_text().splitlines()]
     allowed = {"user_agent", "content_kind", "referer_valid", "linked_from_prev", "offered_earlier", "sec_fetch_mismatch",
-               "strong_signal", "decoy_kind", "mcp", "ja4"}
+               "strong_signal", "decoy_kind", "mcp", "ja4",
+               # v4 (deliberate change: the allow-list grows with the new derived facts, nothing else)
+               "asset_kind", "beacon", "beacon_offered", "referer_present", "referer_path", "sec_fetch_state",
+               # v5 (deliberate change): the descriptive harness label from agentwatch.fingerprint
+               "harness_archetype", "harness_confidence"}
     ev_keys = {"event_id", "ts", "source", "agent_id", "action", "status", "resource", "ip", "payload_bytes", "synthetic", "web"}
     assert rows and all(set(r) <= ev_keys and set(r["web"]) <= allowed and r["synthetic"] is True for r in rows)
     assert len({r["event_id"] for r in rows}) == len(rows)                   # unique ids (the pipeline quarantines duplicates)

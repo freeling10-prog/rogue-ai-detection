@@ -1,0 +1,50 @@
+{
+  "$comment": "agentwatch.bench.tier2.run/1 - one directory per captured run: run.json + transcript.jsonl (+ optional leads.jsonl, access.jsonl, report.json). Checked by benchmark/minischema.py.",
+  "type": "object",
+  "required": ["schema", "run_id", "tier", "provenance", "capture", "files"],
+  "properties": {
+    "schema": {"const": "agentwatch.bench.tier2.run/1"},
+    "run_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{2,63}$"},
+    "tier": {"const": "tier2_local_real_llm"},
+    "provenance": {
+      "type": "object",
+      "required": ["real_capture", "stub"],
+      "properties": {
+        "real_capture": {"type": "boolean", "$comment": "true only if a real model/browser was actually run by a human operator against a local honeypot"},
+        "stub": {"type": "boolean", "$comment": "true for test fixtures. stub=true requires real_capture=false and a STUB- run_id"},
+        "operator_attests_loopback_only": {"type": "boolean"},
+        "same_author_synthetic": {"const": false, "$comment": "tier2 is not same-author synthetic: the model's behaviour was not scripted by the detector author"},
+        "notes": {"type": "string"}
+      }
+    },
+    "capture": {
+      "type": "object",
+      "required": ["tool", "target", "captured_at"],
+      "properties": {
+        "tool": {"enum": ["redteam/llm_agent.py", "headless_browser", "other_local_client"]},
+        "backend": {"enum": ["ollama", "openai", "playwright", "selenium", "puppeteer", "none", "other"]},
+        "model": {"type": "string"},
+        "prompt": {"type": "string", "$comment": "prompt name for llm_agent.py (benign_summarizer | aggressive_audit | stealth_mimic | ...) or a short scenario label"},
+        "target": {"type": "string", "pattern": "^https?://(127\\.[0-9]+\\.[0-9]+\\.[0-9]+|localhost|\\[::1\\])(:[0-9]+)?/?$"},
+        "captured_at": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z?$"},
+        "max_steps": {"type": "integer", "minimum": 1}
+      }
+    },
+    "files": {
+      "type": "object",
+      "required": ["transcript"],
+      "properties": {
+        "transcript": {"type": "string"},
+        "leads": {"type": "string"},
+        "access": {"type": "string"},
+        "report": {"type": "string"}
+      }
+    },
+    "expected": {
+      "type": "object",
+      "properties": {
+        "intent": {"enum": ["benign_control", "aggressive_audit", "stealth_mimic", "unspecified"], "$comment": "what the operator told the agent to do - NOT ground truth about detector correctness"}
+      }
+    }
+  }
+}

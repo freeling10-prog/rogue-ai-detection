@@ -21,6 +21,7 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from .baseline import FrozenAnomalyScorer, FrozenBaseline, train_baseline
 from .config import Config
+from .attribution import attribute, candidate_of_lead
 from .fusion import fuse
 from .layer3_graph import CROSS_IP, REDACTED, SEMANTIC, CoordinationDetector
 from .features import group_events
@@ -109,6 +110,8 @@ class RunEval:
     n_leads: int
     guardrail_ok: bool
     checks: Dict[str, Tuple[int, int]] = field(default_factory=dict)
+    # v4: one record per lead the gate-off pipeline raised: (kind, group, layer detail, blocked by the corroboration gate?)
+    attribution: List[Tuple[str, str, str, bool]] = field(default_factory=list)
 
 
 def _eval_key(seed: int) -> bytes:
@@ -161,6 +164,7 @@ def evaluate_once(seed: int, evasive: float = 0.0, cfg: Optional[Config] = None,
     """Without ``ctx``: the v1.0 evaluation (batch Isolation Forest, core scenarios). With ``ctx``: the v1.1 evaluation
     (extended scenarios; frozen baseline; sequence model; identity allow-listing) with before/after variants."""
     cfg = cfg or Config()
+    attribution: List[Tuple[str, str, str, bool]] = []
     if ctx is None:
         data = build(seed, n_assistants, evasive)
         pseudo = Pseudonymizer(_eval_key(seed))
@@ -181,6 +185,16 @@ def evaluate_once(seed: int, evasive: float = 0.0, cfg: Optional[Config] = None,
         refuse = lambda anom, seqs, flags=res.flags: back(_agents(fuse(cfg.fusion, anom.agents if anom else {}, flags, clusters, "e", seqs, gate)))
         seqs = res.sequence
         preds["fused_leads"] = back(res.lead_agents())                               # v1.1 default: frozen + sequence + identity
+        # v4: the same fusion with the two-signal corroboration gate OFF (v3 behaviour) and in its strictest form
+        f_off = cfg.fusion.model_copy(update={"corroboration_gate": False})
+        f_strict = cfg.fusion.model_copy(update={"rule_solo_min": 1.01, "graph_solo_min": 1.01})
+        off_leads = fuse(f_off, res.anomaly.agents if res.anomaly else {}, res.flags, clusters, "e", res.sequence, gate)
+        preds["fused_no_gate"] = back(_agents(off_leads))
+        preds["fused_strict_gate"] = back(_agents(fuse(f_strict, res.anomaly.agents if res.anomaly else {}, res.flags, clusters, "e", res.sequence, gate)))
+        kept = res.lead_agents()
+        for ld in off_leads:
+            kind, grp = data.labels.get(inv.get(ld.agent, ""), ("", "?"))
+            attribution.append((kind, grp, attribute(candidate_of_lead(ld), cfg.fusion)["detail"], ld.agent not in kept))
         preds["fused_batch_no_sequence"] = refuse(res.anomaly_batch, {})             # batch Isolation Forest, no sequence gate
         preds["fused_frozen_no_sequence"] = refuse(res.anomaly_frozen, {})           # + frozen baseline
         preds["sequence_only"] = back({a for a, r in seqs.items() if r.score >= gate})
@@ -201,13 +215,13 @@ def evaluate_once(seed: int, evasive: float = 0.0, cfg: Optional[Config] = None,
             f, n = hn.get(grp, (0, 0))
             hn[grp] = (f + (a in preds["fused_leads"]), n + 1)
     if ctx is not None:
-        for name in ("fused_no_identity", "fused_holdout_baseline", "fused_frozen_no_sequence"):
+        for name in ("fused_no_identity", "fused_holdout_baseline", "fused_frozen_no_sequence", "fused_no_gate", "fused_strict_gate"):
             for a, (kind, grp) in data.labels.items():
                 if kind == "benign":
                     f, n = hn.get(f"{grp}|{name}", (0, 0))
                     hn[f"{grp}|{name}"] = (f + (a in preds[name]), n + 1)
     ok = all(l.severity == "low" and l.automatic_action == "none" and l.recommended_action == "human_review" for l in res.leads)
-    return RunEval(seed, evasive, by_pred, hn, len(data.events), len(res.leads), ok, extra)
+    return RunEval(seed, evasive, by_pred, hn, len(data.events), len(res.leads), ok, extra, attribution)
 
 
 def _same_cluster(res: PipelineResult, a: str, b: str, kind: Optional[str] = None) -> bool:
@@ -288,6 +302,15 @@ def aggregate(runs: List[RunEval]) -> Dict[str, Any]:
         for k, (h, t) in r.checks.items():
             cur = chk.setdefault(k, [0, 0]); cur[0] += h; cur[1] += t
     out["checks"] = {k: {"hits": h, "trials": t} for k, (h, t) in chk.items()}
+    att: Dict[str, Dict[str, Any]] = {"benign": {}, "positive": {}}
+    for r in runs:
+        for kind, grp, det, blocked in r.attribution:
+            if kind not in att:
+                continue
+            row = att[kind].setdefault(f"{grp} | {det}", {"leads_without_gate": 0, "blocked_by_gate": 0})
+            row["leads_without_gate"] += 1
+            row["blocked_by_gate"] += int(blocked)
+    out["attribution"] = {k: dict(sorted(v.items())) for k, v in att.items()}
     return out
 
 
@@ -312,7 +335,9 @@ _VARIANTS = (("fused_batch_no_sequence", "A. batch IF, no sequence (v1.0-style f
              ("fused_frozen_no_sequence", "B. frozen baseline IF, no sequence"),
              ("fused_leads", "C. frozen baseline + sequence gate (v1.1 default)"),
              ("fused_no_identity", "D. = C with identity/allow-listing OFF"),
-             ("fused_holdout_baseline", "E. = C but baseline trained WITHOUT crawlers/scanners/cron/orchestrators/broadcasters"))
+             ("fused_holdout_baseline", "E. = C but baseline trained WITHOUT crawlers/scanners/cron/orchestrators/broadcasters"),
+             ("fused_no_gate", "F. = C with the v4 corroboration gate OFF (v3 fusion)"),
+             ("fused_strict_gate", "G. = C with the STRICTEST gate (every non-floor lead needs 2 families)"))
 
 
 def format_markdown(result: Dict[str, Any]) -> str:
@@ -347,7 +372,8 @@ def format_markdown(result: Dict[str, Any]) -> str:
         groups = sorted({g.split("|")[0] for g in hn})
         lines += ["", "### Hard negatives: benign groups that produced a lead (leads / agents)", ""]
         if any("|" in g for g in hn):
-            vs = [("", "C default"), ("fused_frozen_no_sequence", "B no sequence"), ("fused_no_identity", "D no identity"),
+            vs = [("", "C default (v4 gate)"), ("fused_no_gate", "F gate off (v3)"), ("fused_strict_gate", "G strict gate"),
+                  ("fused_frozen_no_sequence", "B no sequence"), ("fused_no_identity", "D no identity"),
                   ("fused_holdout_baseline", "E held-out baseline")]
             lines += ["| benign group | " + " | ".join(v for _, v in vs) + " |", "|---|" + "---|" * len(vs)]
             for g in groups:
@@ -360,6 +386,15 @@ def format_markdown(result: Dict[str, Any]) -> str:
             lines += ["| benign group | leads / agents |", "|---|---|"]
             for g, h in hn.items():
                 lines.append(f"| {g} | {h['flagged']} / {h['total']} |")
+        if agg.get("attribution") and (agg["attribution"]["benign"] or agg["attribution"]["positive"]):
+            lines += ["", "### Per-layer attribution of leads (v4; leave-one-out on the fusion, gate-off leads, pooled over seeds)", "",
+                      "`layer` = the layer(s) the lead NEEDED (see rogue_pipeline/attribution.py).  'blocked' = the v4 corroboration gate removes it "
+                      "(for benign agents: a false positive removed; for injected scenarios: RECALL LOST).", "",
+                      "| population | scenario / benign group | layer | leads without gate | blocked by gate |", "|---|---|---|---|---|"]
+            for kind in ("benign", "positive"):
+                for key, v in agg["attribution"][kind].items():
+                    grp, det = key.split(" | ", 1)
+                    lines.append(f"| {kind} | {grp} | {det} | {v['leads_without_gate']} | {v['blocked_by_gate']} |")
         if agg.get("checks"):
             lines += ["", "### Regression checks (hits / trials, pooled over seeds)", "", "| check | hits / trials |", "|---|---|"]
             for k, h in agg["checks"].items():

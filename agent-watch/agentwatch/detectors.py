@@ -14,6 +14,7 @@ from urllib.parse import parse_qs
 from .models import Finding, Request, Session
 
 _NUM_SEG = re.compile(r"/\d+(?=/|$)")
+WEB_HANDLED_KINDS = frozenset({"schema_param_use", "session_canary_param"})
 
 
 # --------------------------------------------------------------------------
@@ -321,8 +322,8 @@ def detect_honeytokens(session: Session, cfg: dict[str, Any]) -> list[Finding]:
                 if low.startswith(prefix.lower()):
                     kind = k
                     break
-        if kind is None:
-            continue
+        if kind is None or kind in WEB_HANDLED_KINDS:
+            continue          # schema_param_use / session_canary_param are scored by the v3 web detectors, once
         key = (kind, r.token_id or r.path)
         if key not in seen:
             seen[key] = Finding(
@@ -505,8 +506,10 @@ def detect_timing_signature(session: Session, cfg: dict[str, Any]) -> list[Findi
 
 def run_detectors(session: Session, cfg: dict[str, Any]) -> list[Finding]:
     """Run every detector and return all findings."""
+    from .webdetectors import run_web_detectors
     out: list[Finding] = []
     for fn in (detect_adaptation, detect_tool_chains, detect_param_evasion, detect_honeytokens,
                detect_dump_chain, detect_coordination, detect_timing_signature):
         out.extend(fn(session, cfg))
+    out.extend(run_web_detectors(session, cfg))
     return out

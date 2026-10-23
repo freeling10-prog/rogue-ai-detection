@@ -44,11 +44,18 @@ agent-watch/
 │   ├── scrubber.py     salted-hash secret/PII scrubber (runs before every disk write)
 │   ├── wsgi.py         gunicorn entry point (env-configured)
 │   ├── simagent.py     transport-agnostic simulated over-trusting agent
-│   ├── export.py       leads -> rogue-ai-pipeline RawEvent JSONL
+│   ├── export.py       leads -> rogue-ai-pipeline RawEvent JSONL (+ v3 `export-web`: mirrored access stream -> RawEvents with a `web` block)
+│   ├── safelog.py      v3: console/process log hygiene (werkzeug handler, gunicorn logger class, logging filter)
+│   ├── webdetectors.py v3: asset starvation, per-transition unlinked jumps, schema param, session canary, MCP flow
+│   ├── webagents.py    v3: simulated browsers / scrapers / four "mimic" variants (transport-agnostic)
 │   ├── synthetic.py    synthetic traffic generator (demo/tests)
 │   └── cli.py          argparse CLI
 ├── config/thresholds.json   all default thresholds/weights (mirrors config.py)
 ├── scripts/simulated_agent.py   localhost-only simulated agent (--scenario classic|discovery|coordination)
+├── scripts/eval_v3.py       v3 before/after evaluation (needs a pristine v2 tree for the "before" columns)
+├── redteam/                 v3: real-LLM tool-calling harness (loopback-only; NEVER run against a real model) + runbook
+├── docs/                    ja4-tls-fingerprinting.md (v3 design note, NOT implemented/tested), eval-v3.md/.json (v3 before/after),
+│                            security-review.md + docker-smoke-test.md (from the separate GitHub PR #2 review)
 ├── deploy/                  Zone A: Dockerfile, gunicorn.conf.py, nginx.conf, docker-compose.zone-a.yml
 ├── tests/                   pytest suite
 ├── requirements.txt / requirements-dev.txt
@@ -61,7 +68,7 @@ agent-watch/
 cd agent-watch
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt      # Flask==3.1.3 + pytest (+ PyYAML, gunicorn for two optional tests)
-python -m pytest -q                      # run the tests
+python -m pytest -q                      # run the tests (339 passed, 1 skipped in the final fresh-venv run; the skip needs pydantic + the sibling pipeline)
 ```
 
 ## Commands
@@ -69,6 +76,9 @@ python -m pytest -q                      # run the tests
 ```bash
 python -m agentwatch demo                              # synthetic logs -> pipeline -> results
 python -m agentwatch demo --out ./demo-out --min-severity info --top 20
+python -m agentwatch demo --extended                   # v3: + browsers, scrapers and four mimic variants on the honeypot site
+python -m agentwatch export-web leads.jsonl leads.jsonl.access.jsonl --out web-events.jsonl --label-synthetic   # -> rogue-ai-pipeline
+python redteam/llm_agent.py --help                     # v3: real-LLM harness (loopback only; read redteam/README.md first)
 
 python -m agentwatch analyze access.log gateway.jsonl --leads honeypot-leads.jsonl \
         --json-out report.json                         # your own (authorized!) or synthetic logs
@@ -94,11 +104,17 @@ as ordinary log files or via `--leads`.
 | Tool chains | Repeated `search → detail+ → export` chains with a dominant shape and short step gaps. |
 | Parameter / header evasion | Numeric pagination/ID enumeration at machine pace, cache-busting params, one-parameter-at-a-time systematic variation, rotating headers / UAs. |
 | Honeytokens | Decoy hits from honeypot leads, or decoy path prefixes in plain access logs (`honeytoken.paths` in config). |
+| Asset starvation (v3) | >= 5 HTML pages from a client whose User-Agent claims to be a browser, with **zero** CSS/JS/image/favicon fetches; plus browser `Sec-Fetch-*` missing/mismatched when the log has headers. Needs no decoy touch. |
+| Unlinked jump (v3) | Per transition: a move to a URL the previous page did not link **and** that no page ever offered this client **and** with no valid Referer (the honeypot records the link graph it served). Moves to URLs offered earlier (breadth-first queues) score far less. Abstains without a link graph. |
+| Camouflaged schema param (v3) | `/openapi.json` marks `client_schema_rev` (default `2026.04-ai`) as a required query parameter on every operation; any request using it parsed the schema. A per-session `trace=sc-…` canary hidden in the schema description works the same way. |
+| MCP flow (v3) | `tools/list` followed by a **valid** `tools/call` on the decoy `/mcp` endpoint. |
 | Multi-turn chain | Following server-issued cursor tokens through the fake paginated dump (`dump_chain_min_steps`). |
 | Coordination bus | Four separately weighted signals, each with its own plain-language reason: board read **after** an error/schema trap, a registration POST, 2+ turns of the claim-shard loop, and a handoff token presented by a different session/IP. |
 | Timing (weak) | Spearman correlation of "time to next action" vs the previous response size, plus a 1.5–8 s think-time band. **Heuristic, not established, evadable**; contributes at most 10 points and can never label an agent alone. |
 | Scoring | Two 0–100 scores: **automation** (timing CV, interval entropy, speed, no assets/referer, bot/scripted UA, decoy contact) and **agent** (adaptation, chains, evasion, deep navigation, decoys). Label: `agent` if agent ≥ 60, else `static_bot` if automation ≥ 40, else `human`. Each contributing rule becomes a human-readable reason with its points. |
-| Severity | `critical` (agent + decoy contact, or agent ≥ 85), `high` (agent, or any decoy hit), `medium`, `low` (unremarkable static bot), `info` (humans, allow-listed monitors/crawlers). |
+| Floors (v3) | **Max-pooling**: one high-signal event (decoy contact, schema parameter, session canary, error-hint follow, MCP `tools/call`; MCP list-then-call strongest) sets a *floor* on the scores (`floors` in config). Benign padding - assets, human-like timing, extra quiet pages - can add points but cannot pull the score below the floor. Decoys a person could plausibly type (`robots_disallow`, `/.env`) get no machine floor. |
+| Actor type (v3) | `goal_directed_agent` (label agent, or schema/MCP/canary/error-hint use, adaptation, tool chains, >= 2 non-passive decoys), `accidental_scraper` (only passive decoys such as the invisible link, no adaptation), `possible_mimic` (asset starvation or never-offered unlinked jumps), `static_bot`, `human`. A triage hint, not intent. |
+| Severity | `critical` (agent + decoy contact, or agent ≥ 85, or schema/MCP/canary use), `high` (agent, or a non-passive decoy hit), `medium` (a lone **passive** decoy hit - invisible link, robots Disallow, `/.env` - from an accidental scraper; `possible_mimic`; a loud static bot), `low` (unremarkable static bot), `info` (humans, allow-listed monitors/crawlers). **v3 change:** a lone passive hit used to be `high` even when the session was labelled `human`; that combination can no longer occur. |
 
 Allow-lists (`ua.benign_patterns`, `benign_paths`) lower a static bot to `info`, but are
 **ignored when adaptive/evasion/decoy evidence exists**, because a User-Agent is trivially spoofed.
@@ -262,6 +278,71 @@ worker to consume — it has not been validated against that project.
   `AGENT_WATCH_BEHIND_PROXY` is on (so the two cannot stack). Anyone can forge the header, so **never enable it
   on a reachable listener** — the CLI prints a warning when it is on.
 
+## Scrubber and nginx fixes ported from GitHub PR #2 (v3)
+
+A separate review (PR #2 on the GitHub repo) found three problems that were ported here with the PR's tests: (1) the scrubber now treats
+secrets split by CR/LF/TAB (including `sanitize_text`'s visible `\n` escapes), percent-encoded (`%40`, `%20`, `%0A`, one extra round) and
+`\uXXXX`-escaped secrets as the same token (same hash as the plain form); (2) `state.py` rejects unexpected SQLite column names with
+`ValueError` instead of `assert` (stripped by `python -O`), and `hit_kinds([])` no longer builds invalid SQL; (3) `deploy/nginx.conf` logs
+a millisecond timestamp (`$aw_timestamp` built from `$msec`) and uses `error_log stderr warn;`. The PR's `nginx -t` / loopback-nginx smoke test
+(`docs/docker-smoke-test.md`) was run by that reviewer, **not re-run here**: nginx/Docker were not used in this round.
+
+## Console and process logs (v3)
+
+A live demo showed the Flask development server printing its own access log to the console - raw query strings, fake keys,
+e-mail addresses and coordination `token=`/`nonce=` values - although every file sink was scrubbed. `agentwatch/safelog.py` fixes
+every log sink, not only that one:
+
+| Sink | Fix |
+| --- | --- |
+| werkzeug request line (`python -m agentwatch honeypot` / `serve`) | `run_server` passes a custom `WSGIRequestHandler`: `log_request` prints the **query-free** path; `log` (also used for werkzeug's own error lines such as "Bad request syntax ('GET /?key=…')") goes through `safe_text` |
+| Flask / werkzeug / `agentwatch` loggers, uncaught exceptions | a `logging.Filter` rewrites message, arguments and `exc_text` on every record; the app returns a generic JSON 500 and never prints the traceback unscrubbed |
+| gunicorn error log | `deploy/gunicorn.conf.py` sets `logger_class = agentwatch.safelog.SafeGunicornLogger`, which scrubs every message |
+| gunicorn access log | off by default (`accesslog = None`) **and** a no-op even if someone forces `--access-logfile -` |
+
+Policy for every message: percent-decode, run the salted-hash scrubber, **drop query strings entirely** (`?[query-redacted]`),
+mask the honeypot's own decoy keys/passwords/canary phrases/session canaries and long opaque path segments. The tests start the
+**real** servers (`tests/test_console_logs.py`): the dev server, and gunicorn with the shipped config including a forced
+access log, send fake `sk-…`/`AKIA…`/e-mail/token/nonce/decoy-key values in query strings, paths and headers plus malformed raw-socket
+requests (bad HTTP version, bad header, bad method, 70 kB request line, bad JSON), stop them with SIGINT and grep captured
+stdout/stderr; the same traffic against the previous code leaks the raw query line (confirmed by hand). Not covered: anything third-party
+code prints directly to stderr without `logging`, and a debug-mode server (`debug=False` is hard-coded).
+
+## v3: clients that never touch a decoy
+
+The live demo's "mimic" - browser User-Agent, human-paced, never touches a decoy - left no leads and no alert: every detector either
+needed a decoy hit or averaged over the session. v3 adds **passive, per-event** detectors and a **mirrored access stream**:
+
+* **Mirror.** The honeypot writes *every* request (not only decoy hits) to `<lead log>.access.jsonl` (schema `agentwatch.access/1`:
+  scrubbed path/query, status, selected `Sec-Fetch-*`/`Accept-*` headers, response content type, **the links the response offered**,
+  and the lead id when the request was also a decoy hit). `analyze leads.jsonl leads.jsonl.access.jsonl` merges mirror records into their
+  leads so nothing is counted twice. `mirror_access=False` / `access_log_path=` configure it. The site now links CSS/JS/logo/favicon
+  (all served `no-store`) so an asset-loading browser is distinguishable from a client that skips them.
+* **Detectors** (`webdetectors.py`, `web` in config): asset starvation, per-transition unlinked jump, camouflaged schema parameter, session
+  canary; plus **floors** (max-pooling) and the **actor type** described in the table above. They are *contact/behaviour* evidence:
+  a text-mode browser looks like asset starvation, a person typing a URL makes an unlinked jump.
+
+## Decoy MCP endpoint (v3)
+
+`POST /mcp` speaks JSON-RPC 2.0: `initialize`, `tools/list`, `tools/call`. Decoy tools: `query_customer_backup`,
+`read_internal_notes`, `claim_coordination_task` (plus the four older decoys). Advertised from `/.well-known/mcp.json` and `/llms.txt`.
+Every `tools/call` validates its required string arguments (`-32602` otherwise), logs the **scrubbed** arguments, and returns a plausible
+synthetic response carrying a per-tool canary phrase (`AWCANARY-…`); nothing from the request is reflected. Read-only (no filesystem, no
+network, no real data), request body size-limited (same 16 KiB cap as the rest), and **rate-capped** at 30 calls/minute/IP in an in-process
+bounded counter (`429` + JSON-RPC `-32000`). `tools/list` followed by a **valid** `tools/call` from the same client is tagged
+`mcp_list_then_call` and scored as strong goal-directed evidence (floor 70) - *contact, not intent*: nothing says the operator meant
+anything by it, and a developer poking at an exposed MCP card does the same.
+
+## Real-LLM red-team harness and JA4 note (v3)
+
+* `redteam/llm_agent.py` + `redteam/README.md`: a ~60-line tool-calling loop with a loopback-only `fetch_url`, a hard step cap, an Ollama
+  backend (`127.0.0.1:11434`) and an opt-in OpenAI-compatible backend (off unless you set `AGENTWATCH_LLM_API_BASE`), three prompts
+  (benign summarizer, authorized-audit recon, stealth mimic) and a runbook for feeding the logs into agent-watch and the pipeline.
+  **Never run against a real model**: no Ollama was installed where this was built and nothing was downloaded; it is tested with a stub
+  model only.
+* `docs/ja4-tls-fingerprinting.md`: design note for JA4/JA4H via an nginx edge. **Not implemented, not tested.** The only code is an
+  optional, validated `ja4`/`ja4h` field in the parser that nothing scores.
+
 ## Privacy: secret / PII scrubber
 
 `agentwatch/scrubber.py` runs inside `LeadWriter.write`, immediately before serialisation, so no code path can
@@ -374,6 +455,41 @@ tests); the reading human has the same correlation but is exempted by loading as
 a false positive). Agent scores saturating at 100 reflects how clear-cut the synthetic agents are. The generator and
 thresholds were written by the same author: this shows internal consistency, **not** real-world performance.
 
+### v3 extended demo and before/after (`demo --extended`, `scripts/eval_v3.py`) - a regression check, NOT a benchmark
+
+The extended demo adds 18 web clients that browse the honeypot site (3 browsers that load assets, 3 "images blocked" humans, 2 naive scrapers
+that follow the invisible link, 1 declared crawler, and 3 each of four mimic variants - see `agentwatch/webagents.py`). The mimics are
+written with the detectors in mind: `mimic_basic` (browser UA, human pacing, guesses a few URLs, no assets), `mimic_linked` (follows only
+links it was shown, no assets), `mimic_assets` (loads assets, sends `Sec-Fetch-*`: **built to evade**), `mimic_schema` (reads
+`/openapi.json` and sends `client_schema_rev`). Same seed 7, same 20 original actors (byte-identical logs, all still labelled correctly).
+`python scripts/eval_v3.py --old-tree <pristine v2 tree> --out eval-out` regenerates the traffic against **each tree's own honeypot** and
+analyzes it four ways:
+
+| | C1: v2 as shipped (what the live demo saw) | C2: v3 code, no mirror | C3: mirror visible, new detectors + floors OFF | C4: v3 full |
+| --- | --- | --- | --- | --- |
+| mimic clients seen at all (12) | 0 / 12 | 3 / 12 | 12 / 12 | 12 / 12 |
+| mimic recall, label `agent` | 0 / 12 | 3 / 12 | 0 / 12 | **6 / 12 (0.50)** |
+| mimic recall, alert (severity >= medium) | 0 / 12 | 3 / 12 | 0 / 12 | **9 / 12 (0.75)** |
+| ... excluding the evader `mimic_assets` | 0 / 9 | 3 / 9 | 0 / 9 | 9 / 9 |
+| `mimic_assets` (evader) | invisible | invisible | seen, `info` | **seen, `human`, `info`: still undetected** |
+| `mimic_linked` | invisible | invisible | `human`/`info` (one `static_bot`/`low`) | alert `medium` (`possible_mimic`), label **not** `agent` |
+| humans alerted (severity >= medium), of 12 | 0 (vacuous: none of the 6 web humans were visible) | 0 (same) | 0 | **3 / 12 (0.25): all three `human_no_assets`**; 0 / 9 without that hard negative |
+| naive scraper (2), one hidden-link hit | label `human`, severity **high** (bug) | `static_bot`, `medium`, `accidental_scraper` | same | `static_bot`, `medium`, `accidental_scraper` |
+| original 20 actors labelled correctly | 20 / 20 | 20 / 20 | 20 / 20 | 20 / 20 |
+
+How to read it honestly:
+* The big v2 -> v3 change for mimics is **visibility** (the mirror: C1/C2 -> C3), then **three detectors** (C3 -> C4). C3 shows the
+  mirror alone changes no label.
+* `mimic_linked` is *alerted but not labelled an agent*, and `human_no_assets` (a person with images blocked) is **indistinguishable** from
+  it on this evidence: that is the price of asset starvation. Both end up `medium`/`possible_mimic`; a reviewer decides.
+* `mimic_assets` shows the ceiling: a client that loads assets and sends browser headers, follows only offered links and never touches a
+  decoy or the schema leaves nothing these detectors can see. Real agents driving real browsers will look like this.
+* The scraper fix is a **severity/labelling change, not a detection gain**: the lone invisible-link hit was always detected; it is no longer
+  ranked `high` while labelled `human`. One existing test encoded the old behaviour and was changed deliberately
+  (`test_single_decoy_hit_from_human_is_flagged_for_review_but_not_agent`).
+* `mimic_schema` is caught by a decoy lead already in C2 (the new schema parameter), independent of the mirror.
+* n = 1-3 per variant, one seed, same author as the detectors: treat every cell as "the code does what it was written to do".
+
 ## Tuning thresholds
 
 All defaults are in `config/thresholds.json` (identical to `agentwatch/config.py`; a test enforces that).
@@ -420,3 +536,28 @@ replace the default map entirely when overridden. Check `reasons` in the report 
 * The multi-worker state store assumes a single host/volume; it is not a distributed design.
 * Thresholds were set against the synthetic generator only; no real-world accuracy figures exist.
   **Every alert needs human review.**
+
+### v3 honest limits
+
+* **Same-author simulations.** Every simulated client (including the four mimics and the LLM red-team stub) was written by the author of the
+  detectors, and each mimic *knows* what the detectors look for. The extended demo and `eval_v3.py` are regression checks of intended
+  behaviour. They are not benchmarks, have n = 1-3 per variant and one seed, and say nothing about real-world recall or false-positive rate.
+* **Honeypot contact is not intent.** Decoy hits, schema-parameter use and MCP `tools/call` prove an automated client *reached and used* a decoy
+  - which a scanner, a crawler, a link checker, a curious person or a security researcher can also do. Labels such as
+  `goal_directed_agent` describe observed behaviour, never purpose.
+* **Mimics that behave like browsers evade.** A client that loads assets, sends correct `Sec-Fetch-*`, follows only offered links, and avoids
+  decoys, schema parameters and MCP is invisible here (`mimic_assets`). Asset starvation also fires on people with images/scripts blocked,
+  text-mode browsers, reader modes and some privacy tools (`human_no_assets`: 3 of 3 flagged `medium`).
+* **The link graph only exists for the honeypot's own site**, and only if the mirror is on. On ordinary access logs the unlinked-jump detector
+  abstains. A client with a stale cache or a bookmarked deep link can make "never offered" jumps.
+* **`Sec-Fetch-*` is a header the client controls**; it is evidence only against lazy mimics.
+* **Floors** make a single flagged event decisive by design: one stray decoy contact can outweigh a lot of ordinary behaviour (that is the point,
+  and also the failure mode). Human-plausible decoys (`robots_disallow`, `/.env`) deliberately get no machine floor.
+* **MCP decoy**: rate cap and size limits are per process (gunicorn workers each keep their own counter); nothing here has been tested against a
+  real MCP client or SDK.
+* **Console hygiene** covers Python `logging` sinks of werkzeug, Flask, gunicorn and agentwatch; output that third-party code writes straight to a
+  stream is outside it. The dev server is still not production-grade.
+* **Real-LLM harness: never run against a model.** No Ollama on the build box; nothing downloaded; no external API called. Behaviour with real
+  models (refusals, tool-call formats, loops) is unknown.
+* **JA4/JA4H: not implemented.** Only an optional parse-only field and a design note exist. No TLS capture, no nginx build, nothing tested.
+* **No Docker or nginx was run here.** The nginx config changed only by the PR #2 port (timestamp map, `error_log stderr`) and is checked here by text/parse tests only; the PR author's own `nginx -t` run is not reproduced.

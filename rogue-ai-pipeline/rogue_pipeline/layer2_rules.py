@@ -16,6 +16,14 @@ Rules (all deterministic, no learning):
   R7  honeypot_cognitive_capture     AML.T0051  agent disclosed its system-prompt summary / declared tools /
                                      +T0086     objective / message to a decoy (+T0053 when it listed tools)
 
+  R8  asset_starvation               (web) a client whose User-Agent claims a browser loaded >= N HTML pages and never one
+                                     CSS/JS/image/favicon (stronger when Sec-Fetch-* is also wrong)
+  R9  unlinked_jump                  (web) >= N per-transition moves to a URL that no page ever offered this client, without a
+                                     valid Referer (breadth-first queue moves that were offered earlier do not count)
+  R10 strong_signal_floor            (web) a SINGLE high-signal event (decoy contact, session canary, schema parameter,
+                                     error-hint follow, MCP tools/call) - sets a score FLOOR in fusion that benign padding
+                                     cannot dilute.  A lone hidden-link/decoy contact gets the lower "weak" floor.
+
 Baseline: rules R1/R3/R4 compare behaviour with the agent's own baseline period (its first
 ``baseline_min_seconds``). If the agent has fewer than ``baseline_min_events`` events in it, those rules ABSTAIN
 rather than guess. Every flag carries evidence events and the "ATLAS mapping approximate" note.
@@ -27,7 +35,7 @@ from dataclasses import dataclass, field
 from typing import Dict, FrozenSet, List, Optional, Sequence, Set
 
 from .atlas import ATLAS_MAPPING_NOTE, ATLAS_TECHNIQUES, atlas_ref
-from .config import Layer2Cfg, ResolvedPolicy, ToolsCfg
+from .config import Layer2Cfg, ResolvedPolicy, ToolsCfg, WebCfg
 from .schema import NormalizedEvent
 
 
@@ -73,8 +81,9 @@ def _strength(base: float, n: int) -> float:
 
 
 class RuleEngine:
-    def __init__(self, cfg: Layer2Cfg, tools: ToolsCfg, policy: ResolvedPolicy) -> None:
+    def __init__(self, cfg: Layer2Cfg, tools: ToolsCfg, policy: ResolvedPolicy, web: Optional[WebCfg] = None) -> None:
         self.cfg = cfg
+        self.web = web or WebCfg()
         self.write_tools: FrozenSet[str] = frozenset(tools.write_tools)
         self.policy = policy
         self.exempted: Counter = Counter()      # rule id -> events that WOULD have been evidence but were allowlisted
@@ -116,6 +125,10 @@ class RuleEngine:
         flags += self._r5(agent, evs)
         flags += self._r6(agent, evs)
         flags += self._r7(agent, evs)
+        if self.web.enabled:
+            flags += self._r8(agent, evs)
+            flags += self._r9(agent, evs)
+            flags += self._r10(agent, evs)
         return flags
 
     def evaluate(self, by_agent: Dict[str, List[NormalizedEvent]]) -> List[RuleFlag]:
@@ -272,11 +285,72 @@ class RuleEngine:
             f"{len(caps)} request(s). The captured text is attacker-controlled and shown only as sanitized, truncated data.",
             [_ev(e) for e in caps[: self.cfg.max_evidence]], extra=extra)]
 
+    # -- R8 / R9 / R10: web-collector evidence (single facts, not session averages) -----------------------------------
+    def _r8(self, agent: str, evs: Sequence[NormalizedEvent]) -> List[RuleFlag]:
+        w = self.web
+        web = [e for e in evs if e.web is not None]
+        if not web or any(e.web is not None and e.web.content_kind == "asset" for e in web):
+            return []
+        if not any(e.web is not None and e.web.ua_class == "browser" for e in web):
+            return []                          # a client that declares itself a script/bot is not pretending to be a browser
+        pages = [e for e in web if e.web is not None and e.web.content_kind == "html" and e.status == "allowed"]
+        if len(pages) < w.asset_starvation_min_pages:
+            return []
+        checked = [e for e in pages if e.web is not None and e.web.sec_fetch_mismatch is not None]
+        mism = [e for e in checked if e.web is not None and e.web.sec_fetch_mismatch]
+        sec = bool(checked) and len(mism) / len(checked) >= 0.5
+        return [RuleFlag(
+            "R8", "Browser-like client that never fetches page assets", agent, [atlas_ref("AML.T0075")],
+            w.strength_asset_starvation_sec_fetch if sec else w.strength_asset_starvation,
+            f"{len(pages)} HTML pages requested with a browser-like User-Agent and zero CSS/JS/image/favicon fetches"
+            + (f"; {len(mism)}/{len(checked)} page loads also lack the Sec-Fetch-* headers a browser sends" if checked else
+               "; Sec-Fetch-* headers were not supplied by the collector (not checked)")
+            + ". Contact/behaviour evidence only: text-mode browsers, reader modes and ad-blockers look the same.",
+            [_ev(e) for e in pages[: self.cfg.max_evidence]], extra={"pages": len(pages), "sec_fetch_mismatch": len(mism), "sec_fetch_checked": len(checked)})]
+
+    def _r9(self, agent: str, evs: Sequence[NormalizedEvent]) -> List[RuleFlag]:
+        w = self.web
+        jumps = [e for e in evs if e.web is not None and e.web.linked_from_prev is False and not e.web.referer_valid]
+        never = [e for e in jumps if e.web is not None and not e.web.offered_earlier]
+        earlier = len(jumps) - len(never)
+        if len(never) < w.unlinked_min_never_offered:
+            return []
+        s = min(w.strength_unlinked_jump_cap, w.strength_unlinked_jump + 0.05 * (len(never) - w.unlinked_min_never_offered))
+        return [RuleFlag(
+            "R9", "Moves to URLs that no page offered this client", agent, [atlas_ref("AML.T0075")], round(s, 3),
+            f"{len(never)} transition(s) went to a URL that no page served to this client had linked, with no valid Referer "
+            f"({earlier} further queue-style move(s) to URLs offered earlier were not counted). Consistent with guessed or "
+            f"remembered URLs; a person who types addresses does the same.",
+            [_ev(e) for e in never[: self.cfg.max_evidence]], extra={"never_offered": len(never), "offered_earlier": earlier})]
+
+    def _r10(self, agent: str, evs: Sequence[NormalizedEvent]) -> List[RuleFlag]:
+        w = self.web
+        sig = [e for e in evs if e.web is not None and (e.web.strong_signal or e.web.mcp == "tools_call")]
+        if not sig:
+            return []
+        kinds = sorted({(e.web.strong_signal or "mcp_tools_call") for e in sig if e.web is not None})
+        decoys = {e.web.decoy_kind for e in sig if e.web is not None and e.web.decoy_kind}
+        weak = {"hidden_link", "decoy_hit"}
+        adaptive = [k for k in kinds if k not in weak]
+        strong = bool(adaptive) or len(decoys) >= w.strong_distinct_decoys
+        floor = w.floor_strong if strong else w.floor_weak
+        tier = "strong" if strong else "weak"
+        return [RuleFlag(
+            "R10", "Single high-signal event (score floor)", agent, [atlas_ref("AML.T0075")], round(floor, 3),
+            f"{len(sig)} high-signal event(s): {kinds}"
+            + (f" across {len(decoys)} decoy kind(s)" if decoys else "")
+            + (". Used something a decoy offered (a parsed schema, a tool call, a canary): adaptive behaviour." if strong else
+               ". A single decoy contact: an accidental scraper follows hidden links too. Contact, not intent.")
+            + " Sets a floor that unrelated benign events cannot dilute.",
+            [_ev(e) for e in sig[: self.cfg.max_evidence]],
+            extra={"floor": round(floor, 3) if w.floors_enabled else None, "tier": tier, "signals": kinds, "distinct_decoys": len(decoys)})]
+
 
 # Stable registry used by docs/tests: every rule id and the techniques it may emit.
 RULE_ATLAS: Dict[str, List[str]] = {
     "R1": ["AML.T0051"], "R2": ["AML.T0053"], "R3": ["AML.T0086"], "R4": ["AML.T0051"], "R5": ["AML.T0075"],
     # R6/R7 emit a subset of these depending on the evidence (T0051 is always present)
     "R6": ["AML.T0051", "AML.T0053", "AML.T0086"], "R7": ["AML.T0051", "AML.T0053", "AML.T0086"],
+    "R8": ["AML.T0075"], "R9": ["AML.T0075"], "R10": ["AML.T0075"],
 }
 assert all(t in ATLAS_TECHNIQUES for ts in RULE_ATLAS.values() for t in ts)

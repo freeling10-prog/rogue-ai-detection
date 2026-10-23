@@ -1,0 +1,273 @@
+{
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "extra": {
+    "scanner_leads_if_prefilter_off": 33,
+    "bg_leads_same_v2_v3": 5,
+    "seeds": 5,
+    "prefiltered_agents_v3": 40,
+    "prefiltered_events_v3": 560,
+    "kept_scanner_like_with_goal_evidence": 5
+  },
+  "conditions": {
+    "v2": {
+      "metrics": {
+        "mimic_lead_recall": 0.0,
+        "mimic_lead_recall_excl_mimic_assets_evader": 0.0,
+        "web_benign_lead_fpr": 0.0,
+        "web_benign_leads": 0,
+        "web_benign_n": 45,
+        "scanner_clients_with_a_lead": 33,
+        "scanner_clients": 40,
+        "scanner_clients_filtered": 0,
+        "accidental_scraper_leads": 0,
+        "accidental_scraper_n": 15,
+        "accidental_scraper_class_goal_directed": 0,
+        "accidental_scraper_class_accidental": 0,
+        "adaptive_agents_lead_recall": 0.0,
+        "scanner_ua_spoof_kept_with_lead": 0,
+        "background_benign_leads": 68,
+        "background_agents": 380,
+        "quarantined_total": 0
+      },
+      "groups": {
+        "web_human": {
+          "n": 25,
+          "lead": 0,
+          "filtered": 0
+        },
+        "web_human_no_assets": {
+          "n": 20,
+          "lead": 0,
+          "filtered": 0
+        },
+        "commodity_scanner": {
+          "n": 40,
+          "lead": 33,
+          "class.None": 33,
+          "band.review": 25,
+          "filtered": 0,
+          "band.review_first": 8
+        },
+        "accidental_scraper": {
+          "n": 15,
+          "lead": 0,
+          "filtered": 0
+        },
+        "mimic_basic": {
+          "n": 15,
+          "lead": 0,
+          "filtered": 0
+        },
+        "mimic_linked": {
+          "n": 15,
+          "lead": 0,
+          "filtered": 0
+        },
+        "mimic_assets": {
+          "n": 15,
+          "lead": 0,
+          "filtered": 0
+        },
+        "mimic_schema": {
+          "n": 15,
+          "lead": 0,
+          "filtered": 0
+        },
+        "mcp_agent": {
+          "n": 10,
+          "lead": 0,
+          "filtered": 0
+        },
+        "decoy_explorer": {
+          "n": 10,
+          "lead": 0,
+          "filtered": 0
+        },
+        "scanner_ua_spoof": {
+          "n": 5,
+          "lead": 0,
+          "filtered": 0
+        }
+      }
+    },
+    "v3_web_off": {
+      "metrics": {
+        "mimic_lead_recall": 0.0,
+        "mimic_lead_recall_excl_mimic_assets_evader": 0.0,
+        "web_benign_lead_fpr": 0.0,
+        "web_benign_leads": 0,
+        "web_benign_n": 45,
+        "scanner_clients_with_a_lead": 33,
+        "scanner_clients": 40,
+        "scanner_clients_filtered": 0,
+        "accidental_scraper_leads": 0,
+        "accidental_scraper_n": 15,
+        "accidental_scraper_class_goal_directed": 0,
+        "accidental_scraper_class_accidental": 0,
+        "adaptive_agents_lead_recall": 0.0,
+        "scanner_ua_spoof_kept_with_lead": 0,
+        "background_benign_leads": 68,
+        "background_agents": 380,
+        "quarantined_total": 0
+      },
+      "groups": {
+        "web_human": {
+          "n": 25,
+          "lead": 0,
+          "filtered": 0
+        },
+        "web_human_no_assets": {
+          "n": 20,
+          "lead": 0,
+          "filtered": 0
+        },
+        "commodity_scanner": {
+          "n": 40,
+          "lead": 33,
+          "class.unclassified": 33,
+          "band.review": 25,
+          "filtered": 0,
+          "band.review_first": 8
+        },
+        "accidental_scraper": {
+          "n": 15,
+          "lead": 0,
+          "filtered": 0
+        },
+        "mimic_basic": {
+          "n": 15,
+          "lead": 0,
+          "filtered": 0
+        },
+        "mimic_linked": {
+          "n": 15,
+          "lead": 0,
+          "filtered": 0
+        },
+        "mimic_assets": {
+          "n": 15,
+          "lead": 0,
+          "filtered": 0
+        },
+        "mimic_schema": {
+          "n": 15,
+          "lead": 0,
+          "filtered": 0
+        },
+        "mcp_agent": {
+          "n": 10,
+          "lead": 0,
+          "filtered": 0
+        },
+        "decoy_explorer": {
+          "n": 10,
+          "lead": 0,
+          "filtered": 0
+        },
+        "scanner_ua_spoof": {
+          "n": 5,
+          "lead": 0,
+          "filtered": 0
+        }
+      }
+    },
+    "v3": {
+      "metrics": {
+        "mimic_lead_recall": 0.75,
+        "mimic_lead_recall_excl_mimic_assets_evader": 1.0,
+        "web_benign_lead_fpr": 0.0,
+        "web_benign_leads": 0,
+        "web_benign_n": 45,
+        "scanner_clients_with_a_lead": 0,
+        "scanner_clients": 40,
+        "scanner_clients_filtered": 40,
+        "accidental_scraper_leads": 15,
+        "accidental_scraper_n": 15,
+        "accidental_scraper_class_goal_directed": 0,
+        "accidental_scraper_class_accidental": 15,
+        "adaptive_agents_lead_recall": 1.0,
+        "scanner_ua_spoof_kept_with_lead": 5,
+        "background_benign_leads": 68,
+        "background_agents": 380,
+        "quarantined_total": 0
+      },
+      "groups": {
+        "web_human": {
+          "n": 25,
+          "lead": 0,
+          "filtered": 0
+        },
+        "web_human_no_assets": {
+          "n": 20,
+          "lead": 0,
+          "filtered": 0
+        },
+        "commodity_scanner": {
+          "n": 40,
+          "lead": 0,
+          "filtered": 40
+        },
+        "accidental_scraper": {
+          "n": 15,
+          "lead": 15,
+          "class.accidental_scraper": 15,
+          "band.review": 15,
+          "filtered": 0
+        },
+        "mimic_basic": {
+          "n": 15,
+          "lead": 15,
+          "class.goal_directed": 15,
+          "band.review": 15,
+          "filtered": 0
+        },
+        "mimic_linked": {
+          "n": 15,
+          "lead": 15,
+          "class.possible_mimic": 15,
+          "band.review": 15,
+          "filtered": 0
+        },
+        "mimic_assets": {
+          "n": 15,
+          "lead": 0,
+          "filtered": 0
+        },
+        "mimic_schema": {
+          "n": 15,
+          "lead": 15,
+          "class.goal_directed": 15,
+          "band.review_first": 15,
+          "filtered": 0
+        },
+        "mcp_agent": {
+          "n": 10,
+          "lead": 10,
+          "class.goal_directed": 10,
+          "band.review_first": 10,
+          "filtered": 0
+        },
+        "decoy_explorer": {
+          "n": 10,
+          "lead": 10,
+          "class.goal_directed": 10,
+          "band.review_first": 10,
+          "filtered": 0
+        },
+        "scanner_ua_spoof": {
+          "n": 5,
+          "lead": 5,
+          "class.goal_directed": 5,
+          "band.review_first": 5,
+          "filtered": 0
+        }
+      }
+    }
+  }
+}

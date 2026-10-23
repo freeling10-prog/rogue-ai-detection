@@ -161,6 +161,8 @@ def create_honeypot_app(
     scrubber: Optional[Scrubber] = None,
     board_max_sessions: int = 2000,
     board_max_steps: int = MAX_CLAIM_STEPS,
+    access_log_path: Optional[str | Path] = None,
+    mirror_access: bool = True,
 ) -> Flask:
     """Build the full honeypot (basic listener + extended decoys + canaries)."""
     return honeytoken.create_app(
@@ -168,5 +170,6 @@ def create_honeypot_app(
         registry_path=registry_path, max_log_bytes=max_log_bytes, body_cap=body_cap,
         trust_forwarded_for=trust_forwarded_for, behind_proxy=behind_proxy, state_path=state_path,
         scrubber=scrubber, board_max_sessions=board_max_sessions,
+        access_log_path=access_log_path, mirror_access=mirror_access,
         extensions=[install, install_surfaces, lambda app, ctx: install_coordination(app, ctx, board_max_steps)],
     )

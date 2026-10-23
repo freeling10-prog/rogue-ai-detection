@@ -38,6 +38,7 @@ from typing import Any, Optional
 
 from .honeypot import create_honeypot_app
 from .simagent import run_board_reader, run_coordination_agent, run_discovery_agent, run_obedient_agent
+from .webagents import WEB_PLAN, actor_ip, pace_for, run_web_client
 
 T0 = datetime(2026, 10, 22, 10, 0, 0, tzinfo=timezone.utc)
 BROWSER_UAS = [
@@ -316,6 +317,13 @@ class Generator:
             prev = "https://shop.example.invalid/products"
         self.truth.append(Truth(name, "human", ip, "reading time grows with page size (+ assets)"))
 
+    # -- v3 web clients (extended demo only): browsers, scraper, crawler and four mimics ------------------------
+    def web_client(self, name: str, ip: str, start: float, variant: str, label: str, note: str, *, benign: bool = False) -> None:
+        """A simulated web client that browses the honeypot's own pages (see webagents.py for what each variant does)."""
+        pace = pace_for(variant, self.rng)
+        self.trails.append({"ip": ip, "ua": "(set by the client)", "at": start, "kinds": [f"web:{variant}"], "delay": pace})
+        self.truth.append(Truth(name, label, ip, note, benign))
+
     # -- honeypot interaction (in-process, no sockets) -------------------
     def honeypot_leads(self, out: Path) -> Path:
         """Drive the real honeypot app in-process (fake clock, no sockets) for every recorded trail."""
@@ -343,6 +351,8 @@ class Generator:
                         fetch("GET", path, {"User-Agent": ua}, None)
                 elif kind == "classic":
                     run_obedient_agent(fetch, ua, before_step=advance)
+                elif kind.startswith("web:"):
+                    run_web_client(fetch, kind[4:], before_step=advance)
                 elif kind == "coordination":
                     run_coordination_agent(fetch, ua, before_step=advance)
                 elif kind == "relay":
@@ -378,10 +388,20 @@ def _json_line(e: Event) -> str:
     }, separators=(",", ":"))
 
 
-def generate_demo(out_dir: str | Path, seed: int = 7) -> dict[str, Any]:
-    """Write synthetic access.log, gateway.jsonl, honeypot leads and truth.json.
+def add_web_actors(g: "Generator") -> None:
+    """The v3 extended demo: browsers and scrapers on the honeypot site plus the four mimic variants (see webagents.WEB_PLAN)."""
+    n = 0
+    for variant, label, note, copies, benign in WEB_PLAN:
+        for k in range(copies):
+            g.web_client(f"web:{variant} #{k + 1}", actor_ip(n, label), 600 + 40 * n, variant, label, note, benign=benign)
+            n += 1
 
-    Returns {"access_log","gateway_log","leads","truth"(list of Truth)}.
+
+def generate_demo(out_dir: str | Path, seed: int = 7, extended: bool = False) -> dict[str, Any]:
+    """Write synthetic access.log, gateway.jsonl, honeypot leads (+ mirrored access stream) and truth.json.
+
+    ``extended=True`` adds the v3 web clients (browsers, scrapers, mimic variants) that browse the honeypot site.
+    Returns {"access_log","gateway_log","leads","access_mirror","truth"(list of Truth)}.
     """
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -411,6 +431,8 @@ def generate_demo(out_dir: str | Path, seed: int = 7) -> dict[str, Any]:
     g.coordination_agent("192.0.2.40", 420)
     g.relay_pair("192.0.2.41", "192.0.2.42", 450)
     g.reading_human("reading human (time scales with page size)", "198.51.100.60", 40)
+    if extended:
+        add_web_actors(g)
     # gateway-format IPs: naive scraper + agent B go to the JSON-lines API-gateway log
     events = sorted(g.events, key=lambda e: e.t)
     access = out / "access.log"
@@ -422,4 +444,5 @@ def generate_demo(out_dir: str | Path, seed: int = 7) -> dict[str, Any]:
     g.honeypot_leads(leads)
     truth = [t.__dict__ for t in g.truth]
     (out / "truth.json").write_text(json.dumps(truth, indent=2) + "\n", encoding="utf-8")
-    return {"access_log": access, "gateway_log": gateway, "leads": leads, "truth": g.truth}
+    return {"access_log": access, "gateway_log": gateway, "leads": leads,
+            "access_mirror": Path(str(leads) + ".access.jsonl"), "truth": g.truth}

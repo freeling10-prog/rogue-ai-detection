@@ -32,7 +32,9 @@ rogue-ai-pipeline/
     layer1_anomaly.py         Layer 1 (batch): IsolationForest + plain-language explanations
     baseline.py               Layer 1 (frozen): own Isolation Forest, versioned + hashed .npz, online scoring
     sequence_model.py         first-order Markov action-order model (timing-independent), fusion gate
-    layer2_rules.py           Layer 2: deterministic rules R1-R7 with ATLAS ids and evidence
+    layer2_rules.py           Layer 2: deterministic rules R1-R7 (+ v3 web rules R8-R10) with ATLAS ids and evidence
+    prefilter.py              v3: commodity-scanner pre-filter (before scoring AND before baseline training; counts reported)
+    web_simulator.py          v3: synthetic web clients (browsers, scanners, accidental scraper, mimics, MCP agents)
     layer3_graph.py           Layer 3: bipartite coordination graph, edge kinds, suppression
     fusion.py                 noisy-or fusion into Lead objects (invariants enforced in the constructor)
     audit.py                  hash-chained audit log (persisted across runs) + verifier + anchor check
@@ -42,6 +44,7 @@ rogue-ai-pipeline/
     evaluation.py             precision / recall / FPR per scenario, before/after variants, ablations, checks
     stix_export.py            STIX 2.1 export of human-confirmed leads, validated with stix2 + OASIS validator
     reporting.py, pipeline.py
+  scripts/eval_web.py         v3 before/after web-client evaluation (needs the old tree for the "before" column)
   tests/                      pytest suite (see "Tests")
   sample_outputs/             evaluation.md/json (v1.1) and a demo run (leads, audit log, quarantine, STIX bundle)
 ```
@@ -197,6 +200,77 @@ appends `timestamp head-hash` to a local anchor file and to an off-host anchor s
 prints every command and touches nothing. The `authorized_keys` options for both keys are documented in the script header
 (they cannot be enforced from B). Shellcheck-clean (checked with `shellcheck-py`).
 
+## v3: web-collector evidence, commodity-scanner pre-filter, floors
+
+> Added after a live demo of the sibling `agent-watch` honeypot found that a browser-UA, human-paced client that never touched a
+> decoy left zero leads, and that a naive scraper that hit one hidden link was ranked "high" but labelled human.
+> **Everything below was tested on synthetic clients written by the same author as the rules (see "What v3 does NOT show").**
+
+**Input.** `RawEvent` gained an optional strict `web` block (`WebMeta`, unknown fields forbidden): `content_kind`, `referer_valid`,
+`linked_from_prev`, `offered_earlier`, `sec_fetch_mismatch`, `strong_signal`, `decoy_kind`, `mcp`, optional `ja4` and the raw
+`user_agent`. agent-watch produces it with `python -m agentwatch export-web leads.jsonl leads.jsonl.access.jsonl --out web.jsonl
+--label-synthetic` (`tests/data/agentwatch_web_export_sample.jsonl` is a checked-in sample that the tests validate). The
+normalizer reduces the User-Agent to `ua_class` (browser / scanner / declared_bot / other) and **discards it**; resource paths
+become flags (`scanner_path`), never stored. Events without a `web` block behave exactly as in v1.1 (the existing 203 tests and the
+evaluation tables are unchanged by construction).
+
+**Rules** (no session averages; each looks at single facts):
+
+| rule | fires when | strength |
+| --- | --- | --- |
+| R8 asset starvation | >= 5 successful HTML page loads, a browser-claiming UA, **zero** CSS/JS/image/favicon fetches (abstains for declared bots/scripts) | 0.50; 0.65 if >= half the page loads also lack browser `Sec-Fetch-*` |
+| R9 unlinked jump | >= 2 transitions to a URL **no page ever offered this client**, without a valid Referer (breadth-first queue moves to earlier-offered URLs are *not* counted) | 0.55 + 0.05 per extra, cap 0.80 |
+| R10 strong-signal floor | one high-signal event: decoy contact, session canary, schema parameter, error-hint follow, MCP `tools/call` | sets a **fusion floor**: 0.80 if the client *used* something a decoy offered (or touched >= 3 decoy kinds), 0.58 for a lone hidden-link/decoy contact |
+
+R8 alone is deliberately **below the lead threshold** (0.9 x 0.5 = 0.45; a person with images blocked looks identical); it becomes
+a lead only with the `Sec-Fetch-*` mismatch (0.585) or with R9/R10. **Floors** are applied after noisy-or as `max(score, floor)`:
+nothing in fusion averages over a session, so any amount of benign padding cannot pull a flagged client below its floor (tested
+with 0 / 50 / 500 padding pages).
+
+**Accidental scraper vs goal-directed agent.** `Lead.actor_class` is a triage hint derived from the flags:
+`goal_directed` (R10 strong tier, R6/R7, or R8 + R9 together), `possible_mimic` (R8 or R9 alone), `accidental_scraper` (only a weak
+R10: one hidden-link/decoy contact, no adaptive behaviour), `unclassified` (every non-web lead). A lone hidden-link hit lands in the
+normal `review` queue (score 0.58 < 0.75), a client that parsed a schema or called an MCP tool lands in `review_first`.
+It is a label for the reviewer, not a statement about intent. Leads are still always severity `low`, `human_review`, no automatic action.
+
+**Commodity-scanner pre-filter** (`prefilter.py`, `[web]` config). Before scoring *and before baseline training*, a client whose events
+are all web events is set aside when >= 80% of its requests are scanner paths (`*.php`, `/wp-login`, `/wp-admin`, `/xmlrpc`, `/.env`,
+`/.git`, `/phpmyadmin`, `/cgi-bin`, `/actuator`, ...) or when any request carries a scanner User-Agent (zgrab, masscan, censys, shodan,
+nmap, nikto, sqlmap, nuclei, wpscan, ...). **A scanner UA or path is not a hiding place:** a client that also shows goal-directed
+evidence (schema parameter, MCP `tools/call`, session canary, error-hint follow, fake-credential use) is kept and counted separately; a
+bare decoy touch is *not* exempting, because scanners hit the `/.env` and `/wp-login` decoys all day. Counts are reported, not hidden:
+`PipelineResult.prefiltered`, a run note, an `audit.jsonl` `prefilter` record, the `leads.md` header, the CLI line
+`[prefilter] set aside N ...`, and the baseline metadata (`n_prefiltered_scanner_agents`). Non-web events are never filtered
+(your `/config/.env` access prober is still scored). Run `python run.py demo --web --out out_web` to see it.
+
+### v3 before/after (5 seeds; synthetic web clients; regression check, NOT a benchmark)
+`python scripts/eval_web.py --old-tree <pristine v2 tree> --out eval_web_out`; full tables in `sample_outputs/web_evaluation.md/.json`.
+Per seed: the standard simulator's ~76 benign background agents (380 over 5 seeds) + 8 scanner clients, 9 human browsers (5 normal, 4 with images blocked), 3 accidental scrapers, 12
+mimics (basic / linked / assets / schema) and 5 MCP / decoy-exploring agents (incl. one with a zgrab UA). "v2" = the previous code on the
+same events with the `web` block stripped (v2 cannot represent it).
+
+| metric (pooled over 5 seeds) | v2 | v3 |
+| --- | --- | --- |
+| mimic clients (60) that produce a lead | 0 / 60 (0%) | 45 / 60 (75%) |
+| ... excluding `mimic_assets`, the variant built to evade | 0 / 45 | 45 / 45 |
+| `mimic_assets` (loads assets, sends Sec-Fetch-*) | 0 / 15 | **0 / 15 - still invisible, on purpose** |
+| benign web clients (45) that produce a lead | 0 / 45 | 0 / 45 (incl. 20 "images blocked" humans, **but only because the sim sends correct Sec-Fetch-* for them**) |
+| commodity scanners (40) that produce a lead | **33 / 40 (noise leads from R5)** | 0 / 40 (40 set aside and counted; 33 would be leads with the filter off) |
+| accidental scrapers (15): lead / class | 0 / 15 (not visible) | 15 / 15, all `accidental_scraper`, queue `review` |
+| goal-directed MCP/decoy agents (25, incl. 5 with a zgrab UA) | 0 / 25 | 25 / 25, all `goal_directed`, queue `review_first`; the 5 zgrab-UA agents were *kept* by the exemption |
+| non-web benign background leads (380 agents over 5 seeds) | 68 | 68 (same agents in 5 / 5 seeds) |
+
+### What v3 does NOT show
+* The simulated clients and the rules share an author, and each mimic was written to look human *with these rules in mind*.
+  `mimic_assets` evades by construction (it loads assets and sends proper headers) and a careful real agent would too.
+* The `web_human_no_assets` result (0 false positives) depends on the simulator sending correct `Sec-Fetch-*` for those humans.
+  Without those headers (a log format that lacks them) R8 alone is below the lead threshold by design - which also means **R8 alone
+  would miss `mimic_linked`**. Real browsers/extensions/proxies strip or alter these headers in ways not simulated here.
+* Everything depends on the honeypot's link graph: R9 and the `linked_from_prev` flags exist only for traffic to a site that records
+  what it served. On ordinary access logs they are absent and the rules abstain.
+* Scanner path/UA lists are examples; a scanner with a browser UA whose requests are < 80% scanner paths is not filtered.
+* No real traffic, no real agents, no real LLM was involved. Counts are tiny (1-5 clients per group per seed, 5 seeds).
+
 ## Quick start
 
 ```bash
@@ -240,7 +314,7 @@ Policy file: `{"declared_tools": {"agent-7": ["search_docs","http_post"]}, "supp
 * The HMAC key is the secret that protects people: whoever holds it can re-link pseudonyms. Rotate it to unlink old data.
 
 ## Tests
-`python -m pytest -q` runs 203 tests (about 4 minutes), grouped by topic: normalization (schema, quarantine, HMAC),
+`python -m pytest -q` runs 258 tests (about 4-5 minutes), grouped by topic: **v3 web evidence** (strict `web` block, UA discarded, R8/R9/R10 positives and near-misses, floors vs padding, scanner pre-filter incl. spoofed-UA exemption and baseline hygiene, accidental vs goal-directed labels, a checked-in agent-watch export sample, `demo --web`), normalization (schema, quarantine, HMAC),
 Layer 1, Layer 2 (each rule: positive, near-miss negative, evidence, ATLAS), Layer 3 (both-signals requirement, each suppression
 with an off-switch counter-test), fusion/audit (guardrails, tamper detection), evaluation/STIX/CLI, **baseline + sequence**
 (round trip, tamper, online == in-population score, timing independence, guardrails, evasive/mimic/holdout checks),
@@ -252,6 +326,10 @@ dev-key-equal secrets, accepted with a strong one; the deploy script in `--dry-r
 shellcheck, and a stubbed end-to-end run including audit tamper detection).
 
 ## Evaluation (synthetic; regression check, not a benchmark)
+**v3 web evaluation** (mimics, scanner pre-filter, accidental scrapers; v2 vs v3 on identical web clients over 5 seeds):
+`sample_outputs/web_evaluation.md` / `.json`, regenerated with `python scripts/eval_web.py --old-tree <pristine v2 tree> --out DIR`.
+Summarised in "v3 before/after" above. The standard-scenario tables below are unchanged by v3 and were re-run (see `sample_outputs/evaluation.json`).
+
 Full tables (all scenarios, three evasiveness levels, regression checks): `sample_outputs/evaluation.md` / `.json`
 (regenerate: `python run.py evaluate --seeds 5 --ephemeral-key --out eval_out`; keys are fixed per seed so numbers are
 reproducible). 5 seeds, ~52k events per run, 565 benign and 255 positive agents pooled. Unit = agent. Frozen baselines are trained on
@@ -317,6 +395,14 @@ them. The export command and tests report honestly if the validator is missing (
 proves the validator rejects an invalid bundle.
 
 ## Limitations (read before relying on anything)
+* **v3 limits** (details under "What v3 does NOT show"): the web simulator shares an author with the rules; `mimic_assets` evades by
+  design; R8 depends on `Sec-Fetch-*` being logged and truthful; R9/`linked_from_prev` exist only for a site that records its link graph;
+  scanner lists are examples (a scanner with a browser UA and < 80% scanner paths is not filtered; a spoofed scanner UA on a session with
+  goal-directed evidence is deliberately not filtered); floors let one flagged event decide a lead; leads stay severity `low`
+  / human review, never automatic action; ATLAS ids for R8-R10 are an approximate mapping.
+* **Feeding it agent-watch output:** `python -m agentwatch export-web leads.jsonl leads.jsonl.access.jsonl --out web.jsonl --label-synthetic`, then
+  `python run.py detect --events web.jsonl --out out_web --ephemeral-key`. Only for sandbox traffic you generated yourself; the
+  `--label-synthetic` flag asserts that.
 * **What remains unproven.** Everything above is on synthetic data from a simulator written by the same author as the detectors, with
   thresholds tuned while looking at it. The v1.1 numbers do not show the pipeline works on real agents; real agents have
   not been tested. The sequence model, the allowlists and the honeypot edges were each shown to do what they were coded to do.
@@ -348,6 +434,7 @@ proves the validator rejects an invalid bundle.
   disclosure processes that this repository does not supply.
 
 ## What was NOT tested
+* **v3 web evidence**: only synthetic clients written by the same author as the rules; the agent-watch export was exercised on a checked-in sample and on an in-process demo, never on real web traffic, a real LLM agent or a real scanner population. `ja4` is parsed and validated only; no TLS fingerprint capture exists (see agent-watch `docs/ja4-tls-fingerprinting.md`).
 * **No real remote host.** `deploy/sync_and_score.sh` was run end to end only with **stub `rsync`/`ssh` executables** against a local
   directory (plus `--dry-run`). Real rsync was **not installed** on the build machine, so rsync flag behaviour (`--ignore-existing`,
   `--append-verify`, `--safe-links`, `--max-size`) and the `rrsync -ro` / `restrict` / `from=` `authorized_keys` setup were

@@ -70,7 +70,7 @@ def _load_registry(args: argparse.Namespace, cfg):
 
 def _write_outputs(res: PipelineResult, out: Path) -> None:
     (out / "leads.json").write_text(json.dumps([l.to_dict() for l in res.leads], indent=2, sort_keys=True))
-    (out / "leads.md").write_text(leads_to_markdown(res.leads, res.normalization, res.notes))
+    (out / "leads.md").write_text(leads_to_markdown(res.leads, res.normalization, res.notes, res.prefiltered))
 
 
 def _run(data_items: List[Any], policy: Policy, args: argparse.Namespace, out: Path, truth: Optional[SimData] = None,
@@ -99,12 +99,17 @@ def _run(data_items: List[Any], policy: Policy, args: argparse.Namespace, out: P
         for c in res.graph.clusters:
             if c.suppressed:
                 print(f"         suppressed {len(c.members)} agents: {'; '.join(r.split(':')[0] for r in c.suppression_reasons)}")
+    if res.prefiltered.agents or res.prefiltered.kept_scanner_like_with_goal_evidence:
+        pf = res.prefiltered
+        print(f"[prefilter] set aside {pf.agents} commodity-scanner client(s) ({pf.events} events) before scoring: {dict(sorted(pf.by_reason.items()))}; "
+              f"kept {pf.kept_scanner_like_with_goal_evidence} scanner-looking client(s) because they showed goal-directed evidence")
     print(f"[fusion] {len(res.leads)} lead(s) for human review (all severity=low, automatic_action=none)")
     if res.exempted:
         print(f"[identity] events exempted from rules by verified identity / allowlists: {res.exempted}; identity={res.normalization.identity_counts}")
     for l in res.leads[:15]:
         print(f"   {l.lead_id} {l.agent} score={l.score} rules={sorted({f.rule_id for f in l.rule_flags})} "
-              f"cluster={'y' if l.cluster else 'n'} seq={'y' if l.sequence else 'n'}")
+              f"cluster={'y' if l.cluster else 'n'} seq={'y' if l.sequence else 'n'}"
+              + (f" actor={l.actor_class}" if l.actor_class != "unclassified" else ""))
     if truth is not None:
         inv = {pseudo.agent(a): a for a in truth.labels}
         hit = [truth.labels[inv[l.agent]][1] for l in res.leads if inv[l.agent] in truth.labels]
@@ -115,10 +120,21 @@ def _run(data_items: List[Any], policy: Policy, args: argparse.Namespace, out: P
     return 0
 
 
+def _add_web(data: SimData) -> None:
+    """Append the v3 synthetic web clients (events + labels) to a simulated dataset (SYNTHETIC; same-author caveat applies)."""
+    from rogue_pipeline.web_simulator import build_web
+    w = build_web(0)
+    data.events.extend(w.events)
+    data.labels.update(w.labels)
+    data.events.sort(key=lambda e: (e["ts"], e["event_id"]))
+
+
 def cmd_demo(args: argparse.Namespace) -> int:
     data = build(args.seed, evasive=args.evasive, n_malformed=args.malformed, extended=getattr(args, "extended", False))
     policy = load_policy(args.policy) if args.policy else data.policy
     cfg = load_config(args.config)
+    if getattr(args, "web", False):
+        _add_web(data)
     baseline = registry = None
     if getattr(args, "extended", False):
         registry, idcfg = sim_identity()                        # simulated partner key + allow-listed egress range
@@ -134,6 +150,8 @@ def cmd_demo(args: argparse.Namespace) -> int:
 def cmd_generate(args: argparse.Namespace) -> int:
     data = build(args.seed, evasive=args.evasive, n_malformed=args.malformed, extended=getattr(args, "extended", False),
                  positives=not getattr(args, "benign_only", False))
+    if getattr(args, "web", False):
+        _add_web(data)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     with open(out / "events.jsonl", "w") as fh:
@@ -173,7 +191,7 @@ def cmd_train(args: argparse.Namespace) -> int:
         print(f"[train] SYNTHETIC benign reference from seeds {list(seeds)}")
     else:
         items = [ln for ln in Path(args.events).read_text().splitlines() if ln.strip()]
-        rep = Normalizer(cfg.normalization, pseudo).process(items)
+        rep = Normalizer(cfg.normalization, pseudo, None, cfg.web).process(items)
         print(f"[train] normalized reference: {rep.counts}")
         by_agent = group_events(rep.events)
     b = train_baseline(by_agent, cfg)
@@ -294,11 +312,13 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--policy", default=None)
     sp.add_argument("--extended", action="store_true", help="add the v1.1 scenarios (sequence mimic, proxy rotation, partners, honeypot, ...)")
     sp.add_argument("--frozen", action="store_true", help="train an in-memory frozen baseline on simulated benign data and use it")
+    sp.add_argument("--web", action="store_true", help="v3: add synthetic web clients (browsers, commodity scanners, an accidental scraper, mimics, MCP agents)")
     sp.set_defaults(fn=cmd_demo)
     sp = sub.add_parser("generate", help="write synthetic events/policy/labels files"); common(sp)
     sp.add_argument("--seed", type=int, default=0); sp.add_argument("--evasive", type=float, default=0.0)
     sp.add_argument("--malformed", type=int, default=0); sp.add_argument("--extended", action="store_true")
     sp.add_argument("--benign-only", action="store_true", help="no injected scenarios (a benign reference set for train-baseline)")
+    sp.add_argument("--web", action="store_true", help="v3: add synthetic web clients (see demo --web)")
     sp.set_defaults(fn=cmd_generate)
     sp = sub.add_parser("detect", help="run the pipeline on an events JSONL file"); common(sp)
     sp.add_argument("--events", required=True); sp.add_argument("--policy", default=None)

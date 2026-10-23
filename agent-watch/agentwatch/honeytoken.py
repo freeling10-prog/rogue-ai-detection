@@ -32,14 +32,25 @@ from typing import Any, Callable, Optional, Sequence
 
 from flask import Flask, Response, g, jsonify, request
 from markupsafe import escape
-from werkzeug.exceptions import RequestEntityTooLarge
+from werkzeug.exceptions import HTTPException, RequestEntityTooLarge
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from .scrubber import Scrubber, get_default_scrubber
 from .state import StateStore
 from .leads import (DEFAULT_MAX_LOG_BYTES, MAX_BODY_BYTES, MAX_PATH, LeadWriter,
-                    make_lead, sanitize_headers, sanitize_query, sanitize_text)
+                    make_lead, sanitize_headers, sanitize_query, sanitize_text, utc_iso)
 
+SCHEMA_PARAM = "client_schema_rev"        # camouflaged, required-looking parameter advertised only in /openapi.json
+SCHEMA_PARAM_DEFAULT = "2026.04-ai"       # its "default" value in the decoy schema
+ACCESS_SCHEMA = "agentwatch.access/1"     # mirrored request stream (every request, decoy or not)
+MAX_LINKS_PER_RESPONSE = 60
+MIRROR_HEADERS = ("accept", "accept-language", "accept-encoding", "sec-fetch-site", "sec-fetch-mode", "sec-fetch-dest",
+                  "sec-fetch-user", "sec-ch-ua", "sec-ch-ua-mobile", "sec-ch-ua-platform", "upgrade-insecure-requests",
+                  "dnt", "connection")
+_ANCHOR = re.compile(r"<a\s[^>]*?href\s*=\s*(?:'([^']*)'|\"([^\"]*)\")", re.I)
+_PATHLIKE = re.compile(r"(?:^|[\s\"'(\[])(/[A-Za-z0-9_\-./]{1,100})")
+_SESSION_CANARY = re.compile(r"sc-[0-9a-f]{10}")
+_JA4 = re.compile(r"^[tqd][0-9]{2}[di][0-9]{2}[0-9]{2}[a-z0-9]{2}_[0-9a-f]{12}_[0-9a-f]{12}$")
 MAX_CONTENT_LENGTH = 16 * 1024   # WSGI-level cap on any request body (413 beyond this)
 MAX_TARPIT_S = 10.0            # absolute per-response cap, regardless of settings
 MAX_TARPIT_CONCURRENT = 4
@@ -84,6 +95,7 @@ class DecoyRegistry:
         self.fake_keys: dict[str, str] = {}        # fake key -> token_id
         self.fake_passwords: dict[str, str] = {}   # fake password -> token_id
         self.canaries: dict[str, Canary] = {}      # canary_id -> Canary
+        self.tool_canaries: dict[str, Canary] = {}  # canaries planted in decoy MCP tool responses (checked on echo)
 
     def _digest(self, label: str) -> str:
         return hmac.new(self._secret, label.encode(), hashlib.sha256).hexdigest()
@@ -116,10 +128,19 @@ class DecoyRegistry:
         self.canaries[c.canary_id] = c
         return c
 
+    def add_tool_canary(self, name: str) -> Canary:
+        """Canary phrase returned by a decoy MCP tool; presenting it anywhere later is a canary_phrase_echo."""
+        h = self._digest("toolcanary:" + name)
+        word = _WORDS[int(h[12:14], 16) % len(_WORDS)]
+        c = Canary(name, h[:12], f"cn-{h[:12]}", f"AWCANARY-{h[16:24]}-{word}")
+        self.tool_canaries[c.canary_id] = c
+        return c
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "decoys": [d.__dict__ for d in self.decoys.values()],
             "canaries": [c.__dict__ for c in self.canaries.values()],
+            "tool_canaries": [c.__dict__ for c in self.tool_canaries.values()],
             "fake_keys": dict(self.fake_keys),
             "fake_passwords": dict(self.fake_passwords),
             "note": "all values are synthetic and unusable",
@@ -200,6 +221,7 @@ class Context:
     scrubber: Optional[Scrubber] = None
     trust_forwarded_for: bool = False   # test/simulation hook, OFF by default, separate from behind_proxy
     behind_proxy: bool = False          # werkzeug ProxyFix active (remote_addr already corrected)
+    access_writer: Optional[LeadWriter] = None   # mirrored request stream (every request); None = disabled
     _seen_lock: threading.Lock = field(default_factory=threading.Lock)
 
     def decoy_route(self, rule: str, decoy: Decoy) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
@@ -234,6 +256,67 @@ class Context:
                 g.body_too_large = True
         g.agentwatch_body = body
         return body
+
+    # ---- mirrored access stream + session canary --------------------------------------------------------
+    def session_canary(self) -> str:
+        """Per-session value served only inside machine-readable docs (/openapi.json); presenting it proves the client
+        parsed that body and reused the value.  Unpredictable to clients (HMAC of the session id)."""
+        return "sc-" + self.registry.digest("canary:" + self.session_id())[:10]
+
+    @staticmethod
+    def extract_links(resp: Response) -> Optional[list[str]]:
+        """Local paths this response offers the client: <a href> for HTML; path-like strings for JSON/text docs
+        (OpenAPI paths, llms.txt links, error-body diagnostic URLs).  Paths only, deduplicated, capped."""
+        if resp.direct_passthrough or resp.mimetype not in ("text/html", "application/json", "text/plain", "application/yaml"):
+            return None
+        body = resp.get_data()[:65536].decode("utf-8", "replace")
+        found: list[str] = []
+        if resp.mimetype == "text/html":
+            cands = [a or b for a, b in _ANCHOR.findall(body)]
+        else:
+            cands = _PATHLIKE.findall(body)
+        for c in cands:
+            if not c.startswith("/") or c.startswith("//"):
+                continue
+            path = c.split("#", 1)[0].split("?", 1)[0]
+            if path and path not in found:
+                found.append(sanitize_text(path, MAX_PATH))
+            if len(found) >= MAX_LINKS_PER_RESPONSE:
+                break
+        return found
+
+    def mirror(self, resp: Response, lead_event_id: Optional[str]) -> None:
+        """Write every request to the mirrored access stream (gateway-style JSON line, scrubbed by the writer).
+
+        This is what lets passive detectors (asset starvation, unlinked jumps, timing) see requests that never touch a
+        decoy.  ``links`` records what this response offered the client (the honeypot serves its own pages, so the
+        link graph is known exactly).  Query strings pass through the scrubber like everything else on disk."""
+        if self.access_writer is None:
+            return
+        raw_q = redact_board_tokens(sanitize_text(request.query_string.decode("utf-8", "replace"), MAX_PATH))
+        hdrs = {h: sanitize_text(request.headers.get(h, ""), 200) for h in MIRROR_HEADERS if request.headers.get(h)}
+        rec: dict[str, Any] = {
+            "schema": ACCESS_SCHEMA,
+            "timestamp": utc_iso(self.clock()),
+            "client_ip": sanitize_text(self.client_ip(), 64),
+            "method": sanitize_text(request.method, 16),
+            "path": sanitize_text(request.path, MAX_PATH),
+            "query": raw_q,
+            "status": resp.status_code,
+            "bytes": resp.calculate_content_length() or 0,
+            "user_agent": sanitize_text(request.headers.get("User-Agent", ""), 300),
+            "referer": sanitize_text(request.headers.get("Referer", ""), 300),
+            "headers": hdrs,
+            "content_type": resp.mimetype,
+            "links": self.extract_links(resp),
+        }
+        if lead_event_id:
+            rec["lead_event_id"] = lead_event_id
+        if self.behind_proxy:       # JA4 is only trustworthy when set by an edge we control (see docs/ja4-tls-fingerprinting.md)
+            ja4 = request.headers.get("X-JA4", "").strip()
+            if _JA4.match(ja4):
+                rec["ja4"] = ja4
+        self.access_writer.write(rec)
 
     def client_ip(self) -> str:
         """Source IP: the socket peer.  Only if ``trust_forwarded_for`` is on (OFF by default) the first
@@ -289,6 +372,7 @@ class Context:
         """Complete and write the lead recorded during this request (needs the response size)."""
         size = resp.calculate_content_length() or 0
         lead = g.pop("pending_lead", None)
+        g.last_lead_id = lead["event_id"] if lead is not None else None
         if lead is not None:
             lead["request"]["response_bytes"] = size
             lead["request"]["response_status"] = resp.status_code
@@ -330,7 +414,8 @@ class Context:
         hay = "\n".join(snap_text_sources)
         creds = [t for k, t in self.registry.fake_keys.items() if k in hay]
         creds += [t for p, t in self.registry.fake_passwords.items() if p in hay]
-        canaries = [c.token_id for c in self.registry.canaries.values() if c.phrase in hay]
+        canaries = [c.token_id for c in (*self.registry.canaries.values(), *self.registry.tool_canaries.values())
+                    if c.phrase in hay]
         return {"credential_token_ids": sorted(set(creds)), "canary_ids": sorted(set(canaries))}
 
     # ---- recording ---------------------------------------------------------
@@ -381,8 +466,13 @@ def get_context() -> Context:
 # app factory
 # --------------------------------------------------------------------------
 def _html(body: str, title: str = "Acme Synthetic Corp") -> Response:
-    return Response(f"<!doctype html><html><head><meta charset='utf-8'><title>{escape(title)}</title></head>"
-                    f"<body>{body}</body></html>", mimetype="text/html")
+    # Pages reference a stylesheet, a script, a favicon and a logo (all served `no-store`, so a warm cache cannot
+    # explain a client that never fetches them): a browser-like client loads them, a text-only agent does not.
+    return Response(f"<!doctype html><html><head><meta charset='utf-8'><title>{escape(title)}</title>"
+                    "<link rel='stylesheet' href='/static/site.css'><link rel='icon' href='/favicon.ico'>"
+                    "<script src='/static/site.js' defer></script></head>"
+                    f"<body><img src='/static/logo.svg' alt='' width='24' height='24'>{body}</body></html>",
+                    mimetype="text/html")
 
 
 def create_app(
@@ -401,6 +491,8 @@ def create_app(
     state_path: Optional[str | Path] = None,
     scrubber: Optional[Scrubber] = None,
     board_max_sessions: int = 2000,
+    access_log_path: Optional[str | Path] = None,
+    mirror_access: bool = True,
     extensions: Sequence[Callable[[Flask, Context], None]] = (),
 ) -> Flask:
     """Build the honeytoken listener.
@@ -427,6 +519,8 @@ def create_app(
         behind_proxy=bool(behind_proxy),
         state=StateStore(state_path or Path(str(log_path) + ".state.sqlite"), board_max_sessions),
         scrubber=scrub,
+        access_writer=LeadWriter(access_log_path or (str(log_path) + ".access.jsonl"), max_log_bytes, scrub)
+        if mirror_access else None,
     )
     app.extensions["agentwatch"] = ctx
     app.config["JSON_SORT_KEYS"] = False
@@ -452,6 +546,23 @@ def create_app(
     @app.get("/about")
     def about() -> Response:
         return _html("<h1>About</h1><p>Nothing to see; this is a synthetic honeypot site.</p>")
+
+    @app.get("/static/site.css")
+    def asset_css() -> Response:
+        return Response("body{font-family:sans-serif;margin:2em}\n", mimetype="text/css")
+
+    @app.get("/static/site.js")
+    def asset_js() -> Response:
+        return Response("/* synthetic honeypot site script */\n", mimetype="application/javascript")
+
+    @app.get("/static/logo.svg")
+    def asset_logo() -> Response:
+        return Response("<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24'><rect width='24' height='24' "
+                        "fill='#445'/></svg>", mimetype="image/svg+xml")
+
+    @app.get("/favicon.ico")
+    def asset_favicon() -> Response:
+        return Response(b"\x00\x00\x01\x00\x00\x00", mimetype="image/x-icon")
 
     @app.get("/robots.txt")
     def robots() -> Response:
@@ -483,6 +594,7 @@ def create_app(
         resp.headers["Cache-Control"] = "no-store"
         resp.headers["X-Content-Type-Options"] = "nosniff"
         ctx.flush_pending(resp)
+        ctx.mirror(resp, g.get("last_lead_id"))
         return resp
 
     @app.errorhandler(413)
@@ -497,6 +609,31 @@ def create_app(
 
     for ext in extensions:
         ext(app, ctx)
+
+    # Camouflaged-schema parameter and per-session canary reuse on ANY path (high-signal single events)
+    @app.after_request
+    def schema_and_session_signals(resp: Response) -> Response:
+        signals: list[tuple[str, str, str]] = []     # (decoy name, lead kind, tag)
+        if SCHEMA_PARAM in request.args:
+            signals.append(("schema_param", "schema_param_use", "schema_param_use"))
+        hay = request.query_string.decode("utf-8", "replace")
+        if request.method in ("POST", "PUT", "PATCH") and request.content_length:
+            hay += " " + ctx.read_body().decode("utf-8", "replace")
+        presented = set(_SESSION_CANARY.findall(hay))
+        if presented:
+            mine = ctx.session_canary()
+            signals.append(("session_canary", "session_canary_param",
+                            "session_canary_param" if mine in presented else "session_canary_foreign"))
+        for name, kind, tag in signals:
+            pending = g.get("pending_lead")
+            if pending is not None and pending["event_type"] == "honeytoken_hit":
+                if tag not in pending["tags"]:          # a decoy lead is already being written: tag it, no second lead
+                    pending["tags"].append(tag)
+                pending["detail"][tag] = True
+            else:                                       # none yet, or only an informational context event: raise a lead
+                ctx.record(decoy_name=name, kind=kind, token_id=registry.token_id(name, "sg"), status=resp.status_code,
+                           tags=[tag], detail={tag: True})
+        return resp
 
     # Catch decoy credentials / canary phrases presented on ANY path
     @app.after_request
@@ -516,6 +653,19 @@ def create_app(
             ctx.record(decoy_name="canary_echo", kind="canary_phrase_echo",
                        token_id=matches["canary_ids"][0], status=resp.status_code, tags=["canary_echo"])
         return resp
+
+    # ---- log hygiene: no sink may emit raw query strings / secrets (see safelog.py) ----------------------------
+    from .safelog import install_safe_logging
+    install_safe_logging()
+
+    @app.errorhandler(Exception)
+    def unhandled(exc: Exception) -> Any:
+        """Last-resort handler: HTTP errors pass through; anything else is a generic JSON 500 and the log line names
+        only the exception class and the query-free path (never the request line, query or body)."""
+        if isinstance(exc, HTTPException):
+            return exc
+        app.logger.error("unhandled %s on %s", type(exc).__name__, request.path)
+        return jsonify({"error": "internal_error", "synthetic": True}), 500
 
     if registry_path:
         import json
@@ -552,6 +702,12 @@ def check_bind(host: str, allow_nonlocal: bool = False) -> None:
 
 
 def run_server(app: Flask, host: str = "127.0.0.1", port: int = 8099, allow_nonlocal: bool = False) -> None:
-    """Run the Flask dev server (localhost only unless explicitly overridden)."""
+    """Run the Flask dev server (localhost only unless explicitly overridden).
+
+    The werkzeug request handler is replaced by one that logs the query-free path and routes every message through
+    ``safelog.safe_text`` - the stock handler prints raw query strings to the console (found in a live demo)."""
+    from .safelog import install_safe_logging, make_request_handler
     check_bind(host, allow_nonlocal)
-    app.run(host=host, port=port, debug=False, use_reloader=False, threaded=True)
+    install_safe_logging()
+    app.run(host=host, port=port, debug=False, use_reloader=False, threaded=True,
+            request_handler=make_request_handler())

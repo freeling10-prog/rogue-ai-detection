@@ -72,3 +72,14 @@ enabled = true
 max_skew_s = 300.0
 # [[identity.ip_allowlist]]
 # cidr = "203.0.113.0/24"; label = "partner-egress"; exempt_rules = ["R3", "R4"]; allow_dest_suffixes = [".partner.example"]
+
+[web]                         # v3: web-collector evidence, commodity-scanner pre-filter, score floors (only events with a `web` block)
+enabled = true
+prefilter = true              # set commodity scanners (php/wp/.env/phpmyadmin paths, zgrab/masscan/censys/shodan/nmap UAs) aside BEFORE scoring and baseline training
+scanner_path_min_share = 0.8  # share of a client's requests that must be scanner paths
+asset_starvation_min_pages = 5
+unlinked_min_never_offered = 2
+floors_enabled = true
+floor_weak = 0.58             # a single hidden-link / decoy contact: reaches the review queue, below review_first (0.75)
+floor_strong = 0.8            # used what a decoy offered (schema param, MCP tools/call, canary, error-hint follow)
+# scanner_ua_patterns / scanner_path_patterns / declared_bot_ua_patterns / browser_ua_patterns: lists of regexes (see config.py defaults)

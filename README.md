@@ -7,7 +7,8 @@ The source archives are unpacked into top-level folders. Each folder keeps its o
 - [agent-watch/README.md](agent-watch/README.md) — v3 log detector and localhost honeypot (section 4).
 - [rogue-ai-pipeline/README.md](rogue-ai-pipeline/README.md) — v3 multi-layer detection pipeline (section 5).
 - [prototype-v1/README.md](prototype-v1/README.md) — prototype v1, unpacked from `rogue-ai-detection` (section 2).
-- [docs/rogue-ai-detection-whitepaper.pdf](docs/rogue-ai-detection-whitepaper.pdf) — 7-page whitepaper (section 3).
+- [docs/rogue-ai-detection-whitepaper.pdf](docs/rogue-ai-detection-whitepaper.pdf) — whitepaper (section 3), PDF, with a Related work and novelty section. [Word copy](docs/rogue-ai-detection-whitepaper.docx).
+- [docs/prior-art.md](docs/prior-art.md) — prior-art search behind that section.
 - [docs/v3-changes.md](docs/v3-changes.md) — what changed in the v3 agent-watch and pipeline builds.
 
 ## 1. Research report
@@ -25,7 +26,8 @@ Link: https://cursor.com/canvas/store-f783d059-8304-409e-8eee-8c518ae04f8b/91900
 - The perfect standard score is a regression check, not a benchmark.
 
 ## 3. Whitepaper
-- 7 pages, PDF and Word, same numbers as the report and prototype, states the synthetic-data limit up front.
+- PDF and Word in `docs/`, same numbers as the report and prototype, states the synthetic-data limit up front.
+- Includes a Related work and novelty section. The search notes are in [docs/prior-art.md](docs/prior-art.md).
 
 ## 4. Log detector with honeypot (agent-watch.zip)
 - Python 3.10+ with Flask. 339 tests pass, 1 skipped. The skip needs pydantic and the sibling `rogue-ai-pipeline` tree.

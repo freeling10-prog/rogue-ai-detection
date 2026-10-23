@@ -8,6 +8,8 @@ The source archives are unpacked into top-level folders. Each folder keeps its o
 - [rogue-ai-pipeline/README.md](rogue-ai-pipeline/README.md) — multi-layer detection pipeline (section 5).
 - [prototype-v1/README.md](prototype-v1/README.md) — prototype v1, unpacked from `rogue-ai-detection` (section 2).
 - [docs/rogue-ai-detection-whitepaper.pdf](docs/rogue-ai-detection-whitepaper.pdf) — 7-page whitepaper (section 3).
+- [docs/docker-smoke-test.md](docs/docker-smoke-test.md) — localhost nginx/gunicorn check of the Zone A deploy files.
+- [docs/security-review.md](docs/security-review.md) — honeypot review and the fixes from it.
 
 ## 1. Research report
 Link: https://cursor.com/canvas/store-f783d059-8304-409e-8eee-8c518ae04f8b/91900c77-b85e-45f9-b706-3b5fa0315467

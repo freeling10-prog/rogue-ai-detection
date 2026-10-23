@@ -93,6 +93,44 @@ def test_unicode_and_control_char_tricks_do_not_defeat_scrubbing_in_either_order
         assert "REDACTED_" in result and plain not in result.lower() and re.sub(r"\W", "", plain)[:12] not in re.sub(r"\W", "", result.lower())
 
 
+def test_newline_percent_and_unicode_escapes_do_not_hide_a_secret(scrub):
+    """CR/LF/TAB (and sanitize_text's visible escapes), %XX and \\uXXXX must still redact."""
+    h = lambda s: re.search(r"SHA256:([0-9a-f]{10})", s).group(1)   # noqa: E731
+    split_nl = SK[:10] + "\n" + SK[10:]
+    split_tab = SK[:8] + "\t" + SK[8:]
+    escaped = sanitize_text(split_nl, 10_000)                       # "\\n" two-character escape
+    encoded_email = EMAIL.replace("@", "%40")
+    double_email = EMAIL.replace("@", "%2540")
+    unicode_email = EMAIL.replace("@", "\\u0040")
+    assert "\\n" in escaped and "\n" not in escaped
+    for raw in (split_nl, split_tab, SK[:6] + "\r\n" + SK[6:], escaped,
+                f"e={encoded_email}", f"e={double_email}", f"e={unicode_email}",
+                f"Bearer%20{BEARER_TOKEN}", f"Bearer+{BEARER_TOKEN}",
+                "note " + SK[:12] + "%0a" + SK[12:]):
+        out = scrub.scrub_text(raw)
+        assert "REDACTED_" in out, raw
+        assert SK not in out and SK[:10] not in out
+        assert EMAIL.lower() not in out.lower() and encoded_email not in out and BEARER_TOKEN not in out
+    assert h(scrub.scrub_text(SK)) == h(scrub.scrub_text(split_nl)) == h(scrub.scrub_text(escaped))
+    assert h(scrub.scrub_text(EMAIL)) == h(scrub.scrub_text(encoded_email)) == h(scrub.scrub_text(double_email))
+    assert h(scrub.scrub_text(f"Bearer {BEARER_TOKEN}")) == h(scrub.scrub_text(f"Bearer%20{BEARER_TOKEN}"))
+    # a newline that is not hiding a secret stays a visible escape (log injection stays neutralised)
+    assert scrub.scrub_text(sanitize_text("hello\nworld", 100)) == "hello\\nworld"
+
+
+def test_split_and_encoded_secrets_do_not_reach_the_lead_log(tmp_path):
+    log = tmp_path / "leads.jsonl"
+    app = create_honeypot_app(log, seed="t")
+    c = app.test_client()
+    body = f"k={SK[:10]}\n{SK[10:]}&e={EMAIL.replace('@', '%40')}&b=Bearer%20{BEARER_TOKEN}"
+    assert c.post("/api/v1/admin", data=body, content_type="text/plain").status_code == 200
+    c.get("/api/v1/admin", query_string="e=" + EMAIL.replace("@", "%2540") + "&k=" + SK[:12] + "%0a" + SK[12:])
+    blob = log.read_text()
+    for raw in (SK, SK[:10], EMAIL, EMAIL.replace("@", "%40"), EMAIL.replace("@", "%2540"), BEARER_TOKEN):
+        assert raw not in blob, raw
+    assert "REDACTED_OPENAI_ANTHROPIC_KEY" in blob and "REDACTED_EMAIL" in blob and "REDACTED_BEARER" in blob
+
+
 def test_hash_is_same_for_plain_and_obfuscated_forms(scrub):
     h = lambda s: re.search(r"SHA256:([0-9a-f]{10})", s).group(1)   # noqa: E731
     assert h(scrub.scrub_text(SK)) == h(scrub.scrub_text(EVASIONS["zero_width"](SK))) == h(scrub.scrub_text(EVASIONS["fullwidth"](SK)))

@@ -143,3 +143,87 @@ def export_file(src: str | Path, dst: str | Path, *, synthetic: bool = False) ->
             fout.write(json.dumps(scrub.scrub(ev), separators=(",", ":")) + "\n")
             n += 1
     return n
+
+
+# ---- v3: mirrored access stream -> RawEvents with a ``web`` block --------------------------------------------------------
+_STRONG = {"hidden_link": "hidden_link", "schema_param_use": "schema_param", "session_canary_param": "session_canary",
+           "error_hint_follow": "error_hint_follow", "fake_credential_use": "fake_credential_use",
+           "mcp_decoy_tool_call": "mcp_tools_call"}
+_MCP = {"mcp_initialize": "initialize", "mcp_tools_list": "tools_list", "mcp_decoy_tool_call": "tools_call"}
+
+
+def export_web_events(paths: Iterable[str | Path], cfg: Optional[dict[str, Any]] = None, *, synthetic: bool = False) -> Iterator[dict[str, Any]]:
+    """Convert logs + leads + the mirrored access stream into pipeline ``RawEvent`` dicts WITH a ``web`` block.
+
+    One event per request (honeypot leads and their mirror records are merged first).  The ``web`` block carries only derived
+    facts: content kind, whether the move was linked from the previous page / had a valid Referer / was offered earlier,
+    Sec-Fetch mismatch, the strongest decoy signal, the MCP method.  The User-Agent is passed through (the pipeline reduces
+    it to flags and discards it).  Needs the link graph recorded by the honeypot mirror; without it the link fields are
+    simply omitted and the pipeline rules abstain."""
+    from .config import load_config
+    from .parser import merge_results, parse_file
+    from .pipeline import merge_mirror
+    from .sessions import build_sessions
+    from .webdetectors import _is_asset, is_html_page, transitions
+    cfg = cfg or load_config()
+    parsed = merge_results([parse_file(p) for p in paths])
+    reqs, _ = merge_mirror(parsed.requests)
+    scrub = get_default_scrubber()
+    n = 0
+    for sess in build_sessions(reqs, cfg):
+        trans = {id(r): (st, ok) for r, _, st, ok in transitions(sess, cfg)}
+        for r in sess.requests:
+            n += 1
+            ip = r.ip
+            try:
+                ipaddress.ip_address(ip)
+                valid_ip: Optional[str] = ip
+            except ValueError:
+                valid_ip = None
+            kind = "asset" if _is_asset(r, cfg) else "html" if is_html_page(r, cfg) else "api" if r.content_type.startswith("application/") or "/api/" in r.path else "other"
+            web: dict[str, Any] = {"content_kind": kind}
+            if r.ua:
+                web["user_agent"] = r.ua[:300]
+            st = trans.get(id(r))
+            if st is not None and st[0] not in ("entry", "unknown"):
+                web["linked_from_prev"] = st[0] == "linked"
+                web["referer_valid"] = st[1]
+                web["offered_earlier"] = st[0] == "offered_earlier"
+            if kind == "html" and r.headers_logged:
+                mode, dest = r.headers.get("sec-fetch-mode", ""), r.headers.get("sec-fetch-dest", "")
+                web["sec_fetch_mismatch"] = not mode or dest not in ("document", "iframe", "frame")
+            dk = r.decoy_kind or ""
+            sig = _STRONG.get(dk) or ("schema_param" if "schema_param_use" in r.tags else "session_canary" if "session_canary_param" in r.tags else None)
+            if "mcp_list_then_call" in r.tags:
+                sig = "mcp_list_then_call"
+            if sig is None and r.source == "honeypot" and r.detail is not None and dk and not dk.startswith(("mcp_", "robots", "discovery", "canary_page")) \
+                    and dk not in ("request_too_large",):
+                sig = "decoy_hit"
+            if sig:
+                web["strong_signal"] = sig
+            if dk and re.fullmatch(r"[a-z0-9_]{1,40}", dk):
+                web["decoy_kind"] = dk
+            if dk in _MCP:
+                web["mcp"] = _MCP[dk]
+            if r.ja4:
+                web["ja4"] = r.ja4
+            ev = {
+                "event_id": (r.event_id or f"w{n:08d}")[:64], "ts": r.ts.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z", "source": "web_server",
+                "agent_id": _ID_BAD.sub("_", f"client:{ip}")[:64] or "client:unknown", "action": "access",
+                "status": "denied" if r.status >= 400 else "allowed", "resource": sanitize_text(r.path, 512).replace("...[truncated", "[truncated")[:512],
+                "ip": valid_ip, "payload_bytes": max(0, int(r.size or 0)), "synthetic": bool(synthetic), "web": web}
+            yield ev
+
+
+def export_web_file(paths: Iterable[str | Path], dst: str | Path, cfg: Optional[dict[str, Any]] = None, *, synthetic: bool = False) -> int:
+    n = 0
+    scrub = get_default_scrubber()
+    with open(dst, "w", encoding="utf-8") as fout:
+        for ev in export_web_events(paths, cfg, synthetic=synthetic):
+            ua = ev["web"].pop("user_agent", None)
+            ev = scrub.scrub(ev)
+            if ua is not None:
+                ev["web"]["user_agent"] = scrub.scrub(ua) if isinstance(ua, str) else ua
+            fout.write(json.dumps(ev, separators=(",", ":")) + "\n")
+            n += 1
+    return n

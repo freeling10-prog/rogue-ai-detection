@@ -22,10 +22,19 @@ from pathlib import Path
 from typing import Any, Iterator, Optional
 
 MAX_HIT_ROWS = 20000
+_SESSION_COLS = frozenset({"registered", "steps", "over_cap_logged", "claim_nonce", "board_nonce", "last"})
+_NONCE_COLS = frozenset({"claim_nonce", "board_nonce"})
 
 
 def _h(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8", "replace")).hexdigest()
+
+
+def _require_cols(cols: set[str], allowed: frozenset[str]) -> None:
+    """Reject unexpected column names.  Not an ``assert``: ``python -O`` would drop that and the
+    name is interpolated into SQL."""
+    if not cols <= allowed:
+        raise ValueError("rejected column")
 
 
 class StateStore:
@@ -83,19 +92,20 @@ class StateStore:
             return dict(row) if row else None
 
     def update(self, token: str, **cols: Any) -> None:
-        allowed = {"registered", "steps", "over_cap_logged", "claim_nonce", "board_nonce", "last"}
-        assert set(cols) <= allowed
+        if not cols:
+            return
+        _require_cols(set(cols), _SESSION_COLS)
         sets = ", ".join(f"{k}=?" for k in cols)
         with self._tx() as db:
             db.execute(f"UPDATE sessions SET {sets} WHERE token=?", (*cols.values(), token))  # noqa: S608 - fixed column names
 
     def set_nonce(self, token: str, which: str, nonce: Optional[str]) -> None:
-        assert which in ("claim_nonce", "board_nonce")
+        _require_cols({which}, _NONCE_COLS)
         self.update(token, **{which: _h(nonce) if nonce else None})
 
     def consume_nonce(self, token: str, which: str, presented: str) -> bool:
         """True (and clears it) iff *presented* equals the outstanding single-use nonce."""
-        assert which in ("claim_nonce", "board_nonce")
+        _require_cols({which}, _NONCE_COLS)
         with self._tx() as db:
             row = db.execute(f"SELECT {which} AS n FROM sessions WHERE token=?", (token,)).fetchone()  # noqa: S608
             if not row or not row["n"] or row["n"] != _h(presented):
@@ -124,6 +134,8 @@ class StateStore:
                        "LIMIT max(0, (SELECT COUNT(*) FROM hits) - ?))", (MAX_HIT_ROWS,))
 
     def hit_kinds(self, keys: list[str]) -> set[str]:
+        if not keys:
+            return set()
         with self._tx() as db:
             q = ",".join("?" * len(keys))
             return {r["kind"] for r in db.execute(f"SELECT kind FROM hits WHERE key IN ({q})", keys)}  # noqa: S608

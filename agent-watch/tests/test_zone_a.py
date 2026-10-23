@@ -207,6 +207,28 @@ def test_compose_isolation_properties(compose):
 NGINX = (DEPLOY / "nginx.conf").read_text()
 
 
+def test_state_store_caps_rows_and_rejects_unexpected_columns(tmp_path):
+    from agentwatch.state import StateStore
+    st = StateStore(tmp_path / "s.sqlite", max_sessions=2)
+    st.issue_token("s1", "127.0.0.1", "t1")
+    st.issue_token("s2", "127.0.0.1", "t2")
+    st.issue_token("s3", "127.0.0.1", "t3")
+    assert st.count_sessions() == 2
+    with pytest.raises(ValueError):
+        st.update("t3", password="visitor")
+    with pytest.raises(ValueError):
+        st.set_nonce("t3", "sid", "n")
+    with pytest.raises(ValueError):
+        st.consume_nonce("t3", "token;drop", "n")
+    assert st.hit_kinds([]) == set()
+
+
+def test_nginx_timestamp_map_keeps_millisecond_precision():
+    assert 'map "$time_iso8601 $msec" $aw_timestamp' in NGINX
+    assert '"timestamp":"$aw_timestamp"' in NGINX
+    assert "${head}.${frac}${tz}" in NGINX
+
+
 def test_nginx_conf_structure_and_required_directives():
     assert NGINX.count("{") == NGINX.count("}")
     stripped = re.sub(r"#.*", "", NGINX)
@@ -214,6 +236,7 @@ def test_nginx_conf_structure_and_required_directives():
               "limit_req_zone $binary_remote_addr zone=aw_ceiling:10m rate=100r/s;", "log_format agentwatch_json escape=json",
               "proxy_set_header X-Forwarded-For   $remote_addr;", "server_tokens off;", "listen 8080"):
         assert d in stripped, d
+    assert "error_log stderr warn;" in NGINX and "error_log /dev/stderr" not in NGINX
     assert "$proxy_add_x_forwarded_for" not in stripped                           # client XFF is overwritten, not appended
     assert "$http_authorization" not in stripped and "$http_cookie" not in stripped
     rate = int(re.search(r"rate=(\d+)r/s", stripped).group(1))
@@ -230,7 +253,7 @@ def nginx_json_line(values):
     return re.sub(r"\$(\w+)", lambda m: esc(values[m.group(1)]) if m.group(1) in values else m.group(0), template)
 
 
-SAMPLE = {"time_iso8601": "2026-10-22T10:15:30+00:00", "remote_addr": "198.51.100.23", "request_method": "GET",
+SAMPLE = {"aw_timestamp": "2026-10-22T10:15:30.123+00:00", "remote_addr": "198.51.100.23", "request_method": "GET",
           "aw_path": "/api/v1/search", "aw_args": "q=a&page=2", "status": "200", "body_bytes_sent": "1234",
           "request_time": "0.042", "aw_ua": UA, "aw_ref": "-"}
 
@@ -243,18 +266,22 @@ def test_nginx_json_log_line_parses_with_agentwatch_gateway_parser():
     assert not ctx and req is not None
     assert req.ip == "198.51.100.23" and req.method == "GET" and req.path == "/api/v1/search"
     assert req.query == "q=a&page=2" and req.status == 200 and req.size == 1234 and req.ua == UA
-    assert req.latency_ms == pytest.approx(42.0) and req.ts == datetime.fromisoformat("2026-10-22T10:15:30+00:00")
+    assert req.latency_ms == pytest.approx(42.0)
+    assert req.ts == datetime.fromisoformat("2026-10-22T10:15:30.123+00:00")
+    assert req.ts.microsecond == 123000                                          # millisecond precision kept
     parsed = parse_lines([line, line.replace("10:15:30", "10:15:33")])
     assert parsed.errors == 0 and len(parsed.requests) == 2
 
 
 def test_nginx_json_log_survives_hostile_values_and_non_utc_offsets():
-    hostile = {**SAMPLE, "aw_ua": 'evil"\\ua\n{"status":500}', "aw_args": 'a="b"&c=\\', "time_iso8601": "2026-10-22T03:15:30-07:00"}
+    hostile = {**SAMPLE, "aw_ua": 'evil"\\ua\n{"status":500}', "aw_args": 'a="b"&c=\\',
+               "aw_timestamp": "2026-10-22T03:15:30.456-07:00"}
     line = nginx_json_line(hostile)
     assert "\n" not in line
     req, _ = parse_json_line(line, 1)
     assert req is not None and req.status == 200 and '"status":500' in req.ua       # data stays data
-    assert req.ts == datetime.fromisoformat("2026-10-22T10:15:30+00:00")
+    assert req.ts == datetime.fromisoformat("2026-10-22T10:15:30.456+00:00")
+    assert req.ts.microsecond == 456000
 
 
 def secret_regexes():

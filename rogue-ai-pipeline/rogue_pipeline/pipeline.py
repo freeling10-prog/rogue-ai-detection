@@ -22,6 +22,7 @@ from .layer1_anomaly import AnomalyResult, AnomalyScorer
 from .layer2_rules import RuleEngine, RuleFlag
 from .layer3_graph import CoordinationDetector, GraphResult
 from .normalize import NormalizationReport, Normalizer
+from .prefilter import PrefilterReport, prefilter_by_agent
 from .pseudonymize import Pseudonymizer, ProductionKeyError
 
 
@@ -39,6 +40,7 @@ class PipelineResult:
     anomaly_batch: Optional[AnomalyResult] = None                           # batch Isolation Forest (always computed if >=10 agents and alternatives requested)
     anomaly_frozen: Optional[AnomalyResult] = None                          # frozen-baseline Isolation Forest (if a baseline was loaded)
     exempted: Dict[str, int] = field(default_factory=dict)                  # rule id -> events skipped by allowlists
+    prefiltered: PrefilterReport = field(default_factory=PrefilterReport)   # commodity scanners set aside BEFORE scoring (counted, not hidden)
 
     def lead_agents(self) -> set:
         return {l.agent for l in self.leads}
@@ -74,7 +76,7 @@ class Pipeline:
         self.baseline = baseline
         self.sequence_model = sequence_model or (baseline.sequence if baseline else None)
         self.resolved = resolve_policy(policy, pseudo)
-        self.normalizer = Normalizer(cfg.normalization, pseudo, IdentityGate(cfg.identity, identity))
+        self.normalizer = Normalizer(cfg.normalization, pseudo, IdentityGate(cfg.identity, identity), cfg.web)
 
     def run(self, items: Iterable[Union[Dict[str, Any], str]], quarantine_path: Optional[str | Path] = None,
             ephemeral_key: bool = False, alternatives: bool = False) -> PipelineResult:
@@ -94,8 +96,16 @@ class Pipeline:
         if not rep.events:
             notes.append("no valid events")
             return PipelineResult(rep, None, None, [], None, [], self.pseudo, notes)
-        by_agent = group_events(rep.events)
-        table = build_feature_table(rep.events, cfg.layer1.min_events)
+        by_agent, pre = prefilter_by_agent(group_events(rep.events), cfg.web)       # 1b. commodity scanners out BEFORE scoring
+        if pre.agents:
+            notes.append(f"pre-filter set aside {pre.agents} commodity-scanner client(s) ({pre.events} events): {dict(sorted(pre.by_reason.items()))}")
+        if self.audit and (pre.agents or pre.kept_scanner_like_with_goal_evidence):
+            self.audit.append("prefilter", pre.as_dict())
+        kept_events = [e for evs in by_agent.values() for e in evs]
+        if not kept_events:
+            notes.append("no events left after the commodity-scanner pre-filter")
+            return PipelineResult(rep, None, None, [], None, [], self.pseudo, notes, prefiltered=pre)
+        table = build_feature_table(kept_events, cfg.layer1.min_events)
         batch: Optional[AnomalyResult] = None
         frozen: Optional[AnomalyResult] = None
         if len(table.agents) >= 10 and (self.baseline is None or alternatives):
@@ -107,7 +117,7 @@ class Pipeline:
         anomaly = frozen if self.baseline is not None else batch
         if anomaly is None:
             notes.append("Layer 1 skipped: fewer than 10 profiled agents and no frozen baseline (no population to compare with)")
-        engine = RuleEngine(cfg.layer2, cfg.tools, self.resolved)
+        engine = RuleEngine(cfg.layer2, cfg.tools, self.resolved, cfg.web)
         flags = engine.evaluate(by_agent)                                              # 3. Layer 2
         graph = CoordinationDetector(cfg.layer3, self.resolved).detect(by_agent)      # 4. Layer 3
         seqs: Dict[str, SequenceResult] = {}
@@ -127,7 +137,7 @@ class Pipeline:
                                           "clusters_active": len(graph.active),
                                           "clusters_suppressed": len(graph.clusters) - len(graph.active)})
         return PipelineResult(rep, table, anomaly, flags, graph, leads, self.pseudo, notes, seqs, batch, frozen,
-                              dict(engine.exempted))
+                              dict(engine.exempted), pre)
 
 
 def _audit_view(lead: Dict[str, Any]) -> Dict[str, Any]:

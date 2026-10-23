@@ -1,4 +1,4 @@
-"""Command line interface: analyze | serve | honeypot | demo | report | export-leads."""
+"""Command line interface: analyze | serve | honeypot | demo | report | export-leads | export-web."""
 from __future__ import annotations
 
 import argparse
@@ -88,6 +88,18 @@ def cmd_honeypot(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_export_web(args: argparse.Namespace) -> int:
+    from .export import export_web_file
+    missing = [f for f in args.inputs if not Path(f).is_file()]
+    if missing:
+        print(f"error: file not found: {missing[0]}", file=sys.stderr)
+        return 2
+    cfg = load_config(args.config)
+    n = export_web_file(args.inputs, args.out, cfg, synthetic=args.label_synthetic)
+    print(f"wrote {n} web RawEvent record(s) to {args.out}")
+    return 0
+
+
 def cmd_export_leads(args: argparse.Namespace) -> int:
     from .export import export_file
     if not Path(args.leads).is_file():
@@ -133,12 +145,31 @@ def _demo_table(report: dict[str, Any], truth: list[Any], title: str = "Per-acto
     return "\n".join(lines)
 
 
+def _variant_summary(report: dict[str, Any], truth: list[Any]) -> str:
+    """Per web-client variant: how many copies were seen, labelled correctly and alerted (severity >= medium)."""
+    by_ip: dict[str, list[dict[str, Any]]] = {}
+    for s in report["sessions"]:
+        by_ip.setdefault(s["ip"], []).append(s)
+    groups: dict[str, list[Any]] = {}
+    for t in truth:
+        if t.name.startswith("web:"):
+            groups.setdefault(t.name.split(" #")[0], []).append(t)
+    floor = SEVERITIES.index("medium")
+    lines = ["  variant                    n  seen  label-correct  alerted(>=medium)  expected"]
+    for name, ts in groups.items():
+        seen = [max(by_ip[t.ip], key=lambda s: s["requests"]) for t in ts if t.ip in by_ip]
+        ok = sum(1 for t in ts if t.ip in by_ip and max(by_ip[t.ip], key=lambda s: s["requests"])["label"] == t.label)
+        alerted = sum(1 for s in seen if SEVERITIES.index(s["severity"]) >= floor)
+        lines.append(f"  {name:24} {len(ts):3}  {len(seen):4}  {ok:13}  {alerted:17}  {ts[0].label}")
+    return "\n".join(lines)
+
+
 def cmd_demo(args: argparse.Namespace) -> int:
     from .synthetic import generate_demo
     out = Path(args.out) if args.out else Path(tempfile.mkdtemp(prefix="agent-watch-demo-"))
-    art = generate_demo(out, seed=args.seed)
-    print(f"synthetic logs written to {out}/ (access.log, gateway.jsonl, leads.jsonl, truth.json)")
-    paths = [art["access_log"], art["gateway_log"], art["leads"]]
+    art = generate_demo(out, seed=args.seed, extended=args.extended)
+    print(f"synthetic logs written to {out}/ (access.log, gateway.jsonl, leads.jsonl, leads.jsonl.access.jsonl, truth.json)")
+    paths = [art["access_log"], art["gateway_log"], art["leads"]] + ([art["access_mirror"]] if args.extended else [])
     report = _analyze([str(p) for p in paths], args.config)
     (out / "report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(f"JSON report: {out / 'report.json'}\n")
@@ -146,8 +177,16 @@ def cmd_demo(args: argparse.Namespace) -> int:
     print(_demo_table(report, art["truth"], "Per-actor results: logs + honeypot leads"))
     logs_only = _analyze([str(art["access_log"]), str(art["gateway_log"])], args.config)
     print(_demo_table(logs_only, art["truth"], "Per-actor results: LOGS ONLY (honeypot leads withheld)"))
-    print("\nNotes: honeypot requests are not mirrored into the synthetic access logs, so the logs-only table shows\n"
-          "what ordinary API traffic alone reveals (coordination-bus agents are missed there by construction).\n"
+    if args.extended:
+        print("\nv3 web clients (browsers, scrapers, mimics) - logs + leads + mirrored access stream:")
+        print(_variant_summary(report, art["truth"]))
+        no_mirror = _analyze([str(art["access_log"]), str(art["gateway_log"]), str(art["leads"])], args.config)
+        print("\nsame traffic WITHOUT the mirrored access stream (the v2 situation: only decoy hits are visible):")
+        print(_variant_summary(no_mirror, art["truth"]))
+        print("\nThese are regression checks on traffic written by the same author as the detectors, NOT benchmarks. "
+              "mimic_assets is built to evade and does; human_no_assets is a person the detector cannot tell from mimic_linked.")
+    print("\nNotes: the synthetic access logs of the original 20 actors do not contain their honeypot requests, so the\n"
+          "logs-only table shows what ordinary API traffic alone reveals (coordination-bus agents are missed there by construction).\n"
           "The LLM-like timing variant was generated from the same hypothesis the detector tests, so its\n"
           "flag is circular; the timing feature is a weak heuristic, not an established fingerprint. These are\n"
           "results on the tool's own synthetic data, NOT real-world accuracy, and no substitute for testing\n"
@@ -207,10 +246,19 @@ def build_parser() -> argparse.ArgumentParser:
                    help="mark events synthetic=true (only for your own sandbox/test traffic)")
     p.set_defaults(func=cmd_export_leads)
 
+    p = sub.add_parser("export-web", help="v3: convert leads + the mirrored access stream into pipeline RawEvents with a `web` block")
+    p.add_argument("inputs", nargs="+", help="honeypot leads JSONL and its .access.jsonl mirror (and/or access logs)")
+    p.add_argument("--out", required=True)
+    p.add_argument("--config")
+    p.add_argument("--label-synthetic", action="store_true", help="mark events synthetic=true (only for your own sandbox/test traffic)")
+    p.set_defaults(func=cmd_export_web)
+
     p = sub.add_parser("demo", help="generate synthetic logs, run the pipeline, print results")
     p.add_argument("--out", help="output directory (default: a new temp dir)")
     p.add_argument("--seed", type=int, default=7)
     p.add_argument("--config")
+    p.add_argument("--extended", action="store_true",
+                   help="v3: add browsers, scrapers and four mimic variants that browse the honeypot site, and analyze the mirrored access stream")
     _add_view_args(p)
     p.set_defaults(func=cmd_demo)
     return ap

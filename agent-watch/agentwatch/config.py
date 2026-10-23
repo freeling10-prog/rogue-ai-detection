@@ -100,6 +100,41 @@ DEFAULTS: dict[str, Any] = {
         "bytes_per_token": 4.0,        # rough bytes->tokens conversion (reporting only)
         "max_asset_ratio": 0.2,        # browsers fetch assets; skip the check for asset-loading clients
     },
+    "web": {
+        # v3 passive detectors that do not need a decoy touch (they need the mirrored request stream: every request,
+        # with content type, the links each page offered, and the browser header family)
+        "enabled": True,
+        "asset_starvation": {
+            "min_pages": 5,                       # HTML pages with ZERO sub-resource fetches
+            "browser_ua_patterns": [r"mozilla/5\.0"],   # only a client that CLAIMS to be a browser is expected to load assets
+            "sec_fetch_check": True,              # when the log carries headers: browser-claiming page loads lacking Sec-Fetch-*
+            "sec_fetch_min_share": 0.5,
+        },
+        "unlinked_jump": {
+            # transitions to these paths are never "unlinked" (every client may probe them)
+            "entry_paths": ["/", "/robots.txt", "/favicon.ico", "/sitemap.xml"],
+            "max_findings": 20,
+        },
+        "schema_param": {"name": "client_schema_rev"},
+        "session_canary_pattern": r"\bsc-[0-9a-f]{10}\b",
+    },
+    "contact": {
+        # decoy classes for severity / labelling.  A lone hit on a PASSIVE decoy (invisible link, robots Disallow, the
+        # guessable /.env) is what scanners, crawlers and curious humans produce: contact, not intent.
+        "passive_kinds": ["hidden_link", "robots_disallow", "fake_credentials_file", "robots_fetch"],
+        "human_plausible_kinds": ["robots_disallow", "fake_credentials_file", "robots_fetch"],   # a person can type these URLs
+        "accidental_max_distinct_decoys": 2,
+        "strong_kinds": ["canary_follow", "canary_phrase_echo", "error_hint_follow", "mcp_decoy_tool_call",
+                         "fake_credential_use", "schema_param_use", "session_canary_param"],
+    },
+    "floors": {
+        # max-pooling: ONE high-signal event sets a floor on the scores; benign padding (assets, human-like timing,
+        # extra quiet requests) can add points on top but can never pull the score below it.
+        "enabled": True,
+        "automation_any_decoy": 40,           # any decoy contact: at least a static bot, never "human"
+        "agent": {"canary_follow": 60, "canary_phrase_echo": 60, "error_hint_follow": 60, "mcp_decoy_tool_call": 60,
+                  "fake_credential_use": 60, "schema_param": 60, "session_canary_param": 60, "mcp_list_then_call": 70},
+    },
     "navigation": {"deep_depth": 4, "flat_depth_max": 2},
     "assets": {"extensions": [".css", ".js", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".woff", ".woff2", ".map", ".webp"]},
     "ua": {
@@ -138,6 +173,16 @@ DEFAULTS: dict[str, Any] = {
             "deep_navigation": 10,
             "llm_timing": 10,          # weak by design; can never decide alone
             "multi_step_chain": 15,    # followed server-issued tokens across several turns
+            # v3 passive web signals (need the mirrored request stream)
+            "asset_starvation": 35,         # >= min_pages HTML pages, a browser-claiming UA, zero CSS/JS/image/favicon fetches
+            "asset_starvation_sec_fetch": 10,   # ... and the Sec-Fetch-* headers a real browser sends are missing/mismatched
+            "unlinked_jump": 15,            # per transition to a URL the previous page did not link and no valid Referer
+            "unlinked_jump_cap": 45,
+            "unlinked_jump_earlier": 5,     # weak variant: the URL WAS offered on an earlier page (queue / tab behaviour)
+            "unlinked_jump_earlier_cap": 15,
+            "schema_param": 50,             # sent the camouflaged client_schema_rev parameter from the decoy openapi.json
+            "session_canary_param": 55,     # replayed the per-session canary served only inside machine-readable docs
+            "mcp_list_then_call": 40,       # MCP tools/list followed by a valid tools/call (goal-directed tool use)
             # coordination bus (distinct signals, each with its own plain-language reason)
             "coord_board_after_trap": 25,   # read the board after an error/schema trap (followed a breadcrumb)
             "coord_capture_post": 35,       # volunteered a registration (objective/tools/system prompt summary)

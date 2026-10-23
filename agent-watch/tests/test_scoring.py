@@ -90,10 +90,12 @@ def test_honeytoken_canary_alone_is_agent_and_critical():
     assert res.label == "agent" and res.severity == "critical" and len(res.honeytoken_hits) == 2
 
 
-def test_single_decoy_hit_from_human_is_high_priority_but_not_agent():
+def test_single_decoy_hit_from_human_is_flagged_for_review_but_not_agent():
+    # v3 change: this used to assert severity "high" for a lone passive-decoy hit; a lone robots-Disallow touch is contact,
+    # not intent, so it is a "medium" lead for review and is classed as an accidental scraper / curious visitor
     reqs = human_like(10) + [mk(500, "/admin-backup/", ip="192.0.2.50")]
     res = score_session(sess(reqs), CFG)
-    assert res.label == "human" and res.severity == "high"
+    assert res.label == "human" and res.severity == "medium" and res.actor_type == "accidental_scraper"
     assert any("honeytoken" in x for x in res.reasons)
 
 

@@ -121,6 +121,8 @@ class SessionResult:
     reasons: list[str] = field(default_factory=list)
     benign: bool = False
     benign_reason: str = ""
+    actor_type: str = ""             # goal_directed_agent | accidental_scraper | possible_mimic | static_bot | human
+    floors: list[str] = field(default_factory=list)   # which single events set a score floor (max-pooling), for the report
 
     @property
     def honeytoken_hits(self) -> list[Finding]:
@@ -240,6 +242,32 @@ def _agent(feat: dict[str, Any], findings: list[Finding], cfg: dict[str, Any], r
     if feat["max_depth"] >= cfg["navigation"]["deep_depth"] and score > 0:
         score += w["deep_navigation"]
         reasons.append(f"+{w['deep_navigation']} deep navigation (path depth {feat['max_depth']})")
+    # --- v3 passive web signals (do not need a decoy touch)
+    webf = [f for f in findings if f.detector == "web"]
+    for f in webf:
+        if f.kind == "asset_starvation":
+            pts = w["asset_starvation"] + (w["asset_starvation_sec_fetch"] if f.data.get("sec_fetch") else 0)
+            score += pts
+            reasons.append(f"+{pts} asset starvation: {f.summary}")
+    jumps = [f for f in webf if f.kind == "unlinked_jump"]
+    never = [f for f in jumps if not f.data.get("offered_earlier")]
+    earlier = [f for f in jumps if f.data.get("offered_earlier")]
+    if never:
+        pts = min(w["unlinked_jump_cap"], w["unlinked_jump"] * len(never))
+        score += pts
+        reasons.append(f"+{pts} {len(never)} unlinked jump(s) to URLs no page ever offered this client, with no valid Referer, "
+                       f"e.g. {never[0].data['from']} -> {never[0].data['to']}")
+    if earlier:
+        pts = min(w["unlinked_jump_earlier_cap"], w["unlinked_jump_earlier"] * len(earlier))
+        score += pts
+        reasons.append(f"+{pts} {len(earlier)} jump(s) to URLs offered on an earlier page but not the previous one, no valid Referer "
+                       "(weak: breadth-first crawlers, new tabs and typed bookmarks look the same)")
+    for kind, text in (("schema_param", "camouflaged schema parameter used (read the decoy openapi.json and used what it advertised)"),
+                       ("session_canary_param", "replayed the per-session canary that is only served inside machine-readable docs"),
+                       ("mcp_list_then_call", "MCP tools/list followed by a valid tools/call")):
+        if any(f.kind == kind for f in webf):
+            score += w[kind]
+            reasons.append(f"+{w[kind]} {text}")
     # --- honeytokens
     hw = w["honeytoken"]
     hits = [f for f in findings if f.detector == "honeytoken"]
@@ -262,6 +290,32 @@ def score_session(session: Session, cfg: dict[str, Any]) -> SessionResult:
     auto = _automation(feat, findings, cfg, reasons)
     agent = _agent(feat, findings, cfg, reasons)
     th = cfg["thresholds"]
+    hits = [f for f in findings if f.detector == "honeytoken"]
+    webf = [f for f in findings if f.detector == "web"]
+    ccfg = cfg["contact"]
+    passive = set(ccfg["passive_kinds"])
+    floors_applied: list[str] = []
+    fl = cfg["floors"]
+    if fl["enabled"]:
+        # max-pooling: a single high-signal event sets a floor that benign padding cannot dilute
+        # (a person can type /admin-backup/ or /.env, so those alone do not force a machine label; an invisible link can't be clicked)
+        needs_machine = ({f.kind for f in hits} - set(ccfg["human_plausible_kinds"])) \
+            or any(f.kind in ("schema_param", "session_canary_param", "mcp_list_then_call") for f in webf)
+        if needs_machine:
+            if auto < fl["automation_any_decoy"]:
+                reasons.append(f"+{fl['automation_any_decoy'] - auto} floor: decoy contact sets the automation score to at least "
+                               f"{fl['automation_any_decoy']} (benign padding such as assets or human-like timing cannot dilute it)")
+                auto = fl["automation_any_decoy"]
+                floors_applied.append("automation:decoy_contact")
+        cands = [(fl["agent"][f.kind], f.kind) for f in hits if f.kind in fl["agent"]]
+        cands += [(fl["agent"][f.kind], f.kind) for f in webf if f.kind in fl["agent"]]
+        if cands:
+            value, kind = max(cands)
+            if agent < value:
+                reasons.append(f"+{value - agent} floor: a single '{kind}' event sets the agent score to at least {value} "
+                               f"(benign padding cannot dilute it; still contact, not intent)")
+                agent = value
+                floors_applied.append(f"agent:{kind}")
     label = "agent" if agent >= th["agent"] else "static_bot" if auto >= th["automation"] else "human"
 
     # structural observations for static bots (explainability only)
@@ -271,7 +325,7 @@ def score_session(session: Session, cfg: dict[str, Any]) -> SessionResult:
         if feat["blocked_responses"] and not any(f.detector == "adaptation" and f.kind != "no_adaptation" for f in findings):
             reasons.append("no adaptation: blocked responses did not change its behaviour")
 
-    agent_evidence = any(f.detector in ("adaptation", "tool_chain", "param_evasion", "honeytoken", "multi_turn", "coordination")
+    agent_evidence = any(f.detector in ("adaptation", "tool_chain", "param_evasion", "honeytoken", "multi_turn", "coordination", "web")
                          and f.kind not in ("no_adaptation", "backoff", "enumeration") for f in findings)
     benign, benign_reason = False, ""
     paths = {r.path for r in session.requests}
@@ -282,11 +336,30 @@ def score_session(session: Session, cfg: dict[str, Any]) -> SessionResult:
     if benign:
         reasons.append(f"benign: {benign_reason}")
 
-    hits = [f for f in findings if f.detector == "honeytoken"]
+    # accidental scraper vs goal-directed agent (a lone invisible-link hit must not read as 'high' while labelled human)
+    hit_kinds = {f.kind for f in hits}
+    strong = hit_kinds & set(ccfg["strong_kinds"]) or {f.kind for f in webf if f.kind in ("schema_param", "session_canary_param", "mcp_list_then_call")}
+    adaptive = any((f.detector in ("tool_chain", "multi_turn", "coordination"))
+                   or (f.detector == "adaptation" and f.kind not in ("no_adaptation", "backoff")) for f in findings)
+    non_passive = hit_kinds - passive
+    goal_directed = label == "agent" or bool(strong) or adaptive or len(non_passive) >= 2
+    accidental = (bool(hits) and not non_passive and not goal_directed and len(hits) <= ccfg["accidental_max_distinct_decoys"])
+    if goal_directed:
+        actor = "goal_directed_agent"
+    elif accidental:
+        actor = "accidental_scraper"
+        reasons.append("classified as a likely accidental scraper, not a goal-directed agent: only passive decoys touched "
+                       f"({', '.join(sorted(hit_kinds))}), no adaptation, no schema/MCP/error-hint use. Contact is not intent; "
+                       "severity is capped at medium")
+    elif any(f.kind == "asset_starvation" or (f.kind == "unlinked_jump" and not f.data.get("offered_earlier")) for f in webf):
+        actor = "possible_mimic"
+    else:
+        actor = label
+
     if label == "agent":
-        sev = "critical" if (agent >= th["critical"] or hits) else "high"
+        sev = "critical" if (agent >= th["critical"] or hits or strong) else "high"
     elif hits:
-        sev = "high"
+        sev = "medium" if (accidental or (hit_kinds <= passive)) else "high"
     elif benign:
         sev = "info"
     elif label == "static_bot":
@@ -294,7 +367,8 @@ def score_session(session: Session, cfg: dict[str, Any]) -> SessionResult:
     else:
         sev = "medium" if agent >= th["medium"] else "info"
     reasons.sort(key=_reason_rank)   # biggest contributors first, deductions/notes last
-    return SessionResult(session, feat, findings, auto, agent, label, sev, reasons, benign, benign_reason)
+    return SessionResult(session, feat, findings, auto, agent, label, sev, reasons, benign, benign_reason,
+                         actor_type=actor, floors=floors_applied)
 
 
 def analyze_sessions(sessions: list[Session], cfg: dict[str, Any]) -> list[SessionResult]:

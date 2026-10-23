@@ -149,7 +149,12 @@ def reference_matrix(by_agent: Dict[str, List[NormalizedEvent]], fcfg: FrozenCfg
 
 
 def train_baseline(by_agent: Dict[str, List[NormalizedEvent]], cfg: Config, created_at: Optional[str] = None) -> FrozenBaseline:
-    """Fit the frozen baseline on benign reference data (already normalized/pseudonymized)."""
+    """Fit the frozen baseline on benign reference data (already normalized/pseudonymized).
+
+    Commodity-scanner clients (see ``prefilter.py``) are kept OUT of the baseline: their denied-request storms and
+    sensitive-path probing would teach the model that such behaviour is normal.  The count is recorded in the metadata."""
+    from .prefilter import prefilter_by_agent
+    by_agent, pre = prefilter_by_agent(by_agent, cfg.web)
     f = cfg.frozen
     agents, X = reference_matrix(by_agent, f)
     if len(agents) < f.min_reference_agents:
@@ -182,6 +187,7 @@ def train_baseline(by_agent: Dict[str, List[NormalizedEvent]], cfg: Config, crea
         "heldout_fraction_flagged": round(float((heldcal >= flag_cal).mean()), 4),
         "sequence_ref_median_bits": round(seq.ref_median, 4), "sequence_hi_bits": round(seq.hi, 4),
         "n_estimators": cfg.layer1.n_estimators, "synthetic_only": True,
+        "n_prefiltered_scanner_agents": pre.agents,
     }
     return FrozenBaseline(FrozenForest.from_sklearn(clf), scaler.center_.copy(), scaler.scale_.copy(), med, rscale, lo, hi, seq, meta)
 

@@ -12,6 +12,14 @@ SAFETY INVARIANTS (enforced here in code, and again in tests):
   * Scores are for ranking the review queue. They are not probabilities of wrongdoing.
 
 Fusion rule (noisy-or):  score = 1 - prod_i (1 - w_i * s_i)  over i in {anomaly, rules, graph}.
+
+v3 additions (still leads only - severity stays "low"):
+  * FLOORS: a rule flag may carry ``extra["floor"]`` (R10: a single high-signal event).  After noisy-or the score is
+    ``max(score, floor)``.  Nothing in the fusion is an average over the session, so unrelated benign events can never
+    pull a lead with a floor below it.
+  * ``actor_class`` (``goal_directed`` | ``possible_mimic`` | ``accidental_scraper`` | ``unclassified``) separates a client that
+    merely touched one hidden link (an accidental scraper: lower floor, queue position "review") from one that used what a
+    decoy offered or showed several corroborating web signals.  It is a triage hint derived from the flags; it is not intent.
 """
 from __future__ import annotations
 
@@ -43,6 +51,8 @@ class Lead:
     rule_flags: List[RuleFlag]
     cluster: Optional[Dict[str, Any]]
     sequence: Optional[Dict[str, Any]] = None
+    actor_class: str = "unclassified"
+    floor_applied: Optional[float] = None
     severity: str = SEVERITY
     recommended_action: str = RECOMMENDED_ACTION
     automatic_action: str = AUTOMATIC_ACTION
@@ -67,8 +77,26 @@ class Lead:
                 "evidence": [{"event_id": e.event_id, "ts": e.ts, "summary": e.summary} for e in f.evidence],
                 "extra": f.extra,
             } for f in self.rule_flags],
-            "cluster": self.cluster, "sequence": self.sequence, "disclaimer": self.disclaimer,
+            "cluster": self.cluster, "sequence": self.sequence, "actor_class": self.actor_class,
+            "floor_applied": self.floor_applied, "disclaimer": self.disclaimer,
         }
+
+
+def classify_actor(flags: List[RuleFlag]) -> str:
+    """Triage hint from the web rules.  ``unclassified`` when no web rule fired (all non-web leads)."""
+    by = {f.rule_id: f for f in flags}
+    r10 = by.get("R10")
+    if not (r10 or "R8" in by or "R9" in by):
+        return "unclassified"
+    if "R6" in by or "R7" in by:
+        return "goal_directed"
+    if r10 is not None and r10.extra.get("tier") == "strong":
+        return "goal_directed"
+    if "R8" in by and "R9" in by:
+        return "goal_directed"                  # no asset loads AND guessed URLs: two independent facts, same client
+    if "R8" in by or "R9" in by:
+        return "possible_mimic"
+    return "accidental_scraper"                 # R10 weak tier only: one hidden-link / decoy contact, nothing adaptive
 
 
 def _lead_id(agent: str, run_tag: str) -> str:
@@ -102,6 +130,10 @@ def fuse(cfg: FusionCfg, anomalies: Dict[str, AgentAnomaly], flags: List[RuleFla
         sq = gated.get(a)
         s_q = sq.score if sq else 0.0
         score = 1.0 - (1 - cfg.w_anomaly * s_a) * (1 - cfg.w_rules * s_r) * (1 - cfg.w_graph * s_g) * (1 - cfg.w_sequence * s_q)
+        floors = [float(v) for v in (f.extra.get("floor") for f in fl) if isinstance(v, (int, float))]
+        floor = max(floors) if floors else None
+        if floor is not None:
+            score = max(score, floor)
         if score < cfg.lead_threshold or (not fl and cl is None and sq is None):
             continue
         band = "review_first" if score >= cfg.band_review_first else "review"
@@ -110,7 +142,7 @@ def fuse(cfg: FusionCfg, anomalies: Dict[str, AgentAnomaly], flags: List[RuleFla
             components={"isolation_forest": round(s_a, 4), "rules": round(s_r, 4), "graph_density": round(s_g, 4),
                         "sequence": round(s_q, 4)},
             anomaly_explanations=[c.text for c in (an.contributions if an else [])],
-            rule_flags=fl,
+            rule_flags=fl, actor_class=classify_actor(fl), floor_applied=floor,
             cluster=None if cl is None else {
                 "members": cl.members, "density": cl.density, "mean_weight": cl.mean_weight,
                 "evidence_event_ids": cl.evidence_event_ids, "edge_kinds": cl.kinds, "reasons": cl.reasons,

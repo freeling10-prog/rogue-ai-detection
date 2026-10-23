@@ -190,6 +190,34 @@ class IdentityCfg(_Strict):
     asn_allowlist: List[AsnAllow] = []
 
 
+class WebCfg(_Strict):
+    """v3: web-collector evidence (mimic detection), commodity-scanner pre-filter and score floors.  Applies only to events
+    that carry a ``web`` block; events without one are never filtered or scored by these rules (so non-web traffic is unchanged)."""
+
+    enabled: bool = True
+    prefilter: bool = True                    # drop commodity-scanner clients before scoring and before baseline training
+    scanner_ua_patterns: List[str] = [r"zgrab", r"masscan", r"censys", r"shodan", r"nmap", r"nikto", r"sqlmap", r"nuclei",
+                                      r"gobuster", r"dirbuster", r"wpscan", r"expanse", r"netcraft", r"internet-measurement"]
+    scanner_path_patterns: List[str] = [r"\.php\d?(\?|$|/)", r"/wp-(admin|login|content|includes|json)", r"/xmlrpc", r"/\.env\b",
+                                        r"/\.git(/|$)", r"/phpmyadmin", r"/pma(/|$)", r"/cgi-bin/", r"/vendor/phpunit", r"/actuator",
+                                        r"/boaform", r"/\.aws/", r"/server-status"]
+    declared_bot_ua_patterns: List[str] = [r"bot\b", r"crawler", r"spider", r"slurp", r"scrapy", r"python-requests", r"curl/", r"wget/",
+                                           r"go-http-client", r"httpclient"]
+    browser_ua_patterns: List[str] = [r"Mozilla/5\.0", r"Chrome/", r"Safari/", r"Firefox/", r"Edg/"]
+    prefilter_min_events: int = Field(1, ge=1)
+    scanner_path_min_share: float = Field(0.8, gt=0.5, le=1)   # share of a client's requests that must be scanner paths (tolerates a stray /admin/)
+    asset_starvation_min_pages: int = Field(5, ge=2)
+    unlinked_min_never_offered: int = Field(2, ge=1)
+    strength_asset_starvation: float = Field(0.5, ge=0, le=1)
+    strength_asset_starvation_sec_fetch: float = Field(0.65, ge=0, le=1)
+    strength_unlinked_jump: float = Field(0.55, ge=0, le=1)
+    strength_unlinked_jump_cap: float = Field(0.8, ge=0, le=1)
+    strong_distinct_decoys: int = Field(3, ge=2)       # this many different decoy kinds touched => adaptive, not accidental
+    floors_enabled: bool = True
+    floor_weak: float = Field(0.58, ge=0, le=1)        # single hidden-link/decoy contact: reaches the queue, below review_first
+    floor_strong: float = Field(0.8, ge=0, le=1)       # decoy-protocol use that needs reading/parsing (schema, MCP call, canary)
+
+
 class Config(_Strict):
     pseudonymization: PseudonymizationCfg = Field(default_factory=PseudonymizationCfg)
     normalization: NormalizationCfg = Field(default_factory=NormalizationCfg)
@@ -201,6 +229,7 @@ class Config(_Strict):
     frozen: FrozenCfg = Field(default_factory=FrozenCfg)
     sequence: SequenceCfg = Field(default_factory=SequenceCfg)
     identity: IdentityCfg = Field(default_factory=IdentityCfg)
+    web: WebCfg = Field(default_factory=WebCfg)
 
 
 def load_config(path: Optional[str | Path] = None) -> Config:

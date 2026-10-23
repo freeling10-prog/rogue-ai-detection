@@ -117,6 +117,55 @@ class MessageSignature(BaseModel):
     value: StrictStr = Field(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")
 
 
+WEB_STRONG_SIGNALS = ("hidden_link", "decoy_hit", "session_canary", "schema_param", "error_hint_follow", "mcp_tools_call",
+                      "mcp_list_then_call", "fake_credential_use")
+_DECOY_KIND = re.compile(r"^[a-z0-9_]{1,40}$")
+_JA4 = re.compile(r"^[tqd][0-9]{2}[di][0-9]{4}[a-z0-9]{2}_[0-9a-f]{12}_[0-9a-f]{12}$")
+
+
+class WebMeta(BaseModel):
+    """Optional per-request facts from a web collector (the agent-watch honeypot's mirrored access stream).
+
+    ``user_agent`` is accepted raw but is reduced to a handful of boolean/enum flags during normalization and then
+    DISCARDED (``NormalizedEvent`` never carries it).  Everything else is already a derived fact.  ``None`` means
+    "the collector could not tell" and makes the rules that need it abstain, never fire."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    user_agent: Optional[StrictStr] = Field(default=None, max_length=300)
+    content_kind: Literal["html", "asset", "api", "other"] = "other"
+    referer_valid: Optional[StrictBool] = None          # Referer present AND names a page this client was served
+    linked_from_prev: Optional[StrictBool] = None       # target was linked from the previous page (None: entry page / unknown)
+    offered_earlier: Optional[StrictBool] = None        # not linked from the previous page, but some earlier page offered it
+    sec_fetch_mismatch: Optional[StrictBool] = None     # page load without browser-style Sec-Fetch-* (None: not logged)
+    strong_signal: Optional[Literal["hidden_link", "decoy_hit", "session_canary", "schema_param", "error_hint_follow",
+                                    "mcp_tools_call", "mcp_list_then_call", "fake_credential_use"]] = None
+    decoy_kind: Optional[StrictStr] = None
+    mcp: Optional[Literal["initialize", "tools_list", "tools_call"]] = None
+    ja4: Optional[StrictStr] = None                     # optional TLS fingerprint supplied by an edge proxy (NOT produced here)
+
+    @field_validator("user_agent")
+    @classmethod
+    def _ua(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and _CTRL.search(v):
+            raise ValueError("control characters are not allowed")
+        return v
+
+    @field_validator("decoy_kind")
+    @classmethod
+    def _dk(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and not _DECOY_KIND.match(v):
+            raise ValueError("decoy_kind must match [a-z0-9_]{1,40}")
+        return v
+
+    @field_validator("ja4")
+    @classmethod
+    def _ja4(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and not _JA4.match(v):
+            raise ValueError("ja4 is not a well-formed JA4 fingerprint")
+        return v
+
+
 class RawEvent(BaseModel):
     """One telemetry record as received from a collector. Strict: no extras, no silent type coercion."""
 
@@ -146,6 +195,8 @@ class RawEvent(BaseModel):
     honeypot: Optional[Literal["coordination_board", "cognitive_capture", "claim_shard"]] = None
     token_class: Optional[Literal["handoff_token", "verification_nonce", "claim_shard"]] = None   # class of the tokens above
     capture: Optional[CapturedAgentMeta] = None
+    # --- web collector facts (v3) ---------------------------------------------------------------------------
+    web: Optional[WebMeta] = None
 
     @field_validator("ts", mode="before")
     @classmethod
@@ -237,6 +288,23 @@ class RawEvent(BaseModel):
 
 
 @dataclass(frozen=True, slots=True)
+class WebFlags:
+    """Derived web facts on a normalized event.  No User-Agent string, no path: only flags."""
+
+    content_kind: str = "other"
+    ua_class: str = "none"                  # browser | scanner | declared_bot | other | none
+    scanner_path: bool = False              # resource matched a commodity-scanner path (php, wp-*, .env, phpmyadmin ...)
+    referer_valid: Optional[bool] = None
+    linked_from_prev: Optional[bool] = None
+    offered_earlier: Optional[bool] = None
+    sec_fetch_mismatch: Optional[bool] = None
+    strong_signal: Optional[str] = None
+    decoy_kind: Optional[str] = None
+    mcp: Optional[str] = None
+    has_ja4: bool = False
+
+
+@dataclass(frozen=True, slots=True)
 class NormalizedEvent:
     """Detection-layer view of an event. Contains pseudonyms and derived flags only - no raw identifiers,
     no resource paths, no free text."""
@@ -266,6 +334,7 @@ class NormalizedEvent:
     token_class: Optional[str] = None        # class of issued tokens: handoff_token / verification_nonce / claim_shard
     redactions: frozenset = frozenset()      # keyed hashes of scrubber markers [REDACTED_<TYPE>_SHA256:<10hex>] seen in the event
     capture: Optional[CapturedAgentMeta] = None   # UNTRUSTED attacker-controlled metadata (sanitized); never used for scoring
+    web: Optional[WebFlags] = None                # derived web-collector flags (None for non-web events)
 
     @property
     def denied(self) -> bool:

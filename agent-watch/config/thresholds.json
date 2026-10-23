@@ -142,6 +142,67 @@
     "bytes_per_token": 4.0,
     "max_asset_ratio": 0.2
   },
+  "web": {
+    "enabled": true,
+    "asset_starvation": {
+      "min_pages": 5,
+      "browser_ua_patterns": [
+        "mozilla/5\\.0"
+      ],
+      "sec_fetch_check": true,
+      "sec_fetch_min_share": 0.5
+    },
+    "unlinked_jump": {
+      "entry_paths": [
+        "/",
+        "/robots.txt",
+        "/favicon.ico",
+        "/sitemap.xml"
+      ],
+      "max_findings": 20
+    },
+    "schema_param": {
+      "name": "client_schema_rev"
+    },
+    "session_canary_pattern": "\\bsc-[0-9a-f]{10}\\b"
+  },
+  "contact": {
+    "passive_kinds": [
+      "hidden_link",
+      "robots_disallow",
+      "fake_credentials_file",
+      "robots_fetch"
+    ],
+    "human_plausible_kinds": [
+      "robots_disallow",
+      "fake_credentials_file",
+      "robots_fetch"
+    ],
+    "accidental_max_distinct_decoys": 2,
+    "strong_kinds": [
+      "canary_follow",
+      "canary_phrase_echo",
+      "error_hint_follow",
+      "mcp_decoy_tool_call",
+      "fake_credential_use",
+      "schema_param_use",
+      "session_canary_param"
+    ]
+  },
+  "floors": {
+    "enabled": true,
+    "automation_any_decoy": 40,
+    "agent": {
+      "canary_follow": 60,
+      "canary_phrase_echo": 60,
+      "error_hint_follow": 60,
+      "mcp_decoy_tool_call": 60,
+      "fake_credential_use": 60,
+      "schema_param": 60,
+      "session_canary_param": 60,
+      "mcp_list_then_call": 70
+    }
+  },
   "navigation": {
     "deep_depth": 4,
     "flat_depth_max": 2
@@ -229,6 +290,15 @@
       "deep_navigation": 10,
       "llm_timing": 10,
       "multi_step_chain": 15,
+      "asset_starvation": 35,
+      "asset_starvation_sec_fetch": 10,
+      "unlinked_jump": 15,
+      "unlinked_jump_cap": 45,
+      "unlinked_jump_earlier": 5,
+      "unlinked_jump_earlier_cap": 15,
+      "schema_param": 50,
+      "session_canary_param": 55,
+      "mcp_list_then_call": 40,
       "coord_board_after_trap": 25,
       "coord_capture_post": 35,
       "coord_claim_loop": 30,

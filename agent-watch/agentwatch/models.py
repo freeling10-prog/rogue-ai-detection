@@ -30,6 +30,15 @@ class Request:
     detail: dict[str, Any] = field(default_factory=dict)  # honeypot lead detail (step, origin, tool...)
     capture: dict[str, Any] = field(default_factory=dict)  # cognitive_capture (UNTRUSTED, attacker-controlled)
     events: list[dict[str, Any]] = field(default_factory=list)  # coordination issuance/use events
+    # --- v3: mirrored access stream / link graph ---------------------------------------------------------
+    served_links: Optional[list[str]] = None   # local paths the response offered the client; None = not known (plain logs)
+    content_type: str = ""                     # response media type when the log knows it (mirror / gateway)
+    event_id: str = ""                         # lead event id (honeypot leads)
+    lead_event_id: str = ""                    # on a mirrored access record: the lead that describes the same request
+    tags: list[str] = field(default_factory=list)  # lead tags (e.g. schema_param_use, mcp_list_then_call)
+    headers_logged: bool = False               # the log format carries the browser-header family (mirror / leads)
+    ja4: str = ""                              # OPTIONAL TLS fingerprint from a trusted edge; parsed only, never scored
+    ja4h: str = ""                             # OPTIONAL HTTP-header fingerprint (JA4H); parsed only, never scored
 
     @property
     def params(self) -> dict[str, list[str]]:

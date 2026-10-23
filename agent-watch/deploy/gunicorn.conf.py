@@ -22,3 +22,6 @@ bind = _bind
 accesslog = None          # gunicorn's access log would carry raw query strings; agent-watch scrubs its own logs
 errorlog = "-"
 loglevel = "warning"
+# every error-log message (e.g. "Invalid request line: 'GET /?token=...'") goes through agentwatch.safelog.safe_text,
+# and the access log is a no-op even if someone enables it on the command line
+logger_class = "agentwatch.safelog.SafeGunicornLogger"

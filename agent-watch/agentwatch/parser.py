@@ -17,6 +17,12 @@ from urllib.parse import urlsplit
 from .models import Request
 
 MAX_LINE_BYTES = 64 * 1024
+ACCESS_SCHEMA = "agentwatch.access/1"
+LEAD_SCHEMA = "agentwatch.lead/1"
+MAX_LINKS = 60
+# JA4 (TLS client fingerprint) and JA4H (HTTP header fingerprint) shapes; anything else is dropped, never stored.
+JA4_RE = re.compile(r"^[tqd][0-9]{2}[di][0-9]{2}[0-9]{2}[a-z0-9]{2}_[0-9a-f]{12}_[0-9a-f]{12}$")
+JA4H_RE = re.compile(r"^[a-z]{2}[0-9]{2}[nc][rn][0-9]{2}[a-z0-9]{4}_[0-9a-f]{12}_[0-9a-f]{12}_[0-9a-f]{12}$")
 
 COMBINED_RE = re.compile(
     r'^(?P<ip>\S+) \S+ \S+ \[(?P<time>[^\]]+)\] '
@@ -38,6 +44,7 @@ class ParseResult:
     errors: int = 0                   # malformed / over-long lines
     context_events: int = 0           # non-hit honeypot events (informational)
     lines: int = 0
+    mirror_merged: int = 0            # mirrored access records merged into their honeypot lead (not double counted)
 
 
 def parse_timestamp(value: Any) -> datetime:
@@ -142,6 +149,21 @@ def parse_json_line(line: str, line_no: int = 0) -> tuple[Optional[Request], boo
         headers=headers, latency_ms=float(latency) if latency is not None else None,
         raw=line.rstrip("\n"), line_no=line_no,
     )
+    schema = obj.get("schema")
+    links = obj.get("links")
+    if isinstance(links, list):
+        req.served_links = [str(x)[:512] for x in links[:MAX_LINKS] if isinstance(x, str)]
+    req.content_type = str(obj.get("content_type") or "")[:100]
+    req.lead_event_id = str(obj.get("lead_event_id") or "")[:64]
+    req.headers_logged = schema in (ACCESS_SCHEMA, LEAD_SCHEMA)
+    ja4 = str(obj.get("ja4") or "").strip()
+    ja4h = str(obj.get("ja4h") or "").strip()
+    req.ja4 = ja4 if JA4_RE.match(ja4) else ""        # optional; malformed values are dropped, a missing one is normal
+    req.ja4h = ja4h if JA4H_RE.match(ja4h) else ""
+    if event_type:
+        req.event_id = str(obj.get("event_id") or "")[:64]     # lets the mirrored access record of the same request be merged away
+        tags = obj.get("tags")
+        req.tags = [str(t)[:64] for t in tags[:20]] if isinstance(tags, list) else []
     if event_type == "honeytoken_hit":
         decoy = obj.get("decoy") if isinstance(obj.get("decoy"), dict) else {}
         req.source = "honeypot"

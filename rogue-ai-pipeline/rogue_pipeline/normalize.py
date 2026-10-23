@@ -18,10 +18,10 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Union
 
 from pydantic import ValidationError
 
-from .config import NormalizationCfg
+from .config import NormalizationCfg, WebCfg
 from .pseudonymize import Pseudonymizer
 from .identity import IdentityGate
-from .schema import REDACTION_RE, NormalizedEvent, RawEvent
+from .schema import REDACTION_RE, NormalizedEvent, RawEvent, WebFlags
 
 _NUM = re.compile(r"\d+")
 _BLOB = re.compile(r"[A-Za-z0-9+/=]{24,}")
@@ -107,11 +107,39 @@ def shingle_set(text: str, size: int, cap: int) -> List[str]:
 class Normalizer:
     """Validate raw telemetry and emit pseudonymized events."""
 
-    def __init__(self, cfg: NormalizationCfg, pseudo: Pseudonymizer, identity: Optional[IdentityGate] = None) -> None:
+    def __init__(self, cfg: NormalizationCfg, pseudo: Pseudonymizer, identity: Optional[IdentityGate] = None,
+                 web: Optional[WebCfg] = None) -> None:
         self.cfg = cfg
         self.pseudo = pseudo
         self.identity = identity
+        self.web = web or WebCfg()
         self._sens = [re.compile(p, re.I) for p in cfg.sensitive_patterns]
+        self._scan_ua = [re.compile(p, re.I) for p in self.web.scanner_ua_patterns]
+        self._scan_path = [re.compile(p, re.I) for p in self.web.scanner_path_patterns]
+        self._bot_ua = [re.compile(p, re.I) for p in self.web.declared_bot_ua_patterns]
+        self._browser_ua = [re.compile(p) for p in self.web.browser_ua_patterns]
+
+    def web_flags(self, raw: RawEvent) -> Optional[WebFlags]:
+        """Reduce the collector's web block to flags.  The raw User-Agent is classified here and never stored."""
+        w = raw.web
+        if w is None:
+            return None
+        ua = w.user_agent or ""
+        if not ua:
+            ua_class = "none"
+        elif any(p.search(ua) for p in self._scan_ua):
+            ua_class = "scanner"
+        elif any(p.search(ua) for p in self._bot_ua):
+            ua_class = "declared_bot"
+        elif any(p.search(ua) for p in self._browser_ua):
+            ua_class = "browser"
+        else:
+            ua_class = "other"
+        return WebFlags(
+            content_kind=w.content_kind, ua_class=ua_class, scanner_path=any(p.search(raw.resource) for p in self._scan_path),
+            referer_valid=w.referer_valid, linked_from_prev=w.linked_from_prev, offered_earlier=w.offered_earlier,
+            sec_fetch_mismatch=w.sec_fetch_mismatch, strong_signal=w.strong_signal, decoy_kind=w.decoy_kind, mcp=w.mcp,
+            has_ja4=w.ja4 is not None)
 
     # -- helpers -----------------------------------------------------------------------------------
     def _is_external(self, host: Optional[str]) -> bool:
@@ -169,6 +197,7 @@ class Normalizer:
             redactions=frozenset(p.token("redaction", m, "rd_") for m in found),
             honeypot=raw.honeypot, token_class=raw.token_class,
             capture=raw.capture if self.cfg.keep_capture else None,
+            web=self.web_flags(raw),
             identity=dec.status if dec else "absent",
             exempt_rules=dec.exempt_rules if dec else frozenset(),
         )

@@ -50,6 +50,8 @@ def _session_dict(res: SessionResult) -> dict[str, Any]:
         "end": utc_iso(s.end),
         "requests": len(s.requests),
         "label": res.label,
+        "actor_type": res.actor_type,
+        "floors": list(res.floors),
         "severity": res.severity,
         "agent_score": res.agent_score,
         "automation_score": res.automation_score,
@@ -136,7 +138,7 @@ def render_text(report: dict[str, Any], *, min_severity: str = "low", top: int =
     out.append("-" * 78)
     for s in shown:
         tag = _paint(f"[{s['severity'].upper():8}]", s["severity"], color)
-        out.append(f"{tag} {s['session_id']}  {s['ip']}  class={s['label']}  agent={s['agent_score']}  "
+        out.append(f"{tag} {s['session_id']}  {s['ip']}  class={s['label']}  actor={s.get('actor_type') or s['label']}  agent={s['agent_score']}  "
                    f"automation={s['automation_score']}  requests={s['requests']}" + ("  (benign)" if s["benign"] else ""))
         out.append(f"    window: {s['start']} -> {s['end']}")
         if s.get("cognitive_captures"):

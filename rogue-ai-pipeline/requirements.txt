@@ -1,0 +1,11 @@
+numpy>=1.26
+scipy>=1.11
+scikit-learn>=1.4
+networkx>=3.2
+pydantic>=2.5
+stix2>=3.0
+stix2-validator==3.2.0  # 3.1.0 and 3.3.1 on PyPI ship without the STIX 2.1 JSON schemas
+pytest>=8.0
+shellcheck-py>=0.9  # dev only: lets the deploy-script test run shellcheck (the test skips shellcheck if absent)
+# river: installs cleanly (tested 0.26.1) but is deliberately NOT a dependency - an online HalfSpaceTrees trial on the same
+# synthetic data gave AUC ~0.66-0.68 with seed-to-seed variation, so it was not integrated (see README, "Frozen baseline").

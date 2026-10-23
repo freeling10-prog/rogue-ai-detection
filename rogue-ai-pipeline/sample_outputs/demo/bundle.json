@@ -1,0 +1,3388 @@
+{
+    "type": "bundle",
+    "id": "bundle--bbf701e2-df7d-4c1f-abde-2aacb07473e6",
+    "objects": [
+        {
+            "type": "identity",
+            "spec_version": "2.1",
+            "id": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.924044Z",
+            "modified": "2026-10-23T05:49:37.924044Z",
+            "name": "rogue-ai-pipeline (synthetic demo)",
+            "description": "Defensive detection pipeline run on SYNTHETIC data only.",
+            "identity_class": "system"
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--117b567d-f09e-4c5a-aae9-c00a5aa42e59",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.924233Z",
+            "modified": "2026-10-23T05:49:37.924233Z",
+            "name": "Confirmed misbehaving agent ag_98da521dfc4fdf61",
+            "description": "Agent pseudonym ag_98da521dfc4fdf61 was raised as a lead (fused score 0.9715) and CONFIRMED by a human reviewer. Rules: ['R5']. Cluster: no.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_98da521dfc4fdf61']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.924215Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "attack-pattern",
+            "spec_version": "2.1",
+            "id": "attack-pattern--5866623a-8d46-4791-a865-189ecf2d0055",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.967368Z",
+            "modified": "2026-10-23T05:49:37.967368Z",
+            "name": "Enterprise Resource Discovery (MITRE ATLAS AML.T0075, approximate mapping)",
+            "description": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+            "external_references": [
+                {
+                    "source_name": "mitre-atlas",
+                    "url": "https://atlas.mitre.org/techniques/AML.T0075",
+                    "external_id": "AML.T0075"
+                }
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--69836701-d40b-41bd-b103-37eeffe97501",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.967513Z",
+            "modified": "2026-10-23T05:49:37.967513Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--117b567d-f09e-4c5a-aae9-c00a5aa42e59",
+            "target_ref": "attack-pattern--5866623a-8d46-4791-a865-189ecf2d0055"
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--43235a19-aef4-491c-a3ce-0db18aa43aa7",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.967646Z",
+            "modified": "2026-10-23T05:49:37.967646Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--117b567d-f09e-4c5a-aae9-c00a5aa42e59"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--990d1d0a-82a7-49b1-b1d1-8879f3fc5b0f",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.967788Z",
+            "modified": "2026-10-23T05:49:37.967788Z",
+            "name": "Confirmed misbehaving agent ag_e942d6dcdca8dd5c",
+            "description": "Agent pseudonym ag_e942d6dcdca8dd5c was raised as a lead (fused score 0.9709) and CONFIRMED by a human reviewer. Rules: ['R5']. Cluster: no.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_e942d6dcdca8dd5c']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.967774Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--185d0c9b-ae51-46b2-a4a4-1c021204baae",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.968276Z",
+            "modified": "2026-10-23T05:49:37.968276Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--990d1d0a-82a7-49b1-b1d1-8879f3fc5b0f",
+            "target_ref": "attack-pattern--5866623a-8d46-4791-a865-189ecf2d0055"
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--209f7685-5bed-4d1d-8717-e9f543b71637",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.968398Z",
+            "modified": "2026-10-23T05:49:37.968398Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--990d1d0a-82a7-49b1-b1d1-8879f3fc5b0f"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--0898e7f1-9634-4978-a033-6b4b840d4c0d",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.968518Z",
+            "modified": "2026-10-23T05:49:37.968518Z",
+            "name": "Confirmed misbehaving agent ag_98a31ed7ceb00f9b",
+            "description": "Agent pseudonym ag_98a31ed7ceb00f9b was raised as a lead (fused score 0.9674) and CONFIRMED by a human reviewer. Rules: ['R5']. Cluster: no.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_98a31ed7ceb00f9b']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.968507Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--440ce86a-9767-4bde-a63c-817b1279e4f6",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.968984Z",
+            "modified": "2026-10-23T05:49:37.968984Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--0898e7f1-9634-4978-a033-6b4b840d4c0d",
+            "target_ref": "attack-pattern--5866623a-8d46-4791-a865-189ecf2d0055"
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--416b94bf-33ce-4bde-8285-64ce69e5448f",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.969097Z",
+            "modified": "2026-10-23T05:49:37.969097Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--0898e7f1-9634-4978-a033-6b4b840d4c0d"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--8de17238-1cbd-44f3-8543-d34598d7be25",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.96921Z",
+            "modified": "2026-10-23T05:49:37.96921Z",
+            "name": "Confirmed misbehaving agent ag_ada95f9578ae974b",
+            "description": "Agent pseudonym ag_ada95f9578ae974b was raised as a lead (fused score 0.9633) and CONFIRMED by a human reviewer. Rules: ['R5']. Cluster: no.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_ada95f9578ae974b']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.969199Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--8dde360d-d0e9-45b0-9a4f-2d9ac250da67",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.969611Z",
+            "modified": "2026-10-23T05:49:37.969611Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--8de17238-1cbd-44f3-8543-d34598d7be25",
+            "target_ref": "attack-pattern--5866623a-8d46-4791-a865-189ecf2d0055"
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--da22d063-56d0-41ad-8a01-93b9ce02c944",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.969738Z",
+            "modified": "2026-10-23T05:49:37.969738Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--8de17238-1cbd-44f3-8543-d34598d7be25"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--aa835fc5-5fec-48ff-bdb2-2069c2538fd8",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.96987Z",
+            "modified": "2026-10-23T05:49:37.96987Z",
+            "name": "Confirmed misbehaving agent ag_260da60b2382dc80",
+            "description": "Agent pseudonym ag_260da60b2382dc80 was raised as a lead (fused score 0.9527) and CONFIRMED by a human reviewer. Rules: ['R1', 'R2', 'R3']. Cluster: no.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_260da60b2382dc80']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.969855Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "attack-pattern",
+            "spec_version": "2.1",
+            "id": "attack-pattern--7bd01459-aa90-4361-beec-e270f631c38d",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.971162Z",
+            "modified": "2026-10-23T05:49:37.971162Z",
+            "name": "LLM Prompt Injection (MITRE ATLAS AML.T0051, approximate mapping)",
+            "description": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+            "external_references": [
+                {
+                    "source_name": "mitre-atlas",
+                    "url": "https://atlas.mitre.org/techniques/AML.T0051",
+                    "external_id": "AML.T0051"
+                }
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--b1c2fbf0-ff74-4151-b890-7d5ffdc9fcb3",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.971285Z",
+            "modified": "2026-10-23T05:49:37.971285Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--aa835fc5-5fec-48ff-bdb2-2069c2538fd8",
+            "target_ref": "attack-pattern--7bd01459-aa90-4361-beec-e270f631c38d"
+        },
+        {
+            "type": "attack-pattern",
+            "spec_version": "2.1",
+            "id": "attack-pattern--a777ce19-15e0-43b0-9eb4-38abcf5b65d0",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.971418Z",
+            "modified": "2026-10-23T05:49:37.971418Z",
+            "name": "AI Agent Tool Invocation (MITRE ATLAS AML.T0053, approximate mapping)",
+            "description": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+            "external_references": [
+                {
+                    "source_name": "mitre-atlas",
+                    "url": "https://atlas.mitre.org/techniques/AML.T0053",
+                    "external_id": "AML.T0053"
+                }
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--10889ef9-b980-4f7f-8142-c6607642c51a",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.971497Z",
+            "modified": "2026-10-23T05:49:37.971497Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--aa835fc5-5fec-48ff-bdb2-2069c2538fd8",
+            "target_ref": "attack-pattern--a777ce19-15e0-43b0-9eb4-38abcf5b65d0"
+        },
+        {
+            "type": "attack-pattern",
+            "spec_version": "2.1",
+            "id": "attack-pattern--aa79de8f-a13b-4aad-ac1b-62967ca55463",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.971614Z",
+            "modified": "2026-10-23T05:49:37.971614Z",
+            "name": "Exfiltration via AI Agent Tool Invocation (MITRE ATLAS AML.T0086, approximate mapping)",
+            "description": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+            "external_references": [
+                {
+                    "source_name": "mitre-atlas",
+                    "url": "https://atlas.mitre.org/techniques/AML.T0086",
+                    "external_id": "AML.T0086"
+                }
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--f9c728d8-55d7-4ace-9195-d9610dcd0ebd",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.971697Z",
+            "modified": "2026-10-23T05:49:37.971697Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--aa835fc5-5fec-48ff-bdb2-2069c2538fd8",
+            "target_ref": "attack-pattern--aa79de8f-a13b-4aad-ac1b-62967ca55463"
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--b2011019-5523-482b-a077-8c927bcf0670",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.970262Z",
+            "modified": "2026-10-23T05:49:37.970262Z",
+            "name": "External destination used by confirmed agent: drop-sp3.example.org",
+            "description": "Destination host observed in rule evidence (synthetic example domain).",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[domain-name:value = 'drop-sp3.example.org']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.97025Z",
+            "labels": [
+                "synthetic-data"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--59513907-9fab-4b46-99e6-486e8ee84b70",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.971794Z",
+            "modified": "2026-10-23T05:49:37.971794Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--b2011019-5523-482b-a077-8c927bcf0670",
+            "target_ref": "attack-pattern--7bd01459-aa90-4361-beec-e270f631c38d"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--73a306a8-3c87-4a3f-bcfe-d5002a8a5eed",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.971876Z",
+            "modified": "2026-10-23T05:49:37.971876Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--b2011019-5523-482b-a077-8c927bcf0670",
+            "target_ref": "attack-pattern--a777ce19-15e0-43b0-9eb4-38abcf5b65d0"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--913388ca-f9e8-4307-86e6-15ddc51594e1",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.971959Z",
+            "modified": "2026-10-23T05:49:37.971959Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--b2011019-5523-482b-a077-8c927bcf0670",
+            "target_ref": "attack-pattern--aa79de8f-a13b-4aad-ac1b-62967ca55463"
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--6862b21b-4170-455f-aade-3f19b12c09d1",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.972038Z",
+            "modified": "2026-10-23T05:49:37.972038Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--aa835fc5-5fec-48ff-bdb2-2069c2538fd8",
+                "indicator--b2011019-5523-482b-a077-8c927bcf0670"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--a46d4e6d-4bb8-494d-972b-4f69b6d85100",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.972143Z",
+            "modified": "2026-10-23T05:49:37.972143Z",
+            "name": "Confirmed misbehaving agent ag_9beb0855d8d8159b",
+            "description": "Agent pseudonym ag_9beb0855d8d8159b was raised as a lead (fused score 0.951) and CONFIRMED by a human reviewer. Rules: ['R1', 'R2', 'R3', 'R4']. Cluster: no.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_9beb0855d8d8159b']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.972133Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--c1f0007e-e95f-454f-9029-8e06a354ebb1",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.973229Z",
+            "modified": "2026-10-23T05:49:37.973229Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--a46d4e6d-4bb8-494d-972b-4f69b6d85100",
+            "target_ref": "attack-pattern--7bd01459-aa90-4361-beec-e270f631c38d"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--96d92e03-ed0e-465a-a3d7-ff67a554b0e6",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.973361Z",
+            "modified": "2026-10-23T05:49:37.973361Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--a46d4e6d-4bb8-494d-972b-4f69b6d85100",
+            "target_ref": "attack-pattern--a777ce19-15e0-43b0-9eb4-38abcf5b65d0"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--fbde3c51-709a-4b21-a7af-00e2dfe5b1ef",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.973467Z",
+            "modified": "2026-10-23T05:49:37.973467Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--a46d4e6d-4bb8-494d-972b-4f69b6d85100",
+            "target_ref": "attack-pattern--aa79de8f-a13b-4aad-ac1b-62967ca55463"
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--6c19bd71-115f-46d4-a041-5a0f6a5011f5",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.97249Z",
+            "modified": "2026-10-23T05:49:37.97249Z",
+            "name": "External destination used by confirmed agent: drop-2.example.org",
+            "description": "Destination host observed in rule evidence (synthetic example domain).",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[domain-name:value = 'drop-2.example.org']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.972479Z",
+            "labels": [
+                "synthetic-data"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--9c8b3cde-ceea-4876-a9f9-51a6a00dae78",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.97356Z",
+            "modified": "2026-10-23T05:49:37.97356Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--6c19bd71-115f-46d4-a041-5a0f6a5011f5",
+            "target_ref": "attack-pattern--7bd01459-aa90-4361-beec-e270f631c38d"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--a63f87c7-52e6-43b8-bc0c-a0a84d3ce246",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.973654Z",
+            "modified": "2026-10-23T05:49:37.973654Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--6c19bd71-115f-46d4-a041-5a0f6a5011f5",
+            "target_ref": "attack-pattern--a777ce19-15e0-43b0-9eb4-38abcf5b65d0"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--4fd12423-45be-40ef-8e20-cc5bccbdf8a8",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.973743Z",
+            "modified": "2026-10-23T05:49:37.973743Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--6c19bd71-115f-46d4-a041-5a0f6a5011f5",
+            "target_ref": "attack-pattern--aa79de8f-a13b-4aad-ac1b-62967ca55463"
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--01f11d17-8722-40cd-9033-21ed4aa4bb57",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.972813Z",
+            "modified": "2026-10-23T05:49:37.972813Z",
+            "name": "External destination used by confirmed agent: blog-29.example.net",
+            "description": "Destination host observed in rule evidence (synthetic example domain).",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[domain-name:value = 'blog-29.example.net']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.972805Z",
+            "labels": [
+                "synthetic-data"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--59191265-6ef6-41a3-bce2-2b3afaaaba42",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.973831Z",
+            "modified": "2026-10-23T05:49:37.973831Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--01f11d17-8722-40cd-9033-21ed4aa4bb57",
+            "target_ref": "attack-pattern--7bd01459-aa90-4361-beec-e270f631c38d"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--f2e47a65-5d63-40a4-a68c-fba8e20fbae9",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.973917Z",
+            "modified": "2026-10-23T05:49:37.973917Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--01f11d17-8722-40cd-9033-21ed4aa4bb57",
+            "target_ref": "attack-pattern--a777ce19-15e0-43b0-9eb4-38abcf5b65d0"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--618a1634-7cdd-4a0d-9ab8-dded73fe5944",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.974003Z",
+            "modified": "2026-10-23T05:49:37.974003Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--01f11d17-8722-40cd-9033-21ed4aa4bb57",
+            "target_ref": "attack-pattern--aa79de8f-a13b-4aad-ac1b-62967ca55463"
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--b23cf349-736d-4f3d-9e73-499473c6c7c2",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.974091Z",
+            "modified": "2026-10-23T05:49:37.974091Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--a46d4e6d-4bb8-494d-972b-4f69b6d85100",
+                "indicator--6c19bd71-115f-46d4-a041-5a0f6a5011f5",
+                "indicator--01f11d17-8722-40cd-9033-21ed4aa4bb57"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--6a86b388-fa6f-4b41-b247-e39148ad49cb",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.974207Z",
+            "modified": "2026-10-23T05:49:37.974207Z",
+            "name": "Confirmed misbehaving agent ag_19d28ab3efe1e425",
+            "description": "Agent pseudonym ag_19d28ab3efe1e425 was raised as a lead (fused score 0.947) and CONFIRMED by a human reviewer. Rules: ['R2']. Cluster: no.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_19d28ab3efe1e425']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.974195Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--53bb65e9-29f5-46a0-9161-93b9e9e0d23a",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.974557Z",
+            "modified": "2026-10-23T05:49:37.974557Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--6a86b388-fa6f-4b41-b247-e39148ad49cb",
+            "target_ref": "attack-pattern--a777ce19-15e0-43b0-9eb4-38abcf5b65d0"
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--38ce64d9-0b19-4ea5-872f-fb5df104f439",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.974676Z",
+            "modified": "2026-10-23T05:49:37.974676Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--6a86b388-fa6f-4b41-b247-e39148ad49cb"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--61950cae-2bce-4923-b5f9-446550a7ed1d",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.974789Z",
+            "modified": "2026-10-23T05:49:37.974789Z",
+            "name": "Confirmed misbehaving agent ag_2cb286b00d9dd231",
+            "description": "Agent pseudonym ag_2cb286b00d9dd231 was raised as a lead (fused score 0.944) and CONFIRMED by a human reviewer. Rules: ['R6']. Cluster: yes.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_2cb286b00d9dd231']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.974779Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ],
+            "x_cross_ip_token_handoff": {
+                "agents": [
+                    "ag_2cb286b00d9dd231",
+                    "ag_82353550766da16c"
+                ],
+                "edges": 1,
+                "note": "deterministic: a token issued to one session was presented by another from a different IP"
+            }
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--fcf7168c-59df-499c-b8d1-64b8172f8b54",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.975241Z",
+            "modified": "2026-10-23T05:49:37.975241Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--61950cae-2bce-4923-b5f9-446550a7ed1d",
+            "target_ref": "attack-pattern--7bd01459-aa90-4361-beec-e270f631c38d"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--c7df4c20-d85d-431f-83fe-f181a63c776a",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.975348Z",
+            "modified": "2026-10-23T05:49:37.975348Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--61950cae-2bce-4923-b5f9-446550a7ed1d",
+            "target_ref": "attack-pattern--aa79de8f-a13b-4aad-ac1b-62967ca55463"
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--c7572407-c8dc-473f-a5da-006be5b55442",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.97544Z",
+            "modified": "2026-10-23T05:49:37.97544Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--61950cae-2bce-4923-b5f9-446550a7ed1d"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--da052298-99b2-4cb4-89f7-0c2c437a6508",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.975542Z",
+            "modified": "2026-10-23T05:49:37.975542Z",
+            "name": "Confirmed misbehaving agent ag_7b8aa47f36080f3b",
+            "description": "Agent pseudonym ag_7b8aa47f36080f3b was raised as a lead (fused score 0.944) and CONFIRMED by a human reviewer. Rules: ['R6']. Cluster: yes.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_7b8aa47f36080f3b']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.975529Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ],
+            "x_cross_ip_token_handoff": {
+                "agents": [
+                    "ag_7b8aa47f36080f3b",
+                    "ag_b2976d0d337d9fe5"
+                ],
+                "edges": 1,
+                "note": "deterministic: a token issued to one session was presented by another from a different IP"
+            }
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--53e06235-6704-4f40-987c-4ba55135e346",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.976077Z",
+            "modified": "2026-10-23T05:49:37.976077Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--da052298-99b2-4cb4-89f7-0c2c437a6508",
+            "target_ref": "attack-pattern--7bd01459-aa90-4361-beec-e270f631c38d"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--e192a38d-0f0a-4dd5-89b7-c2887a5e66f4",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.976196Z",
+            "modified": "2026-10-23T05:49:37.976196Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--da052298-99b2-4cb4-89f7-0c2c437a6508",
+            "target_ref": "attack-pattern--aa79de8f-a13b-4aad-ac1b-62967ca55463"
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--1db7863c-ed7f-4675-b9de-c12e07722ede",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.976288Z",
+            "modified": "2026-10-23T05:49:37.976288Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--da052298-99b2-4cb4-89f7-0c2c437a6508"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--82b0eebb-c385-4fb0-bd02-d64a5ee78b90",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.976394Z",
+            "modified": "2026-10-23T05:49:37.976394Z",
+            "name": "Confirmed misbehaving agent ag_82353550766da16c",
+            "description": "Agent pseudonym ag_82353550766da16c was raised as a lead (fused score 0.944) and CONFIRMED by a human reviewer. Rules: ['R6']. Cluster: yes.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_82353550766da16c']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.976384Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ],
+            "x_cross_ip_token_handoff": {
+                "agents": [
+                    "ag_2cb286b00d9dd231",
+                    "ag_82353550766da16c"
+                ],
+                "edges": 1,
+                "note": "deterministic: a token issued to one session was presented by another from a different IP"
+            }
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--b36fa58e-94c3-4c4f-898f-41b0556c1d59",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.976719Z",
+            "modified": "2026-10-23T05:49:37.976719Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--82b0eebb-c385-4fb0-bd02-d64a5ee78b90",
+            "target_ref": "attack-pattern--7bd01459-aa90-4361-beec-e270f631c38d"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--42701dbb-22f1-431b-89f8-cf2815d6860c",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.976824Z",
+            "modified": "2026-10-23T05:49:37.976824Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--82b0eebb-c385-4fb0-bd02-d64a5ee78b90",
+            "target_ref": "attack-pattern--aa79de8f-a13b-4aad-ac1b-62967ca55463"
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--ce4d0c36-1929-46b5-b704-5f8d793b9797",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.976913Z",
+            "modified": "2026-10-23T05:49:37.976913Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--82b0eebb-c385-4fb0-bd02-d64a5ee78b90"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--b84a8a87-87f4-48fc-82d1-dec5c3dd1801",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.97701Z",
+            "modified": "2026-10-23T05:49:37.97701Z",
+            "name": "Confirmed misbehaving agent ag_b2976d0d337d9fe5",
+            "description": "Agent pseudonym ag_b2976d0d337d9fe5 was raised as a lead (fused score 0.944) and CONFIRMED by a human reviewer. Rules: ['R6']. Cluster: yes.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_b2976d0d337d9fe5']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.977002Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ],
+            "x_cross_ip_token_handoff": {
+                "agents": [
+                    "ag_7b8aa47f36080f3b",
+                    "ag_b2976d0d337d9fe5"
+                ],
+                "edges": 1,
+                "note": "deterministic: a token issued to one session was presented by another from a different IP"
+            }
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--7755c83b-091e-48a0-8f11-7ea469f879c9",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.977356Z",
+            "modified": "2026-10-23T05:49:37.977356Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--b84a8a87-87f4-48fc-82d1-dec5c3dd1801",
+            "target_ref": "attack-pattern--7bd01459-aa90-4361-beec-e270f631c38d"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--50a63371-78a7-43b6-a6b6-6d2034da5540",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.977462Z",
+            "modified": "2026-10-23T05:49:37.977462Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--b84a8a87-87f4-48fc-82d1-dec5c3dd1801",
+            "target_ref": "attack-pattern--aa79de8f-a13b-4aad-ac1b-62967ca55463"
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--eaa81f79-201c-49bd-95f1-74f047b09b78",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.977554Z",
+            "modified": "2026-10-23T05:49:37.977554Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--b84a8a87-87f4-48fc-82d1-dec5c3dd1801"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--687aea8f-917f-4c0c-949c-849704889bed",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.977659Z",
+            "modified": "2026-10-23T05:49:37.977659Z",
+            "name": "Confirmed misbehaving agent ag_f4bce80589a23c8e",
+            "description": "Agent pseudonym ag_f4bce80589a23c8e was raised as a lead (fused score 0.944) and CONFIRMED by a human reviewer. Rules: ['R6']. Cluster: yes.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_f4bce80589a23c8e']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.977649Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ],
+            "x_cross_ip_token_handoff": {
+                "agents": [
+                    "ag_f4bce80589a23c8e",
+                    "ag_fcf1679fd57a69a8"
+                ],
+                "edges": 1,
+                "note": "deterministic: a token issued to one session was presented by another from a different IP"
+            }
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--5dffc7a9-83f0-4fdc-8075-07a47f3993f1",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.977981Z",
+            "modified": "2026-10-23T05:49:37.977981Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--687aea8f-917f-4c0c-949c-849704889bed",
+            "target_ref": "attack-pattern--7bd01459-aa90-4361-beec-e270f631c38d"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--26c7d8de-e36b-49d4-a23f-cd9c888452a2",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.978076Z",
+            "modified": "2026-10-23T05:49:37.978076Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--687aea8f-917f-4c0c-949c-849704889bed",
+            "target_ref": "attack-pattern--aa79de8f-a13b-4aad-ac1b-62967ca55463"
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--f51015ea-2568-482a-a4b2-941009121105",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.978157Z",
+            "modified": "2026-10-23T05:49:37.978157Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--687aea8f-917f-4c0c-949c-849704889bed"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--9ec80e6f-37d0-45be-9bb4-8ce8b33c1c0d",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.978256Z",
+            "modified": "2026-10-23T05:49:37.978256Z",
+            "name": "Confirmed misbehaving agent ag_fcf1679fd57a69a8",
+            "description": "Agent pseudonym ag_fcf1679fd57a69a8 was raised as a lead (fused score 0.944) and CONFIRMED by a human reviewer. Rules: ['R6']. Cluster: yes.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_fcf1679fd57a69a8']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.978248Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ],
+            "x_cross_ip_token_handoff": {
+                "agents": [
+                    "ag_f4bce80589a23c8e",
+                    "ag_fcf1679fd57a69a8"
+                ],
+                "edges": 1,
+                "note": "deterministic: a token issued to one session was presented by another from a different IP"
+            }
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--cb2ea82d-7524-4a4f-a784-a04539d1fcd5",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.97859Z",
+            "modified": "2026-10-23T05:49:37.97859Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--9ec80e6f-37d0-45be-9bb4-8ce8b33c1c0d",
+            "target_ref": "attack-pattern--7bd01459-aa90-4361-beec-e270f631c38d"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--2544577a-1ec9-4b76-90be-92f397b41fca",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.978693Z",
+            "modified": "2026-10-23T05:49:37.978693Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--9ec80e6f-37d0-45be-9bb4-8ce8b33c1c0d",
+            "target_ref": "attack-pattern--aa79de8f-a13b-4aad-ac1b-62967ca55463"
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--f613e1ed-69e0-43b2-a78d-8623aece3c6e",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.978782Z",
+            "modified": "2026-10-23T05:49:37.978782Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--9ec80e6f-37d0-45be-9bb4-8ce8b33c1c0d"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--384065a6-c945-4986-9018-d85b349557c0",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.978885Z",
+            "modified": "2026-10-23T05:49:37.978885Z",
+            "name": "Confirmed misbehaving agent ag_2559a16cfe9efa27",
+            "description": "Agent pseudonym ag_2559a16cfe9efa27 was raised as a lead (fused score 0.905) and CONFIRMED by a human reviewer. Rules: ['R2', 'R3']. Cluster: no.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_2559a16cfe9efa27']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.978876Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--8321964b-7244-45d0-8bf1-530ba5aa8c6a",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.979632Z",
+            "modified": "2026-10-23T05:49:37.979632Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--384065a6-c945-4986-9018-d85b349557c0",
+            "target_ref": "attack-pattern--a777ce19-15e0-43b0-9eb4-38abcf5b65d0"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--3daceabb-34a8-4227-972d-f40679046591",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.979749Z",
+            "modified": "2026-10-23T05:49:37.979749Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--384065a6-c945-4986-9018-d85b349557c0",
+            "target_ref": "attack-pattern--aa79de8f-a13b-4aad-ac1b-62967ca55463"
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--9cd1ac04-ec2c-44cf-9457-9b0310a376c2",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.979258Z",
+            "modified": "2026-10-23T05:49:37.979258Z",
+            "name": "External destination used by confirmed agent: drop-sp1.example.org",
+            "description": "Destination host observed in rule evidence (synthetic example domain).",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[domain-name:value = 'drop-sp1.example.org']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.979245Z",
+            "labels": [
+                "synthetic-data"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--a29be6d3-5cd1-4bd6-80b5-bdbf4e550468",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.97985Z",
+            "modified": "2026-10-23T05:49:37.97985Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--9cd1ac04-ec2c-44cf-9457-9b0310a376c2",
+            "target_ref": "attack-pattern--a777ce19-15e0-43b0-9eb4-38abcf5b65d0"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--ae5c2653-7150-4b9b-b9bd-549d51ba8f7f",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.979949Z",
+            "modified": "2026-10-23T05:49:37.979949Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--9cd1ac04-ec2c-44cf-9457-9b0310a376c2",
+            "target_ref": "attack-pattern--aa79de8f-a13b-4aad-ac1b-62967ca55463"
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--6150a4ce-8eee-4b43-bbde-df2de1df5aaf",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.980041Z",
+            "modified": "2026-10-23T05:49:37.980041Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--384065a6-c945-4986-9018-d85b349557c0",
+                "indicator--9cd1ac04-ec2c-44cf-9457-9b0310a376c2"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--e437e977-d450-40d7-a03b-884fde057b62",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.980145Z",
+            "modified": "2026-10-23T05:49:37.980145Z",
+            "name": "Confirmed misbehaving agent ag_1e9c13cce7a5b679",
+            "description": "Agent pseudonym ag_1e9c13cce7a5b679 was raised as a lead (fused score 0.9) and CONFIRMED by a human reviewer. Rules: ['R1', 'R2']. Cluster: no.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_1e9c13cce7a5b679']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.980135Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--80cc15d2-5b25-4250-95b7-4c82af8d85f1",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.980484Z",
+            "modified": "2026-10-23T05:49:37.980484Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--e437e977-d450-40d7-a03b-884fde057b62",
+            "target_ref": "attack-pattern--7bd01459-aa90-4361-beec-e270f631c38d"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--3b26d943-8a1e-4e6a-86ea-ac17a621039d",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.980596Z",
+            "modified": "2026-10-23T05:49:37.980596Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--e437e977-d450-40d7-a03b-884fde057b62",
+            "target_ref": "attack-pattern--a777ce19-15e0-43b0-9eb4-38abcf5b65d0"
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--328635c4-9126-4322-ac2f-b8f2432bafc7",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.98069Z",
+            "modified": "2026-10-23T05:49:37.98069Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--e437e977-d450-40d7-a03b-884fde057b62"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--a48fc711-4b5b-41d3-8ec7-ef9e00e94e8f",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.980786Z",
+            "modified": "2026-10-23T05:49:37.980786Z",
+            "name": "Confirmed misbehaving agent ag_b06db4687e769deb",
+            "description": "Agent pseudonym ag_b06db4687e769deb was raised as a lead (fused score 0.8251) and CONFIRMED by a human reviewer. Rules: ['R1', 'R2', 'R3']. Cluster: no.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_b06db4687e769deb']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.980778Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--2d10ba97-28c0-4350-9986-685c1e7801b2",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.981395Z",
+            "modified": "2026-10-23T05:49:37.981395Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--a48fc711-4b5b-41d3-8ec7-ef9e00e94e8f",
+            "target_ref": "attack-pattern--7bd01459-aa90-4361-beec-e270f631c38d"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--7784973c-7b44-4da2-a6e5-f9478920f299",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.981492Z",
+            "modified": "2026-10-23T05:49:37.981492Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--a48fc711-4b5b-41d3-8ec7-ef9e00e94e8f",
+            "target_ref": "attack-pattern--a777ce19-15e0-43b0-9eb4-38abcf5b65d0"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--ac3b41e7-73a9-4003-a810-66dd8f9c05f2",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.981571Z",
+            "modified": "2026-10-23T05:49:37.981571Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--a48fc711-4b5b-41d3-8ec7-ef9e00e94e8f",
+            "target_ref": "attack-pattern--aa79de8f-a13b-4aad-ac1b-62967ca55463"
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--f70d9fb0-3cec-40b9-9691-601caa314f24",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.981101Z",
+            "modified": "2026-10-23T05:49:37.981101Z",
+            "name": "External destination used by confirmed agent: drop-4.example.org",
+            "description": "Destination host observed in rule evidence (synthetic example domain).",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[domain-name:value = 'drop-4.example.org']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.981091Z",
+            "labels": [
+                "synthetic-data"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--ef498654-01f6-4b15-a319-bef449a5f6d1",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.981646Z",
+            "modified": "2026-10-23T05:49:37.981646Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--f70d9fb0-3cec-40b9-9691-601caa314f24",
+            "target_ref": "attack-pattern--7bd01459-aa90-4361-beec-e270f631c38d"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--f189178f-4d43-4333-ac8d-e3a224658fa6",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.981728Z",
+            "modified": "2026-10-23T05:49:37.981728Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--f70d9fb0-3cec-40b9-9691-601caa314f24",
+            "target_ref": "attack-pattern--a777ce19-15e0-43b0-9eb4-38abcf5b65d0"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--d83f6eae-c02b-4aab-808a-b002c0cf5c44",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.981803Z",
+            "modified": "2026-10-23T05:49:37.981803Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--f70d9fb0-3cec-40b9-9691-601caa314f24",
+            "target_ref": "attack-pattern--aa79de8f-a13b-4aad-ac1b-62967ca55463"
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--ede5f9aa-53cf-455f-b2ef-93360217a90d",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.981879Z",
+            "modified": "2026-10-23T05:49:37.981879Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--a48fc711-4b5b-41d3-8ec7-ef9e00e94e8f",
+                "indicator--f70d9fb0-3cec-40b9-9691-601caa314f24"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--26dacf04-6ee9-404f-81e9-6b8e41af9ad2",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.981975Z",
+            "modified": "2026-10-23T05:49:37.981975Z",
+            "name": "Confirmed misbehaving agent ag_e01f075e0c4b97a0",
+            "description": "Agent pseudonym ag_e01f075e0c4b97a0 was raised as a lead (fused score 0.8164) and CONFIRMED by a human reviewer. Rules: []. Cluster: yes.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_e01f075e0c4b97a0']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.981966Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--9899d36e-1d94-4018-927a-0a7f2669ec0e",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.982284Z",
+            "modified": "2026-10-23T05:49:37.982284Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--26dacf04-6ee9-404f-81e9-6b8e41af9ad2"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--6e292faf-bf32-4348-a8eb-836569d91415",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.982381Z",
+            "modified": "2026-10-23T05:49:37.982381Z",
+            "name": "Confirmed misbehaving agent ag_30d918accd0d4d0a",
+            "description": "Agent pseudonym ag_30d918accd0d4d0a was raised as a lead (fused score 0.8161) and CONFIRMED by a human reviewer. Rules: []. Cluster: yes.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_30d918accd0d4d0a']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.982373Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--08792ec9-737f-483b-aad9-ee98655fae9c",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.982686Z",
+            "modified": "2026-10-23T05:49:37.982686Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--6e292faf-bf32-4348-a8eb-836569d91415"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--f7d44339-96b5-4049-bdb1-66b9e4fb315f",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.982805Z",
+            "modified": "2026-10-23T05:49:37.982805Z",
+            "name": "Confirmed misbehaving agent ag_978247692c41a02d",
+            "description": "Agent pseudonym ag_978247692c41a02d was raised as a lead (fused score 0.8106) and CONFIRMED by a human reviewer. Rules: []. Cluster: yes.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_978247692c41a02d']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.982796Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--50e372ac-a930-4e0b-a21c-8122e3127c60",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.98315Z",
+            "modified": "2026-10-23T05:49:37.98315Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--f7d44339-96b5-4049-bdb1-66b9e4fb315f"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--2f0a5202-5ea1-48ac-9fc4-3fe483d77421",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.983261Z",
+            "modified": "2026-10-23T05:49:37.983261Z",
+            "name": "Confirmed misbehaving agent ag_7e6335c846530c43",
+            "description": "Agent pseudonym ag_7e6335c846530c43 was raised as a lead (fused score 0.8097) and CONFIRMED by a human reviewer. Rules: []. Cluster: yes.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_7e6335c846530c43']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.983251Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--8efb067c-ac00-4f19-809b-51b20faf0a33",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.983587Z",
+            "modified": "2026-10-23T05:49:37.983587Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--2f0a5202-5ea1-48ac-9fc4-3fe483d77421"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--9f90bf74-5bb0-44fd-9cbd-416aaa8eaf0a",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.983693Z",
+            "modified": "2026-10-23T05:49:37.983693Z",
+            "name": "Confirmed misbehaving agent ag_3b916b272fa8fcd6",
+            "description": "Agent pseudonym ag_3b916b272fa8fcd6 was raised as a lead (fused score 0.8052) and CONFIRMED by a human reviewer. Rules: []. Cluster: yes.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_3b916b272fa8fcd6']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.983684Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--53778da0-ae72-4cc1-be70-cc31c5956046",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.984009Z",
+            "modified": "2026-10-23T05:49:37.984009Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--9f90bf74-5bb0-44fd-9cbd-416aaa8eaf0a"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--6e8b620c-c045-434a-b519-b0877d27b1c7",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.984117Z",
+            "modified": "2026-10-23T05:49:37.984117Z",
+            "name": "Confirmed misbehaving agent ag_1696b03d154ff42f",
+            "description": "Agent pseudonym ag_1696b03d154ff42f was raised as a lead (fused score 0.8051) and CONFIRMED by a human reviewer. Rules: []. Cluster: yes.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_1696b03d154ff42f']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.984109Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--7b31eaf1-33b3-4dd9-a793-d15f87e5d54d",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.984432Z",
+            "modified": "2026-10-23T05:49:37.984432Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--6e8b620c-c045-434a-b519-b0877d27b1c7"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--71ef07c2-d382-4865-aa5e-97c33b1087a2",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.98454Z",
+            "modified": "2026-10-23T05:49:37.98454Z",
+            "name": "Confirmed misbehaving agent ag_8ba7953bc320a30e",
+            "description": "Agent pseudonym ag_8ba7953bc320a30e was raised as a lead (fused score 0.8032) and CONFIRMED by a human reviewer. Rules: []. Cluster: yes.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_8ba7953bc320a30e']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.984532Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--4f52cd98-4ff9-420c-b95c-8df6de4951f9",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.984846Z",
+            "modified": "2026-10-23T05:49:37.984846Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--71ef07c2-d382-4865-aa5e-97c33b1087a2"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--2e64e714-2b9b-411a-8989-5fc3ee65185c",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.984941Z",
+            "modified": "2026-10-23T05:49:37.984941Z",
+            "name": "Confirmed misbehaving agent ag_dc37e6a87ae6d6a5",
+            "description": "Agent pseudonym ag_dc37e6a87ae6d6a5 was raised as a lead (fused score 0.8032) and CONFIRMED by a human reviewer. Rules: []. Cluster: yes.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_dc37e6a87ae6d6a5']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.984933Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--0f16b4ba-33e2-463d-b1da-74afcd1d7783",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.985231Z",
+            "modified": "2026-10-23T05:49:37.985231Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--2e64e714-2b9b-411a-8989-5fc3ee65185c"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--6cfd0127-2078-4b17-8f2d-f036f7dd74a5",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.985328Z",
+            "modified": "2026-10-23T05:49:37.985328Z",
+            "name": "Confirmed misbehaving agent ag_25c32e1769576bdd",
+            "description": "Agent pseudonym ag_25c32e1769576bdd was raised as a lead (fused score 0.8) and CONFIRMED by a human reviewer. Rules: []. Cluster: yes.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_25c32e1769576bdd']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.985318Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ],
+            "x_shared_redacted_token": {
+                "confidence": "moderate",
+                "edges": 1,
+                "note": "the same scrubber marker (opaque hash; never un-redacted) appeared in two sessions"
+            }
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--b25c5b33-324e-4188-9da9-7593b6e46a5f",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.985621Z",
+            "modified": "2026-10-23T05:49:37.985621Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--6cfd0127-2078-4b17-8f2d-f036f7dd74a5"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--e931ce55-7b18-4a28-bb68-a4aa50bddcd4",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.985717Z",
+            "modified": "2026-10-23T05:49:37.985717Z",
+            "name": "Confirmed misbehaving agent ag_4477e17834d798cb",
+            "description": "Agent pseudonym ag_4477e17834d798cb was raised as a lead (fused score 0.8) and CONFIRMED by a human reviewer. Rules: []. Cluster: yes.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_4477e17834d798cb']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.985709Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ],
+            "x_shared_redacted_token": {
+                "confidence": "moderate",
+                "edges": 1,
+                "note": "the same scrubber marker (opaque hash; never un-redacted) appeared in two sessions"
+            }
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--16c69a7d-2759-438e-bc8b-fef309d02503",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.986Z",
+            "modified": "2026-10-23T05:49:37.986Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--e931ce55-7b18-4a28-bb68-a4aa50bddcd4"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--bcaa6ba9-065d-4999-b37f-722d4ad778c8",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.986098Z",
+            "modified": "2026-10-23T05:49:37.986098Z",
+            "name": "Confirmed misbehaving agent ag_56e909fb956fcaed",
+            "description": "Agent pseudonym ag_56e909fb956fcaed was raised as a lead (fused score 0.8) and CONFIRMED by a human reviewer. Rules: []. Cluster: yes.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_56e909fb956fcaed']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.98609Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--7294659a-3097-4622-8473-c1e1fcb47d10",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.986402Z",
+            "modified": "2026-10-23T05:49:37.986402Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--bcaa6ba9-065d-4999-b37f-722d4ad778c8"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--4cd8387d-4e4b-4bbb-9a54-51419856e63e",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.986499Z",
+            "modified": "2026-10-23T05:49:37.986499Z",
+            "name": "Confirmed misbehaving agent ag_5dfc223b989f30e0",
+            "description": "Agent pseudonym ag_5dfc223b989f30e0 was raised as a lead (fused score 0.8) and CONFIRMED by a human reviewer. Rules: []. Cluster: yes.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_5dfc223b989f30e0']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.986489Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ],
+            "x_shared_redacted_token": {
+                "confidence": "moderate",
+                "edges": 1,
+                "note": "the same scrubber marker (opaque hash; never un-redacted) appeared in two sessions"
+            }
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--05fb7166-9634-4cc3-aec4-489263b00a88",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.987053Z",
+            "modified": "2026-10-23T05:49:37.987053Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--4cd8387d-4e4b-4bbb-9a54-51419856e63e"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--94065f0c-da32-45f5-84a8-ca7730013d4c",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.987185Z",
+            "modified": "2026-10-23T05:49:37.987185Z",
+            "name": "Confirmed misbehaving agent ag_71db2367df80d602",
+            "description": "Agent pseudonym ag_71db2367df80d602 was raised as a lead (fused score 0.8) and CONFIRMED by a human reviewer. Rules: []. Cluster: yes.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_71db2367df80d602']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.987175Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ],
+            "x_shared_redacted_token": {
+                "confidence": "moderate",
+                "edges": 1,
+                "note": "the same scrubber marker (opaque hash; never un-redacted) appeared in two sessions"
+            }
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--400e88b8-86bf-4812-9949-61ad84e873f4",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.987552Z",
+            "modified": "2026-10-23T05:49:37.987552Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--94065f0c-da32-45f5-84a8-ca7730013d4c"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--812eaed1-2e41-40af-8161-0078b16068bf",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.987667Z",
+            "modified": "2026-10-23T05:49:37.987667Z",
+            "name": "Confirmed misbehaving agent ag_74b36ac982e520ff",
+            "description": "Agent pseudonym ag_74b36ac982e520ff was raised as a lead (fused score 0.8) and CONFIRMED by a human reviewer. Rules: []. Cluster: yes.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_74b36ac982e520ff']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.987657Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--36826c6b-9af5-468a-b8c9-3c96315fdf50",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.987988Z",
+            "modified": "2026-10-23T05:49:37.987988Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--812eaed1-2e41-40af-8161-0078b16068bf"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--2e83ff85-d245-4118-a47e-e3dfbdf7c9c9",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.988094Z",
+            "modified": "2026-10-23T05:49:37.988094Z",
+            "name": "Confirmed misbehaving agent ag_2057b867b2b2883a",
+            "description": "Agent pseudonym ag_2057b867b2b2883a was raised as a lead (fused score 0.7932) and CONFIRMED by a human reviewer. Rules: ['R1', 'R2', 'R3']. Cluster: no.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_2057b867b2b2883a']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.988085Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--44234ea3-ab61-4796-bf06-6b91f664c2c7",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.988711Z",
+            "modified": "2026-10-23T05:49:37.988711Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--2e83ff85-d245-4118-a47e-e3dfbdf7c9c9",
+            "target_ref": "attack-pattern--7bd01459-aa90-4361-beec-e270f631c38d"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--28c923c1-b268-462d-adb5-b4406d6cf9f7",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.988813Z",
+            "modified": "2026-10-23T05:49:37.988813Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--2e83ff85-d245-4118-a47e-e3dfbdf7c9c9",
+            "target_ref": "attack-pattern--a777ce19-15e0-43b0-9eb4-38abcf5b65d0"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--0868e3ca-8ae3-4257-a22d-95f76ee67e1e",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.988895Z",
+            "modified": "2026-10-23T05:49:37.988895Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--2e83ff85-d245-4118-a47e-e3dfbdf7c9c9",
+            "target_ref": "attack-pattern--aa79de8f-a13b-4aad-ac1b-62967ca55463"
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--dd1fa7e2-a5c8-45bf-b4c3-46c4e4ced6d7",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.988408Z",
+            "modified": "2026-10-23T05:49:37.988408Z",
+            "name": "External destination used by confirmed agent: drop-sp2.example.org",
+            "description": "Destination host observed in rule evidence (synthetic example domain).",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[domain-name:value = 'drop-sp2.example.org']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.988399Z",
+            "labels": [
+                "synthetic-data"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--d0744ee0-e2a0-4f2f-96b6-e322fc165718",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.988982Z",
+            "modified": "2026-10-23T05:49:37.988982Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--dd1fa7e2-a5c8-45bf-b4c3-46c4e4ced6d7",
+            "target_ref": "attack-pattern--7bd01459-aa90-4361-beec-e270f631c38d"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--cd66ec83-8ff5-4561-b766-20f780f45474",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.989068Z",
+            "modified": "2026-10-23T05:49:37.989068Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--dd1fa7e2-a5c8-45bf-b4c3-46c4e4ced6d7",
+            "target_ref": "attack-pattern--a777ce19-15e0-43b0-9eb4-38abcf5b65d0"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--e3e4ed8c-b09c-4449-838f-72569ab89936",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.989154Z",
+            "modified": "2026-10-23T05:49:37.989154Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--dd1fa7e2-a5c8-45bf-b4c3-46c4e4ced6d7",
+            "target_ref": "attack-pattern--aa79de8f-a13b-4aad-ac1b-62967ca55463"
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--ac3f331e-8c61-4f40-9fbb-c0aee26ee4d5",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.989242Z",
+            "modified": "2026-10-23T05:49:37.989242Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--2e83ff85-d245-4118-a47e-e3dfbdf7c9c9",
+                "indicator--dd1fa7e2-a5c8-45bf-b4c3-46c4e4ced6d7"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--4b512d81-447e-4835-8d6a-cb588db56b32",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.989347Z",
+            "modified": "2026-10-23T05:49:37.989347Z",
+            "name": "Confirmed misbehaving agent ag_bc33c55bd7564dbe",
+            "description": "Agent pseudonym ag_bc33c55bd7564dbe was raised as a lead (fused score 0.7854) and CONFIRMED by a human reviewer. Rules: ['R3']. Cluster: no.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_bc33c55bd7564dbe']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.989338Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--a9bfbbc3-874d-42aa-b88b-a54e0782fa3a",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.990257Z",
+            "modified": "2026-10-23T05:49:37.990257Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--4b512d81-447e-4835-8d6a-cb588db56b32",
+            "target_ref": "attack-pattern--aa79de8f-a13b-4aad-ac1b-62967ca55463"
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--67690e39-ae3d-4421-afae-4954267c08e8",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.989732Z",
+            "modified": "2026-10-23T05:49:37.989732Z",
+            "name": "External destination used by confirmed agent: hooks.newpartner-2.example.net",
+            "description": "Destination host observed in rule evidence (synthetic example domain).",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[domain-name:value = 'hooks.newpartner-2.example.net']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.989714Z",
+            "labels": [
+                "synthetic-data"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--2326c5c2-e754-40ba-9d62-81c114748836",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.990373Z",
+            "modified": "2026-10-23T05:49:37.990373Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--67690e39-ae3d-4421-afae-4954267c08e8",
+            "target_ref": "attack-pattern--aa79de8f-a13b-4aad-ac1b-62967ca55463"
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--719dea28-31d5-4010-84b0-960326ee18c9",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.99047Z",
+            "modified": "2026-10-23T05:49:37.99047Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--4b512d81-447e-4835-8d6a-cb588db56b32",
+                "indicator--67690e39-ae3d-4421-afae-4954267c08e8"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--080a565a-62f3-439a-9c7f-932ebbe872cd",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.990585Z",
+            "modified": "2026-10-23T05:49:37.990585Z",
+            "name": "Confirmed misbehaving agent ag_2028b68e9e900e9f",
+            "description": "Agent pseudonym ag_2028b68e9e900e9f was raised as a lead (fused score 0.7834) and CONFIRMED by a human reviewer. Rules: ['R3']. Cluster: no.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_2028b68e9e900e9f']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.990575Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--e792dff7-3045-4849-a1c9-8749d3f93e26",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.991274Z",
+            "modified": "2026-10-23T05:49:37.991274Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--080a565a-62f3-439a-9c7f-932ebbe872cd",
+            "target_ref": "attack-pattern--aa79de8f-a13b-4aad-ac1b-62967ca55463"
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--b82ecf74-157d-4c5c-87f2-c7a060ce1d57",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.990939Z",
+            "modified": "2026-10-23T05:49:37.990939Z",
+            "name": "External destination used by confirmed agent: hooks.newpartner-1.example.net",
+            "description": "Destination host observed in rule evidence (synthetic example domain).",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[domain-name:value = 'hooks.newpartner-1.example.net']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.99093Z",
+            "labels": [
+                "synthetic-data"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--8411319e-faee-4de9-83a7-e7149efd2211",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.991377Z",
+            "modified": "2026-10-23T05:49:37.991377Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--b82ecf74-157d-4c5c-87f2-c7a060ce1d57",
+            "target_ref": "attack-pattern--aa79de8f-a13b-4aad-ac1b-62967ca55463"
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--fef14045-5faa-4628-ab12-851ce13ac40b",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.991462Z",
+            "modified": "2026-10-23T05:49:37.991462Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--080a565a-62f3-439a-9c7f-932ebbe872cd",
+                "indicator--b82ecf74-157d-4c5c-87f2-c7a060ce1d57"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--76b48396-b78c-41d9-91f9-adafe0e92d76",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.991559Z",
+            "modified": "2026-10-23T05:49:37.991559Z",
+            "name": "Confirmed misbehaving agent ag_23b69c53f2c6fd5c",
+            "description": "Agent pseudonym ag_23b69c53f2c6fd5c was raised as a lead (fused score 0.7724) and CONFIRMED by a human reviewer. Rules: ['R2', 'R3']. Cluster: no.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_23b69c53f2c6fd5c']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.991551Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--f47ed83a-c72f-4039-a2dc-aecd24f6b519",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.992149Z",
+            "modified": "2026-10-23T05:49:37.992149Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--76b48396-b78c-41d9-91f9-adafe0e92d76",
+            "target_ref": "attack-pattern--a777ce19-15e0-43b0-9eb4-38abcf5b65d0"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--9f0ca3e9-23ad-407c-877a-483bdcd22735",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.992241Z",
+            "modified": "2026-10-23T05:49:37.992241Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--76b48396-b78c-41d9-91f9-adafe0e92d76",
+            "target_ref": "attack-pattern--aa79de8f-a13b-4aad-ac1b-62967ca55463"
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--1567b4c1-55d6-40e3-b269-9e906f0e6681",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.991862Z",
+            "modified": "2026-10-23T05:49:37.991862Z",
+            "name": "External destination used by confirmed agent: drop-3.example.org",
+            "description": "Destination host observed in rule evidence (synthetic example domain).",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[domain-name:value = 'drop-3.example.org']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.991853Z",
+            "labels": [
+                "synthetic-data"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--382991cd-4208-4ced-a99c-40cf8fc43a58",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.992319Z",
+            "modified": "2026-10-23T05:49:37.992319Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--1567b4c1-55d6-40e3-b269-9e906f0e6681",
+            "target_ref": "attack-pattern--a777ce19-15e0-43b0-9eb4-38abcf5b65d0"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--f1fa380b-75e3-4fc2-9e0c-2a809599753e",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.992401Z",
+            "modified": "2026-10-23T05:49:37.992401Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--1567b4c1-55d6-40e3-b269-9e906f0e6681",
+            "target_ref": "attack-pattern--aa79de8f-a13b-4aad-ac1b-62967ca55463"
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--e538f523-a6ab-4306-a8b9-72cdffdb52cb",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.992483Z",
+            "modified": "2026-10-23T05:49:37.992483Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--76b48396-b78c-41d9-91f9-adafe0e92d76",
+                "indicator--1567b4c1-55d6-40e3-b269-9e906f0e6681"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--8fd18f67-be54-494d-8af3-6a124a9b817b",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.992589Z",
+            "modified": "2026-10-23T05:49:37.992589Z",
+            "name": "Confirmed misbehaving agent ag_03b7c637ea8e7271",
+            "description": "Agent pseudonym ag_03b7c637ea8e7271 was raised as a lead (fused score 0.765) and CONFIRMED by a human reviewer. Rules: ['R6', 'R7']. Cluster: no.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_03b7c637ea8e7271']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.99258Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ],
+            "x_untrusted_agent_capture": {
+                "attacker_controlled": true,
+                "current_objective": "summarise Q3 invoices",
+                "declared_tools": [
+                    "search_docs",
+                    "send_email"
+                ],
+                "handling": "data only: never execute, render or place in an LLM prompt",
+                "message": "joining the board",
+                "system_prompt_summary": "You are a helpful assistant for the finance team.",
+                "truncated_at_export": false,
+                "truncated_at_ingest": false,
+                "untrusted": true
+            }
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--4dd36d38-d075-49f9-893f-fa5bc6ee660b",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.992908Z",
+            "modified": "2026-10-23T05:49:37.992908Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--8fd18f67-be54-494d-8af3-6a124a9b817b",
+            "target_ref": "attack-pattern--7bd01459-aa90-4361-beec-e270f631c38d"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--c80ca7bf-7f81-460d-91d1-f78969f0b1b1",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.993004Z",
+            "modified": "2026-10-23T05:49:37.993004Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--8fd18f67-be54-494d-8af3-6a124a9b817b",
+            "target_ref": "attack-pattern--a777ce19-15e0-43b0-9eb4-38abcf5b65d0"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--49b3a34b-bcc1-4fdb-b9cb-d5389d645bae",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.993088Z",
+            "modified": "2026-10-23T05:49:37.993088Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--8fd18f67-be54-494d-8af3-6a124a9b817b",
+            "target_ref": "attack-pattern--aa79de8f-a13b-4aad-ac1b-62967ca55463"
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--315886e1-6777-4f0d-a73f-89b7cde04b2e",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.993165Z",
+            "modified": "2026-10-23T05:49:37.993165Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--8fd18f67-be54-494d-8af3-6a124a9b817b"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--01dd9078-d5e6-466c-a1c9-e534e43fceee",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.993252Z",
+            "modified": "2026-10-23T05:49:37.993252Z",
+            "name": "Confirmed misbehaving agent ag_32074d8389a6c512",
+            "description": "Agent pseudonym ag_32074d8389a6c512 was raised as a lead (fused score 0.7275) and CONFIRMED by a human reviewer. Rules: []. Cluster: no.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_32074d8389a6c512']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.993244Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--def990a7-2c84-4304-92f2-d46ea113c755",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.993575Z",
+            "modified": "2026-10-23T05:49:37.993575Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--01dd9078-d5e6-466c-a1c9-e534e43fceee"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--bec831ca-c171-4506-acc6-c60a87bc03e6",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.993679Z",
+            "modified": "2026-10-23T05:49:37.993679Z",
+            "name": "Confirmed misbehaving agent ag_efbf2a6ad54c12f9",
+            "description": "Agent pseudonym ag_efbf2a6ad54c12f9 was raised as a lead (fused score 0.7214) and CONFIRMED by a human reviewer. Rules: []. Cluster: no.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_efbf2a6ad54c12f9']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.99367Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--ab1e7513-7574-4a8f-a569-0f0908546183",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.994006Z",
+            "modified": "2026-10-23T05:49:37.994006Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--bec831ca-c171-4506-acc6-c60a87bc03e6"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--19aeccc0-1de7-4f0b-84f9-714324a81470",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.994145Z",
+            "modified": "2026-10-23T05:49:37.994145Z",
+            "name": "Confirmed misbehaving agent ag_1ccf0a38bc2d0001",
+            "description": "Agent pseudonym ag_1ccf0a38bc2d0001 was raised as a lead (fused score 0.72) and CONFIRMED by a human reviewer. Rules: ['R6']. Cluster: no.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_1ccf0a38bc2d0001']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.994136Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--52e56c36-f438-43c9-9e86-861874a2cb3a",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.994493Z",
+            "modified": "2026-10-23T05:49:37.994493Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--19aeccc0-1de7-4f0b-84f9-714324a81470",
+            "target_ref": "attack-pattern--7bd01459-aa90-4361-beec-e270f631c38d"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--d0ab6191-29c2-4a26-993d-27ea5ec62b32",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.994596Z",
+            "modified": "2026-10-23T05:49:37.994596Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--19aeccc0-1de7-4f0b-84f9-714324a81470",
+            "target_ref": "attack-pattern--aa79de8f-a13b-4aad-ac1b-62967ca55463"
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--71fb391b-acff-495b-9f7f-11e939860e4b",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.994685Z",
+            "modified": "2026-10-23T05:49:37.994685Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--19aeccc0-1de7-4f0b-84f9-714324a81470"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--3a6513b9-8a37-4e0a-9ff7-7231380391b9",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.994788Z",
+            "modified": "2026-10-23T05:49:37.994788Z",
+            "name": "Confirmed misbehaving agent ag_3f8d14710f967599",
+            "description": "Agent pseudonym ag_3f8d14710f967599 was raised as a lead (fused score 0.72) and CONFIRMED by a human reviewer. Rules: ['R6']. Cluster: no.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_3f8d14710f967599']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.994777Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--2c45132b-8230-4cd0-b3c6-66e0ba3f1469",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.995129Z",
+            "modified": "2026-10-23T05:49:37.995129Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--3a6513b9-8a37-4e0a-9ff7-7231380391b9",
+            "target_ref": "attack-pattern--7bd01459-aa90-4361-beec-e270f631c38d"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--0027db1f-9c29-473b-bc2b-ce69099b0924",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.995234Z",
+            "modified": "2026-10-23T05:49:37.995234Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--3a6513b9-8a37-4e0a-9ff7-7231380391b9",
+            "target_ref": "attack-pattern--aa79de8f-a13b-4aad-ac1b-62967ca55463"
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--1d9fd504-f6d5-4bbe-8490-6e5a55078120",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.995323Z",
+            "modified": "2026-10-23T05:49:37.995323Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--3a6513b9-8a37-4e0a-9ff7-7231380391b9"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--e7658c7e-5cb8-4bf9-845c-dc0cb3c45d37",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.995423Z",
+            "modified": "2026-10-23T05:49:37.995423Z",
+            "name": "Confirmed misbehaving agent ag_49b7c79b275c3662",
+            "description": "Agent pseudonym ag_49b7c79b275c3662 was raised as a lead (fused score 0.72) and CONFIRMED by a human reviewer. Rules: ['R6']. Cluster: no.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_49b7c79b275c3662']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.995412Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--bfb29ab3-6f57-42cf-8af7-1b26bfe743f4",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.995722Z",
+            "modified": "2026-10-23T05:49:37.995722Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--e7658c7e-5cb8-4bf9-845c-dc0cb3c45d37",
+            "target_ref": "attack-pattern--7bd01459-aa90-4361-beec-e270f631c38d"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--4ab8fab3-c019-44d3-9575-ab54e17316eb",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.995816Z",
+            "modified": "2026-10-23T05:49:37.995816Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--e7658c7e-5cb8-4bf9-845c-dc0cb3c45d37",
+            "target_ref": "attack-pattern--aa79de8f-a13b-4aad-ac1b-62967ca55463"
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--55c6fa47-14b6-4dec-abab-e5e6c1f547a7",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.995898Z",
+            "modified": "2026-10-23T05:49:37.995898Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--e7658c7e-5cb8-4bf9-845c-dc0cb3c45d37"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--77ee6156-c190-4670-8e7d-3c7fc706481d",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.995993Z",
+            "modified": "2026-10-23T05:49:37.995993Z",
+            "name": "Confirmed misbehaving agent ag_6b6f1076d4ccb907",
+            "description": "Agent pseudonym ag_6b6f1076d4ccb907 was raised as a lead (fused score 0.72) and CONFIRMED by a human reviewer. Rules: ['R6']. Cluster: no.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_6b6f1076d4ccb907']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.995985Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--e07bd57d-c681-4ccf-90be-743ecaf03534",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.996299Z",
+            "modified": "2026-10-23T05:49:37.996299Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--77ee6156-c190-4670-8e7d-3c7fc706481d",
+            "target_ref": "attack-pattern--7bd01459-aa90-4361-beec-e270f631c38d"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--aff93281-94c6-4b0b-8159-81b62ef7b108",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.996387Z",
+            "modified": "2026-10-23T05:49:37.996387Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--77ee6156-c190-4670-8e7d-3c7fc706481d",
+            "target_ref": "attack-pattern--aa79de8f-a13b-4aad-ac1b-62967ca55463"
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--309b5fd5-c39f-4829-971c-2aaf4b70bbad",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.996464Z",
+            "modified": "2026-10-23T05:49:37.996464Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--77ee6156-c190-4670-8e7d-3c7fc706481d"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--004601f1-73a4-4fd8-a8ff-00be12609d62",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.996553Z",
+            "modified": "2026-10-23T05:49:37.996553Z",
+            "name": "Confirmed misbehaving agent ag_b3796f8b69f4088e",
+            "description": "Agent pseudonym ag_b3796f8b69f4088e was raised as a lead (fused score 0.72) and CONFIRMED by a human reviewer. Rules: ['R6']. Cluster: no.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_b3796f8b69f4088e']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.996546Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--ed9b2874-470a-4d3e-8bb8-340f8e0a61a9",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.996846Z",
+            "modified": "2026-10-23T05:49:37.996846Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--004601f1-73a4-4fd8-a8ff-00be12609d62",
+            "target_ref": "attack-pattern--7bd01459-aa90-4361-beec-e270f631c38d"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--f4f82f95-6f4b-4e74-b46e-a013cfcad0f1",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.996932Z",
+            "modified": "2026-10-23T05:49:37.996932Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--004601f1-73a4-4fd8-a8ff-00be12609d62",
+            "target_ref": "attack-pattern--aa79de8f-a13b-4aad-ac1b-62967ca55463"
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--5774bdb2-3447-4666-b15e-ab57189bfd41",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.997011Z",
+            "modified": "2026-10-23T05:49:37.997011Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--004601f1-73a4-4fd8-a8ff-00be12609d62"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--d9ddec4d-de92-4f2c-8e2a-3a2da7df23d8",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.997102Z",
+            "modified": "2026-10-23T05:49:37.997102Z",
+            "name": "Confirmed misbehaving agent ag_eba5ef92f18fc18e",
+            "description": "Agent pseudonym ag_eba5ef92f18fc18e was raised as a lead (fused score 0.72) and CONFIRMED by a human reviewer. Rules: ['R6']. Cluster: no.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_eba5ef92f18fc18e']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.997095Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--3ba28117-e1ff-4a0d-9be5-4caf9a229bdf",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.997415Z",
+            "modified": "2026-10-23T05:49:37.997415Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--d9ddec4d-de92-4f2c-8e2a-3a2da7df23d8",
+            "target_ref": "attack-pattern--7bd01459-aa90-4361-beec-e270f631c38d"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--79aba1ea-88f8-4b4e-aa32-e80c5966a35e",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.99754Z",
+            "modified": "2026-10-23T05:49:37.99754Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--d9ddec4d-de92-4f2c-8e2a-3a2da7df23d8",
+            "target_ref": "attack-pattern--aa79de8f-a13b-4aad-ac1b-62967ca55463"
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--e4250dbb-4922-4d49-b79d-2a76c11626cc",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.997638Z",
+            "modified": "2026-10-23T05:49:37.997638Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--d9ddec4d-de92-4f2c-8e2a-3a2da7df23d8"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--fd89c7bc-f2c6-412d-9378-26b853372890",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.997742Z",
+            "modified": "2026-10-23T05:49:37.997742Z",
+            "name": "Confirmed misbehaving agent ag_f8db84c95dc22c43",
+            "description": "Agent pseudonym ag_f8db84c95dc22c43 was raised as a lead (fused score 0.72) and CONFIRMED by a human reviewer. Rules: ['R6']. Cluster: no.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_f8db84c95dc22c43']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.997733Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--a758e181-3524-4d45-9f85-b3b4123cac4b",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.998077Z",
+            "modified": "2026-10-23T05:49:37.998077Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--fd89c7bc-f2c6-412d-9378-26b853372890",
+            "target_ref": "attack-pattern--7bd01459-aa90-4361-beec-e270f631c38d"
+        },
+        {
+            "type": "relationship",
+            "spec_version": "2.1",
+            "id": "relationship--3882e97b-481d-410b-8880-568262b7595e",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.998178Z",
+            "modified": "2026-10-23T05:49:37.998178Z",
+            "relationship_type": "indicates",
+            "source_ref": "indicator--fd89c7bc-f2c6-412d-9378-26b853372890",
+            "target_ref": "attack-pattern--aa79de8f-a13b-4aad-ac1b-62967ca55463"
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--66309e56-872f-4de9-9eae-c8ec7925b643",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.998267Z",
+            "modified": "2026-10-23T05:49:37.998267Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--fd89c7bc-f2c6-412d-9378-26b853372890"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--d965d6ee-dbce-45e5-81e7-c149aa946f7f",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.998368Z",
+            "modified": "2026-10-23T05:49:37.998368Z",
+            "name": "Confirmed misbehaving agent ag_9f63fe232924f3f0",
+            "description": "Agent pseudonym ag_9f63fe232924f3f0 was raised as a lead (fused score 0.5872) and CONFIRMED by a human reviewer. Rules: []. Cluster: yes.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_9f63fe232924f3f0']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.99836Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--b40f0cd3-4650-4578-abc5-31ea5f2218ea",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.998938Z",
+            "modified": "2026-10-23T05:49:37.998938Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--d965d6ee-dbce-45e5-81e7-c149aa946f7f"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--d85c67fb-6c91-450b-8044-ef4090f39835",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.999099Z",
+            "modified": "2026-10-23T05:49:37.999099Z",
+            "name": "Confirmed misbehaving agent ag_5251462ecf89c432",
+            "description": "Agent pseudonym ag_5251462ecf89c432 was raised as a lead (fused score 0.5844) and CONFIRMED by a human reviewer. Rules: []. Cluster: yes.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_5251462ecf89c432']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.999088Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--8f5de9ca-6af1-4af1-acb9-b9d73e5467d9",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.999479Z",
+            "modified": "2026-10-23T05:49:37.999479Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--d85c67fb-6c91-450b-8044-ef4090f39835"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--1b081697-5122-4429-bf4d-1117cb90e13e",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:37.999626Z",
+            "modified": "2026-10-23T05:49:37.999626Z",
+            "name": "Confirmed misbehaving agent ag_d9cced2c3572df79",
+            "description": "Agent pseudonym ag_d9cced2c3572df79 was raised as a lead (fused score 0.5839) and CONFIRMED by a human reviewer. Rules: []. Cluster: yes.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_d9cced2c3572df79']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:37.999612Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--755696eb-18bd-48a6-80ae-657ca9688338",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:38.000007Z",
+            "modified": "2026-10-23T05:49:38.000007Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--1b081697-5122-4429-bf4d-1117cb90e13e"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--ad64d46a-b0d5-4ed2-88f2-f5611b561d8d",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:38.000132Z",
+            "modified": "2026-10-23T05:49:38.000132Z",
+            "name": "Confirmed misbehaving agent ag_9af0b0f29bb39a65",
+            "description": "Agent pseudonym ag_9af0b0f29bb39a65 was raised as a lead (fused score 0.5814) and CONFIRMED by a human reviewer. Rules: []. Cluster: yes.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_9af0b0f29bb39a65']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:38.000123Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--4d7dbfaa-47fa-45ab-9349-fef3bca80ba9",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:38.000499Z",
+            "modified": "2026-10-23T05:49:38.000499Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--ad64d46a-b0d5-4ed2-88f2-f5611b561d8d"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--be0faa03-e208-46fe-9954-0d1018b26cdb",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:38.000627Z",
+            "modified": "2026-10-23T05:49:38.000627Z",
+            "name": "Confirmed misbehaving agent ag_b6b5d983674b0fa9",
+            "description": "Agent pseudonym ag_b6b5d983674b0fa9 was raised as a lead (fused score 0.5814) and CONFIRMED by a human reviewer. Rules: []. Cluster: yes.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_b6b5d983674b0fa9']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:38.000616Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--af539c6b-3958-48ea-bd58-cf2d191ca577",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:38.000969Z",
+            "modified": "2026-10-23T05:49:38.000969Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--be0faa03-e208-46fe-9954-0d1018b26cdb"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--074eda15-60f6-4b44-852c-d80f1423b86e",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:38.001081Z",
+            "modified": "2026-10-23T05:49:38.001081Z",
+            "name": "Confirmed misbehaving agent ag_36e044b789791178",
+            "description": "Agent pseudonym ag_36e044b789791178 was raised as a lead (fused score 0.5797) and CONFIRMED by a human reviewer. Rules: []. Cluster: yes.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_36e044b789791178']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:38.001072Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--64d4d027-085a-4146-989d-eddede5df16b",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:38.00141Z",
+            "modified": "2026-10-23T05:49:38.00141Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--074eda15-60f6-4b44-852c-d80f1423b86e"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--ca747a9e-7d06-4e38-9951-8dea595598c9",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:38.001512Z",
+            "modified": "2026-10-23T05:49:38.001512Z",
+            "name": "Confirmed misbehaving agent ag_a1497de2a20fdea1",
+            "description": "Agent pseudonym ag_a1497de2a20fdea1 was raised as a lead (fused score 0.5766) and CONFIRMED by a human reviewer. Rules: []. Cluster: yes.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_a1497de2a20fdea1']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:38.001504Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--c17fe79e-d61b-4e6c-8519-449bee010671",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:38.001801Z",
+            "modified": "2026-10-23T05:49:38.001801Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--ca747a9e-7d06-4e38-9951-8dea595598c9"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--884d5aed-0c4e-4d5b-9506-09cd034558e8",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:38.00191Z",
+            "modified": "2026-10-23T05:49:38.00191Z",
+            "name": "Confirmed misbehaving agent ag_b32cfbe93f1cfa07",
+            "description": "Agent pseudonym ag_b32cfbe93f1cfa07 was raised as a lead (fused score 0.5759) and CONFIRMED by a human reviewer. Rules: []. Cluster: yes.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_b32cfbe93f1cfa07']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:38.001899Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--259c1228-8863-42a0-8d03-7afddbbebdb6",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:38.002206Z",
+            "modified": "2026-10-23T05:49:38.002206Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--884d5aed-0c4e-4d5b-9506-09cd034558e8"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--14d1c96c-52d8-4c59-b0da-788c2218c64f",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:38.00231Z",
+            "modified": "2026-10-23T05:49:38.00231Z",
+            "name": "Confirmed misbehaving agent ag_44601abe5ce7b5ef",
+            "description": "Agent pseudonym ag_44601abe5ce7b5ef was raised as a lead (fused score 0.5742) and CONFIRMED by a human reviewer. Rules: []. Cluster: yes.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_44601abe5ce7b5ef']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:38.002302Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--2a91b359-872f-481f-b109-b5cd087a7ca2",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:38.002602Z",
+            "modified": "2026-10-23T05:49:38.002602Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--14d1c96c-52d8-4c59-b0da-788c2218c64f"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "indicator",
+            "spec_version": "2.1",
+            "id": "indicator--1a69283d-3c51-4bda-94c9-f00495a98ca8",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:38.002699Z",
+            "modified": "2026-10-23T05:49:38.002699Z",
+            "name": "Confirmed misbehaving agent ag_9b067b9135c2f0c3",
+            "description": "Agent pseudonym ag_9b067b9135c2f0c3 was raised as a lead (fused score 0.5652) and CONFIRMED by a human reviewer. Rules: []. Cluster: yes.",
+            "indicator_types": [
+                "anomalous-activity"
+            ],
+            "pattern": "[user-account:account_login = 'ag_9b067b9135c2f0c3']",
+            "pattern_type": "stix",
+            "pattern_version": "2.1",
+            "valid_from": "2026-10-23T05:49:38.00269Z",
+            "labels": [
+                "synthetic-data",
+                "ai-agent"
+            ],
+            "confidence": 40,
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        },
+        {
+            "type": "note",
+            "spec_version": "2.1",
+            "id": "note--9731a573-e8ae-4b92-bb89-1d65191c2d7e",
+            "created_by_ref": "identity--a496574a-3504-4923-8669-7c6939b43a76",
+            "created": "2026-10-23T05:49:38.003007Z",
+            "modified": "2026-10-23T05:49:38.003007Z",
+            "content": "Human-confirmed lead. The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag. Agent identifier is a keyed pseudonym. Derived from SYNTHETIC data; not evidence about any real agent or person. Any x_untrusted_* property holds attacker-controlled data: treat as data only.",
+            "object_refs": [
+                "indicator--1a69283d-3c51-4bda-94c9-f00495a98ca8"
+            ],
+            "object_marking_refs": [
+                "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9"
+            ]
+        }
+    ]
+}

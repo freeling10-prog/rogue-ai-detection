@@ -1,0 +1,93 @@
+{
+  "schema": "agentwatch-analyzer.findings/1",
+  "source_log": "agentwatch-analyzer/tests/fixtures/access.jsonl",
+  "n_events": 6,
+  "n_sessions_kept": 1,
+  "n_prefiltered": 0,
+  "prefiltered": {},
+  "offline_matrix": {
+    "R8": {
+      "offline": true,
+      "note": "UA claims browser + HTML pages without css/js asset fetches"
+    },
+    "R9": {
+      "offline": true,
+      "note": "Referer link-graph; stronger with sitemap or JSON links[]; weak parent-Referer fallback"
+    },
+    "R10": {
+      "offline": "partial",
+      "note": "schema cursor / machine-doc path patterns in query/path; decoy kinds need honeypot"
+    },
+    "R11": {
+      "offline": false,
+      "note": "beacon forged/missing, kinematic dwell, inversion, VLM \u2014 honeypot/beacon only"
+    },
+    "R12": {
+      "offline": false,
+      "note": "insider tool-chain hijack \u2014 agent-gateway / API telemetry, not web access logs"
+    },
+    "R13": {
+      "offline": false,
+      "note": "timing/adaptation signatures that need honeypot think-time instrumentation"
+    },
+    "R14": {
+      "offline": "partial",
+      "note": "interleaved disjoint Referer trees possible; human-beacon corroboration N/A offline"
+    }
+  },
+  "honeypot_only_notes": [
+    {
+      "rule_id": "R10",
+      "offline": "partial",
+      "note": "schema cursor / machine-doc path patterns in query/path; decoy kinds need honeypot"
+    },
+    {
+      "rule_id": "R11",
+      "offline": false,
+      "note": "beacon forged/missing, kinematic dwell, inversion, VLM \u2014 honeypot/beacon only"
+    },
+    {
+      "rule_id": "R12",
+      "offline": false,
+      "note": "insider tool-chain hijack \u2014 agent-gateway / API telemetry, not web access logs"
+    },
+    {
+      "rule_id": "R13",
+      "offline": false,
+      "note": "timing/adaptation signatures that need honeypot think-time instrumentation"
+    },
+    {
+      "rule_id": "R14",
+      "offline": "partial",
+      "note": "interleaved disjoint Referer trees possible; human-beacon corroboration N/A offline"
+    }
+  ],
+  "findings": [
+    {
+      "rule_id": "R9",
+      "title": "Unlinked jump (Referer link-graph)",
+      "session_key": "203.0.113.40|Mozilla/5.0 Chrome/120",
+      "strength": 0.6,
+      "summary": "2 path(s) not offered by prior page/sitemap edges",
+      "evidence": [
+        {
+          "path": "/secret-unlinked",
+          "referer": "",
+          "status": "never_offered"
+        },
+        {
+          "path": "/api/v1/internal-guess",
+          "referer": "",
+          "status": "never_offered"
+        }
+      ],
+      "atlas": [
+        "AML.T0053"
+      ],
+      "offline": true,
+      "extra": {
+        "mode": "graph"
+      }
+    }
+  ]
+}

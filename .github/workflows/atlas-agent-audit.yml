@@ -41,7 +41,7 @@ jobs:
               sys.exit("could not count agent-gateway tests")
           n = int(match.group(1))
           # Phase 2 baseline is 29 (7 basic + 7/7 ATLAS + attenuation + Hypothesis).
-          # Webhook tests sit on top of that floor.
+          # Webhook tests and the executive audit-report tests sit on top of that floor.
           if n < 29:
               sys.exit(f"expected at least 29 agent-gateway tests, collected {n}")
           print(f"collected {n} agent-gateway tests")
@@ -114,7 +114,13 @@ jobs:
         run: |
           . .venv/bin/activate
           python agentwatch-analyzer/scripts/ci_smoke.py --out-dir analyzer-smoke
-      - name: Upload findings, replay, and STIX bundle
+      - name: Executive audit report
+        run: |
+          . .venv/bin/activate
+          PYTHONPATH=agent-gateway python -m agent_gateway audit analyzer-smoke --out-dir analyzer-smoke/audit-report
+          test -s analyzer-smoke/audit-report/audit-report.html
+          test -s analyzer-smoke/audit-report/audit-report.pdf
+      - name: Upload findings, replay, STIX bundle, and executive report
         uses: actions/upload-artifact@v4
         with:
           name: agentwatch-analyzer-smoke
@@ -124,3 +130,5 @@ jobs:
             analyzer-smoke/replay.html
             analyzer-smoke/stix-bundle.json
             analyzer-smoke/stix-validation.json
+            analyzer-smoke/audit-report/audit-report.html
+            analyzer-smoke/audit-report/audit-report.pdf

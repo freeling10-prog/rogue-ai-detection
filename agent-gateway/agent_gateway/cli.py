@@ -1,4 +1,9 @@
-"""CLI: python -m agent_gateway serve|approve|freeze-status"""
+"""CLI: python -m agent_gateway serve|approve|audit|health-check
+
+``audit`` reads an agentwatch-analyzer output directory and writes an executive
+HTML report plus a pure-Python text PDF. It does not import the PEP, bind a
+port, start a honeypot, or open a socket.
+"""
 from __future__ import annotations
 
 import argparse
@@ -6,13 +11,12 @@ import json
 import sys
 from pathlib import Path
 
-from . import approve
-from .pep import PepConfig, create_app, run_server
-from .registry import Registry
-
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(prog="agent_gateway", description="Lab insider policy-enforcement proxy (loopback)")
+    p = argparse.ArgumentParser(
+        prog="agent-gateway",
+        description="Lab insider policy-enforcement proxy (loopback). audit is offline and does not bind.",
+    )
     sub = p.add_subparsers(dest="cmd", required=True)
 
     serve = sub.add_parser("serve", help="Run loopback JSON-RPC PEP")
@@ -31,10 +35,33 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--taint-source", default="")
     ap.add_argument("--ttl", type=float, default=600.0)
 
+    audit = sub.add_parser(
+        "audit",
+        help="Compile an executive HTML/PDF report from an agentwatch-analyzer output directory",
+    )
+    audit.add_argument(
+        "input_dir",
+        type=Path,
+        help="Directory of events.scrubbed.jsonl, findings.json, leads.jsonl, replay.html, stix-bundle.json, summary.json",
+    )
+    audit.add_argument(
+        "--out-dir",
+        type=Path,
+        default=None,
+        help="Report directory (default: <input_dir>/audit-report)",
+    )
+    audit.add_argument(
+        "--no-pdf",
+        action="store_true",
+        help="Skip the pure-Python text PDF (HTML is always written)",
+    )
+
     sub.add_parser("health-check", help="Print local health path reminder")
 
     args = p.parse_args(argv)
     if args.cmd == "serve":
+        from .pep import PepConfig, run_server
+
         reg = args.registry or Path(__file__).resolve().parent.parent / "config" / "agents.json"
         cfg = PepConfig(
             host=args.host, port=args.port, registry_path=reg, allow_nonlocal=args.allow_nonlocal,
@@ -43,6 +70,8 @@ def main(argv: list[str] | None = None) -> int:
         run_server(cfg)
         return 0
     if args.cmd == "approve":
+        from . import approve
+
         try:
             arguments = json.loads(args.args_json)
         except json.JSONDecodeError as e:
@@ -55,6 +84,17 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"approval_token": rec["token"], "step_index": rec["step_index"],
                           "tool_name": rec["tool_name"], "args_hash": rec["args_hash"],
                           "expires_at": rec["expires_at"]}, indent=2))
+        return 0
+    if args.cmd == "audit":
+        from .audit_report import AuditInputError, write_report
+
+        out = args.out_dir or (args.input_dir / "audit-report")
+        try:
+            doc = write_report(args.input_dir, out, pdf=not args.no_pdf)
+        except AuditInputError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+        print(json.dumps(doc, indent=2))
         return 0
     if args.cmd == "health-check":
         print("GET http://127.0.0.1:9100/health")

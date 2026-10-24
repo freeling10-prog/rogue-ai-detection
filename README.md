@@ -14,15 +14,15 @@ Wire the turnkey audit workflow and the in-process approval formatter. Both ship
 - Slack sidecar: [`agent-gateway/agent_gateway/approval_webhook.py`](agent-gateway/agent_gateway/approval_webhook.py), called from [`pep.py`](agent-gateway/agent_gateway/pep.py) when a tainted tool call is held. The document is Slack Block Kit (`text` + `blocks`) and a generic `webhook` object. **Approve Once** authorizes that exact call. **Deny & Freeze Key 15m** freezes a registered key for 900 seconds.
 - Three-minute loop, copy-paste Docker or local Python: [docs/quickstart.md](docs/quickstart.md). Building the JSON does not open a socket. HTTP runs only with `python -m agent_gateway serve --webhook-deliver` and a URL you set.
 
-### Book a 48-hour automated Agentic Security Audit
+The workflow above is the free lab audit of this tree. It is not the paid review below, and it is not a claim that a public agent estate has been measured.
 
-<!-- TODO(Jordan): replace the href below with the real booking URL. Keep "#" until that URL exists. Do not substitute a company domain. -->
+### How to book
 
-**[Book a 48-hour automated Agentic Security Audit](#)**
+The paid offer is the [AgentGate — 48-Hour Agentic Tool-Boundary Audit](marketing/audit-offer.md). **$4,500** fixed, or **$6,500** with instrumentation: a lab gateway pass on `127.0.0.1` and an offline analyzer pass on an authorized log you supply. Email [fleckalec@gmail.com](mailto:fleckalec@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit) with the subject `Book 48-Hour Agentic Tool-Boundary Audit`. You can reply in that thread with a tool inventory (names and argument shapes, no secrets). The clock starts when the tool list arrives. This is not a penetration test and not a certification. The honeypot stays human-review only, freeze applies only to registered lab keys for 15 minutes, and ATLAS ids in the note are approximate.
 
-**TODO(Jordan):** that link is a placeholder (`#`). Replace the href with the real booking URL before anyone treats this as a live commercial page. No company domain is filled in here.
+**[Book a 48-hour Agentic Tool-Boundary Audit](mailto:fleckalec@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit)**
 
-The audit the workflow already automates is the offline path above: gateway tests, the detector suites, and a STIX bundle with `validator_ok=true` required for the smoke job to pass. It is a lab audit of this tree, on logs you already have. It is not a claim that a public agent estate has been measured.
+One-page offer: **[AgentGate — 48-Hour Agentic Tool-Boundary Audit](marketing/audit-offer.md)**
 
 ## Compliance snapshot
 
@@ -145,9 +145,9 @@ The default license for this repository is the Apache License, Version 2.0. The 
 
 Apache 2.0 covers the open core in this tree: `agent-watch`, `agent-gateway` (including `pep.py`, `agw1.` attenuation, and the executive audit CLI), `agentwatch-analyzer`, [`.github/workflows/atlas-agent-audit.yml`](.github/workflows/atlas-agent-audit.yml), `rogue-ai-pipeline`, and the documentation under `docs/` and `marketing/`. There is no separate proprietary module in the tree. Marketing drafts are documentation under the same license.
 
-A hosted audit, paid support, and proprietary connectors are not in this repository. If they are offered later, they are licensed separately. Notes for this snapshot are in [CHANGELOG.md](CHANGELOG.md).
+A hosted audit and paid support are commercial services. They are not granted by the Apache 2.0 license, and they are not a second codebase in this tree. The written offer is [marketing/audit-offer.md](marketing/audit-offer.md). Proprietary connectors are not in this repository. Notes for the v1.0.0 snapshot are in [CHANGELOG.md](CHANGELOG.md). The changelog line that says the GitHub remote was private describes that snapshot. Making the repository public is handled outside this tree.
 
-The GitHub remote is still private. The license file does not make it public. Drafts in [`marketing/`](marketing/README.md) stay do-not-submit until the repository is public.
+Optional community posts, not yet submitted: [marketing/show-hn.md](marketing/show-hn.md) and [marketing/reddit-localllama.md](marketing/reddit-localllama.md). Post them only after this repository is public. Adding the drafts to the tree does not post them.
 
 ## Book or run it
 
@@ -155,10 +155,8 @@ The GitHub remote is still private. The license file does not make it public. Dr
 
 Add [`.github/workflows/atlas-agent-audit.yml`](.github/workflows/atlas-agent-audit.yml) and follow [docs/quickstart.md](docs/quickstart.md). The approval document is built by [`approval_webhook.py`](agent-gateway/agent_gateway/approval_webhook.py). Leave out `--webhook-deliver` until you want a POST. Serve on `127.0.0.1`.
 
-### Book a 48-hour automated Agentic Security Audit
+### Book a 48-hour Agentic Tool-Boundary Audit
 
-<!-- TODO(Jordan): replace the href below with the real booking URL. Keep "#" until that URL exists. Do not substitute a company domain. -->
+**[Book a 48-hour Agentic Tool-Boundary Audit](mailto:fleckalec@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit)**
 
-**[Book a 48-hour automated Agentic Security Audit](#)**
-
-**TODO(Jordan):** placeholder link only (`#`). Replace the href with the real booking URL. No company domain is published here.
+One-page offer, price, and out-of-scope list: **[AgentGate — 48-Hour Agentic Tool-Boundary Audit](marketing/audit-offer.md)**. Reply to that email with a tool inventory if you already have one. $4,500 fixed, or $6,500 with instrumentation. Not a penetration test and not a certification.

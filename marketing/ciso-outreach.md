@@ -2,7 +2,7 @@
 
 Cold email for a **B2B AI startup** that is in an enterprise procurement security review and has been asked how its agents are allowed to call tools. The offer is a **48-hour Agentic Tool-Boundary Audit** using the lab stack on `main`.
 
-Status: **template. Do not send as-is.** Every contact field is a TODO. This file invents no company name, no domain, and no booking URL. Replace the TODOs with a real sender and a real mailto or booking link before anyone sends it. If you do not have that link yet, do not send the mail.
+Status: **scope source. Do not send this body.** The sequence to send is [outreach-sequence.md](outreach-sequence.md). The one-page offer and the live mailto are in [audit-offer.md](audit-offer.md). The greeting below still says `[TODO: first name]` on purpose. This file invents no company domain and no scheduling link.
 
 This is not a pen-test order form, not a certification, and not legal advice. The lab evidence you are allowed to describe is the evidence in [README.md](README.md) of this folder.
 
@@ -37,12 +37,12 @@ What we need from you, by reply:
 - Where each tool's input can come from untrusted content.
 - Optional: an authorized access log, already stripped if you prefer. Our scrubber is a backstop, not a reason to send live tokens.
 
-Reply to this message, or use the booking link below. Both are placeholders until the sender fills them in.
+Reply to this message. You can also use the mailto below. There is no separate booking site. A tool inventory in the reply is enough to talk about starting the clock.
 
-[TODO: sender name]
-[TODO: role]
-Booking: TODO
-Mailto: TODO
+Jordan
+fleckalec@gmail.com
+Offer: [audit-offer.md](audit-offer.md)
+Mailto: [fleckalec@gmail.com](mailto:fleckalec@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit)
 
 ## Scope card (keep next to the sent mail, do not paste the whole card unless they ask)
 

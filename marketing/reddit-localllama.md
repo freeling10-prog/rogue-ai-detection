@@ -1,6 +1,6 @@
 # Reddit — r/LocalLLaMA
 
-Status: **draft. Do not submit.** [LICENSE](../LICENSE) (Apache 2.0) and [NOTICE](../NOTICE) are in the tree. The GitHub remote is still private. A license file does not make the repository public. Do not submit this post, and do not describe the project as a public open-source release, until the repository is public. Replace the link TODO only then.
+Status: **ready to post after the repository is public.** [LICENSE](../LICENSE) is Apache 2.0 and [NOTICE](../NOTICE) is in the tree. Do not submit this post while the GitHub repository is still private. This file has not been posted. Visibility is changed outside this repository. Do not describe a public release until the repository is actually public.
 
 Flair: whatever the subreddit uses for projects or research. Do not use a "we detect all agents" claim in the title.
 
@@ -136,4 +136,6 @@ Recorded unit tests: **10 passed**. A recorded smoke on the archived Tier-2 logs
 - `agw1.` attenuation assumes the HMAC root key stays with workers you trust. Leak the key and the chain is mintable from scratch.
 - Hypothesis found no invariant break in the recorded suite. It does not make the PEP a production control.
 
-Link: TODO. Public repository URL after the repo is public and licensed. Start at `agent-gateway/agent_gateway/capability.py`, `agent-gateway/tests/test_stateful_fuzz.py`, and `agentwatch-analyzer/README.md`.
+The free GitHub Action is `.github/workflows/atlas-agent-audit.yml`; an optional paid 48-hour tool-boundary note for a security reviewer is in `marketing/audit-offer.md` (not a pen-test, and not a certification).
+
+Link: https://github.com/freeling10-prog/rogue-ai-detection — start at `agent-gateway/agent_gateway/capability.py`, `agent-gateway/tests/test_stateful_fuzz.py`, and `agentwatch-analyzer/README.md`.

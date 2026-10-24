@@ -1,0 +1,126 @@
+# Lab audit only. Does not deploy the honeypot, bind a public port, or call out
+# from the gateway. The analyzer smoke reads an archived log and writes files.
+name: ATLAS agent audit
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  agent-gateway:
+    name: agent-gateway
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: agent-gateway
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+      - name: Suite (ATLAS falsification + Hypothesis)
+        run: |
+          . .venv/bin/activate
+          python - <<'PY'
+          import re, subprocess, sys
+          out = subprocess.check_output([sys.executable, "-m", "pytest", "--collect-only", "-q"], text=True)
+          match = re.search(r"(\d+) tests collected", out)
+          if not match:
+              sys.stderr.write(out)
+              sys.exit("could not count agent-gateway tests")
+          n = int(match.group(1))
+          # Phase 2 baseline is 29 (7 basic + 7/7 ATLAS + attenuation + Hypothesis).
+          # Webhook tests sit on top of that floor.
+          if n < 29:
+              sys.exit(f"expected at least 29 agent-gateway tests, collected {n}")
+          print(f"collected {n} agent-gateway tests")
+          PY
+          python -m pytest -q --tb=short
+          python -m pytest tests/test_pep_falsification.py -q --tb=short
+
+  agent-watch:
+    name: agent-watch
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: agent-watch
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install and test
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+          python -m pytest -q --tb=line
+
+  rogue-ai-pipeline:
+    name: rogue-ai-pipeline
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: rogue-ai-pipeline
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install and test
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pytest -q --tb=line
+
+  agentwatch-analyzer:
+    name: agentwatch-analyzer smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install -r agentwatch-analyzer/requirements.txt
+          python -m pip install -e agentwatch-analyzer
+      - name: Unit tests
+        working-directory: agentwatch-analyzer
+        run: |
+          . "$GITHUB_WORKSPACE/.venv/bin/activate"
+          python -m pytest -q --tb=short
+      - name: Smoke archived Tier-2 log
+        run: |
+          . .venv/bin/activate
+          python agentwatch-analyzer/scripts/ci_smoke.py --out-dir analyzer-smoke
+      - name: Upload findings, replay, and STIX bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: agentwatch-analyzer-smoke
+          if-no-files-found: error
+          path: |
+            analyzer-smoke/findings.json
+            analyzer-smoke/replay.html
+            analyzer-smoke/stix-bundle.json
+            analyzer-smoke/stix-validation.json

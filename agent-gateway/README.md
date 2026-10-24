@@ -13,7 +13,7 @@ Implements ATLAS mitigation **AML.M0030** (Restrict Tool Invocation on Untrusted
 | Audience | Unknown web visitors / crawlers | **Registered internal agent API keys** |
 | Action | Leads for **human review** only; never auto-block visitors | Can **hard-block** tainted tool calls and **freeze** an internal key for 15 minutes |
 | Binding | `127.0.0.1` by default | `127.0.0.1` by default |
-| Outbound from the service itself | None | None by default (optional webhook stub OFF) |
+| Outbound from the service itself | None | None by default. Approval JSON is built in-process; `--webhook-deliver` is the only POST |
 
 **Safety split:** the public honeypot path stays review-only. R12 freeze and taint blocks apply **only** to keys in `config/agents.json`.
 
@@ -28,6 +28,7 @@ Implements ATLAS mitigation **AML.M0030** (Restrict Tool Invocation on Untrusted
 7. **Allowlisted constrained sinks** — `update_ticket_status` with int/enum/exact ID may proceed without OOB while free-text/high-entropy sinks still need approval.
 8. **Deterministic scrubbing** of logged tool args.
 9. **Chained HMAC capabilities** — macaroon-style session tokens. Untrusted ingest appends `allow_egress=false`. A holder cannot strip or reorder that caveat; any worker that shares `AGENT_GATEWAY_HMAC_KEY` can verify the chain without a session table. A valid one-time OOB token is still the only bypass. See `docs/phase2-gateway.md`.
+10. **Approval webhook (formatter)** — a held tainted call emits scrubbed Slack Block Kit and a generic webhook payload (principal, session, `agw1.` capability, taint source, ATLAS id, tool, canonical args, one-time Approve Once / Deny & Freeze Key 15m callbacks). No HTTP unless `--webhook-deliver`. Freeze still applies only to registered keys, for 15 minutes.
 
 ## Quick start (loopback)
 
@@ -57,9 +58,9 @@ Headers: `Authorization: Bearer <agent_key>` (must match registry).
 
 ```
 agent-gateway/
-├── agent_gateway/     # pep, approve, taint, registry, scrub, cli
+├── agent_gateway/     # pep, capability, approve, approval_webhook, taint, registry, scrub, cli
 ├── config/agents.json # registered keys (lab secrets — not production)
-├── tests/             # basic + 7 ATLAS falsification / regression tests
+├── tests/             # basic + 7 ATLAS falsification + capability, Hypothesis, approval webhook
 └── README.md
 ```
 

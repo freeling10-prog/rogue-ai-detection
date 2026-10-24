@@ -20,6 +20,8 @@ def main(argv: list[str] | None = None) -> int:
     serve.add_argument("--port", type=int, default=9100)
     serve.add_argument("--registry", type=Path, default=None)
     serve.add_argument("--allow-nonlocal", action="store_true", help="Permit non-loopback bind (isolated lab only)")
+    serve.add_argument("--webhook-url", default=None, help="Approval webhook URL (not contacted unless --webhook-deliver)")
+    serve.add_argument("--webhook-deliver", action="store_true", help="POST approval payloads (default off; no network otherwise)")
 
     ap = sub.add_parser("approve", help="Mint bound OOB approval token")
     ap.add_argument("session_id")
@@ -34,7 +36,10 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
     if args.cmd == "serve":
         reg = args.registry or Path(__file__).resolve().parent.parent / "config" / "agents.json"
-        cfg = PepConfig(host=args.host, port=args.port, registry_path=reg, allow_nonlocal=args.allow_nonlocal)
+        cfg = PepConfig(
+            host=args.host, port=args.port, registry_path=reg, allow_nonlocal=args.allow_nonlocal,
+            webhook_url=args.webhook_url, webhook_deliver=bool(args.webhook_deliver),
+        )
         run_server(cfg)
         return 0
     if args.cmd == "approve":

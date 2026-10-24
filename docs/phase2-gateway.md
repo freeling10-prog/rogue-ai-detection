@@ -20,6 +20,7 @@ This is **not** a WAF, **not** malware, and **not** for blocking public web visi
 | `max_delegation_depth=1`, `max_children_per_parent=3`; bus taint propagation; R12 freeze (15 min) on Root Parent Principal; auto-lift; local alert log | AML.T0118 |
 | Allowlisted constrained sinks (`update_ticket_status` int/enum/ID) without OOB; free-text still gated | usability DoS fix |
 | Chained HMAC capability (macaroon-style). Untrusted ingest appends `allow_egress=false`; the caveat cannot be stripped | **AML.M0030** (attenuation) |
+| Held tainted call emits a scrubbed Slack / webhook approval payload (Approve Once, or Deny & Freeze Key 15m). HTTP stays off unless opted in | commercial hook (formatter) |
 
 ## Layout
 
@@ -29,6 +30,7 @@ agent-gateway/
 │   ├── pep.py          # PolicyEngine + Flask JSON-RPC interceptor
 │   ├── capability.py   # Chained HMAC capability tokens (macaroon-style)
 │   ├── approve.py      # Bound OOB HMAC mint/verify
+│   ├── approval_webhook.py  # Slack / generic webhook approval formatter
 │   ├── taint.py        # Session taint, egress classes, scratchpad/bus
 │   ├── registry.py     # Registered keys; root-parent freeze
 │   ├── scrub.py        # Deterministic log scrubbing
@@ -38,7 +40,8 @@ agent-gateway/
 │   ├── test_basic.py
 │   ├── test_pep_falsification.py   # 7 ATLAS regression cases
 │   ├── test_capability_attenuation.py
-│   └── test_stateful_fuzz.py       # Hypothesis RuleBasedStateMachine
+│   ├── test_stateful_fuzz.py       # Hypothesis RuleBasedStateMachine
+│   └── test_approval_webhook.py    # scrub + callback tamper rejection
 └── README.md
 ```
 
@@ -49,7 +52,7 @@ agent-gateway/
 - Web honeypot path untouched (no auto-block of public visitors).
 - Deterministic scrubbing of logged tool args.
 - No deploy / push / merge from this workstream.
-- No outbound network from the gateway except optional webhook stub (**default OFF**).
+- No outbound network from the gateway. The approval formatter builds JSON only. HTTP POST runs only with `--webhook-deliver` (default **off**).
 
 ## Capability tokens
 
@@ -83,11 +86,30 @@ Hypothesis `RuleBasedStateMachine` (package pin `hypothesis==6.170.9`):
 
 Properties: blocked write/send/creds egress after taint requires a valid OOB token; fan-out stays ≤ 3 in any order; freeze does not apply to unregistered keys; scrubber outputs do not contain configured secret patterns.
 
+## Commercial hooks
+
+Self-serve lab hooks. They do not deploy the honeypot and they do not send traffic unless a person opts in.
+
+### Slack / webhook approval formatter
+
+`agent_gateway/approval_webhook.py`. When `pep.py` holds a tainted tool call for a human (`oob` / lethal-trifecta deny), it builds one JSON document:
+
+- Slack Block Kit `text` + `blocks`, including **Approve Once** and **Deny & Freeze Key 15m**
+- A generic `webhook` object for anything that is not Slack
+
+The document carries the agent principal, session id, and `agw1.` capability state; the triggering taint source and the applicable ATLAS id (`AML.T0051`, `AML.T0080`, or `AML.T0086`); the scrubbed tool name and canonical args. Callback fields are one-time HMAC bindings over the session, step, tool, canonical args, and taint source. Changing any of those fails verification. Approve Once is the same one-shot bypass as the CLI token and does not clear the deny-egress caveat. Deny & Freeze calls `freeze_root` for **900 seconds** and only if that key is already in `config/agents.json`. A public visitor key is not frozen.
+
+Building the payload does not open a socket. `PepConfig.webhook_deliver` defaults to false. `python -m agent_gateway serve --webhook-url … --webhook-deliver` is the opt-in. A failed POST does not change the policy decision.
+
+### Turnkey audit workflow
+
+`.github/workflows/atlas-agent-audit.yml` runs, as separate jobs, the `agent-gateway` suite (ATLAS falsification and Hypothesis included), `agent-watch`, `rogue-ai-pipeline`, and an `agentwatch-analyzer` smoke. The smoke reads the archived Tier-2 Playwright crawler log (fixture `agentlike_nginx.log` if that archive is absent) and uploads `findings.json`, `replay.html`, and the validated STIX 2.1 bundle. It does not start the honeypot.
+
 ## Test counts (this pass)
 
 | Suite | Result |
 |---|---|
-| `agent-gateway` full pytest | **29 passed** (7 basic + **7/7 falsification** + 10 attenuation + 5 stateful) |
+| `agent-gateway` full pytest | **35 passed** (7 basic + **7/7 falsification** + 10 attenuation + 5 stateful + 6 approval-webhook) |
 | Falsification `tests/test_pep_falsification.py` | **7/7 pass** |
 | `agent-watch` full pytest (safelog machine included) | **512 passed, 2 skipped** |
 
@@ -107,7 +129,7 @@ Properties: blocked write/send/creds egress after taint requires a valid OOB tok
 - **Not a WAF** and not a substitute for network egress controls.
 - **No Web Bot Auth** yet.
 - Tool backends are simulated echoes inside the PEP (no real external calls).
-- Freeze pages humans via **local alert JSONL** only unless `webhook_url` is explicitly set (still lab).
+- Freeze pages humans via **local alert JSONL** plus the in-process approval payload. HTTP delivery stays off unless `webhook_deliver` is set.
 - Unknown tools fail closed as `write` egress class.
 
 ## Quick start

@@ -22,7 +22,7 @@ from benchmark.common import BenchmarkError, SecretsFound              # noqa: E
 from benchmark.minischema import validate                              # noqa: E402
 from benchmark.packer import build_bundle                              # noqa: E402
 from benchmark.secrets_guard import scan_text                          # noqa: E402
-from benchmark.tier2_local_real_llm import aggregate, score_run, validate_run_dir   # noqa: E402
+from benchmark.tier2_local_real_llm import aggregate, score_run, validate_run_dir, validate_slot   # noqa: E402
 from benchmark.tier3_wild_honeypot import build_card, collect_stats, load_slot      # noqa: E402
 
 STUB_RUN = ROOT / "benchmark" / "tier2_local_real_llm" / "fixtures" / "stub_run"
@@ -323,8 +323,23 @@ def test_tier2_empty_slot_is_honest(tmp_path):
     m = build(tmp_path)
     assert m["tiers"][TIER2]["status"] == "empty_slot_no_real_traces" and m["tiers"][TIER2]["metrics"] is None
     assert "EMPTY" in (tmp_path / "out" / TIER2 / "README.md").read_text()
-    # the shipped slot itself holds no runs
-    assert [p.name for p in (ROOT / "benchmark" / TIER2 / "slot").iterdir() if not p.name.startswith(".")] == []
+    # Honesty is the status the packer reports, not a permanent empty list.
+    # validate_slot lists run directories only (.gitkeep and other dot entries
+    # are not runs). A directory with no run dirs stays empty; archived captures
+    # must be reported as populated.
+    shipped = ROOT / "benchmark" / TIER2 / "slot"
+    runs = validate_slot(shipped, allow_stub=False)
+    packed = build(tmp_path, t2=shipped, name="shipped-slot")
+    blk = packed["tiers"][TIER2]
+    readme = (tmp_path / "shipped-slot" / TIER2 / "README.md").read_text()
+    if not runs:
+        assert blk["status"] == "empty_slot_no_real_traces" and blk["metrics"] is None and blk["n_real_runs"] == 0
+        assert "EMPTY" in readme
+    else:
+        assert all(r.ok and not r.stub for r in runs)
+        assert blk["status"] == "populated_real_traces"
+        assert blk["n_real_runs"] == len(runs) and blk["metrics"]["kind"] == "real_local"
+        assert "EMPTY" not in readme and f"{len(runs)} real captured run(s)" in readme
 
 
 def test_tier2_stub_in_bundle_is_labelled_stub(tmp_path):

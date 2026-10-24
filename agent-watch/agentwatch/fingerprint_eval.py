@@ -41,7 +41,7 @@ EXPECTED: list[tuple[str, str, str, str]] = [
     # v6 cohorts (same author as the rules: matching them is expected, not evidence)
     ("mimic_vlm_os", r"^web:mimic_vlm_os", "headless_or_http_mimic", ""),
     ("mimic_schema_sanitizer", r"^web:mimic_schema_sanitizer", "schema_driven_api_agent", ""),
-    ("mimic_parasitic_rider", r"^web:mimic_parasitic_rider", "headless_or_http_mimic", "R14 fork; schema-cursor use shows in also_matched"),
+    ("mimic_parasitic_rider", r"^web:mimic_parasitic_rider", "schema_driven_api_agent", "Phase 1: R14 riders require a schema-provenance cursor"),
 ]
 
 

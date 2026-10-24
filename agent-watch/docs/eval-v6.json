@@ -1,0 +1,596 @@
+{
+  "v5": {
+    "variants": {
+      "human": {
+        "truth": "human",
+        "n": 15,
+        "seen": 15,
+        "label_correct": 15,
+        "alerted": 0,
+        "labels": {
+          "human": 15
+        },
+        "actors": {
+          "human": 15
+        },
+        "severities": {
+          "info": 15
+        }
+      },
+      "human_no_assets": {
+        "truth": "human",
+        "n": 15,
+        "seen": 15,
+        "label_correct": 15,
+        "alerted": 0,
+        "labels": {
+          "human": 15
+        },
+        "actors": {
+          "human": 15
+        },
+        "severities": {
+          "info": 15
+        }
+      },
+      "scraper_naive": {
+        "truth": "static_bot",
+        "n": 10,
+        "seen": 10,
+        "label_correct": 10,
+        "alerted": 10,
+        "labels": {
+          "static_bot": 10
+        },
+        "actors": {
+          "accidental_scraper": 10
+        },
+        "severities": {
+          "medium": 10
+        }
+      },
+      "crawler_declared": {
+        "truth": "static_bot",
+        "n": 5,
+        "seen": 5,
+        "label_correct": 5,
+        "alerted": 5,
+        "labels": {
+          "static_bot": 5
+        },
+        "actors": {
+          "accidental_scraper": 5
+        },
+        "severities": {
+          "medium": 5
+        }
+      },
+      "mimic_basic": {
+        "truth": "agent",
+        "n": 15,
+        "seen": 15,
+        "label_correct": 15,
+        "alerted": 15,
+        "labels": {
+          "agent": 15
+        },
+        "actors": {
+          "goal_directed_agent": 15
+        },
+        "severities": {
+          "critical": 15
+        }
+      },
+      "mimic_linked": {
+        "truth": "agent",
+        "n": 15,
+        "seen": 15,
+        "label_correct": 0,
+        "alerted": 15,
+        "labels": {
+          "static_bot": 4,
+          "human": 11
+        },
+        "actors": {
+          "possible_mimic": 15
+        },
+        "severities": {
+          "medium": 15
+        }
+      },
+      "mimic_assets": {
+        "truth": "agent",
+        "n": 15,
+        "seen": 15,
+        "label_correct": 0,
+        "alerted": 15,
+        "labels": {
+          "human": 15
+        },
+        "actors": {
+          "possible_mimic": 15
+        },
+        "severities": {
+          "medium": 15
+        }
+      },
+      "mimic_schema": {
+        "truth": "agent",
+        "n": 15,
+        "seen": 15,
+        "label_correct": 15,
+        "alerted": 15,
+        "labels": {
+          "agent": 15
+        },
+        "actors": {
+          "goal_directed_agent": 15
+        },
+        "severities": {
+          "critical": 15
+        }
+      },
+      "human_images_blocked": {
+        "truth": "human",
+        "n": 15,
+        "seen": 15,
+        "label_correct": 15,
+        "alerted": 0,
+        "labels": {
+          "human": 15
+        },
+        "actors": {
+          "human": 15
+        },
+        "severities": {
+          "info": 15
+        }
+      },
+      "human_js_off": {
+        "truth": "human",
+        "n": 15,
+        "seen": 15,
+        "label_correct": 15,
+        "alerted": 0,
+        "labels": {
+          "human": 15
+        },
+        "actors": {
+          "human": 15
+        },
+        "severities": {
+          "info": 15
+        }
+      },
+      "human_beacon_blocked": {
+        "truth": "human",
+        "n": 15,
+        "seen": 15,
+        "label_correct": 15,
+        "alerted": 15,
+        "labels": {
+          "human": 15
+        },
+        "actors": {
+          "possible_mimic": 15
+        },
+        "severities": {
+          "medium": 15
+        }
+      },
+      "mimic_browser_stealth": {
+        "truth": "agent",
+        "n": 15,
+        "seen": 15,
+        "label_correct": 0,
+        "alerted": 0,
+        "labels": {
+          "human": 15
+        },
+        "actors": {
+          "human": 15
+        },
+        "severities": {
+          "info": 15
+        }
+      },
+      "mimic_browser_webdriver": {
+        "truth": "agent",
+        "n": 15,
+        "seen": 15,
+        "label_correct": 15,
+        "alerted": 15,
+        "labels": {
+          "agent": 15
+        },
+        "actors": {
+          "goal_directed_agent": 15
+        },
+        "severities": {
+          "critical": 15
+        }
+      },
+      "mimic_aria": {
+        "truth": "agent",
+        "n": 15,
+        "seen": 15,
+        "label_correct": 15,
+        "alerted": 15,
+        "labels": {
+          "agent": 15
+        },
+        "actors": {
+          "goal_directed_agent": 15
+        },
+        "severities": {
+          "critical": 15
+        }
+      },
+      "mimic_header_forger": {
+        "truth": "agent",
+        "n": 15,
+        "seen": 15,
+        "label_correct": 0,
+        "alerted": 0,
+        "labels": {
+          "human": 15
+        },
+        "actors": {
+          "human": 15
+        },
+        "severities": {
+          "info": 15
+        }
+      },
+      "mimic_vlm_os": {
+        "truth": "agent",
+        "n": 15,
+        "seen": 15,
+        "label_correct": 0,
+        "alerted": 0,
+        "labels": {
+          "human": 15
+        },
+        "actors": {
+          "human": 15
+        },
+        "severities": {
+          "info": 15
+        }
+      },
+      "mimic_schema_sanitizer": {
+        "truth": "agent",
+        "n": 15,
+        "seen": 15,
+        "label_correct": 0,
+        "alerted": 15,
+        "labels": {
+          "human": 15
+        },
+        "actors": {
+          "possible_mimic": 15
+        },
+        "severities": {
+          "medium": 15
+        }
+      },
+      "mimic_parasitic_rider": {
+        "truth": "agent",
+        "n": 15,
+        "seen": 15,
+        "label_correct": 0,
+        "alerted": 0,
+        "labels": {
+          "human": 15
+        },
+        "actors": {
+          "human": 15
+        },
+        "severities": {
+          "info": 15
+        }
+      }
+    },
+    "legacy": {
+      "n": 100,
+      "label_ok": 100
+    }
+  },
+  "v6": {
+    "variants": {
+      "human": {
+        "truth": "human",
+        "n": 15,
+        "seen": 15,
+        "label_correct": 15,
+        "alerted": 0,
+        "labels": {
+          "human": 15
+        },
+        "actors": {
+          "human": 15
+        },
+        "severities": {
+          "info": 15
+        }
+      },
+      "human_no_assets": {
+        "truth": "human",
+        "n": 15,
+        "seen": 15,
+        "label_correct": 15,
+        "alerted": 0,
+        "labels": {
+          "human": 15
+        },
+        "actors": {
+          "human": 15
+        },
+        "severities": {
+          "info": 15
+        }
+      },
+      "scraper_naive": {
+        "truth": "static_bot",
+        "n": 10,
+        "seen": 10,
+        "label_correct": 10,
+        "alerted": 10,
+        "labels": {
+          "static_bot": 10
+        },
+        "actors": {
+          "accidental_scraper": 10
+        },
+        "severities": {
+          "medium": 10
+        }
+      },
+      "crawler_declared": {
+        "truth": "static_bot",
+        "n": 5,
+        "seen": 5,
+        "label_correct": 5,
+        "alerted": 5,
+        "labels": {
+          "static_bot": 5
+        },
+        "actors": {
+          "accidental_scraper": 5
+        },
+        "severities": {
+          "medium": 5
+        }
+      },
+      "mimic_basic": {
+        "truth": "agent",
+        "n": 15,
+        "seen": 15,
+        "label_correct": 15,
+        "alerted": 15,
+        "labels": {
+          "agent": 15
+        },
+        "actors": {
+          "goal_directed_agent": 15
+        },
+        "severities": {
+          "critical": 15
+        }
+      },
+      "mimic_linked": {
+        "truth": "agent",
+        "n": 15,
+        "seen": 15,
+        "label_correct": 0,
+        "alerted": 15,
+        "labels": {
+          "static_bot": 11,
+          "human": 4
+        },
+        "actors": {
+          "possible_mimic": 15
+        },
+        "severities": {
+          "medium": 15
+        }
+      },
+      "mimic_assets": {
+        "truth": "agent",
+        "n": 15,
+        "seen": 15,
+        "label_correct": 15,
+        "alerted": 15,
+        "labels": {
+          "agent": 15
+        },
+        "actors": {
+          "goal_directed_agent": 15
+        },
+        "severities": {
+          "critical": 15
+        }
+      },
+      "mimic_schema": {
+        "truth": "agent",
+        "n": 15,
+        "seen": 15,
+        "label_correct": 15,
+        "alerted": 15,
+        "labels": {
+          "agent": 15
+        },
+        "actors": {
+          "goal_directed_agent": 15
+        },
+        "severities": {
+          "critical": 15
+        }
+      },
+      "human_images_blocked": {
+        "truth": "human",
+        "n": 15,
+        "seen": 15,
+        "label_correct": 15,
+        "alerted": 0,
+        "labels": {
+          "human": 15
+        },
+        "actors": {
+          "human": 15
+        },
+        "severities": {
+          "info": 15
+        }
+      },
+      "human_js_off": {
+        "truth": "human",
+        "n": 15,
+        "seen": 15,
+        "label_correct": 15,
+        "alerted": 0,
+        "labels": {
+          "human": 15
+        },
+        "actors": {
+          "human": 15
+        },
+        "severities": {
+          "info": 15
+        }
+      },
+      "human_beacon_blocked": {
+        "truth": "human",
+        "n": 15,
+        "seen": 15,
+        "label_correct": 15,
+        "alerted": 0,
+        "labels": {
+          "human": 15
+        },
+        "actors": {
+          "human": 15
+        },
+        "severities": {
+          "info": 15
+        }
+      },
+      "mimic_browser_stealth": {
+        "truth": "agent",
+        "n": 15,
+        "seen": 15,
+        "label_correct": 15,
+        "alerted": 15,
+        "labels": {
+          "agent": 15
+        },
+        "actors": {
+          "goal_directed_agent": 15
+        },
+        "severities": {
+          "critical": 15
+        }
+      },
+      "mimic_browser_webdriver": {
+        "truth": "agent",
+        "n": 15,
+        "seen": 15,
+        "label_correct": 15,
+        "alerted": 15,
+        "labels": {
+          "agent": 15
+        },
+        "actors": {
+          "goal_directed_agent": 15
+        },
+        "severities": {
+          "critical": 15
+        }
+      },
+      "mimic_aria": {
+        "truth": "agent",
+        "n": 15,
+        "seen": 15,
+        "label_correct": 15,
+        "alerted": 15,
+        "labels": {
+          "agent": 15
+        },
+        "actors": {
+          "goal_directed_agent": 15
+        },
+        "severities": {
+          "critical": 15
+        }
+      },
+      "mimic_header_forger": {
+        "truth": "agent",
+        "n": 15,
+        "seen": 15,
+        "label_correct": 15,
+        "alerted": 15,
+        "labels": {
+          "agent": 15
+        },
+        "actors": {
+          "goal_directed_agent": 15
+        },
+        "severities": {
+          "critical": 15
+        }
+      },
+      "mimic_vlm_os": {
+        "truth": "agent",
+        "n": 15,
+        "seen": 15,
+        "label_correct": 15,
+        "alerted": 15,
+        "labels": {
+          "agent": 15
+        },
+        "actors": {
+          "goal_directed_agent": 15
+        },
+        "severities": {
+          "critical": 15
+        }
+      },
+      "mimic_schema_sanitizer": {
+        "truth": "agent",
+        "n": 15,
+        "seen": 15,
+        "label_correct": 15,
+        "alerted": 15,
+        "labels": {
+          "agent": 15
+        },
+        "actors": {
+          "goal_directed_agent": 15
+        },
+        "severities": {
+          "critical": 15
+        }
+      },
+      "mimic_parasitic_rider": {
+        "truth": "agent",
+        "n": 15,
+        "seen": 15,
+        "label_correct": 15,
+        "alerted": 15,
+        "labels": {
+          "agent": 15
+        },
+        "actors": {
+          "goal_directed_agent": 15
+        },
+        "severities": {
+          "critical": 15
+        }
+      }
+    },
+    "legacy": {
+      "n": 100,
+      "label_ok": 100
+    }
+  }
+}

@@ -15,8 +15,10 @@ Fusion rule (noisy-or):  score = 1 - prod_i (1 - w_i * s_i)  over i in {anomaly,
 
 v4 addition - TWO-SIGNAL CORROBORATION GATE (``FusionCfg.corroboration_gate``): a candidate whose score passes the threshold is
 emitted only if it has (a) a floor from a strong single-event rule (R10 / R11), or (b) >= 2 independent signal families (statistical
-= Isolation Forest + sequence surprise counted once; rule gate; coordination graph), or (c) one deterministic family that is strong by
-itself (a rule of strength >= rule_solo_min (0.65), a cluster of density >= graph_solo_min).  This removes leads made only of statistical
+= Isolation Forest + sequence surprise counted once; rule gate; coordination graph), or (b') v6: >= 2 independent RULE families
+(tool_use / probing / timing / navigation / web_interaction / session_fork / honeypot; see ``layer2_rules.RULE_FAMILY``) whose
+strengths then combine by noisy-or, or (c) one deterministic family that is strong by itself (a rule of strength >= rule_solo_min
+(0.65), a cluster of density >= graph_solo_min).  This removes leads made only of statistical
 surprise or of a single low-weight rule; it costs recall wherever a true positive had no other family (reported by the evaluation).
 
 v3 additions (still leads only - severity stays "low"):
@@ -35,7 +37,7 @@ from typing import Any, Dict, List, Optional
 
 from .config import FusionCfg
 from .layer1_anomaly import AgentAnomaly, FeatureContribution
-from .layer2_rules import RuleFlag
+from .layer2_rules import RuleFlag, rule_families
 from .layer3_graph import Cluster
 from .sequence_model import SequenceResult
 
@@ -62,6 +64,7 @@ class Lead:
     families: List[str] = field(default_factory=list)       # v4: independent signal families that were present
     gate_reason: str = ""                                    # v4: why the corroboration gate let this lead through
     harness: Optional[Dict[str, str]] = None                 # v5: descriptive harness label from the collector {archetype, confidence}; never scored
+    rule_families: List[str] = field(default_factory=list)   # v6: independent RULE families present (tool_use / probing / timing / navigation ...)
     severity: str = SEVERITY
     recommended_action: str = RECOMMENDED_ACTION
     automatic_action: str = AUTOMATIC_ACTION
@@ -88,6 +91,7 @@ class Lead:
             } for f in self.rule_flags],
             "cluster": self.cluster, "sequence": self.sequence, "actor_class": self.actor_class,
             "floor_applied": self.floor_applied, "families": self.families, "gate_reason": self.gate_reason, "harness": self.harness,
+            "rule_families": self.rule_families,
             "disclaimer": self.disclaimer,
         }
 
@@ -97,17 +101,19 @@ def classify_actor(flags: List[RuleFlag]) -> str:
     by = {f.rule_id: f for f in flags}
     r10 = by.get("R10")
     r11 = by.get("R11")
-    if not (r10 or r11 or "R8" in by or "R9" in by):
+    if not (r10 or r11 or "R8" in by or "R9" in by or "R14" in by):
         return "unclassified"
     if "R6" in by or "R7" in by:
         return "goal_directed"
     if r11 is not None and r11.extra.get("tier") == "strong":
-        return "goal_directed"                  # webdriver/automation property or ARIA fast-path hit on a browser-backed client
+        return "goal_directed"                  # webdriver/automation property, forged beacon, VLM/DOM-order click, ARIA fast-path hit
     if r10 is not None and r10.extra.get("tier") == "strong":
         return "goal_directed"
     if "R8" in by and "R9" in by:
         return "goal_directed"                  # no asset loads AND guessed URLs: two independent facts, same client
-    if "R8" in by or "R9" in by or r11 is not None:
+    if "R14" in by and ("R9" in by or "R11" in by or "R13" in by):
+        return "goal_directed"                  # v6: a forked background sub-tree PLUS an independent web fact in the same session
+    if "R8" in by or "R9" in by or r11 is not None or "R14" in by:
         return "possible_mimic"
     return "accidental_scraper"                 # R10 weak tier only: one hidden-link / decoy contact, nothing adaptive
 
@@ -123,7 +129,34 @@ def _families(cfg: FusionCfg, s_a: float, fl: List[RuleFlag], cl: Optional[Clust
     return out
 
 
-def gate_decision(cfg: FusionCfg, families: List[str], s_r: float, cl: Optional[Cluster], floor: Optional[float]) -> str:
+def flag_families(fl: List[RuleFlag]) -> List[str]:
+    """v6: the distinct rule families among an agent's flags (sorted)."""
+    return sorted({x for f in fl for x in rule_families(f)})
+
+
+def rules_strength(cfg: FusionCfg, fl: List[RuleFlag]) -> float:
+    """Rule component of the fusion.  v3/v4: the strongest flag.  v6 (gate on + ``rule_family_corroboration``): with >= 2 independent
+    rule families, the per-family maxima combine by noisy-or (capped at ``rule_family_cap``) - two different facts corroborate; several
+    rules of ONE family still count as their strongest member."""
+    if not fl:
+        return 0.0
+    best = max(f.strength for f in fl)
+    if not (cfg.corroboration_gate and cfg.rule_family_corroboration):
+        return best
+    per: Dict[str, float] = {}
+    for f in fl:
+        for fam in rule_families(f):
+            per[fam] = max(per.get(fam, 0.0), f.strength)
+    if len(per) < 2:
+        return best
+    p = 1.0
+    for v in per.values():
+        p *= 1.0 - v
+    return round(max(best, min(cfg.rule_family_cap, 1.0 - p)), 4)
+
+
+def gate_decision(cfg: FusionCfg, families: List[str], s_r: float, cl: Optional[Cluster], floor: Optional[float],
+                  rule_fams: Optional[List[str]] = None) -> str:
     """Return the reason a lead may be emitted, or ``""`` if the corroboration gate blocks it."""
     if not cfg.corroboration_gate:
         return "gate_off"
@@ -131,6 +164,8 @@ def gate_decision(cfg: FusionCfg, families: List[str], s_r: float, cl: Optional[
         return "floor"
     if len(families) >= 2:
         return "families:" + "+".join(families)
+    if cfg.rule_family_corroboration and families == ["rules"] and rule_fams and len(rule_fams) >= 2:
+        return "rule_families:" + "+".join(rule_fams)
     if families == ["rules"] and s_r >= cfg.rule_solo_min:
         return "solo_rule"
     if families == ["graph"] and cl is not None and cl.density >= cfg.graph_solo_min:
@@ -165,7 +200,8 @@ def fuse(cfg: FusionCfg, anomalies: Dict[str, AgentAnomaly], flags: List[RuleFla
         an = anomalies.get(a)
         s_a = an.score if an else 0.0
         fl = by_rule.get(a, [])
-        s_r = max((f.strength for f in fl), default=0.0)
+        s_r = rules_strength(cfg, fl)
+        rfams = flag_families(fl)
         cl = cluster_of.get(a)
         s_g = cl.density if cl else 0.0
         sq = gated.get(a)
@@ -178,13 +214,13 @@ def fuse(cfg: FusionCfg, anomalies: Dict[str, AgentAnomaly], flags: List[RuleFla
         if score < cfg.lead_threshold or (not fl and cl is None and sq is None):
             continue
         fams = _families(cfg, s_a, fl, cl, sq)
-        why = gate_decision(cfg, fams, s_r, cl, floor)
+        why = gate_decision(cfg, fams, s_r, cl, floor, rfams)
         if not why:
             if gated_out is not None:
                 gated_out.append({"agent": a, "score": round(score, 4), "families": fams, "floor": floor,
                                   "components": {"isolation_forest": round(s_a, 4), "rules": round(s_r, 4), "graph_density": round(s_g, 4),
                                                  "sequence": round(s_q, 4)}, "rules": sorted(f.rule_id for f in fl),
-                                  "edge_kinds": list(cl.kinds) if cl else []})
+                                  "edge_kinds": list(cl.kinds) if cl else [], "rule_families": rfams})
             continue
         band = "review_first" if score >= cfg.band_review_first else "review"
         leads.append(Lead(
@@ -193,13 +229,15 @@ def fuse(cfg: FusionCfg, anomalies: Dict[str, AgentAnomaly], flags: List[RuleFla
                         "sequence": round(s_q, 4)},
             anomaly_explanations=[c.text for c in (an.contributions if an else [])],
             rule_flags=fl, actor_class=classify_actor(fl), floor_applied=floor, families=fams, gate_reason=why, harness=(harness or {}).get(a),
+            rule_families=rfams,
             cluster=None if cl is None else {
                 "members": cl.members, "density": cl.density, "mean_weight": cl.mean_weight,
                 "evidence_event_ids": cl.evidence_event_ids, "edge_kinds": cl.kinds, "reasons": cl.reasons,
                 "atlas": cl.atlas,
                 "edges": [{"a": e.a, "b": e.b, "kind": e.kind, "timing_neg_log10_p": round(e.timing_nlp, 2),
                            "shared_windows": e.shared_windows, "content_cosine": round(e.content_cosine, 3),
-                           "state_tokens": e.state_tokens, "weight": e.weight} for e in cl.edges]},
+                           "state_tokens": e.state_tokens, "weight": e.weight, **({"detail": dict(e.detail)} if e.detail else {})}
+                          for e in cl.edges]},
             sequence=None if sq is None else {
                 "score": round(sq.score, 4), "worst_window_bits": round(sq.worst_window_bits, 3),
                 "mean_bits": round(sq.mean_bits, 3), "n_transitions": sq.n_transitions, "explanation": sq.text,

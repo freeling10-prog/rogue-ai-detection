@@ -1,0 +1,2031 @@
+{
+ "disclaimer": "SYNTHETIC DATA, same author as the detectors. Regression check, not a benchmark.",
+ "seeds": [
+  0,
+  1,
+  2,
+  3,
+  4
+ ],
+ "web": {
+  "per_group": {
+   "v5": {
+    "_benign": {
+     "n": 575,
+     "lead": 39
+    },
+    "_positive": {
+     "n": 260,
+     "lead": 153
+    },
+    "accidental_scraper": {
+     "n": 15,
+     "lead": 15
+    },
+    "background_benign": {
+     "n": 380,
+     "lead": 14
+    },
+    "commodity_scanner": {
+     "n": 40,
+     "lead": 0
+    },
+    "decoy_explorer": {
+     "n": 10,
+     "lead": 10
+    },
+    "human_accessibility": {
+     "n": 15,
+     "lead": 0
+    },
+    "human_beacon_blocked": {
+     "n": 15,
+     "lead": 15
+    },
+    "human_flaky_network": {
+     "n": 15,
+     "lead": 0
+    },
+    "human_images_blocked": {
+     "n": 20,
+     "lead": 0
+    },
+    "human_js_off": {
+     "n": 15,
+     "lead": 0
+    },
+    "human_kb_reader": {
+     "n": 30,
+     "lead": 0
+    },
+    "human_no_assets_nosec": {
+     "n": 10,
+     "lead": 10
+    },
+    "human_two_tabs": {
+     "n": 15,
+     "lead": 0
+    },
+    "llmjacking_prober": {
+     "n": 10,
+     "lead": 0
+    },
+    "mcp_agent": {
+     "n": 10,
+     "lead": 10
+    },
+    "mimic_aria": {
+     "n": 15,
+     "lead": 15
+    },
+    "mimic_assets": {
+     "n": 15,
+     "lead": 15
+    },
+    "mimic_basic": {
+     "n": 15,
+     "lead": 15
+    },
+    "mimic_browser_stealth": {
+     "n": 15,
+     "lead": 0
+    },
+    "mimic_browser_webdriver": {
+     "n": 15,
+     "lead": 15
+    },
+    "mimic_header_forger": {
+     "n": 15,
+     "lead": 0
+    },
+    "mimic_linked": {
+     "n": 15,
+     "lead": 15
+    },
+    "mimic_linked_nosec": {
+     "n": 15,
+     "lead": 15
+    },
+    "mimic_parasitic_rider": {
+     "n": 15,
+     "lead": 6
+    },
+    "mimic_schema": {
+     "n": 15,
+     "lead": 15
+    },
+    "mimic_schema_sanitizer": {
+     "n": 15,
+     "lead": 0
+    },
+    "mimic_vlm_os": {
+     "n": 15,
+     "lead": 0
+    },
+    "scanner_ua_spoof": {
+     "n": 5,
+     "lead": 5
+    },
+    "slow_legit_crawler": {
+     "n": 15,
+     "lead": 0
+    },
+    "swarm_disjoint_partition": {
+     "n": 15,
+     "lead": 0
+    },
+    "swarm_schelling_overlap": {
+     "n": 30,
+     "lead": 17
+    },
+    "web_human": {
+     "n": 25,
+     "lead": 0
+    },
+    "web_human_no_assets": {
+     "n": 20,
+     "lead": 0
+    }
+   },
+   "v5_no_gate": {
+    "_benign": {
+     "n": 575,
+     "lead": 39
+    },
+    "_positive": {
+     "n": 260,
+     "lead": 153
+    },
+    "accidental_scraper": {
+     "n": 15,
+     "lead": 15
+    },
+    "background_benign": {
+     "n": 380,
+     "lead": 14
+    },
+    "commodity_scanner": {
+     "n": 40,
+     "lead": 0
+    },
+    "decoy_explorer": {
+     "n": 10,
+     "lead": 10
+    },
+    "human_accessibility": {
+     "n": 15,
+     "lead": 0
+    },
+    "human_beacon_blocked": {
+     "n": 15,
+     "lead": 15
+    },
+    "human_flaky_network": {
+     "n": 15,
+     "lead": 0
+    },
+    "human_images_blocked": {
+     "n": 20,
+     "lead": 0
+    },
+    "human_js_off": {
+     "n": 15,
+     "lead": 0
+    },
+    "human_kb_reader": {
+     "n": 30,
+     "lead": 0
+    },
+    "human_no_assets_nosec": {
+     "n": 10,
+     "lead": 10
+    },
+    "human_two_tabs": {
+     "n": 15,
+     "lead": 0
+    },
+    "llmjacking_prober": {
+     "n": 10,
+     "lead": 0
+    },
+    "mcp_agent": {
+     "n": 10,
+     "lead": 10
+    },
+    "mimic_aria": {
+     "n": 15,
+     "lead": 15
+    },
+    "mimic_assets": {
+     "n": 15,
+     "lead": 15
+    },
+    "mimic_basic": {
+     "n": 15,
+     "lead": 15
+    },
+    "mimic_browser_stealth": {
+     "n": 15,
+     "lead": 0
+    },
+    "mimic_browser_webdriver": {
+     "n": 15,
+     "lead": 15
+    },
+    "mimic_header_forger": {
+     "n": 15,
+     "lead": 0
+    },
+    "mimic_linked": {
+     "n": 15,
+     "lead": 15
+    },
+    "mimic_linked_nosec": {
+     "n": 15,
+     "lead": 15
+    },
+    "mimic_parasitic_rider": {
+     "n": 15,
+     "lead": 6
+    },
+    "mimic_schema": {
+     "n": 15,
+     "lead": 15
+    },
+    "mimic_schema_sanitizer": {
+     "n": 15,
+     "lead": 0
+    },
+    "mimic_vlm_os": {
+     "n": 15,
+     "lead": 0
+    },
+    "scanner_ua_spoof": {
+     "n": 5,
+     "lead": 5
+    },
+    "slow_legit_crawler": {
+     "n": 15,
+     "lead": 0
+    },
+    "swarm_disjoint_partition": {
+     "n": 15,
+     "lead": 0
+    },
+    "swarm_schelling_overlap": {
+     "n": 30,
+     "lead": 17
+    },
+    "web_human": {
+     "n": 25,
+     "lead": 0
+    },
+    "web_human_no_assets": {
+     "n": 20,
+     "lead": 0
+    }
+   },
+   "v6": {
+    "_benign": {
+     "n": 575,
+     "lead": 14
+    },
+    "_positive": {
+     "n": 260,
+     "lead": 192
+    },
+    "accidental_scraper": {
+     "n": 15,
+     "lead": 15
+    },
+    "background_benign": {
+     "n": 380,
+     "lead": 14
+    },
+    "commodity_scanner": {
+     "n": 40,
+     "lead": 0
+    },
+    "decoy_explorer": {
+     "n": 10,
+     "lead": 10
+    },
+    "human_accessibility": {
+     "n": 15,
+     "lead": 0
+    },
+    "human_beacon_blocked": {
+     "n": 15,
+     "lead": 0
+    },
+    "human_flaky_network": {
+     "n": 15,
+     "lead": 0
+    },
+    "human_images_blocked": {
+     "n": 20,
+     "lead": 0
+    },
+    "human_js_off": {
+     "n": 15,
+     "lead": 0
+    },
+    "human_kb_reader": {
+     "n": 30,
+     "lead": 0
+    },
+    "human_no_assets_nosec": {
+     "n": 10,
+     "lead": 0
+    },
+    "human_two_tabs": {
+     "n": 15,
+     "lead": 0
+    },
+    "llmjacking_prober": {
+     "n": 10,
+     "lead": 10
+    },
+    "mcp_agent": {
+     "n": 10,
+     "lead": 10
+    },
+    "mimic_aria": {
+     "n": 15,
+     "lead": 15
+    },
+    "mimic_assets": {
+     "n": 15,
+     "lead": 0
+    },
+    "mimic_basic": {
+     "n": 15,
+     "lead": 15
+    },
+    "mimic_browser_stealth": {
+     "n": 15,
+     "lead": 10
+    },
+    "mimic_browser_webdriver": {
+     "n": 15,
+     "lead": 15
+    },
+    "mimic_header_forger": {
+     "n": 15,
+     "lead": 10
+    },
+    "mimic_linked": {
+     "n": 15,
+     "lead": 15
+    },
+    "mimic_linked_nosec": {
+     "n": 15,
+     "lead": 0
+    },
+    "mimic_parasitic_rider": {
+     "n": 15,
+     "lead": 11
+    },
+    "mimic_schema": {
+     "n": 15,
+     "lead": 15
+    },
+    "mimic_schema_sanitizer": {
+     "n": 15,
+     "lead": 5
+    },
+    "mimic_vlm_os": {
+     "n": 15,
+     "lead": 11
+    },
+    "scanner_ua_spoof": {
+     "n": 5,
+     "lead": 5
+    },
+    "slow_legit_crawler": {
+     "n": 15,
+     "lead": 0
+    },
+    "swarm_disjoint_partition": {
+     "n": 15,
+     "lead": 15
+    },
+    "swarm_schelling_overlap": {
+     "n": 30,
+     "lead": 20
+    },
+    "web_human": {
+     "n": 25,
+     "lead": 0
+    },
+    "web_human_no_assets": {
+     "n": 20,
+     "lead": 0
+    }
+   },
+   "v6_no_gate": {
+    "_benign": {
+     "n": 575,
+     "lead": 14
+    },
+    "_positive": {
+     "n": 260,
+     "lead": 200
+    },
+    "accidental_scraper": {
+     "n": 15,
+     "lead": 15
+    },
+    "background_benign": {
+     "n": 380,
+     "lead": 14
+    },
+    "commodity_scanner": {
+     "n": 40,
+     "lead": 0
+    },
+    "decoy_explorer": {
+     "n": 10,
+     "lead": 10
+    },
+    "human_accessibility": {
+     "n": 15,
+     "lead": 0
+    },
+    "human_beacon_blocked": {
+     "n": 15,
+     "lead": 0
+    },
+    "human_flaky_network": {
+     "n": 15,
+     "lead": 0
+    },
+    "human_images_blocked": {
+     "n": 20,
+     "lead": 0
+    },
+    "human_js_off": {
+     "n": 15,
+     "lead": 0
+    },
+    "human_kb_reader": {
+     "n": 30,
+     "lead": 0
+    },
+    "human_no_assets_nosec": {
+     "n": 10,
+     "lead": 0
+    },
+    "human_two_tabs": {
+     "n": 15,
+     "lead": 0
+    },
+    "llmjacking_prober": {
+     "n": 10,
+     "lead": 10
+    },
+    "mcp_agent": {
+     "n": 10,
+     "lead": 10
+    },
+    "mimic_aria": {
+     "n": 15,
+     "lead": 15
+    },
+    "mimic_assets": {
+     "n": 15,
+     "lead": 0
+    },
+    "mimic_basic": {
+     "n": 15,
+     "lead": 15
+    },
+    "mimic_browser_stealth": {
+     "n": 15,
+     "lead": 10
+    },
+    "mimic_browser_webdriver": {
+     "n": 15,
+     "lead": 15
+    },
+    "mimic_header_forger": {
+     "n": 15,
+     "lead": 10
+    },
+    "mimic_linked": {
+     "n": 15,
+     "lead": 15
+    },
+    "mimic_linked_nosec": {
+     "n": 15,
+     "lead": 0
+    },
+    "mimic_parasitic_rider": {
+     "n": 15,
+     "lead": 11
+    },
+    "mimic_schema": {
+     "n": 15,
+     "lead": 15
+    },
+    "mimic_schema_sanitizer": {
+     "n": 15,
+     "lead": 5
+    },
+    "mimic_vlm_os": {
+     "n": 15,
+     "lead": 11
+    },
+    "scanner_ua_spoof": {
+     "n": 5,
+     "lead": 5
+    },
+    "slow_legit_crawler": {
+     "n": 15,
+     "lead": 0
+    },
+    "swarm_disjoint_partition": {
+     "n": 15,
+     "lead": 15
+    },
+    "swarm_schelling_overlap": {
+     "n": 30,
+     "lead": 28
+    },
+    "web_human": {
+     "n": 25,
+     "lead": 0
+    },
+    "web_human_no_assets": {
+     "n": 20,
+     "lead": 0
+    }
+   },
+   "v6_strict_gate": {
+    "_benign": {
+     "n": 575,
+     "lead": 6
+    },
+    "_positive": {
+     "n": 260,
+     "lead": 146
+    },
+    "accidental_scraper": {
+     "n": 15,
+     "lead": 15
+    },
+    "background_benign": {
+     "n": 380,
+     "lead": 6
+    },
+    "commodity_scanner": {
+     "n": 40,
+     "lead": 0
+    },
+    "decoy_explorer": {
+     "n": 10,
+     "lead": 10
+    },
+    "human_accessibility": {
+     "n": 15,
+     "lead": 0
+    },
+    "human_beacon_blocked": {
+     "n": 15,
+     "lead": 0
+    },
+    "human_flaky_network": {
+     "n": 15,
+     "lead": 0
+    },
+    "human_images_blocked": {
+     "n": 20,
+     "lead": 0
+    },
+    "human_js_off": {
+     "n": 15,
+     "lead": 0
+    },
+    "human_kb_reader": {
+     "n": 30,
+     "lead": 0
+    },
+    "human_no_assets_nosec": {
+     "n": 10,
+     "lead": 0
+    },
+    "human_two_tabs": {
+     "n": 15,
+     "lead": 0
+    },
+    "llmjacking_prober": {
+     "n": 10,
+     "lead": 10
+    },
+    "mcp_agent": {
+     "n": 10,
+     "lead": 10
+    },
+    "mimic_aria": {
+     "n": 15,
+     "lead": 15
+    },
+    "mimic_assets": {
+     "n": 15,
+     "lead": 0
+    },
+    "mimic_basic": {
+     "n": 15,
+     "lead": 0
+    },
+    "mimic_browser_stealth": {
+     "n": 15,
+     "lead": 10
+    },
+    "mimic_browser_webdriver": {
+     "n": 15,
+     "lead": 15
+    },
+    "mimic_header_forger": {
+     "n": 15,
+     "lead": 10
+    },
+    "mimic_linked": {
+     "n": 15,
+     "lead": 0
+    },
+    "mimic_linked_nosec": {
+     "n": 15,
+     "lead": 0
+    },
+    "mimic_parasitic_rider": {
+     "n": 15,
+     "lead": 10
+    },
+    "mimic_schema": {
+     "n": 15,
+     "lead": 15
+    },
+    "mimic_schema_sanitizer": {
+     "n": 15,
+     "lead": 5
+    },
+    "mimic_vlm_os": {
+     "n": 15,
+     "lead": 11
+    },
+    "scanner_ua_spoof": {
+     "n": 5,
+     "lead": 5
+    },
+    "slow_legit_crawler": {
+     "n": 15,
+     "lead": 0
+    },
+    "swarm_disjoint_partition": {
+     "n": 15,
+     "lead": 0
+    },
+    "swarm_schelling_overlap": {
+     "n": 30,
+     "lead": 20
+    },
+    "web_human": {
+     "n": 25,
+     "lead": 0
+    },
+    "web_human_no_assets": {
+     "n": 20,
+     "lead": 0
+    }
+   }
+  },
+  "kinds": {
+   "background_benign": "benign",
+   "web_human": "benign",
+   "web_human_no_assets": "benign",
+   "commodity_scanner": "scanner",
+   "accidental_scraper": "accidental",
+   "mimic_basic": "positive",
+   "mimic_linked": "positive",
+   "mimic_assets": "positive",
+   "mimic_schema": "positive",
+   "mcp_agent": "positive",
+   "decoy_explorer": "positive",
+   "scanner_ua_spoof": "positive",
+   "human_images_blocked": "benign",
+   "human_js_off": "benign",
+   "human_beacon_blocked": "benign",
+   "human_no_assets_nosec": "benign",
+   "mimic_linked_nosec": "positive",
+   "mimic_browser_webdriver": "positive",
+   "mimic_browser_stealth": "positive",
+   "mimic_aria": "positive",
+   "mimic_header_forger": "positive",
+   "human_kb_reader": "benign",
+   "human_accessibility": "benign",
+   "human_flaky_network": "benign",
+   "slow_legit_crawler": "benign",
+   "human_two_tabs": "benign",
+   "mimic_vlm_os": "positive",
+   "mimic_schema_sanitizer": "positive",
+   "mimic_parasitic_rider": "positive",
+   "swarm_schelling_overlap": "positive",
+   "swarm_disjoint_partition": "positive",
+   "llmjacking_prober": "positive"
+  },
+  "benign_attribution_v6_gate_off": {
+   "background_benign | rule:R1(+1) | lead": 4,
+   "background_benign | rule:R2 | lead": 1,
+   "background_benign | rule:R3 | lead": 9
+  },
+  "positives_blocked_by_v6_gate": {
+   "swarm_schelling_overlap | graph:epistemic_discovery_inheritance": 8
+  },
+  "quarantined_total": 0
+ },
+ "core": {
+  "levels": {
+   "0.0": {
+    "per_group": {
+     "v5": {
+      "_benign": {
+       "n": 605,
+       "lead": 21
+      },
+      "_positive": {
+       "n": 295,
+       "lead": 233
+      },
+      "access_prober": {
+       "n": 20,
+       "lead": 18
+      },
+      "assistant": {
+       "n": 300,
+       "lead": 0
+      },
+      "broadcaster": {
+       "n": 15,
+       "lead": 0
+      },
+      "cmdp_padded_prober": {
+       "n": 20,
+       "lead": 0
+      },
+      "collusion_ring": {
+       "n": 40,
+       "lead": 40
+      },
+      "compliance_scanner": {
+       "n": 10,
+       "lead": 0
+      },
+      "crawler": {
+       "n": 20,
+       "lead": 0
+      },
+      "cron_declared": {
+       "n": 25,
+       "lead": 0
+      },
+      "cron_undeclared": {
+       "n": 20,
+       "lead": 0
+      },
+      "exfil": {
+       "n": 20,
+       "lead": 20
+      },
+      "hp_handoff": {
+       "n": 30,
+       "lead": 30
+      },
+      "hp_nolink": {
+       "n": 30,
+       "lead": 30
+      },
+      "hp_single": {
+       "n": 10,
+       "lead": 10
+      },
+      "noisy_denied": {
+       "n": 10,
+       "lead": 0
+      },
+      "orchestrator_pool": {
+       "n": 60,
+       "lead": 0
+      },
+      "pagination_client": {
+       "n": 20,
+       "lead": 0
+      },
+      "partner_integration": {
+       "n": 10,
+       "lead": 9
+      },
+      "partner_ipallow": {
+       "n": 10,
+       "lead": 0
+      },
+      "partner_spoof": {
+       "n": 15,
+       "lead": 15
+      },
+      "partner_verified": {
+       "n": 15,
+       "lead": 0
+      },
+      "permission_drift": {
+       "n": 15,
+       "lead": 0
+      },
+      "proxy_rotation": {
+       "n": 50,
+       "lead": 50
+      },
+      "redacted_reuse": {
+       "n": 20,
+       "lead": 20
+      },
+      "redaction_user": {
+       "n": 40,
+       "lead": 7
+      },
+      "routine_tool_hijack": {
+       "n": 20,
+       "lead": 0
+      },
+      "seq_mimic": {
+       "n": 20,
+       "lead": 0
+      },
+      "sharded_pool": {
+       "n": 25,
+       "lead": 0
+      },
+      "tool_adopter": {
+       "n": 10,
+       "lead": 5
+      }
+     },
+     "v5_no_gate": {
+      "_benign": {
+       "n": 605,
+       "lead": 34
+      },
+      "_positive": {
+       "n": 295,
+       "lead": 241
+      },
+      "access_prober": {
+       "n": 20,
+       "lead": 20
+      },
+      "assistant": {
+       "n": 300,
+       "lead": 0
+      },
+      "broadcaster": {
+       "n": 15,
+       "lead": 0
+      },
+      "cmdp_padded_prober": {
+       "n": 20,
+       "lead": 6
+      },
+      "collusion_ring": {
+       "n": 40,
+       "lead": 40
+      },
+      "compliance_scanner": {
+       "n": 10,
+       "lead": 7
+      },
+      "crawler": {
+       "n": 20,
+       "lead": 0
+      },
+      "cron_declared": {
+       "n": 25,
+       "lead": 0
+      },
+      "cron_undeclared": {
+       "n": 20,
+       "lead": 0
+      },
+      "exfil": {
+       "n": 20,
+       "lead": 20
+      },
+      "hp_handoff": {
+       "n": 30,
+       "lead": 30
+      },
+      "hp_nolink": {
+       "n": 30,
+       "lead": 30
+      },
+      "hp_single": {
+       "n": 10,
+       "lead": 10
+      },
+      "noisy_denied": {
+       "n": 10,
+       "lead": 4
+      },
+      "orchestrator_pool": {
+       "n": 60,
+       "lead": 0
+      },
+      "pagination_client": {
+       "n": 20,
+       "lead": 0
+      },
+      "partner_integration": {
+       "n": 10,
+       "lead": 9
+      },
+      "partner_ipallow": {
+       "n": 10,
+       "lead": 0
+      },
+      "partner_spoof": {
+       "n": 15,
+       "lead": 15
+      },
+      "partner_verified": {
+       "n": 15,
+       "lead": 0
+      },
+      "permission_drift": {
+       "n": 15,
+       "lead": 2
+      },
+      "proxy_rotation": {
+       "n": 50,
+       "lead": 50
+      },
+      "redacted_reuse": {
+       "n": 20,
+       "lead": 20
+      },
+      "redaction_user": {
+       "n": 40,
+       "lead": 7
+      },
+      "routine_tool_hijack": {
+       "n": 20,
+       "lead": 0
+      },
+      "seq_mimic": {
+       "n": 20,
+       "lead": 0
+      },
+      "sharded_pool": {
+       "n": 25,
+       "lead": 0
+      },
+      "tool_adopter": {
+       "n": 10,
+       "lead": 5
+      }
+     },
+     "v6": {
+      "_benign": {
+       "n": 605,
+       "lead": 21
+      },
+      "_positive": {
+       "n": 295,
+       "lead": 252
+      },
+      "access_prober": {
+       "n": 20,
+       "lead": 20
+      },
+      "assistant": {
+       "n": 300,
+       "lead": 0
+      },
+      "broadcaster": {
+       "n": 15,
+       "lead": 0
+      },
+      "cmdp_padded_prober": {
+       "n": 20,
+       "lead": 10
+      },
+      "collusion_ring": {
+       "n": 40,
+       "lead": 40
+      },
+      "compliance_scanner": {
+       "n": 10,
+       "lead": 0
+      },
+      "crawler": {
+       "n": 20,
+       "lead": 0
+      },
+      "cron_declared": {
+       "n": 25,
+       "lead": 0
+      },
+      "cron_undeclared": {
+       "n": 20,
+       "lead": 0
+      },
+      "exfil": {
+       "n": 20,
+       "lead": 20
+      },
+      "hp_handoff": {
+       "n": 30,
+       "lead": 30
+      },
+      "hp_nolink": {
+       "n": 30,
+       "lead": 30
+      },
+      "hp_single": {
+       "n": 10,
+       "lead": 10
+      },
+      "noisy_denied": {
+       "n": 10,
+       "lead": 0
+      },
+      "orchestrator_pool": {
+       "n": 60,
+       "lead": 0
+      },
+      "pagination_client": {
+       "n": 20,
+       "lead": 0
+      },
+      "partner_integration": {
+       "n": 10,
+       "lead": 9
+      },
+      "partner_ipallow": {
+       "n": 10,
+       "lead": 0
+      },
+      "partner_spoof": {
+       "n": 15,
+       "lead": 15
+      },
+      "partner_verified": {
+       "n": 15,
+       "lead": 0
+      },
+      "permission_drift": {
+       "n": 15,
+       "lead": 0
+      },
+      "proxy_rotation": {
+       "n": 50,
+       "lead": 50
+      },
+      "redacted_reuse": {
+       "n": 20,
+       "lead": 20
+      },
+      "redaction_user": {
+       "n": 40,
+       "lead": 7
+      },
+      "routine_tool_hijack": {
+       "n": 20,
+       "lead": 7
+      },
+      "seq_mimic": {
+       "n": 20,
+       "lead": 0
+      },
+      "sharded_pool": {
+       "n": 25,
+       "lead": 0
+      },
+      "tool_adopter": {
+       "n": 10,
+       "lead": 5
+      }
+     },
+     "v6_no_gate": {
+      "_benign": {
+       "n": 605,
+       "lead": 27
+      },
+      "_positive": {
+       "n": 295,
+       "lead": 263
+      },
+      "access_prober": {
+       "n": 20,
+       "lead": 20
+      },
+      "assistant": {
+       "n": 300,
+       "lead": 0
+      },
+      "broadcaster": {
+       "n": 15,
+       "lead": 0
+      },
+      "cmdp_padded_prober": {
+       "n": 20,
+       "lead": 10
+      },
+      "collusion_ring": {
+       "n": 40,
+       "lead": 40
+      },
+      "compliance_scanner": {
+       "n": 10,
+       "lead": 6
+      },
+      "crawler": {
+       "n": 20,
+       "lead": 0
+      },
+      "cron_declared": {
+       "n": 25,
+       "lead": 0
+      },
+      "cron_undeclared": {
+       "n": 20,
+       "lead": 0
+      },
+      "exfil": {
+       "n": 20,
+       "lead": 20
+      },
+      "hp_handoff": {
+       "n": 30,
+       "lead": 30
+      },
+      "hp_nolink": {
+       "n": 30,
+       "lead": 30
+      },
+      "hp_single": {
+       "n": 10,
+       "lead": 10
+      },
+      "noisy_denied": {
+       "n": 10,
+       "lead": 0
+      },
+      "orchestrator_pool": {
+       "n": 60,
+       "lead": 0
+      },
+      "pagination_client": {
+       "n": 20,
+       "lead": 0
+      },
+      "partner_integration": {
+       "n": 10,
+       "lead": 9
+      },
+      "partner_ipallow": {
+       "n": 10,
+       "lead": 0
+      },
+      "partner_spoof": {
+       "n": 15,
+       "lead": 15
+      },
+      "partner_verified": {
+       "n": 15,
+       "lead": 0
+      },
+      "permission_drift": {
+       "n": 15,
+       "lead": 0
+      },
+      "proxy_rotation": {
+       "n": 50,
+       "lead": 50
+      },
+      "redacted_reuse": {
+       "n": 20,
+       "lead": 20
+      },
+      "redaction_user": {
+       "n": 40,
+       "lead": 7
+      },
+      "routine_tool_hijack": {
+       "n": 20,
+       "lead": 18
+      },
+      "seq_mimic": {
+       "n": 20,
+       "lead": 0
+      },
+      "sharded_pool": {
+       "n": 25,
+       "lead": 0
+      },
+      "tool_adopter": {
+       "n": 10,
+       "lead": 5
+      }
+     },
+     "v6_strict_gate": {
+      "_benign": {
+       "n": 605,
+       "lead": 11
+      },
+      "_positive": {
+       "n": 295,
+       "lead": 132
+      },
+      "access_prober": {
+       "n": 20,
+       "lead": 20
+      },
+      "assistant": {
+       "n": 300,
+       "lead": 0
+      },
+      "broadcaster": {
+       "n": 15,
+       "lead": 0
+      },
+      "cmdp_padded_prober": {
+       "n": 20,
+       "lead": 10
+      },
+      "collusion_ring": {
+       "n": 40,
+       "lead": 0
+      },
+      "compliance_scanner": {
+       "n": 10,
+       "lead": 0
+      },
+      "crawler": {
+       "n": 20,
+       "lead": 0
+      },
+      "cron_declared": {
+       "n": 25,
+       "lead": 0
+      },
+      "cron_undeclared": {
+       "n": 20,
+       "lead": 0
+      },
+      "exfil": {
+       "n": 20,
+       "lead": 15
+      },
+      "hp_handoff": {
+       "n": 30,
+       "lead": 30
+      },
+      "hp_nolink": {
+       "n": 30,
+       "lead": 0
+      },
+      "hp_single": {
+       "n": 10,
+       "lead": 0
+      },
+      "noisy_denied": {
+       "n": 10,
+       "lead": 0
+      },
+      "orchestrator_pool": {
+       "n": 60,
+       "lead": 0
+      },
+      "pagination_client": {
+       "n": 20,
+       "lead": 0
+      },
+      "partner_integration": {
+       "n": 10,
+       "lead": 9
+      },
+      "partner_ipallow": {
+       "n": 10,
+       "lead": 0
+      },
+      "partner_spoof": {
+       "n": 15,
+       "lead": 5
+      },
+      "partner_verified": {
+       "n": 15,
+       "lead": 0
+      },
+      "permission_drift": {
+       "n": 15,
+       "lead": 0
+      },
+      "proxy_rotation": {
+       "n": 50,
+       "lead": 50
+      },
+      "redacted_reuse": {
+       "n": 20,
+       "lead": 0
+      },
+      "redaction_user": {
+       "n": 40,
+       "lead": 0
+      },
+      "routine_tool_hijack": {
+       "n": 20,
+       "lead": 2
+      },
+      "seq_mimic": {
+       "n": 20,
+       "lead": 0
+      },
+      "sharded_pool": {
+       "n": 25,
+       "lead": 0
+      },
+      "tool_adopter": {
+       "n": 10,
+       "lead": 2
+      }
+     }
+    },
+    "benign_attribution_v6_gate_off": {
+     "compliance_scanner | isolation_forest+sequence_model | BLOCKED by gate": 6,
+     "partner_integration | rule:R3 | lead": 8,
+     "partner_integration | rule:R3(+1) | lead": 1,
+     "redaction_user | graph:shared_redacted_token+timing_content | lead": 1,
+     "redaction_user | graph:timing_content | lead": 6,
+     "tool_adopter | rule:R1(+1) | lead": 3,
+     "tool_adopter | rule:R2 | lead": 2
+    },
+    "guardrail_ok": true,
+    "quarantined": 0
+   },
+   "1.0": {
+    "per_group": {
+     "v5": {
+      "_benign": {
+       "n": 605,
+       "lead": 23
+      },
+      "_positive": {
+       "n": 295,
+       "lead": 155
+      },
+      "access_prober": {
+       "n": 20,
+       "lead": 0
+      },
+      "assistant": {
+       "n": 300,
+       "lead": 0
+      },
+      "broadcaster": {
+       "n": 15,
+       "lead": 0
+      },
+      "cmdp_padded_prober": {
+       "n": 20,
+       "lead": 0
+      },
+      "collusion_ring": {
+       "n": 40,
+       "lead": 0
+      },
+      "compliance_scanner": {
+       "n": 10,
+       "lead": 0
+      },
+      "crawler": {
+       "n": 20,
+       "lead": 0
+      },
+      "cron_declared": {
+       "n": 25,
+       "lead": 0
+      },
+      "cron_undeclared": {
+       "n": 20,
+       "lead": 0
+      },
+      "exfil": {
+       "n": 20,
+       "lead": 0
+      },
+      "hp_handoff": {
+       "n": 30,
+       "lead": 30
+      },
+      "hp_nolink": {
+       "n": 30,
+       "lead": 30
+      },
+      "hp_single": {
+       "n": 10,
+       "lead": 10
+      },
+      "noisy_denied": {
+       "n": 10,
+       "lead": 0
+      },
+      "orchestrator_pool": {
+       "n": 60,
+       "lead": 0
+      },
+      "pagination_client": {
+       "n": 20,
+       "lead": 0
+      },
+      "partner_integration": {
+       "n": 10,
+       "lead": 9
+      },
+      "partner_ipallow": {
+       "n": 10,
+       "lead": 0
+      },
+      "partner_spoof": {
+       "n": 15,
+       "lead": 15
+      },
+      "partner_verified": {
+       "n": 15,
+       "lead": 0
+      },
+      "permission_drift": {
+       "n": 15,
+       "lead": 0
+      },
+      "proxy_rotation": {
+       "n": 50,
+       "lead": 50
+      },
+      "redacted_reuse": {
+       "n": 20,
+       "lead": 20
+      },
+      "redaction_user": {
+       "n": 40,
+       "lead": 9
+      },
+      "routine_tool_hijack": {
+       "n": 20,
+       "lead": 0
+      },
+      "seq_mimic": {
+       "n": 20,
+       "lead": 0
+      },
+      "sharded_pool": {
+       "n": 25,
+       "lead": 0
+      },
+      "tool_adopter": {
+       "n": 10,
+       "lead": 5
+      }
+     },
+     "v5_no_gate": {
+      "_benign": {
+       "n": 605,
+       "lead": 36
+      },
+      "_positive": {
+       "n": 295,
+       "lead": 175
+      },
+      "access_prober": {
+       "n": 20,
+       "lead": 5
+      },
+      "assistant": {
+       "n": 300,
+       "lead": 0
+      },
+      "broadcaster": {
+       "n": 15,
+       "lead": 0
+      },
+      "cmdp_padded_prober": {
+       "n": 20,
+       "lead": 0
+      },
+      "collusion_ring": {
+       "n": 40,
+       "lead": 0
+      },
+      "compliance_scanner": {
+       "n": 10,
+       "lead": 7
+      },
+      "crawler": {
+       "n": 20,
+       "lead": 0
+      },
+      "cron_declared": {
+       "n": 25,
+       "lead": 0
+      },
+      "cron_undeclared": {
+       "n": 20,
+       "lead": 0
+      },
+      "exfil": {
+       "n": 20,
+       "lead": 14
+      },
+      "hp_handoff": {
+       "n": 30,
+       "lead": 30
+      },
+      "hp_nolink": {
+       "n": 30,
+       "lead": 30
+      },
+      "hp_single": {
+       "n": 10,
+       "lead": 10
+      },
+      "noisy_denied": {
+       "n": 10,
+       "lead": 4
+      },
+      "orchestrator_pool": {
+       "n": 60,
+       "lead": 0
+      },
+      "pagination_client": {
+       "n": 20,
+       "lead": 0
+      },
+      "partner_integration": {
+       "n": 10,
+       "lead": 9
+      },
+      "partner_ipallow": {
+       "n": 10,
+       "lead": 0
+      },
+      "partner_spoof": {
+       "n": 15,
+       "lead": 15
+      },
+      "partner_verified": {
+       "n": 15,
+       "lead": 0
+      },
+      "permission_drift": {
+       "n": 15,
+       "lead": 2
+      },
+      "proxy_rotation": {
+       "n": 50,
+       "lead": 50
+      },
+      "redacted_reuse": {
+       "n": 20,
+       "lead": 20
+      },
+      "redaction_user": {
+       "n": 40,
+       "lead": 9
+      },
+      "routine_tool_hijack": {
+       "n": 20,
+       "lead": 0
+      },
+      "seq_mimic": {
+       "n": 20,
+       "lead": 1
+      },
+      "sharded_pool": {
+       "n": 25,
+       "lead": 0
+      },
+      "tool_adopter": {
+       "n": 10,
+       "lead": 5
+      }
+     },
+     "v6": {
+      "_benign": {
+       "n": 605,
+       "lead": 23
+      },
+      "_positive": {
+       "n": 295,
+       "lead": 167
+      },
+      "access_prober": {
+       "n": 20,
+       "lead": 12
+      },
+      "assistant": {
+       "n": 300,
+       "lead": 0
+      },
+      "broadcaster": {
+       "n": 15,
+       "lead": 0
+      },
+      "cmdp_padded_prober": {
+       "n": 20,
+       "lead": 0
+      },
+      "collusion_ring": {
+       "n": 40,
+       "lead": 0
+      },
+      "compliance_scanner": {
+       "n": 10,
+       "lead": 0
+      },
+      "crawler": {
+       "n": 20,
+       "lead": 0
+      },
+      "cron_declared": {
+       "n": 25,
+       "lead": 0
+      },
+      "cron_undeclared": {
+       "n": 20,
+       "lead": 0
+      },
+      "exfil": {
+       "n": 20,
+       "lead": 0
+      },
+      "hp_handoff": {
+       "n": 30,
+       "lead": 30
+      },
+      "hp_nolink": {
+       "n": 30,
+       "lead": 30
+      },
+      "hp_single": {
+       "n": 10,
+       "lead": 10
+      },
+      "noisy_denied": {
+       "n": 10,
+       "lead": 0
+      },
+      "orchestrator_pool": {
+       "n": 60,
+       "lead": 0
+      },
+      "pagination_client": {
+       "n": 20,
+       "lead": 0
+      },
+      "partner_integration": {
+       "n": 10,
+       "lead": 9
+      },
+      "partner_ipallow": {
+       "n": 10,
+       "lead": 0
+      },
+      "partner_spoof": {
+       "n": 15,
+       "lead": 15
+      },
+      "partner_verified": {
+       "n": 15,
+       "lead": 0
+      },
+      "permission_drift": {
+       "n": 15,
+       "lead": 0
+      },
+      "proxy_rotation": {
+       "n": 50,
+       "lead": 50
+      },
+      "redacted_reuse": {
+       "n": 20,
+       "lead": 20
+      },
+      "redaction_user": {
+       "n": 40,
+       "lead": 9
+      },
+      "routine_tool_hijack": {
+       "n": 20,
+       "lead": 0
+      },
+      "seq_mimic": {
+       "n": 20,
+       "lead": 0
+      },
+      "sharded_pool": {
+       "n": 25,
+       "lead": 0
+      },
+      "tool_adopter": {
+       "n": 10,
+       "lead": 5
+      }
+     },
+     "v6_no_gate": {
+      "_benign": {
+       "n": 605,
+       "lead": 29
+      },
+      "_positive": {
+       "n": 295,
+       "lead": 168
+      },
+      "access_prober": {
+       "n": 20,
+       "lead": 12
+      },
+      "assistant": {
+       "n": 300,
+       "lead": 0
+      },
+      "broadcaster": {
+       "n": 15,
+       "lead": 0
+      },
+      "cmdp_padded_prober": {
+       "n": 20,
+       "lead": 0
+      },
+      "collusion_ring": {
+       "n": 40,
+       "lead": 0
+      },
+      "compliance_scanner": {
+       "n": 10,
+       "lead": 6
+      },
+      "crawler": {
+       "n": 20,
+       "lead": 0
+      },
+      "cron_declared": {
+       "n": 25,
+       "lead": 0
+      },
+      "cron_undeclared": {
+       "n": 20,
+       "lead": 0
+      },
+      "exfil": {
+       "n": 20,
+       "lead": 1
+      },
+      "hp_handoff": {
+       "n": 30,
+       "lead": 30
+      },
+      "hp_nolink": {
+       "n": 30,
+       "lead": 30
+      },
+      "hp_single": {
+       "n": 10,
+       "lead": 10
+      },
+      "noisy_denied": {
+       "n": 10,
+       "lead": 0
+      },
+      "orchestrator_pool": {
+       "n": 60,
+       "lead": 0
+      },
+      "pagination_client": {
+       "n": 20,
+       "lead": 0
+      },
+      "partner_integration": {
+       "n": 10,
+       "lead": 9
+      },
+      "partner_ipallow": {
+       "n": 10,
+       "lead": 0
+      },
+      "partner_spoof": {
+       "n": 15,
+       "lead": 15
+      },
+      "partner_verified": {
+       "n": 15,
+       "lead": 0
+      },
+      "permission_drift": {
+       "n": 15,
+       "lead": 0
+      },
+      "proxy_rotation": {
+       "n": 50,
+       "lead": 50
+      },
+      "redacted_reuse": {
+       "n": 20,
+       "lead": 20
+      },
+      "redaction_user": {
+       "n": 40,
+       "lead": 9
+      },
+      "routine_tool_hijack": {
+       "n": 20,
+       "lead": 0
+      },
+      "seq_mimic": {
+       "n": 20,
+       "lead": 0
+      },
+      "sharded_pool": {
+       "n": 25,
+       "lead": 0
+      },
+      "tool_adopter": {
+       "n": 10,
+       "lead": 5
+      }
+     },
+     "v6_strict_gate": {
+      "_benign": {
+       "n": 605,
+       "lead": 11
+      },
+      "_positive": {
+       "n": 295,
+       "lead": 102
+      },
+      "access_prober": {
+       "n": 20,
+       "lead": 12
+      },
+      "assistant": {
+       "n": 300,
+       "lead": 0
+      },
+      "broadcaster": {
+       "n": 15,
+       "lead": 0
+      },
+      "cmdp_padded_prober": {
+       "n": 20,
+       "lead": 0
+      },
+      "collusion_ring": {
+       "n": 40,
+       "lead": 0
+      },
+      "compliance_scanner": {
+       "n": 10,
+       "lead": 0
+      },
+      "crawler": {
+       "n": 20,
+       "lead": 0
+      },
+      "cron_declared": {
+       "n": 25,
+       "lead": 0
+      },
+      "cron_undeclared": {
+       "n": 20,
+       "lead": 0
+      },
+      "exfil": {
+       "n": 20,
+       "lead": 0
+      },
+      "hp_handoff": {
+       "n": 30,
+       "lead": 30
+      },
+      "hp_nolink": {
+       "n": 30,
+       "lead": 0
+      },
+      "hp_single": {
+       "n": 10,
+       "lead": 0
+      },
+      "noisy_denied": {
+       "n": 10,
+       "lead": 0
+      },
+      "orchestrator_pool": {
+       "n": 60,
+       "lead": 0
+      },
+      "pagination_client": {
+       "n": 20,
+       "lead": 0
+      },
+      "partner_integration": {
+       "n": 10,
+       "lead": 9
+      },
+      "partner_ipallow": {
+       "n": 10,
+       "lead": 0
+      },
+      "partner_spoof": {
+       "n": 15,
+       "lead": 9
+      },
+      "partner_verified": {
+       "n": 15,
+       "lead": 0
+      },
+      "permission_drift": {
+       "n": 15,
+       "lead": 0
+      },
+      "proxy_rotation": {
+       "n": 50,
+       "lead": 50
+      },
+      "redacted_reuse": {
+       "n": 20,
+       "lead": 1
+      },
+      "redaction_user": {
+       "n": 40,
+       "lead": 0
+      },
+      "routine_tool_hijack": {
+       "n": 20,
+       "lead": 0
+      },
+      "seq_mimic": {
+       "n": 20,
+       "lead": 0
+      },
+      "sharded_pool": {
+       "n": 25,
+       "lead": 0
+      },
+      "tool_adopter": {
+       "n": 10,
+       "lead": 2
+      }
+     }
+    },
+    "benign_attribution_v6_gate_off": {
+     "compliance_scanner | isolation_forest+sequence_model | BLOCKED by gate": 6,
+     "partner_integration | rule:R3 | lead": 8,
+     "partner_integration | rule:R3(+1) | lead": 1,
+     "redaction_user | graph:shared_redacted_token+timing_content | lead": 3,
+     "redaction_user | graph:timing_content | lead": 6,
+     "tool_adopter | rule:R1(+1) | lead": 3,
+     "tool_adopter | rule:R2 | lead": 2
+    },
+    "guardrail_ok": true,
+    "quarantined": 0
+   }
+  },
+  "kinds": {
+   "assistant": "benign",
+   "crawler": "benign",
+   "cron_declared": "benign",
+   "cron_undeclared": "benign",
+   "orchestrator_pool": "benign",
+   "broadcaster": "benign",
+   "noisy_denied": "benign",
+   "compliance_scanner": "benign",
+   "tool_adopter": "benign",
+   "partner_integration": "benign",
+   "access_prober": "positive",
+   "exfil": "positive",
+   "collusion_ring": "positive",
+   "partner_verified": "benign",
+   "partner_ipallow": "benign",
+   "pagination_client": "benign",
+   "redaction_user": "benign",
+   "seq_mimic": "positive",
+   "proxy_rotation": "positive",
+   "partner_spoof": "positive",
+   "redacted_reuse": "positive",
+   "hp_single": "positive",
+   "hp_handoff": "positive",
+   "hp_nolink": "positive",
+   "permission_drift": "benign",
+   "sharded_pool": "benign",
+   "routine_tool_hijack": "positive",
+   "cmdp_padded_prober": "positive"
+  }
+ }
+}

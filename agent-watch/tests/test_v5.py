@@ -36,10 +36,13 @@ def test_every_cohort_gets_its_expected_archetype(rows):
 
 
 def test_known_misses_are_documented_not_hidden(rows):
+    # v6 (deliberate edit): the three v5 known-wrong cohorts are now matched - the stealth browser iterates DOM order (inversion link),
+    # the header forger posts a canned beacon (beacon_forged), and the beacon-blocked person is exempt (coherent headers, no decoy).
+    # SAME-AUTHOR caveat: the v6 traps were designed against these exact simulations; this is not evidence about real clients.
     got = {c: g for _, c, _, g, _ in rows if c in KNOWN_WRONG}
-    assert got["mimic_browser_stealth"] == "unclassified"          # honest miss: nothing observable
-    assert got["mimic_header_forger"] == "unclassified"            # honest miss: forged coherent headers are trusted
-    assert got["human_beacon_blocked"] == "headless_or_http_mimic"  # honest false positive (the README says so)
+    assert got["mimic_browser_stealth"] == "headless_or_http_mimic"
+    assert got["mimic_header_forger"] == "headless_or_http_mimic"
+    assert got["human_beacon_blocked"] == "unclassified"
 
 
 def test_humans_are_never_labelled_with_a_harness_except_the_documented_fp(rows):

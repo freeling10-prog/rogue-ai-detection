@@ -23,7 +23,7 @@ from typing import Callable, Optional
 Fetch = Callable[[str, str, dict[str, str], Optional[str]], tuple[int, str]]
 
 _DISALLOW = re.compile(r"^Disallow:\s*(\S+)", re.M)
-_KB_LINK = re.compile(r"href='(/kb/[a-z0-9-]+)'")
+_KB_LINK = re.compile(r"href='(/kb/[a-z0-9-]+(?:\?cursor=[a-z0-9.]+)?)'")   # v6: KB links carry an html cursor
 _CANARY = re.compile(r"fetch (/canary/[0-9a-f]+)")
 _FAKE_KEY = re.compile(r"(AWFAKE-DO-NOT-USE-[0-9A-F]+)")
 

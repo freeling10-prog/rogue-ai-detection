@@ -105,6 +105,23 @@ def shingle_set(text: str, size: int, cap: int) -> List[str]:
     return seen
 
 
+MAX_PREFIX_DEPTH = 8
+
+
+def _prefixes(path: str) -> List[str]:
+    """``/kb/a/b`` -> ``["/kb", "/kb/a", "/kb/a/b"]`` (at most ``MAX_PREFIX_DEPTH``; trailing slashes ignored).  Only their pseudonyms are kept."""
+    if not path.startswith("/"):
+        return []
+    parts = [x for x in path.split("/") if x][:MAX_PREFIX_DEPTH]
+    return ["/" + "/".join(parts[: i + 1]) for i in range(len(parts))]
+
+
+def _family(resource: str, p: Pseudonymizer) -> Optional[str]:
+    """v6: pseudonym of the resource family (first path segment, e.g. ``/kb`` or ``/internal``); None for non-path resources."""
+    pre = _prefixes(resource.split("?", 1)[0])
+    return p.resource("family:" + pre[0]) if pre else None
+
+
 class Normalizer:
     """Validate raw telemetry and emit pseudonymized events."""
 
@@ -138,6 +155,9 @@ class Normalizer:
             ua_class = "browser"
         else:
             ua_class = "other"
+        path = raw.resource.split("?", 1)[0]
+        prefixes = _prefixes(path)
+        b = w.beacon
         return WebFlags(
             content_kind=w.content_kind, ua_class=ua_class, scanner_path=any(p.search(raw.resource) for p in self._scan_path),
             referer_valid=w.referer_valid, linked_from_prev=w.linked_from_prev, offered_earlier=w.offered_earlier,
@@ -148,7 +168,14 @@ class Normalizer:
             harness_archetype=w.harness_archetype, harness_confidence=w.harness_confidence,
             referer_key=self.pseudo.resource(w.referer_path) if w.referer_path else None,
             path_key=self.pseudo.resource(raw.resource.split("?", 1)[0]),
-            is_entry=raw.resource.split("?", 1)[0] in self.web.link_entry_paths)
+            is_entry=path in self.web.link_entry_paths,
+            beacon_ext=None if b is None or (b.challenge_proof_ok is None and b.kinematic_dwell_ok is None and b.inertial_scroll_ok is None)
+            else (b.challenge_proof_ok, b.kinematic_dwell_ok, b.inertial_scroll_ok),
+            js_assets_fetched=w.js_assets_fetched, cursor_prov=w.cursor_prov, signals=frozenset(w.signals),
+            llmjacking=None if w.llmjacking is None else (w.llmjacking.tool_count, w.llmjacking.system_prompt_len_bucket,
+                                                          w.llmjacking.autonomous_loop_directive),
+            prefix_keys=tuple(self.pseudo.resource(x) for x in prefixes),
+            parent_key=self.pseudo.resource(prefixes[-2]) if len(prefixes) >= 2 else (self.pseudo.resource("/") if prefixes else None))
 
     # -- helpers -----------------------------------------------------------------------------------
     def _is_external(self, host: Optional[str]) -> bool:
@@ -229,6 +256,8 @@ class Normalizer:
             honeypot=raw.honeypot, token_class=raw.token_class,
             capture=raw.capture if self.cfg.keep_capture else None,
             web=self.web_flags(raw),
+            arg_entropy=raw.arg_entropy,
+            family_key=None if is_msg else _family(raw.resource, p),
             identity=dec.status if dec else "absent",
             exempt_rules=dec.exempt_rules if dec else frozenset(),
         )

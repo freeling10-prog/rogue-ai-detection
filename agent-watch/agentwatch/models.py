@@ -38,7 +38,10 @@ class Request:
     tags: list[str] = field(default_factory=list)  # lead tags (e.g. schema_param_use, mcp_list_then_call)
     headers_logged: bool = False               # the log format carries the browser-header family (mirror / leads)
     beacon_offered: bool = False               # v4: the mirrored response embedded the interaction beacon script
-    beacon: Optional[dict[str, bool]] = None   # v4: the three booleans of a client-interaction beacon POST (nothing else is kept)
+    beacon: Optional[dict[str, Optional[bool]]] = None   # v4: three booleans; v6: six (missing v6 keys on a v4 record read as None)
+    cursor_prov: Optional[str] = None          # v6: "html" | "schema" | None on cursor-bearing routes (None = missing / not applicable)
+    cursor_route: bool = False                 # v6: the access record came from a cursor-bearing route
+    signals: list[str] = field(default_factory=list)   # v6: event-contract signal names the honeypot attached to this request
     ja4: str = ""                              # OPTIONAL TLS fingerprint from a trusted edge; parsed only, never scored
     ja4h: str = ""                             # OPTIONAL HTTP-header fingerprint (JA4H); parsed only, never scored
 

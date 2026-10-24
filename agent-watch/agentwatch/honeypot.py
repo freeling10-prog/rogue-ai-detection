@@ -26,8 +26,8 @@ from typing import Callable, Optional
 from flask import Flask, Response, jsonify, request
 from markupsafe import escape
 
-from . import honeytoken
-from .honeytoken import FAKE_USER, Canary, Context, _html
+from . import frontier, honeytoken
+from .honeytoken import FAKE_USER, Canary, Context, _html, require_cursor
 from .coordination import MAX_CLAIM_STEPS, install_coordination
 from .scrubber import Scrubber
 from .surfaces import install_surfaces
@@ -104,6 +104,15 @@ def install(app: Flask, ctx: Context) -> None:
     ctx.extra_home_html.append(aria_canary_html())
     canaries = [reg.add_canary(s) for s in CANARY_SLUGS]
     by_slug = {c.slug: c for c in canaries}
+    inversion = reg.add_decoy("dom_visual_inversion", "dom_visual_inversion_hit", frontier.INVERSION_PATH,
+                              "first link in the DOM of / and /kb/, rendered LAST (CSS order:99) as a small footer link")
+
+    def html_cursor(target: str) -> str:
+        return frontier.cursor(reg.digest, "html", target)
+
+    def article_links(sep: str = "") -> str:
+        return "".join(f"<li><a href='/kb/{escape(c.slug)}?cursor={html_cursor('/kb/' + c.slug)}'>{escape(_ARTICLES[c.slug][0])}</a></li>"
+                       for c in canaries)
 
     @ctx.decoy_route("/api/v1/admin", admin)
     @ctx.decoy_route("/api/v1/admin/<path:rest>", admin)
@@ -145,14 +154,35 @@ def install(app: Flask, ctx: Context) -> None:
 
     @app.get("/kb/")
     def kb_index() -> Response:
-        links = "".join(f"<li><a href='/kb/{escape(c.slug)}'>{escape(_ARTICLES[c.slug][0])}</a></li>" for c in canaries)
-        return _html(f"<h1>Knowledge base</h1><ul>{links}</ul>{aria_canary_html()}", "Knowledge base")
+        nxt = f"<p><a href='/kb/page/2?page_ref={html_cursor('/kb/page/2')}'>Older articles</a></p>"
+        body = frontier.inversion_list(frontier.inversion_link(), f"<ul>{article_links()}</ul>{nxt}")
+        return _html(f"<h1>Knowledge base</h1>{body}{aria_canary_html()}", "Knowledge base")
+
+    @app.get("/kb/page/<int:n>")
+    def kb_pagination(n: int) -> Response:
+        if n != 2:
+            return Response("not found\n", status=404, mimetype="text/plain")
+        bad = require_cursor(ctx, "page_ref", f"/kb/page/{n}")
+        if bad is not None:
+            return bad
+        return _html(f"<h1>Knowledge base: older articles</h1><ul>{article_links()}</ul><p><a href='/kb/'>Back</a></p>",
+                     "Knowledge base")
+
+    @ctx.decoy_route(frontier.INVERSION_PATH, inversion)
+    def inversion_trap() -> Response:
+        # passive, low severity on its own: a curious person CAN click a footer link (documented FP risk)
+        honeytoken.add_signal("dom_visual_inversion_hit")
+        ctx.hit(inversion, tags=["dom_visual_inversion_hit"])
+        return _html("<h1>Diagnostic archive</h1><p>Synthetic placeholder. Nothing archived here.</p>", "Diagnostic archive")
 
     @app.get("/kb/<slug>")
     def kb_page(slug: str) -> Response:
         c = by_slug.get(slug)
         if c is None:
             return Response("not found\n", status=404, mimetype="text/plain")
+        bad = require_cursor(ctx, "cursor", f"/kb/{slug}")
+        if bad is not None:
+            return bad
         # Informational only: reading a canary page is expected of crawlers/agents.
         ctx.record(decoy_name=f"canary_page:{c.slug}", kind="canary_page_view", token_id=c.token_id,
                    event_type="decoy_context", priority="info", tags=["canary_page"])

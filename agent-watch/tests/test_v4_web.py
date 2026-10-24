@@ -16,6 +16,7 @@ from agentwatch.parser import parse_lines
 from agentwatch.pipeline import run_pipeline
 from agentwatch.scoring import SEVERITIES, score_session
 from agentwatch.synthetic import generate_demo
+from agentwatch.frontierdetect import detect_frontier
 from agentwatch.webdetectors import asset_kind, detect_asset_starvation, detect_headless
 from helpers import CFG, mk, sess
 from test_v3_web import BROWSER, SEC_OK, asset, ips, leads_of, page, starving
@@ -161,11 +162,13 @@ def test_pages_embed_a_same_origin_three_boolean_beacon_script(pot):
     html = app.test_client().get("/about", environ_overrides=ips("192.0.2.64")).get_data(as_text=True)
     script = re.search(r"<script>\(function.*?</script>", html, re.S).group(0)
     assert BEACON in script and not re.search(r"https?://|//[a-z]", script.replace("'/api", ""))          # no third-party / absolute URL
-    stringified = re.search(r"JSON\.stringify\(\{(.*?)\}\)", script).group(1)
-    assert set(re.findall(r"(\w+):", stringified)) == {"webdriver_present", "pointer_trail_seen", "dom_automation_props"}
+    stringified = re.search(r"JSON\.stringify\(\{(.*?)\}\)\}\)", script).group(1)
+    # v6 (deliberate edit): challenge proof + page path (verification only, not stored) + five booleans
+    assert set(re.findall(r"(\w+):", stringified)) == {"proof", "page", "webdriver_present", "pointer_trail_seen", "dom_automation_props",
+                                                       "kinematic_dwell_ok", "inertial_scroll_ok"}
     for forbidden in ("userAgent", "screen", "canvas", "localStorage", "document.cookie", "plugins", "language"):
         assert forbidden not in script, forbidden
-    assert len(script) < 1200
+    assert len(script) < 2600
 
 
 def test_beacon_accepts_only_three_booleans_and_stores_nothing_else(pot):
@@ -175,9 +178,12 @@ def test_beacon_accepts_only_three_booleans_and_stores_nothing_else(pot):
     r = c.post(BEACON, json={**ok, "user_id": "u-123", "fingerprint": "abcdef", "ua": "x"}, environ_overrides=ips("192.0.2.65"))
     assert r.status_code == 204 and r.get_data() == b""
     rec = [x for x in leads_of(str(log) + ".access.jsonl") if x["path"] == BEACON][0]
-    assert rec["beacon"] == ok
+    # v6 (deliberate edit): six booleans are stored; a v4-style body has no challenge proof -> challenge_proof_ok False, the
+    # missing v6 booleans are null, and a low-severity beacon_forged lead is written (v4: no lead)
+    assert rec["beacon"] == {"challenge_proof_ok": False, **ok, "kinematic_dwell_ok": None, "inertial_scroll_ok": None}
     assert "u-123" not in json.dumps(rec) and "abcdef" not in json.dumps(rec)
-    assert not Path(log).exists() or BEACON not in Path(log).read_text()      # not a decoy: no lead is written for it
+    lead = [x for x in leads_of(log) if x.get("decoy", {}).get("kind") == "beacon_forged"]
+    assert len(lead) == 1 and "u-123" not in json.dumps(lead) and "abcdef" not in json.dumps(lead)
 
 
 @pytest.mark.parametrize("payload", [{"webdriver_present": 1, "pointer_trail_seen": False, "dom_automation_props": False},
@@ -192,7 +198,8 @@ def test_beacon_rejects_anything_that_is_not_exactly_three_booleans(pot, payload
 def test_beacon_size_limited_and_get_not_allowed(pot):
     app, _ = pot
     c = app.test_client()
-    assert c.post(BEACON, data=b"{" + b" " * 400 + b"}", content_type="application/json", environ_overrides=ips("192.0.2.67")).status_code == 413
+    # v6 (deliberate edit): the cap grew 256 -> 512 bytes (proof + page + five booleans)
+    assert c.post(BEACON, data=b"{" + b" " * 600 + b"}", content_type="application/json", environ_overrides=ips("192.0.2.67")).status_code == 413
     assert c.post(BEACON, data=b"not json", content_type="application/json", environ_overrides=ips("192.0.2.67")).status_code == 400
     assert c.get(BEACON, environ_overrides=ips("192.0.2.67")).status_code == 405
 
@@ -223,7 +230,8 @@ def test_parser_keeps_only_strict_booleans_from_a_beacon_record():
     bad = {**good, "beacon": {"webdriver_present": "no", "pointer_trail_seen": True, "dom_automation_props": False}}
     extra = {**good, "beacon": {**good["beacon"], "id": "u-1"}}
     res = parse_lines([json.dumps(good), json.dumps(bad), json.dumps(extra)])
-    assert [r.beacon for r in res.requests] == [good["beacon"], None, good["beacon"]]       # the extra key is dropped, not stored
+    v6 = {**good["beacon"], "challenge_proof_ok": None, "kinematic_dwell_ok": None, "inertial_scroll_ok": None}   # v6: legacy -> null
+    assert [r.beacon for r in res.requests] == [v6, None, v6]       # the extra key is dropped, not stored
 
 
 # =========================== (3b) headless detector ===========================
@@ -259,18 +267,21 @@ def test_automation_booleans_in_the_beacon_are_high_confidence(kw, reason):
 
 
 def test_missing_beacon_after_fetching_our_script_is_a_moderate_signal():
-    f = [x for x in detect_headless(sess(with_assets(browsing(5))), CFG) if x.detector == "web"]
-    assert len(f) == 1 and f[0].data["reason"] == "beacon_missing" and f[0].data["strong"] is False
+    # v6 (deliberate edit): the v4 beacon_missing finding is now frontierdetect's script_fetched_but_unexecuted (same moderate weight)
+    assert [x for x in detect_headless(sess(with_assets(browsing(5))), CFG) if x.detector == "web"] == []
+    f = [x for x in detect_frontier(sess(with_assets(browsing(5))), CFG) if x.detector == "web"]
+    assert len(f) == 1 and f[0].kind == "script_fetched_but_unexecuted" and f[0].data["strong"] is False
     r = score_session(sess(with_assets(browsing(5))), CFG)
     assert r.label != "agent" and r.actor_type == "possible_mimic" and SEV(r.severity) >= SEV("medium") and not r.floors
 
 
 def test_missing_beacon_needs_the_script_fetch_three_clicks_and_a_beacon_bearing_site():
-    assert [x for x in detect_headless(sess(with_assets(browsing(5), js=False)), CFG) if x.detector == "web"] == []         # JS off
-    assert [x for x in detect_headless(sess(with_assets(browsing(3))), CFG) if x.detector == "web"] == []                   # 2 click-throughs
-    assert [x for x in detect_headless(sess(with_assets(browsing(6, offered=False))), CFG) if x.detector == "web"] == []     # site never offered a beacon
-    assert [x for x in detect_headless(sess(with_assets(browsing(5)) + [beacon(60)]), CFG) if x.detector == "web"] == []     # beacon present
-    assert [x for x in detect_headless(sess(with_assets(browsing(5), js=False, css=True)), CFG) if x.detector == "web"] == []
+    # v6 (deliberate edit): same cases, now against detect_frontier (where the rule lives)
+    assert [x for x in detect_frontier(sess(with_assets(browsing(5), js=False)), CFG) if x.detector == "web"] == []         # JS off
+    assert [x for x in detect_frontier(sess(with_assets(browsing(3))), CFG) if x.detector == "web"] == []                   # 2 click-throughs
+    assert [x for x in detect_frontier(sess(with_assets(browsing(6, offered=False))), CFG) if x.detector == "web"] == []     # site never offered a beacon
+    assert [x for x in detect_frontier(sess(with_assets(browsing(5)) + [beacon(60)]), CFG) if x.detector == "web"] == []     # (legacy) beacon present
+    assert [x for x in detect_frontier(sess(with_assets(browsing(5), js=False, css=True)), CFG) if x.detector == "web"] == []
 
 
 def test_js_disabled_is_advisory_only_and_scores_zero():
@@ -337,13 +348,16 @@ def test_humans_without_the_blocked_beacon_are_not_alerted(ext, name):
 
 
 def test_human_with_blocked_beacon_is_a_documented_false_positive(ext):
+    # v6 (deliberate edit): the v4/v5 false positive is gone - coherent navigation headers + no decoy contact exempt a missing beacon
     for r in ext["groups"]["web:human_beacon_blocked"]:
-        assert alerted(r) and r.actor_type == "possible_mimic" and r.label == "human" and r.agent_score < 60
+        assert not alerted(r) and r.actor_type == "human" and r.label == "human"
 
 
 def test_mimic_assets_is_now_alerted_moderately(ext):
+    # v6 (deliberate edit): DOM-order iteration hits the inversion link -> strong R11 -> agent (it also loses the no-decoy exemption)
     for r in ext["groups"]["web:mimic_assets"]:
-        assert alerted(r) and r.actor_type == "possible_mimic" and r.label != "agent"
+        assert alerted(r) and r.label == "agent"
+        assert {"dom_visual_inversion_hit", "script_fetched_but_unexecuted"} <= {f.kind for f in r.findings if f.detector == "web"}
 
 
 @pytest.mark.parametrize("name", ["web:mimic_browser_webdriver", "web:mimic_aria"])
@@ -355,9 +369,11 @@ def test_browser_backed_agents_with_automation_tells_are_labelled_agents(ext, na
 
 @pytest.mark.parametrize("name", ["web:mimic_browser_stealth", "web:mimic_header_forger"])
 def test_documented_evaders_stay_invisible(ext, name):
-    """If a future change makes these fail, the README limits section must be updated too."""
+    """v6 (deliberate edit): the v4/v5 evaders are now caught BY CONSTRUCTION (stealth: DOM-order inversion link; header forger: canned
+    beacon -> beacon_forged).  Same author as the traps; README limits updated (real stealth browsers are an unmeasured FP/FN risk)."""
+    want = {"web:mimic_browser_stealth": "dom_visual_inversion_hit", "web:mimic_header_forger": "beacon_forged"}[name]
     for r in ext["groups"][name]:
-        assert r.label == "human" and not alerted(r)
+        assert r.label == "agent" and alerted(r) and any(f.kind == want and f.detector == "web" for f in r.findings)
 
 
 def test_scrapers_that_follow_the_aria_anchor_stay_accidental(ext):
@@ -373,10 +389,14 @@ def test_extended_demo_still_leaves_the_original_actors_untouched(tmp_path, ext)
 
 def test_without_the_mirror_beacon_evidence_is_lost(ext):
     results, _ = run_pipeline([ext["art"]["access_log"], ext["art"]["gateway_log"], ext["art"]["leads"]], load_config())
-    seen = {r.session.ip for r in results}
+    by_ip = {r.session.ip: r for r in results}
     for t in ext["art"]["truth"]:
-        if t.name.startswith(("web:mimic_assets", "web:mimic_browser_stealth", "web:mimic_header_forger")):
-            assert t.ip not in seen
+        if t.name.startswith(("web:mimic_assets", "web:mimic_browser_stealth")):
+            # v6 (deliberate edit): only the context-only inversion lead remains without the mirror; it scores nothing alone
+            r = by_ip.get(t.ip)
+            assert r is None or (r.label == "human" and not alerted(r))
+        if t.name.startswith("web:mimic_header_forger"):
+            assert by_ip[t.ip].label == "agent"           # v6: the beacon_forged LEAD survives without the mirror
 
 
 def test_export_web_carries_the_v4_facts_and_never_more(ext, tmp_path):
@@ -384,7 +404,8 @@ def test_export_web_carries_the_v4_facts_and_never_more(ext, tmp_path):
     assert main(["export-web", str(ext["art"]["leads"]), str(ext["art"]["access_mirror"]), "--out", str(out), "--label-synthetic"]) == 0
     rows = [json.loads(x) for x in out.read_text().splitlines()]
     beacons = [r["web"] for r in rows if r["web"]["content_kind"] == "beacon"]
-    assert beacons and all(set(b["beacon"]) == {"webdriver_present", "pointer_trail_seen", "dom_automation_props"} for b in beacons)
+    assert beacons and all(set(b["beacon"]) == {"challenge_proof_ok", "webdriver_present", "pointer_trail_seen", "dom_automation_props",
+                                                "kinematic_dwell_ok", "inertial_scroll_ok"} for b in beacons)     # v6: six booleans
     kinds = {r["web"].get("asset_kind") for r in rows if r["web"]["content_kind"] == "asset"}
     assert {"css", "js", "image", "favicon"} <= kinds
     assert any(r["web"].get("strong_signal") == "aria_fastpath" for r in rows)

@@ -112,8 +112,8 @@ def _percent_decode_once(pieces: List[Tuple[str, int, int]]) -> tuple[List[Tuple
     return out, changed
 
 
-def _unicode_escape_once(pieces: List[Tuple[str, int, int]]) -> tuple[List[Tuple[str, int, int]], bool]:
-    """Decode one JSON-style ``\\uXXXX`` escape (the raw six characters) into its code point."""
+def _unicode_escape_once(pieces: List[Tuple[str, int, int]]) -> Tuple[List[Tuple[str, int, int]], bool]:
+    """Decode one JSON-style ``\\uXXXX`` escape (the raw six characters) into its code point.  Returns (pieces, changed)."""
     out: List[Tuple[str, int, int]] = []
     changed = False
     i = 0
@@ -134,18 +134,18 @@ def _unicode_escape_once(pieces: List[Tuple[str, int, int]]) -> tuple[List[Tuple
 def _match_view(text: str) -> tuple[str, list[tuple[int, int]]]:
     """Text as the matcher sees it, plus each kept character's span in *text*.
 
-    Percent-encoding (two rounds) and ``\\uXXXX`` are decoded.  A ``\\u`` escape
-    that produces a percent sequence (``\\u002540`` -> ``%40``) still gets the
-    remaining percent-decode round.  Controls, format characters, and the
-    ``\\\\n`` / ``\\\\r`` / ``\\\\t`` escapes written by ``sanitize_text`` are
-    gaps: they do not break a token, and a match that straddles them still
-    covers them in *text*.
+    Percent-encoding (two rounds) and ``\\uXXXX`` are decoded.  Controls, format
+    characters, and the ``\\\\n`` / ``\\\\r`` / ``\\\\t`` escapes written by
+    ``sanitize_text`` are gaps: they do not break a token, and a match that
+    straddles them still covers them in *text*.
     """
     pieces = _pieces(text)
     for _ in range(2):
         pieces, pct_changed = _percent_decode_once(pieces)
         pieces, uni_changed = _unicode_escape_once(pieces)
-        if not pct_changed and not uni_changed:
+        # PR #4 review (synced from GitHub main): continue when EITHER pass changed the text.  ``bob\u002540example.com`` needs the
+        # unicode pass first (-> ``bob%40example.com``) and a second percent pass (-> ``bob@example.com``).  Still capped at 2 rounds.
+        if not (pct_changed or uni_changed):
             break
     kept: List[Tuple[str, int, int]] = []
     i = 0
@@ -199,13 +199,15 @@ class Scrubber:
         return text
 
     def scrub(self, obj: Any, _depth: int = 0) -> Any:
-        """Recursively scrub strings in dicts (keys too), lists and tuples; other scalars pass through."""
+        """Recursively scrub strings in dicts (string KEYS too - PR #4 review, parity with agent-watch), lists and tuples; other scalars
+        pass through.  A secret used as a dict key (``{"sk-...": 1}``) is replaced by its marker; two keys that scrub to the same marker
+        collapse to one entry (last value wins), which is acceptable because the key itself was a secret, not data."""
         if _depth > MAX_DEPTH:
             return "[TRUNCATED_DEPTH]"
         if isinstance(obj, str):
             return self.scrub_text(obj)
         if isinstance(obj, dict):
-            return {self.scrub_text(k) if isinstance(k, str) else k: self.scrub(v, _depth + 1) for k, v in obj.items()}
+            return {(self.scrub_text(k) if isinstance(k, str) else k): self.scrub(v, _depth + 1) for k, v in obj.items()}
         if isinstance(obj, (list, tuple)):
             return [self.scrub(v, _depth + 1) for v in obj]
         return obj

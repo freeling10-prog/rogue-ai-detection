@@ -107,7 +107,9 @@
       "/api/v2/bulk/": "openapi_decoy",
       "/api/v1/coordination-board/claim-shard": "coordination_claim_step",
       "/api/v1/coordination-board": "coordination_board_read",
-      "/api/v1/kb-snapshot": "aria_fastpath"
+      "/api/v1/kb-snapshot": "aria_fastpath",
+      "/kb/archive/diagnostic": "dom_visual_inversion_hit",
+      "/v1/chat/completions": "llmjacking_probe"
     },
     "dump_chain_min_steps": 3
   },
@@ -201,7 +203,10 @@
       "beacon_path": "/api/v1/telemetry/nav",
       "aria_path": "/api/v1/kb-snapshot",
       "min_navs": 3,
-      "min_pointerless_beacons": 4
+      "min_pointerless_beacons": 4,
+      "inversion_path": "/kb/archive/diagnostic",
+      "vlm_min_beacons": 2,
+      "fork_window_s": 0.5
     },
     "schema_param": {
       "name": "client_schema_rev"
@@ -214,14 +219,19 @@
       "robots_disallow",
       "fake_credentials_file",
       "robots_fetch",
-      "aria_fastpath"
+      "aria_fastpath",
+      "dom_visual_inversion_hit"
     ],
     "human_plausible_kinds": [
       "robots_disallow",
       "fake_credentials_file",
-      "robots_fetch"
+      "robots_fetch",
+      "dom_visual_inversion_hit"
     ],
     "accidental_max_distinct_decoys": 2,
+    "context_only_kinds": [
+      "dom_visual_inversion_hit"
+    ],
     "strong_kinds": [
       "canary_follow",
       "canary_phrase_echo",
@@ -229,7 +239,8 @@
       "mcp_decoy_tool_call",
       "fake_credential_use",
       "schema_param_use",
-      "session_canary_param"
+      "session_canary_param",
+      "llmjacking_probe"
     ]
   },
   "floors": {
@@ -244,7 +255,14 @@
       "schema_param": 60,
       "session_canary_param": 60,
       "mcp_list_then_call": 70,
-      "headless_automation_signal": 65
+      "headless_automation_signal": 65,
+      "beacon_forged": 65,
+      "script_fetched_but_unexecuted": 65,
+      "dom_visual_inversion_hit": 65,
+      "vlm_quantized_interaction": 65,
+      "parasitic_session_fork": 65,
+      "schema_provenance_cursor": 60,
+      "llmjacking_probe": 60
     }
   },
   "navigation": {
@@ -345,6 +363,8 @@
       "mcp_list_then_call": 40,
       "headless_automation_signal": 55,
       "headless_beacon_missing": 35,
+      "schema_provenance_cursor": 50,
+      "parasitic_session_fork": 50,
       "coord_board_after_trap": 25,
       "coord_capture_post": 35,
       "coord_claim_loop": 30,
@@ -352,6 +372,9 @@
       "honeytoken": {
         "default": 25,
         "aria_fastpath": 30,
+        "llmjacking_probe": 45,
+        "beacon_forged": 30,
+        "dom_visual_inversion_hit": 20,
         "canary_follow": 60,
         "canary_phrase_echo": 60,
         "fake_credential_use": 40,

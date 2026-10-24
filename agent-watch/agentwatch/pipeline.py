@@ -33,6 +33,10 @@ def merge_mirror(requests: list[Request]) -> tuple[list[Request], int]:
         lead.content_type = lead.content_type or r.content_type
         lead.beacon_offered = lead.beacon_offered or r.beacon_offered
         lead.ja4, lead.ja4h = lead.ja4 or r.ja4, lead.ja4h or r.ja4h
+        lead.beacon = lead.beacon or r.beacon                      # v6: a beacon_forged lead keeps its booleans
+        lead.cursor_route = lead.cursor_route or r.cursor_route
+        lead.cursor_prov = lead.cursor_prov or r.cursor_prov
+        lead.signals = sorted(set(lead.signals) | set(r.signals))
         merged += 1
     return kept, merged
 

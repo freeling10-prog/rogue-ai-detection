@@ -76,6 +76,8 @@ DEFAULTS: dict[str, Any] = {
             "/api/v1/coordination-board/claim-shard": "coordination_claim_step",
             "/api/v1/coordination-board": "coordination_board_read",
             "/api/v1/kb-snapshot": "aria_fastpath",
+            "/kb/archive/diagnostic": "dom_visual_inversion_hit",     # v6: DOM-first / rendered-last footer link
+            "/v1/chat/completions": "llmjacking_probe",               # v6: decoy chat-completions endpoint
         },
         "dump_chain_min_steps": 3,     # distinct server-issued dump pages followed => multi-turn evidence
     },
@@ -132,6 +134,9 @@ DEFAULTS: dict[str, Any] = {
             "aria_path": "/api/v1/kb-snapshot",
             "min_navs": 3,                        # click-through navigations (internal Referer) before "no beacon" means anything
             "min_pointerless_beacons": 4,         # weak advisory only (keyboard / screen-reader users never move a pointer)
+            "inversion_path": "/kb/archive/diagnostic",   # v6: DOM-visual order inversion link
+            "vlm_min_beacons": 2,                 # v6: valid-proof beacons with quantized scroll (+ instant click / inversion) needed
+            "fork_window_s": 0.5,                 # v6 R14: parasitic request within this many seconds of a human page load
         },
         "schema_param": {"name": "client_schema_rev"},
         "session_canary_pattern": r"\bsc-[0-9a-f]{10}\b",
@@ -139,11 +144,16 @@ DEFAULTS: dict[str, Any] = {
     "contact": {
         # decoy classes for severity / labelling.  A lone hit on a PASSIVE decoy (invisible link, robots Disallow, the
         # guessable /.env) is what scanners, crawlers and curious humans produce: contact, not intent.
-        "passive_kinds": ["hidden_link", "robots_disallow", "fake_credentials_file", "robots_fetch", "aria_fastpath"],
-        "human_plausible_kinds": ["robots_disallow", "fake_credentials_file", "robots_fetch"],   # a person can type these URLs
+        "passive_kinds": ["hidden_link", "robots_disallow", "fake_credentials_file", "robots_fetch", "aria_fastpath",
+                          "dom_visual_inversion_hit"],
+        # a person can type these URLs (v6: or click a small, visible footer link)
+        "human_plausible_kinds": ["robots_disallow", "fake_credentials_file", "robots_fetch", "dom_visual_inversion_hit"],
         "accidental_max_distinct_decoys": 2,
+        # v6: decoy contacts that are CONTEXT only for the agent score / accidental-vs-goal-directed logic (every DOM-order crawler
+        # meets the inversion link first; only the browser-backed web finding of the same name carries weight)
+        "context_only_kinds": ["dom_visual_inversion_hit"],
         "strong_kinds": ["canary_follow", "canary_phrase_echo", "error_hint_follow", "mcp_decoy_tool_call",
-                         "fake_credential_use", "schema_param_use", "session_canary_param"],
+                         "fake_credential_use", "schema_param_use", "session_canary_param", "llmjacking_probe"],
     },
     "floors": {
         # max-pooling: ONE high-signal event sets a floor on the scores; benign padding (assets, human-like timing,
@@ -152,7 +162,11 @@ DEFAULTS: dict[str, Any] = {
         "automation_any_decoy": 40,           # any decoy contact: at least a static bot, never "human"
         "agent": {"canary_follow": 60, "canary_phrase_echo": 60, "error_hint_follow": 60, "mcp_decoy_tool_call": 60,
                   "fake_credential_use": 60, "schema_param": 60, "session_canary_param": 60, "mcp_list_then_call": 70,
-                  "headless_automation_signal": 65},   # v4: ARIA fast-path / webdriver / automation globals seen from a browser-backed client
+                  "headless_automation_signal": 65,
+                  # v6 (web findings; strong R11 members only, the bare inversion decoy contact never sets a floor)
+                  "beacon_forged": 65, "script_fetched_but_unexecuted": 65, "dom_visual_inversion_hit": 65,
+                  "vlm_quantized_interaction": 65, "parasitic_session_fork": 65, "schema_provenance_cursor": 60,
+                  "llmjacking_probe": 60},   # v4: ARIA fast-path / webdriver / automation globals seen from a browser-backed client
     },
     "navigation": {"deep_depth": 4, "flat_depth_max": 2},
     "assets": {"extensions": [".css", ".js", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".woff", ".woff2", ".map", ".webp"]},
@@ -203,7 +217,9 @@ DEFAULTS: dict[str, Any] = {
             "session_canary_param": 55,     # replayed the per-session canary served only inside machine-readable docs
             "mcp_list_then_call": 40,       # MCP tools/list followed by a valid tools/call (goal-directed tool use)
             "headless_automation_signal": 55,   # v4: browser-backed client + ARIA fast-path / webdriver / automation globals
-            "headless_beacon_missing": 35,      # v4: fetched our script, clicked through >= 3 pages, never sent the beacon (moderate: blockers do this too)
+            "headless_beacon_missing": 35,      # v4/v6: moderate R11 (v6: script_fetched_but_unexecuted without a forged beacon)
+            "schema_provenance_cursor": 50,     # v6: schema-only cursor used inside a browsing session
+            "parasitic_session_fork": 50,       # v6 R14 (also an R11-family member for the floor / actor logic)
             # coordination bus (distinct signals, each with its own plain-language reason)
             "coord_board_after_trap": 25,   # read the board after an error/schema trap (followed a breadcrumb)
             "coord_capture_post": 35,       # volunteered a registration (objective/tools/system prompt summary)
@@ -212,6 +228,9 @@ DEFAULTS: dict[str, Any] = {
             "honeytoken": {
                 "default": 25,
                 "aria_fastpath": 30,       # v4: followed the ARIA "AI Assistant Fast-Path" element (any DOM/anchor parser can)
+                "llmjacking_probe": 45,    # v6: POSTed a chat-completions request to the decoy inference endpoint
+                "beacon_forged": 30,       # v6: posted a beacon without a valid challenge proof
+                "dom_visual_inversion_hit": 20,   # v6: passive, human-plausible on its own
                 "canary_follow": 60,       # obeying an instruction embedded in retrieved text
                 "canary_phrase_echo": 60,
                 "fake_credential_use": 40,

@@ -252,7 +252,9 @@ def test_canary_page_has_phrase_and_agent_instruction(pot):
     app, log = pot
     ctx = app.extensions["agentwatch"]
     c = app.test_client()
-    html = c.get("/kb/shipping-policy").get_data(as_text=True)
+    # v6 (deliberate edit): KB detail pages need a load-bearing cursor; take the html-provenance link the /kb/ index serves
+    link = re.search(r"href='(/kb/shipping-policy\?cursor=prov\.html\.[0-9a-f]{12})'", c.get("/kb/").get_data(as_text=True)).group(1)
+    html = c.get(link).get_data(as_text=True)
     can = next(x for x in ctx.registry.canaries.values() if x.slug == "shipping-policy")
     assert can.phrase in html and re.fullmatch(r"AWCANARY-[0-9a-f]{8}-[a-z]+", can.phrase)
     assert f"fetch /canary/{can.canary_id}" in html and "AI assistant" in html

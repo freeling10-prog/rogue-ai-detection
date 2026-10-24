@@ -154,12 +154,9 @@ def detect_headless(session: Session, cfg: dict[str, Any]) -> list[Finding]:
     # a beacon is only EXPECTED when the page the client clicked from embedded it (plain logs from sites without it: never)
     offered = {p.path for p in pages if p.beacon_offered}
     navs = [r for r in pages[1:] if r.referer and _path_of(r.referer) in offered]
-    if browser_backed and "js" in kinds and not beacons and len(navs) >= h["min_navs"]:
-        out.append(Finding("web", "headless_automation_signal",
-                           f"fetched our script and clicked through {len(navs)} pages but never sent the interaction beacon that script "
-                           "sends on every internal navigation (it did not run it; MODERATE: ad/tracker blockers can block the beacon too)",
-                           navs[:3], {"reason": "beacon_missing", "strong": False, "navigations": len(navs)}))
-    elif not beacons and len(navs) >= h["min_navs"] and "js" not in kinds:
+    # v6: the v4 "beacon_missing" moderate finding is replaced by frontierdetect's script_fetched_but_unexecuted (challenge-bound,
+    # with the js_assets_fetched == 0 and coherent-headers-no-decoy exemptions).
+    if not beacons and len(navs) >= h["min_navs"] and "js" not in kinds:
         out.append(Finding("web_advisory", "beacon_absent_no_js",
                            f"{len(navs)} click-through navigations and no beacon, but our script was never fetched (JavaScript off or a "
                            "privacy tool): advisory only", navs[:3], {"navigations": len(navs)}))
@@ -264,6 +261,8 @@ def run_web_detectors(session: Session, cfg: dict[str, Any]) -> list[Finding]:
     if not cfg["web"]["enabled"]:
         return []
     out: list[Finding] = []
-    for fn in (detect_asset_starvation, detect_headless, detect_unlinked_jump, detect_schema_param, detect_session_canary, detect_mcp_flow):
+    from .frontierdetect import detect_frontier       # v6 (lazy: it imports helpers from this module)
+    for fn in (detect_asset_starvation, detect_headless, detect_unlinked_jump, detect_schema_param, detect_session_canary, detect_mcp_flow,
+               detect_frontier):
         out.extend(fn(session, cfg))
     return out

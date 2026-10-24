@@ -523,18 +523,24 @@ def test_known_failures_are_documented_by_tests(ext):
     # v4 (deliberate change): in v3 mimic_assets evaded and human_no_assets was a false positive.  v4 catches the first (it fetches
     # the script but never runs it, so no beacon) and no longer alerts on the second (coherent Sec-Fetch -> advisory).  The v4
     # evaders/false positives are asserted in tests/test_v4_web.py.
+    # v6 (deliberate edit): mimic_assets iterates links in DOM order and follows the DOM-first / rendered-last inversion link, so it
+    # is now labelled agent (same-author simulation: expected by construction).
     for t, r in ext["groups"]["web:mimic_assets"]:
-        assert r.actor_type == "possible_mimic" and r.label != "agent" and SEVERITIES.index(r.severity) >= SEVERITIES.index("medium")
+        assert r.label == "agent" and any(f.kind == "dom_visual_inversion_hit" and f.detector == "web" for f in r.findings)
     for t, r in ext["groups"]["web:human_no_assets"]:
         assert r.label == "human" and r.severity == "info"
 
 
 def test_without_the_mirror_the_v2_blind_spot_returns(ext):
     results, _ = run_pipeline([ext["art"]["access_log"], ext["art"]["gateway_log"], ext["art"]["leads"]], load_config())
-    seen = {r.session.ip for r in results}
+    by_ip = {r.session.ip: r for r in results}
     for name in ("web:mimic_basic", "web:mimic_linked", "web:mimic_assets"):
         for t, _r in ext["groups"][name]:
-            assert t.ip not in seen                                      # zero leads, no alert: exactly the live-demo finding
+            # v6 (deliberate edit): the only lead they leave is the context-only DOM-visual inversion contact, which scores nothing
+            # on its own (every DOM-order crawler meets it first); without the mirror they are still unalerted "humans"
+            r = by_ip.get(t.ip)
+            assert r is None or (r.label == "human" and r.severity == "info"
+                                 and {f.kind for f in r.findings if f.detector == "honeytoken"} <= {"dom_visual_inversion_hit"})
 
 
 def test_demo_cli_extended_prints_variant_table(tmp_path, capsys):
@@ -553,7 +559,9 @@ def test_export_web_emits_strict_derived_facts(ext, tmp_path):
                # v4 (deliberate change: the allow-list grows with the new derived facts, nothing else)
                "asset_kind", "beacon", "beacon_offered", "referer_present", "referer_path", "sec_fetch_state",
                # v5 (deliberate change): the descriptive harness label from agentwatch.fingerprint
-               "harness_archetype", "harness_confidence"}
+               "harness_archetype", "harness_confidence",
+               # v6 (deliberate change): event-contract fields (/workspace/v6-event-contract.md)
+               "signals", "js_assets_fetched", "cursor_prov"}
     ev_keys = {"event_id", "ts", "source", "agent_id", "action", "status", "resource", "ip", "payload_bytes", "synthetic", "web"}
     assert rows and all(set(r) <= ev_keys and set(r["web"]) <= allowed and r["synthetic"] is True for r in rows)
     assert len({r["event_id"] for r in rows}) == len(rows)                   # unique ids (the pipeline quarantines duplicates)

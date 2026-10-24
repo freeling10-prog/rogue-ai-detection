@@ -367,6 +367,26 @@ STIX 2.1 indicator as the custom property `x_harness_archetype` (`archetype`, `c
 The label is never placed in `name` or `description`. The bundle still passes the pinned `stix2-validator==3.2.0` (tested). Confidence means how much
 of the archetype's signature was observed, not a probability. The label is a hint for a reviewer; contact is not intent.
 
+## v6: frontier evasions (R11 tiers, R12-R14, swarm edges, rule-family gate)
+Full write-up, tables and caveats: `/workspace/v6-pipeline-changes.md` (copy of the eval outputs in `docs/eval-v6/`).
+SAME-AUTHOR SYNTHETIC COHORTS - a regression check, not a benchmark.
+
+* **Contract** (agent-watch v6): six-boolean beacon (`challenge_proof_ok`, `kinematic_dwell_ok`, `inertial_scroll_ok` optional; legacy
+  proof-less beacons count as arrived), `js_assets_fetched`, `cursor_prov`, `signals` (8 enumerated names), bucketed `llmjacking`.
+* **R11** strong / weak / corroborate tiers: `beacon_forged`, `vlm_quantized_interaction`, `dom_order_synthetic_click` (strong);
+  `script_fetched_but_unexecuted` (weak; never when `js_assets_fetched == 0` or navigation headers are coherent); the DOM-visual
+  inversion hit alone is advisory. **R10** adds `schema_provenance_cursor` and `llmjacking_probe` (AML.T0051 + T0053). A bare
+  `missing_required_cursor` is advisory.
+* **R12** routine-tool hijack (AML.T0080/T0086), **R13** CUSUM + micro-windows + `subwindow_variance_collapse` (thresholds from
+  `scripts/calibrate_r13.py`, BENIGN reference only), **R14** parasitic session fork (Referer tree, 500 ms).
+* **Graph (AML.T0118)**: `disjoint_target_partition` (hypergeometric + outside-coverage), `epistemic_discovery_inheritance`; declared
+  group / periodic / fan-out suppression applies.
+* **Gate**: >= 2 different RULE families now corroborate each other (noisy-or of family maxima); gate off = v3 fusion unchanged.
+* **Headline (5 seeds)**: standard FPR 0.035 (v5 0.037); all-evasive core recall 12/80 (v5 0/80); web beacon-blocked / no-asset humans
+  0/25 leads (v5 25/25); regressions: `mimic_assets`, `mimic_linked_nosec` 15/15 -> 0/15.
+* `python scripts/eval_v6.py --v5-tree <v5 tree> --out <dir>` compares v5 and v6 on the same traffic; `run.py evaluate --no-v6` drops the
+  v6 cohorts.
+
 ## Quick start
 
 ```bash

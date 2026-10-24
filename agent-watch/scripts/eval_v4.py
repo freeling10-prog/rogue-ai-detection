@@ -41,7 +41,7 @@ def gen(tree: Path, out: Path, seed: int) -> None:
     client = app.test_client()
     rng = random.Random(seed)
     n = 0
-    for variant, label, note, copies, benign in web.WEB_PLAN + getattr(web, 'WEB_PLAN_V4', []):
+    for variant, label, note, copies, benign in web.WEB_PLAN + getattr(web, 'WEB_PLAN_V4', []) + getattr(web, 'WEB_PLAN_V6', []):
         for k in range(copies):
             ip = web.actor_ip(n, label)
             now = {"t": 600.0 + 40 * n}

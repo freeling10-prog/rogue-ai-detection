@@ -85,6 +85,49 @@ class Layer2Cfg(_Strict):
     access_min_sensitive: int = 5
     max_evidence: int = Field(8, ge=1)
     apply_allowlist: bool = True          # honour per-event exemptions from verified identity / IP / ASN allowlists
+    # --- v6 R12 routine_tool_hijack (AML.T0080 / AML.T0086, approximate) -----------------------------------------------------------
+    r12_enabled: bool = True
+    r12_jump_ratio: float = Field(2.5, gt=1.0)      # post-ingestion outbound argument size (x entropy when measured) vs the tool's clean median
+    r12_min_clean_calls: int = Field(4, ge=1)       # calls of the SAME routine tool outside post-ingestion windows needed for a median
+    r12_min_post_bytes: int = Field(1000, ge=0)     # ignore tiny posts even if the ratio is large
+    r12_over_clean_max: float = Field(1.25, ge=1.0) # ... and the post must also exceed every clean call to that destination by this factor
+    r12_post_steps: int = Field(5, ge=1)            # a call is "post-ingestion" if it is within this many events after an untrusted read ...
+    r12_post_window_s: float = Field(900.0, gt=0)   # ... and within this many seconds
+    r12_chain_steps: int = Field(3, ge=2)           # untrusted_read -> sensitive_internal_read -> routine_outbound_send within this many steps
+    r12_strength_jump: float = Field(0.55, ge=0, le=1)
+    r12_strength_chain: float = Field(0.6, ge=0, le=1)
+    r12_strength_both: float = Field(0.75, ge=0, le=1)    # one episode that shows BOTH the chain and the size/entropy jump
+    r12_strength_cap: float = Field(0.8, ge=0, le=1)
+
+
+class ProbingCfg(_Strict):
+    """v6 R13 slow_or_shielded_probing.  THRESHOLDS ARE CALIBRATED ON BENIGN REFERENCE DATA ONLY (``scripts/calibrate_r13.py``: the
+    benign-only simulator reference seeds 1000-1002 used for the frozen baseline, plus benign web cohorts; no attack cohort is read).
+    The defaults below are the numbers that script printed, rounded up (see the README section "R13 calibration"):
+    p0 0.0476 -> 0.05, h 3.59 -> 4.0 (benign max CUSUM 2.87 x 1.25), W3 benign max 2 -> 3, W7 benign max 2 -> 3,
+    collapse log-std threshold 0.6 (half the benign 1% quantile 1.20 of per-session max sub-window log-std; 0 benign hits)."""
+
+    enabled: bool = True
+    min_events: int = Field(12, ge=4)
+    min_probes: int = Field(3, ge=1)                # fewer boundary-probing actions than this: R13 abstains (a person mistypes twice)
+    p0: float = Field(0.05, gt=0, lt=1)             # H0 per-event probe rate (benign upper quantile, calibrated)
+    p1: float = Field(0.15, gt=0, lt=1)             # H1 per-event probe rate (what a padded prober must still sustain to make progress)
+    cusum_h: float = Field(4.0, gt=0)              # alarm when max CUSUM statistic >= h (benign reference max x margin, calibrated)
+    p1_low: float = Field(0.1, gt=0, lt=1)          # a second CUSUM tuned to a SMALL shift (a padded prober just above the benign tail)
+    cusum_h_low: float = Field(2.6, gt=0)           # its alarm: benign max 2.01 x 1.25 = 2.51, rounded up (calibrated)
+    cusum_h_strong: float = Field(2.0, ge=1.0)      # x h: sustained evidence far beyond any benign session -> solo-strength flag
+    w3_min: int = Field(3, ge=1, le=4)              # probes among any 3 consecutive events (calibrated: benign max + 1; 4 = disabled)
+    w7_min: int = Field(3, ge=1, le=8)              # probes among any 7 consecutive events (8 = disabled)
+    paced_rate_min: float = Field(0.05, ge=0, le=1) # with a timing collapse: distinct-probe share above the benign 99th percentile -> reason
+    session_density_min: float = Field(0.5, ge=0, le=1)   # full-session probe share that counts as a density reason (R5-like, but no min count)
+    collapse_window: int = Field(8, ge=3)           # inter-request gaps per timing sub-window
+    collapse_min_windows: int = Field(4, ge=4)
+    collapse_max_logstd: float = Field(0.6, gt=0)  # every sub-window's std of log-gaps below this (benign low quantile x margin, calibrated) ...
+    collapse_max_mean_spread: float = Field(0.35, gt=0)   # ... and the sub-window mean log-gaps differ by less than this ...
+    collapse_min_cv: float = Field(0.15, ge=0)      # ... but the session is NOT a clock (CV of gaps >= periodic_cv): crons are excluded
+    strength_one: float = Field(0.5, ge=0, le=1)
+    strength_two: float = Field(0.6, ge=0, le=1)
+    strength_strong: float = Field(0.68, ge=0, le=1)
 
 
 class Layer3Cfg(_Strict):
@@ -114,6 +157,23 @@ class Layer3Cfg(_Strict):
     weight_redacted: float = Field(0.6, ge=0, le=0.9)  # moderate confidence: same redacted secret marker in two sessions
     redacted_max_sessions: int = Field(6, ge=2)        # markers shared by more sessions than this are 'popular' and ignored
     state_min_events: int = Field(3, ge=1)             # stitched sessions may be short; timing/content still need min_events
+    # --- v6: lag-invariant swarm edges (AML.T0118, approximate) ------------------------------------------------------
+    partition_enabled: bool = True
+    partition_min_agents: int = Field(3, ge=3)         # disjoint_target_partition: group size
+    partition_min_targets: int = Field(6, ge=2)        # distinct targets each member touched in the resource family
+    partition_max_p: float = Field(1e-3, gt=0, lt=1)   # every pair's overlap at or below this hypergeometric LOWER-tail p (improbably small)
+    partition_min_coverage: float = Field(0.6, gt=0, le=1)   # union of the group covers this share of the targets OTHER agents touched
+    partition_min_outside_targets: int = Field(5, ge=1)      # ... and other agents touched at least this many (else: abstain)
+    partition_max_candidates: int = Field(300, ge=3)   # per family (cost bound; the most active agents are kept)
+    partition_weight: float = Field(0.7, ge=0, le=1)   # base edge weight (+0.05 per extra decade of surprise, capped)
+    partition_weight_cap: float = Field(0.9, ge=0, le=1)
+    inheritance_enabled: bool = True
+    inheritance_min_404: int = Field(2, ge=1)          # A's failed probes before its rare unlinked 200 counts as a "discovery"
+    inheritance_rare_max_agents: int = Field(3, ge=2)  # the discovered path was requested by at most this many agents in the batch
+    inheritance_max_sibling_share: float = Field(0.25, ge=0, le=1)   # B repeated at most this share of A's failed probes
+    inheritance_weight: float = Field(0.75, ge=0, le=1)
+    inheritance_weight_step: float = Field(0.1, ge=0, le=1)   # per additional inherited discovery
+    inheritance_weight_cap: float = Field(0.95, ge=0, le=1)
 
 
 class FusionCfg(_Strict):
@@ -134,6 +194,11 @@ class FusionCfg(_Strict):
     anomaly_min: float = Field(0.3, ge=0, le=1)         # an Isolation Forest score below this does not count as a family at all
     rule_solo_min: float = Field(0.65, ge=0)            # >1 disables the solo-rule exception
     graph_solo_min: float = Field(0.8, ge=0)            # >1 disables the solo-cluster exception
+    # v6: rules are split into independent FAMILIES (tool_use / probing / timing / navigation / web_interaction / session_fork / honeypot).
+    # With the gate on, two different rule families corroborate each other like two signal families do, and their strengths combine by
+    # noisy-or (capped) instead of max.  A single rule family (however many rules in it fire) still needs strength >= rule_solo_min.
+    rule_family_corroboration: bool = True
+    rule_family_cap: float = Field(0.95, ge=0, le=1)
 
     @model_validator(mode="after")
     def _anomaly_alone_cannot_lead(self) -> "FusionCfg":
@@ -236,6 +301,18 @@ class WebCfg(_Strict):
     floors_enabled: bool = True
     floor_weak: float = Field(0.58, ge=0, le=1)        # single hidden-link/decoy contact: reaches the queue, below review_first
     floor_strong: float = Field(0.8, ge=0, le=1)       # decoy-protocol use that needs reading/parsing (schema, MCP call, canary)
+    # --- v6 ---------------------------------------------------------------------------------------------------------
+    nav_coherent_share: float = Field(0.8, gt=0, le=1)  # R11: share of page loads with coherent Sec-Fetch-* that exempts a missing beacon
+    vlm_min_beacons: int = Field(2, ge=1)               # R11: beacons showing the quantized-interaction pattern before it counts
+    synthetic_click_min_beacons: int = Field(2, ge=1)   # R11: zero-dwell clicks with no pointer movement before it counts (weak)
+    strength_corroborate: float = Field(0.45, ge=0, le=1)   # R11 weak reasons WITHOUT a floor (need another family)
+    missing_cursor_min: int = Field(2, ge=1)            # R9: requests that dropped a load-bearing cursor (400 Missing Required Cursor)
+    strength_missing_cursor: float = Field(0.55, ge=0, le=1)
+    r14_enabled: bool = True
+    r14_window_s: float = Field(0.5, gt=0)              # R14: a suspicious request within this many seconds of a human-branch page load
+    r14_min_forks: int = Field(2, ge=1)
+    r14_strength: float = Field(0.6, ge=0, le=1)
+    r14_strength_cap: float = Field(0.75, ge=0, le=1)
 
 
 class Config(_Strict):
@@ -250,6 +327,7 @@ class Config(_Strict):
     sequence: SequenceCfg = Field(default_factory=SequenceCfg)
     identity: IdentityCfg = Field(default_factory=IdentityCfg)
     web: WebCfg = Field(default_factory=WebCfg)
+    probing: ProbingCfg = Field(default_factory=ProbingCfg)
 
 
 def load_config(path: Optional[str | Path] = None) -> Config:

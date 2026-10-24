@@ -114,7 +114,8 @@ def test_every_flag_has_evidence_atlas_mapping_and_approximation_note():
                          raw(102, LATE + 20, "a", "tool_call", tool="http_post", dest_host=HOST_NEW + ".x", payload_bytes=9000)]
            + [raw(300 + i, LATE + 100 + i, "a", "access", status="denied", resource=f"/admin/{i}") for i in range(14)])
     flags = run(evs, declared={"a": ["search", "http_post"]})
-    assert set(ids(flags)) == {"R1", "R2", "R3", "R4", "R5"}
+    # v6: the 14-request denied burst is also sequential probing evidence (R13 CUSUM / micro-windows), so R13 joins R5
+    assert set(ids(flags)) == {"R1", "R2", "R3", "R4", "R5", "R13"}
     for f in flags:
         assert f.evidence and all(e.event_id and e.summary for e in f.evidence)
         assert f.atlas and all(a["id"] in ATLAS_TECHNIQUES and a["url"].startswith("https://atlas.mitre.org/") for a in f.atlas)

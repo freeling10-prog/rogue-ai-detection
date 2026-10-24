@@ -12,7 +12,7 @@ import math
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, List, Literal, Optional, Tuple
+from typing import Any, FrozenSet, List, Literal, Optional, Tuple
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr, field_validator, model_validator
 
@@ -124,13 +124,38 @@ _JA4 = re.compile(r"^[tqd][0-9]{2}[di][0-9]{4}[a-z0-9]{2}_[0-9a-f]{12}_[0-9a-f]{
 
 
 class BeaconMeta(BaseModel):
-    """The three booleans of the client-interaction beacon - nothing else is accepted (extra fields are rejected)."""
+    """The client-interaction beacon: booleans only, nothing else is accepted (extra fields are rejected).
+
+    v4/v5: the three required booleans.  v6 (``/workspace/v6-event-contract.md``): three more, OPTIONAL so v4/v5 records stay valid
+    (missing = unknown, never "false"): ``challenge_proof_ok`` (the per-page challenge was solved by the page's own JS),
+    ``kinematic_dwell_ok`` (mouseup - mousedown >= 12 ms and a non-collinear pointer path), ``inertial_scroll_ok`` (scroll shows momentum
+    decay, or there was no scroll)."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     webdriver_present: StrictBool
     pointer_trail_seen: StrictBool
     dom_automation_props: StrictBool
+    challenge_proof_ok: Optional[StrictBool] = None
+    kinematic_dwell_ok: Optional[StrictBool] = None
+    inertial_scroll_ok: Optional[StrictBool] = None
+
+
+# v6 signal names (exact strings from the agent-watch -> pipeline contract).  Anything else in ``web.signals`` is rejected.
+V6_SIGNALS = ("beacon_forged", "script_fetched_but_unexecuted", "dom_visual_inversion_hit", "vlm_quantized_interaction",
+              "schema_provenance_cursor", "missing_required_cursor", "parasitic_session_fork", "llmjacking_probe")
+V6Signal = Literal["beacon_forged", "script_fetched_but_unexecuted", "dom_visual_inversion_hit", "vlm_quantized_interaction",
+                   "schema_provenance_cursor", "missing_required_cursor", "parasitic_session_fork", "llmjacking_probe"]
+
+
+class LlmjackingMeta(BaseModel):
+    """v6: what the decoy ``POST /v1/chat/completions`` endpoint recorded - counts and buckets only, never the messages themselves."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    tool_count: StrictInt = Field(ge=0, le=10_000)
+    system_prompt_len_bucket: Literal["0", "1-200", "201-1000", "1001-4000", ">4000"]
+    autonomous_loop_directive: StrictBool
 
 
 class WebMeta(BaseModel):
@@ -162,6 +187,18 @@ class WebMeta(BaseModel):
     decoy_kind: Optional[StrictStr] = None
     mcp: Optional[Literal["initialize", "tools_list", "tools_call"]] = None
     ja4: Optional[StrictStr] = None                     # optional TLS fingerprint supplied by an edge proxy (NOT produced here)
+    # --- v6 (agent-watch v6 event contract) ------------------------------------------------------------------------------------------
+    js_assets_fetched: Optional[StrictInt] = Field(default=None, ge=0, le=1_000_000)   # successful .js fetches by this SESSION (on every event)
+    cursor_prov: Optional[Literal["schema", "html"]] = None   # provenance of the cursor/page_ref this request presented (None: none / invalid)
+    signals: List[V6Signal] = Field(default_factory=list, max_length=8)   # per-event collector signals (enumerated; unknown names rejected)
+    llmjacking: Optional[LlmjackingMeta] = None         # only on a POST /v1/chat/completions decoy request
+
+    @field_validator("signals")
+    @classmethod
+    def _sig(cls, v: List[str]) -> List[str]:
+        if len(set(v)) != len(v):
+            raise ValueError("signals must not repeat")
+        return v
 
     @field_validator("user_agent")
     @classmethod
@@ -210,6 +247,8 @@ class RawEvent(BaseModel):
     dest_host: Optional[StrictStr] = None
     untrusted_content: StrictBool = False        # event ingested retrieved / untrusted text
     payload_bytes: StrictInt = Field(default=0, ge=0, le=10**10)
+    arg_entropy: Optional[float] = Field(default=None, ge=0.0, le=8.0)   # v6: Shannon entropy (bits/byte) of the tool-call arguments, computed by
+                                                                         # the collector before discarding them (R12); None = not measured
     text: Optional[StrictStr] = Field(default=None, max_length=10_000)
     synthetic: StrictBool = False                # collectors must label synthetic data explicitly
     # --- optional enrichment ------------------------------------------------------------------------------
@@ -339,6 +378,14 @@ class WebFlags:
     referer_key: Optional[str] = None                   # pseudonym of the same-site Referer path (never the path itself)
     path_key: Optional[str] = None                      # pseudonym of the requested path without its query string
     is_entry: bool = False                              # the requested path is a static entry point (/, /robots.txt, /sitemap.xml)
+    # v6
+    beacon_ext: Optional[Tuple[Optional[bool], Optional[bool], Optional[bool]]] = None   # (challenge_proof_ok, kinematic_dwell_ok, inertial_scroll_ok)
+    js_assets_fetched: Optional[int] = None
+    cursor_prov: Optional[str] = None
+    signals: FrozenSet[str] = frozenset()
+    llmjacking: Optional[Tuple[int, str, bool]] = None   # (tool_count, system_prompt_len_bucket, autonomous_loop_directive)
+    prefix_keys: Tuple[str, ...] = ()                    # pseudonyms of every path prefix (/a, /a/b, ...) - for "sub-path of" tests, no paths
+    parent_key: Optional[str] = None                     # pseudonym of the parent directory of the requested path
 
 
 @dataclass(frozen=True, slots=True)
@@ -372,6 +419,8 @@ class NormalizedEvent:
     redactions: frozenset = frozenset()      # keyed hashes of scrubber markers [REDACTED_<TYPE>_SHA256:<10hex>] seen in the event
     capture: Optional[CapturedAgentMeta] = None   # UNTRUSTED attacker-controlled metadata (sanitized); never used for scoring
     web: Optional[WebFlags] = None                # derived web-collector flags (None for non-web events)
+    arg_entropy: Optional[float] = None           # v6: entropy (bits/byte) of tool-call arguments as measured by the collector
+    family_key: Optional[str] = None              # v6: pseudonym of the resource FAMILY (first path segment), for disjoint-partition tests
 
     @property
     def denied(self) -> bool:

@@ -24,7 +24,7 @@ from .synthetic import generate_demo
 EXPECTED: list[tuple[str, str, str, str]] = [
     ("human", r"^(human \d|busy human|reading human|web:human #)", "unclassified", ""),
     ("human_no_assets/images_blocked/js_off", r"^web:human_(no_assets|images_blocked|js_off)", "unclassified", ""),
-    ("human_beacon_blocked", r"^web:human_beacon_blocked", "unclassified", "KNOWN false positive: ad-blocked beacon looks like a missing beacon"),
+    ("human_beacon_blocked", r"^web:human_beacon_blocked", "unclassified", "v5 KNOWN false positive; v6: exempt (coherent headers, no decoy contact)"),
     ("static scanners / crawlers", r"^(fixed-interval|search-engine|cron poller|monitoring)", "commodity_or_static_scanner", ""),
     ("naive_scraper", r"^(naive scraper|web:scraper_naive|web:crawler_declared)", "commodity_or_static_scanner", ""),
     ("classic agents C/F/L/H (canary, creds)", r"^(gullible RAG|fast scripted|LLM-like|human-like agent)", "prompt_injected_crawler", ""),
@@ -34,10 +34,14 @@ EXPECTED: list[tuple[str, str, str, str]] = [
     ("mimic_basic", r"^web:mimic_basic", "headless_or_http_mimic", ""),
     ("mimic_linked", r"^web:mimic_linked", "headless_or_http_mimic", ""),
     ("mimic_assets", r"^web:mimic_assets", "headless_or_http_mimic", ""),
-    ("mimic_schema", r"^web:mimic_schema", "schema_driven_api_agent", ""),
+    ("mimic_schema", r"^web:mimic_schema #", "schema_driven_api_agent", ""),
     ("mimic_aria / webdriver", r"^web:mimic_(aria|browser_webdriver)", "headless_or_http_mimic", ""),
-    ("mimic_browser_stealth", r"^web:mimic_browser_stealth", "headless_or_http_mimic", "KNOWN miss: nothing observable distinguishes it"),
-    ("mimic_header_forger", r"^web:mimic_header_forger", "headless_or_http_mimic", "KNOWN miss: forged coherent Sec-Fetch is trusted"),
+    ("mimic_browser_stealth", r"^web:mimic_browser_stealth", "headless_or_http_mimic", "v5 KNOWN miss; v6: DOM-order inversion link"),
+    ("mimic_header_forger", r"^web:mimic_header_forger", "headless_or_http_mimic", "v6: canned beacon -> beacon_forged"),
+    # v6 cohorts (same author as the rules: matching them is expected, not evidence)
+    ("mimic_vlm_os", r"^web:mimic_vlm_os", "headless_or_http_mimic", ""),
+    ("mimic_schema_sanitizer", r"^web:mimic_schema_sanitizer", "schema_driven_api_agent", ""),
+    ("mimic_parasitic_rider", r"^web:mimic_parasitic_rider", "headless_or_http_mimic", "R14 fork; schema-cursor use shows in also_matched"),
 ]
 
 

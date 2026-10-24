@@ -10,7 +10,7 @@ This page is the product front door. The research write-up is the whitepaper ([P
 
 Wire the turnkey audit workflow and the in-process approval formatter. Both ship in this tree. Neither one publishes the honeypot.
 
-- GitHub Action: [`.github/workflows/atlas-agent-audit.yml`](.github/workflows/atlas-agent-audit.yml). On pull requests and on pushes to `main` it runs `agent-gateway`, `agent-watch`, and `rogue-ai-pipeline`, then an offline `agentwatch-analyzer` smoke. The smoke reads an archived log and uploads `findings.json`, `replay.html`, and a STIX 2.1 bundle. It does not bind a port.
+- GitHub Action: [`.github/workflows/atlas-agent-audit.yml`](.github/workflows/atlas-agent-audit.yml). On pull requests and on pushes to `main` it runs `agent-gateway`, `agent-watch`, and `rogue-ai-pipeline`, then an offline `agentwatch-analyzer` smoke. The smoke reads an archived log, checks the STIX bundle, runs `python -m agent_gateway audit`, and uploads `findings.json`, `replay.html`, the STIX 2.1 bundle, and the executive `audit-report.html` / `audit-report.pdf`. It does not bind a port.
 - Slack sidecar: [`agent-gateway/agent_gateway/approval_webhook.py`](agent-gateway/agent_gateway/approval_webhook.py), called from [`pep.py`](agent-gateway/agent_gateway/pep.py) when a tainted tool call is held. The document is Slack Block Kit (`text` + `blocks`) and a generic `webhook` object. **Approve Once** authorizes that exact call. **Deny & Freeze Key 15m** freezes a registered key for 900 seconds.
 - Three-minute loop, copy-paste Docker or local Python: [docs/quickstart.md](docs/quickstart.md). Building the JSON does not open a socket. HTTP runs only with `python -m agent_gateway serve --webhook-deliver` and a URL you set.
 
@@ -29,17 +29,17 @@ The audit the workflow already automates is the offline path above: gateway test
 Labels for results **recorded in this lab tree on 24 October 2026**. They are not a certification, and they are not evidence of a wild deployment. The GitHub Action file is the thing you run; the shields only repeat the recorded counts.
 
 [![GitHub Action atlas-agent-audit.yml](https://img.shields.io/badge/GitHub_Action-atlas--agent--audit.yml-3b5bdb)](.github/workflows/atlas-agent-audit.yml)
-[![gateway tests 35 passed](https://img.shields.io/badge/gateway_tests-35_passed-2f6f4e)](agent-gateway/tests)
+[![gateway tests 40 passed](https://img.shields.io/badge/gateway_tests-40_passed-2f6f4e)](agent-gateway/tests)
 [![ATLAS 7/7 plus Hypothesis](https://img.shields.io/badge/ATLAS_falsification-7%2F7_%2B_Hypothesis-2f6f4e)](agent-gateway/tests/test_pep_falsification.py)
 [![STIX validator_ok true](https://img.shields.io/badge/STIX_2.1-validator__ok%3Dtrue-2f6f4e)](agentwatch-analyzer/scripts/ci_smoke.py)
 
 | Check | Where | Recorded result |
 | --- | --- | --- |
-| ATLAS agent audit | [`.github/workflows/atlas-agent-audit.yml`](.github/workflows/atlas-agent-audit.yml) | Four jobs: gateway, agent-watch, pipeline, offline analyzer smoke. The smoke job fails unless the STIX bundle parses and `validator_ok` is true. No honeypot process. |
-| Gateway tests | `agent-gateway` pytest | **35 passed** (`pytest -q` in `agent-gateway` on this branch). **6** of the 35 are approval-webhook tests. The pre-webhook floor is **29** (the count before those 6 existed; that is the "29" figure). Inside the 35: **7/7** ATLAS falsification in [`test_pep_falsification.py`](agent-gateway/tests/test_pep_falsification.py), plus Hypothesis stateful checks. |
+| ATLAS agent audit | [`.github/workflows/atlas-agent-audit.yml`](.github/workflows/atlas-agent-audit.yml) | Four jobs: gateway, agent-watch, pipeline, offline analyzer smoke. The smoke job fails unless the STIX bundle parses and `validator_ok` is true. It then runs `python -m agent_gateway audit` and uploads the executive HTML and text PDF with the other artifacts. No honeypot process. |
+| Gateway tests | `agent-gateway` pytest | **40 passed** (`pytest -q` in `agent-gateway` on this branch). **5** of the 40 are executive audit-report tests. **6** are approval-webhook tests. The count before those 5 audit tests is **35**. The pre-webhook floor is **29** (the count before those 6 existed; that is the "29" figure). Inside the 40: **7/7** ATLAS falsification in [`test_pep_falsification.py`](agent-gateway/tests/test_pep_falsification.py), plus Hypothesis stateful checks. |
 | STIX 2.1 | [`agentwatch-analyzer/scripts/ci_smoke.py`](agentwatch-analyzer/scripts/ci_smoke.py) | Recorded smoke on the archived Tier-2 Playwright crawler log reported **`validator_ok=true`**. Known warnings on `x_` properties and approximate ATLAS tags can still appear. |
 
-Use **35** on any tree that contains [`approval_webhook.py`](agent-gateway/agent_gateway/approval_webhook.py). Use **29** only for the parent tree from before that file.
+Use **40** on this tree (approval webhook plus the executive audit report). Use **35** on a tree that contains [`approval_webhook.py`](agent-gateway/agent_gateway/approval_webhook.py) but not the audit-report tests. Use **29** only for the parent tree from before the webhook file.
 
 ## What you are running
 

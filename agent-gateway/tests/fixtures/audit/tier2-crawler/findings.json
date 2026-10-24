@@ -1,0 +1,155 @@
+{
+  "schema": "agentwatch-analyzer.findings/1",
+  "source_log": "agent-watch/benchmark/tier2_local_real_llm/slot/t2-pw_crawler_headless-crawler-s100/access.jsonl",
+  "n_events": 37,
+  "n_sessions_kept": 1,
+  "n_prefiltered": 0,
+  "prefiltered": {},
+  "offline_matrix": {
+    "R8": {
+      "offline": true,
+      "note": "UA claims browser + HTML pages without css/js asset fetches"
+    },
+    "R9": {
+      "offline": true,
+      "note": "Referer link-graph; stronger with sitemap or JSON links[]; weak parent-Referer fallback"
+    },
+    "R10": {
+      "offline": "partial",
+      "note": "schema cursor / machine-doc path patterns in query/path; decoy kinds need honeypot"
+    },
+    "R11": {
+      "offline": false,
+      "note": "beacon forged/missing, kinematic dwell, inversion, VLM \u2014 honeypot/beacon only"
+    },
+    "R12": {
+      "offline": false,
+      "note": "insider tool-chain hijack \u2014 agent-gateway / API telemetry, not web access logs"
+    },
+    "R13": {
+      "offline": false,
+      "note": "timing/adaptation signatures that need honeypot think-time instrumentation"
+    },
+    "R14": {
+      "offline": "partial",
+      "note": "interleaved disjoint Referer trees possible; human-beacon corroboration N/A offline"
+    }
+  },
+  "honeypot_only_notes": [
+    {
+      "rule_id": "R10",
+      "offline": "partial",
+      "note": "schema cursor / machine-doc path patterns in query/path; decoy kinds need honeypot"
+    },
+    {
+      "rule_id": "R11",
+      "offline": false,
+      "note": "beacon forged/missing, kinematic dwell, inversion, VLM \u2014 honeypot/beacon only"
+    },
+    {
+      "rule_id": "R12",
+      "offline": false,
+      "note": "insider tool-chain hijack \u2014 agent-gateway / API telemetry, not web access logs"
+    },
+    {
+      "rule_id": "R13",
+      "offline": false,
+      "note": "timing/adaptation signatures that need honeypot think-time instrumentation"
+    },
+    {
+      "rule_id": "R14",
+      "offline": "partial",
+      "note": "interleaved disjoint Referer trees possible; human-beacon corroboration N/A offline"
+    }
+  ],
+  "findings": [
+    {
+      "rule_id": "R9",
+      "title": "Unlinked jump (Referer link-graph)",
+      "session_key": "127.0.0.1|Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/12",
+      "strength": 0.6,
+      "summary": "3 path(s) not offered by prior page/sitemap edges",
+      "evidence": [
+        {
+          "path": "/api/v1/telemetry/nav",
+          "referer": "http://127.0.0.1:8300/",
+          "status": "never_offered"
+        },
+        {
+          "path": "/robots.txt",
+          "referer": "",
+          "status": "never_offered"
+        },
+        {
+          "path": "/api/v1/telemetry/nav",
+          "referer": "http://127.0.0.1:8300/kb/page/2?page_ref=prov.html.4276e4628c52",
+          "status": "never_offered"
+        }
+      ],
+      "atlas": [
+        "AML.T0053"
+      ],
+      "offline": true,
+      "extra": {
+        "mode": "graph"
+      }
+    },
+    {
+      "rule_id": "R14",
+      "title": "Parasitic-like interleaved disjoint trees (partial offline)",
+      "session_key": "127.0.0.1|Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/12",
+      "strength": 0.45,
+      "summary": "10 missing-Referer navigations interleaved with a different subtree within 500ms; human-beacon corroboration N/A offline \u2014 treat as advisory",
+      "evidence": [
+        {
+          "path": "/api/v1/kb-snapshot",
+          "referer": ""
+        },
+        {
+          "path": "/kb/",
+          "referer": ""
+        },
+        {
+          "path": "/llms.txt",
+          "referer": ""
+        },
+        {
+          "path": "/openapi.json",
+          "referer": ""
+        },
+        {
+          "path": "/robots.txt",
+          "referer": ""
+        },
+        {
+          "path": "/.well-known/mcp.json",
+          "referer": ""
+        },
+        {
+          "path": "/kb/api-rate-limits",
+          "referer": ""
+        },
+        {
+          "path": "/kb/page/2",
+          "referer": ""
+        },
+        {
+          "path": "/kb/returns-faq",
+          "referer": ""
+        },
+        {
+          "path": "/kb/shipping-policy",
+          "referer": ""
+        }
+      ],
+      "atlas": [
+        "AML.T0075"
+      ],
+      "offline": true,
+      "extra": {
+        "offline": "partial",
+        "beacon_corroboration": false
+      }
+    }
+  ]
+}

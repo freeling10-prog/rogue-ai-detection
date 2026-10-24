@@ -1,0 +1,13 @@
+{
+  "events": 6,
+  "sessions_kept": 1,
+  "prefiltered": 0,
+  "findings": 1,
+  "out_dir": ".",
+  "stix": {
+    "parsed_ok": true,
+    "validator_ok": true,
+    "object_count": 11
+  },
+  "source_log": "agentwatch-analyzer/tests/fixtures/access.jsonl"
+}

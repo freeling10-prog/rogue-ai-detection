@@ -31,17 +31,19 @@ agent-gateway/
 │   ├── capability.py   # Chained HMAC capability tokens (macaroon-style)
 │   ├── approve.py      # Bound OOB HMAC mint/verify
 │   ├── approval_webhook.py  # Slack / generic webhook approval formatter
+│   ├── audit_report.py # Offline executive HTML + text PDF from analyzer output
 │   ├── taint.py        # Session taint, egress classes, scratchpad/bus
 │   ├── registry.py     # Registered keys; root-parent freeze
 │   ├── scrub.py        # Deterministic log scrubbing
-│   └── cli.py          # serve / approve
+│   └── cli.py          # serve / approve / audit
 ├── config/agents.json
 ├── tests/
 │   ├── test_basic.py
 │   ├── test_pep_falsification.py   # 7 ATLAS regression cases
 │   ├── test_capability_attenuation.py
 │   ├── test_stateful_fuzz.py       # Hypothesis RuleBasedStateMachine
-│   └── test_approval_webhook.py    # scrub + callback tamper rejection
+│   ├── test_approval_webhook.py    # scrub + callback tamper rejection
+│   └── test_audit_report.py        # executive report from analyzer fixtures
 └── README.md
 ```
 
@@ -101,17 +103,25 @@ The document carries the agent principal, session id, and `agw1.` capability sta
 
 Building the payload does not open a socket. `PepConfig.webhook_deliver` defaults to false. `python -m agent_gateway serve --webhook-url … --webhook-deliver` is the opt-in. A failed POST does not change the policy decision.
 
+### Executive audit report
+
+`python -m agent_gateway audit <analyzer-out>` reads the directory an `agentwatch-analyzer` smoke writes and writes `audit-report.html`, `audit-report.json`, and a pure-Python text PDF (`audit-report.pdf`). HTML is the report. The PDF is a text rendering of the same figures; WeasyPrint and wkhtmltopdf are optional and are not installed here.
+
+The executive summary counts tool calls (a record with a tool name or `tools/call`, not an access-log fetch), taint events, and ATLAS matches for `AML.T0051`, `AML.T0080`, and `AML.T0086`. Subtechniques roll up to the parent id. The STIX attack-pattern catalog is not counted, because the analyzer emits it even when a technique was not matched.
+
+The report links and embeds the static `replay.html`. The risk matrix splits tool-call paths that can place data on an external boundary from paths whose `agw1.` capability includes `allow_egress=false`. A token that still allows egress is not treated as attenuation. Signatures are omitted. Strings pass through the gateway scrubber. The command does not bind, does not POST, and does not start the honeypot.
+
 ### Turnkey audit workflow
 
-`.github/workflows/atlas-agent-audit.yml` runs, as separate jobs, the `agent-gateway` suite (ATLAS falsification and Hypothesis included), `agent-watch`, `rogue-ai-pipeline`, and an `agentwatch-analyzer` smoke. The smoke reads the archived Tier-2 Playwright crawler log (fixture `agentlike_nginx.log` if that archive is absent) and uploads `findings.json`, `replay.html`, and the validated STIX 2.1 bundle. It does not start the honeypot.
+`.github/workflows/atlas-agent-audit.yml` runs, as separate jobs, the `agent-gateway` suite (ATLAS falsification and Hypothesis included), `agent-watch`, `rogue-ai-pipeline`, and an `agentwatch-analyzer` smoke. The smoke reads the archived Tier-2 Playwright crawler log (fixture `agentlike_nginx.log` if that archive is absent), writes `findings.json`, `replay.html`, and the validated STIX 2.1 bundle, then runs `python -m agent_gateway audit` on that directory and uploads the executive HTML and text PDF with the smoke artifacts. It does not start the honeypot.
 
 ## Test counts (this pass)
 
 | Suite | Result |
 |---|---|
-| `agent-gateway` full pytest | **35 passed** (7 basic + **7/7 falsification** + 10 attenuation + 5 stateful + 6 approval-webhook) |
+| `agent-gateway` full pytest | **40 passed** (7 basic + **7/7 falsification** + 10 attenuation + 5 stateful + 6 approval-webhook + 5 audit-report) |
 | Falsification `tests/test_pep_falsification.py` | **7/7 pass** |
-| `agent-watch` full pytest (safelog machine included) | **512 passed, 2 skipped** |
+| `agent-watch` full pytest (safelog machine included) | **512 passed, 2 skipped** (prior pass; this change does not touch that suite) |
 
 ### Falsification results
 
@@ -142,4 +152,6 @@ pytest -q
 python -m agent_gateway serve --host 127.0.0.1 --port 9100
 # OOB (use step_index + exact args from a policy deny):
 python -m agent_gateway approve sess-1 --step 3 --tool send_email --args-json '{"to":"team@internal.local","body":"Status OK"}'
+# offline executive report (no bind, no honeypot):
+python -m agent_gateway audit ./analyzer-out --out-dir ./audit-report
 ```

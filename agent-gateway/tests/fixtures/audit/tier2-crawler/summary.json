@@ -1,0 +1,13 @@
+{
+  "events": 37,
+  "sessions_kept": 1,
+  "prefiltered": 0,
+  "findings": 2,
+  "out_dir": ".",
+  "stix": {
+    "parsed_ok": true,
+    "validator_ok": true,
+    "object_count": 14
+  },
+  "source_log": "agent-watch/benchmark/tier2_local_real_llm/slot/t2-pw_crawler_headless-crawler-s100/access.jsonl"
+}

@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
+from . import toxic_combinations
 from .audit_chain import DECISION_LOG_NAME, write_manifest
 from .capability import parse, verify
 from .scrub import scrub_text
@@ -54,6 +55,15 @@ _EXFIL_TOOLS = frozenset({
     "fetch_url",
     "curl",
 })
+INVENTORY_NAME = "tool-inventory.json"
+GATEWAY_FINDING_KINDS = (
+    "toxic_combinations",
+    "tool_output_injection",
+    "ssrf_boundary_violation",
+    "covert_side_channel_suspected",
+    "deobfuscated_exfil_detected",
+    "mcp_rug_pull_detected",
+)
 _EXFIL_EGRESS = frozenset({"external_read", "send", "write", "creds"})
 _ATLAS_RE = re.compile(r"AML\.T\d{4}(?:\.\d{3})?")
 _AGW1_RE = re.compile(r"agw1\.[A-Za-z0-9_-]{8,}\.[0-9a-f]{64}")
@@ -199,8 +209,11 @@ def _load_jsonl(path: Path, notes: list[str]) -> list[dict[str, Any]]:
     return rows
 
 
-def load_audit_dir(path: Path) -> LoadedAudit:
-    """Load an analyzer output directory. Raises AuditInputError when it cannot."""
+def load_audit_dir(path: Path, *, allow_empty: bool = False) -> LoadedAudit:
+    """Load an analyzer output directory. Raises AuditInputError when it cannot.
+
+    ``allow_empty`` permits a tool-list-only audit (no analyzer outputs).
+    """
     if not path.is_dir():
         raise AuditInputError(f"not a directory: {path}")
     missing = [name for name in EXPECTED_FILES if not (path / name).is_file()]
@@ -260,7 +273,7 @@ def load_audit_dir(path: Path) -> LoadedAudit:
             replay_text = text
 
     recognized = any((path / name).is_file() for name in EXPECTED_FILES if name != "replay.html")
-    if not recognized:
+    if not recognized and not allow_empty:
         raise AuditInputError(
             "no analyzer outputs in "
             f"{path} (expected {', '.join(EXPECTED_FILES)})"
@@ -592,6 +605,8 @@ def render_html(report: dict[str, Any]) -> str:
         replay_block = "<p>replay.html was not in the input directory, so there is nothing to embed.</p>"
     vuln_n = len(matrix["vulnerable_exfiltration"])
     prot_n = len(matrix["protected_agw1"])
+    toxic_block = _render_toxic(report.get("toxic_combinations"))
+    gateway_block = _render_gateway(report.get("gateway_findings"))
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -619,6 +634,7 @@ table {{ width: 100%; border-collapse: collapse; background: white; font-size: 0
 th, td {{ text-align: left; vertical-align: top; padding: 6px 8px; border-bottom: 1px solid #e7e5e4; }}
 th {{ color: #44403c; font-weight: 600; }}
 .empty {{ color: #57534e; margin: 4px 0; }}
+.graph {{ background: white; border: 1px solid #e7e5e4; border-radius: 8px; padding: 8px; overflow-x: auto; }}
 iframe {{ width: 100%; height: 480px; border: 1px solid #d6d3d1; background: white; }}
 .note, footer {{ color: #44403c; font-size: 0.92rem; }}
 footer {{ max-width: 980px; margin: 0 auto; padding: 0 20px 32px; }}
@@ -658,6 +674,8 @@ footer {{ max-width: 980px; margin: 0 auto; padding: 0 20px 32px; }}
 <h3>Other tool calls</h3>
 {_render_rows(matrix['other_tool_calls'])}
 </section>
+{toxic_block}
+{gateway_block}
 <section id="session-replay">
 <h2>Session replay</h2>
 <p class="note">Static file produced by the analyzer. It does not call the network. The copy next to this report is scrubbed again before it is embedded.</p>
@@ -677,6 +695,83 @@ footer {{ max-width: 980px; margin: 0 auto; padding: 0 20px 32px; }}
 </body>
 </html>
 """
+
+
+def _render_toxic(toxic: Optional[dict]) -> str:
+    if not toxic:
+        return ("<section id='toxic-combinations'><h2>Toxic combinations</h2>"
+                "<p class='empty'>No tool inventory was supplied (tool-inventory.json or --tool-inventory).</p></section>")
+    t = toxic["totals"]
+    cards = "".join(
+        f"<li><span>{_e(label)}</span><strong>{int(value)}</strong><small>{_e(blurb)}</small></li>"
+        for label, value, blurb in (
+            ("Toxic 2-hop", t["toxic_2hop"], "external_read → read → sink"),
+            ("Toxic 3-hop", t["toxic_3hop"], "external_read → read → read → sink"),
+            ("Behind agw1.", t["protected"], "sink holds a hard capability boundary"),
+            ("Tools", toxic["tools"], f"{t['sources']} sources, {t['reads']} reads, {t['sinks']} sinks"),
+        )
+    )
+    constrained = ", ".join(toxic.get("constrained_sinks") or []) or "none"
+    trunc = "<p class='note'>Path list truncated; totals are complete.</p>" if toxic.get("truncated") else ""
+    return (
+        "<section id='toxic-combinations'><h2>Toxic combinations</h2>"
+        "<p class='note'>Static reachability over the declared tool inventory: every path where an untrusted "
+        "external read can steer an internal or sensitive read into a sink that carries free text, without a "
+        "hard <code>agw1.</code> capability boundary at the sink. Approximate AML.T0086. Not a penetration test.</p>"
+        f"<ul class='kpis'>{cards}</ul>"
+        f"<div class='graph'>{toxic_combinations.render_svg(toxic)}</div>"
+        f"{toxic_combinations.render_table(toxic)}{trunc}"
+        f"<p class='note'>Constrained sinks (no free-text channel, not counted): {_e(constrained)}.</p>"
+        "</section>"
+    )
+
+
+def _render_gateway(gateway: Optional[dict]) -> str:
+    if not gateway:
+        return ""
+    counts = "".join(
+        f"<tr><td>{_e(kind)}</td><td>{int(n)}</td></tr>" for kind, n in gateway["counts"].items()
+    )
+    rows = "".join(
+        "<tr>"
+        f"<td>{_e(r['kind'])}</td><td>{_e(r['tool'])}</td><td>{_e(r['session'])}</td>"
+        f"<td>{_e(r['atlas'])}</td><td>{_e(r['detail'])}</td>"
+        "</tr>"
+        for r in gateway["rows"]
+    ) or "<tr><td colspan='5'>None.</td></tr>"
+    return (
+        "<section id='gateway-findings'><h2>Gateway findings (decision log)</h2>"
+        "<p class='note'>From the hash-chained PEP decision log. ATLAS ids are approximate.</p>"
+        f"<table><thead><tr><th>Kind</th><th>Count</th></tr></thead><tbody>{counts}</tbody></table>"
+        "<table><thead><tr><th>Kind</th><th>Tool</th><th>Session</th><th>ATLAS</th><th>Detail</th></tr></thead>"
+        f"<tbody>{rows}</tbody></table></section>"
+    )
+
+
+def summarize_decision_log(path: Path, limit: int = 40) -> dict[str, Any]:
+    """Counts and a preview of v8/v9 gateway findings in a decision log."""
+    counts = {kind: 0 for kind in GATEWAY_FINDING_KINDS}
+    rows: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(entry, dict) or entry.get("kind") not in counts:
+            continue
+        kind = entry["kind"]
+        counts[kind] += 1
+        if len(rows) >= limit:
+            continue
+        if kind == "tool_output_injection":
+            detail = ", ".join(sorted({str(s.get("kind")) for s in entry.get("signals") or [] if isinstance(s, dict)}))
+        elif kind == "toxic_combinations":
+            detail = f"toxic paths: {(entry.get('totals') or {}).get('toxic')}"
+        else:
+            detail = entry.get("reason") or ", ".join(map(str, entry.get("reasons") or [])) or entry.get("form") or ""
+        rows.append({"kind": kind, "tool": _public(entry.get("tool"), 80), "session": _public(entry.get("session_id"), 80),
+                     "atlas": _public(entry.get("atlas"), 20), "detail": _public(detail, 200)})
+    return {"counts": counts, "rows": rows, "atlas_approximate": True}
 
 
 def _pdf_escape(text: str) -> str:
@@ -734,6 +829,22 @@ def render_pdf_lines(report: dict[str, Any]) -> list[str]:
     lines.append(f"Other tool calls: {len(matrix['other_tool_calls'])}")
     for row in matrix["other_tool_calls"]:
         lines.append(f"- {row['tool']} session={row['session']}")
+    toxic = report.get("toxic_combinations")
+    lines.append("")
+    lines.append("Toxic combinations (static reachability, approximate AML.T0086)")
+    if toxic:
+        t = toxic["totals"]
+        lines.append(f"Toxic 2-hop: {t['toxic_2hop']}  Toxic 3-hop: {t['toxic_3hop']}  Behind agw1.: {t['protected']}")
+        for p in [p for p in toxic["paths"] if p["toxic"]][:40]:
+            lines.append(f"- [{p['severity']}] {' -> '.join(p['path'])} via {', '.join(p['channel']) or '-'}")
+    else:
+        lines.append("No tool inventory supplied.")
+    gateway = report.get("gateway_findings")
+    if gateway:
+        lines.append("")
+        lines.append("Gateway findings (decision log)")
+        for kind, n in gateway["counts"].items():
+            lines.append(f"{kind}: {n}")
     lines.append("")
     lines.append("Session replay")
     if report["replay_embedded"]:
@@ -801,6 +912,30 @@ def _final_scrub(text: str) -> str:
     return scrub_text(_AGW1_RE.sub("agw1.[redacted]", text))
 
 
+def _write_findings(src: Path, dest: Path, report: dict[str, Any]) -> Optional[Path]:
+    """Scrubbed copy of the analyzer findings plus the gateway sections."""
+    extra = {k: report[k] for k in ("toxic_combinations", "gateway_findings") if report.get(k)}
+    if not src.is_file() and not extra:
+        return None
+    doc: Any = {"schema": "agent-gateway.audit-findings/1", "findings": []}
+    if src.is_file():
+        text = _final_scrub(src.read_text(encoding="utf-8"))
+        if not extra:
+            dest.write_text(text, encoding="utf-8")
+            return dest
+        try:
+            doc = json.loads(text)
+        except json.JSONDecodeError:
+            doc = {"schema": "agent-gateway.audit-findings/1", "findings": [], "analyzer_findings_unparsed": True}
+        if isinstance(doc, list):
+            doc = {"findings": doc}
+        elif not isinstance(doc, dict):
+            doc = {"findings": []}
+    doc.update(extra)
+    dest.write_text(_final_scrub(json.dumps(doc, indent=2, ensure_ascii=False) + "\n"), encoding="utf-8")
+    return dest
+
+
 def _default_decision_log(input_dir: Path) -> Optional[Path]:
     for name in (DECISION_LOG_NAME, "alerts.jsonl"):
         path = input_dir / name
@@ -811,15 +946,31 @@ def _default_decision_log(input_dir: Path) -> Optional[Path]:
 
 def write_report(
     input_dir: Path, out_dir: Path, *, pdf: bool = True, decision_log: Optional[Path] = None,
+    tool_inventory: Optional[Path] = None,
 ) -> dict[str, Any]:
     """Compile ``input_dir`` into HTML, JSON, and (unless disabled) a text PDF.
 
     Also copies a scrubbed ``findings.json`` and the hash-chained decision log
     (byte for byte, so the chain still verifies), then writes
     ``audit_manifest.json`` over every output file.
+
+    A tool inventory (``tool_inventory`` or ``<input_dir>/tool-inventory.json``)
+    adds the toxic-combination section, and allows a tool-list-only audit with
+    no analyzer outputs.
     """
-    loaded = load_audit_dir(input_dir)
+    inv_src = tool_inventory
+    if inv_src is None and (input_dir / INVENTORY_NAME).is_file():
+        inv_src = input_dir / INVENTORY_NAME
+    loaded = load_audit_dir(input_dir, allow_empty=inv_src is not None)
     report = compile_report(loaded)
+    if inv_src is not None:
+        try:
+            report["toxic_combinations"] = toxic_combinations.load_inventory_file(inv_src)
+        except (OSError, ValueError) as exc:
+            raise AuditInputError(f"tool inventory {inv_src}: {exc}") from exc
+    log_src = decision_log if decision_log is not None else _default_decision_log(input_dir)
+    if log_src is not None and log_src.is_file():
+        report["gateway_findings"] = summarize_decision_log(log_src)
     out_dir.mkdir(parents=True, exist_ok=True)
     html_text = _final_scrub(render_html(report))
     html_path = out_dir / "audit-report.html"
@@ -832,12 +983,9 @@ def write_report(
     if loaded.replay_text is not None:
         replay_out = out_dir / "replay.html"
         replay_out.write_text(_final_scrub(loaded.replay_text), encoding="utf-8")
-    findings_src = input_dir / "findings.json"
-    findings_out: Optional[Path] = None
-    if findings_src.is_file():
-        findings_out = out_dir / "findings.json"
-        findings_out.write_text(_final_scrub(findings_src.read_text(encoding="utf-8")), encoding="utf-8")
-    log_src = decision_log if decision_log is not None else _default_decision_log(input_dir)
+    findings_out = _write_findings(input_dir / "findings.json", out_dir / "findings.json", report)
+    if inv_src is not None:
+        (out_dir / INVENTORY_NAME).write_text(_final_scrub(inv_src.read_text(encoding="utf-8")), encoding="utf-8")
     log_out: Optional[Path] = None
     if log_src is not None and log_src.is_file():
         # Copied unchanged: lines are scrubbed when the PEP writes them, and any

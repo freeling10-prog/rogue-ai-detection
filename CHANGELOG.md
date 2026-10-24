@@ -4,7 +4,36 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
-## [Unreleased] - v8 MCP wire proxy, de-obfuscation, audit chain
+## [Unreleased] - v9 toxic-flow graph, ingress scanner, SSRF and side-channel guards
+
+All four are zero-compute (standard library; no model calls, no DNS).
+ATLAS ids are approximate.
+
+- `agent_gateway/toxic_combinations.py`: static reachability over a tool
+  inventory. Lists every 2-hop and 3-hop `external_read -> read -> sink`
+  path whose sink has a free-text channel and no hard `agw1.` boundary
+  (approximate AML.T0086). `audit --tool-inventory` adds it to
+  `findings.json`, the HTML (table plus inline SVG), and the PDF, under
+  `audit_manifest.json`. An inventory alone is enough for a
+  tool-list-only audit.
+- `agent_gateway/tool_output_scanner.py`: Unicode tag smuggling,
+  zero-width and BiDi override characters, delimiter / role spoofing,
+  fake JSON-RPC envelopes, and cross-tool name shadowing in untrusted tool
+  output. Findings taint the session and attenuate the `agw1.` token
+  (approximate AML.T0051); the proxy forwards the result with invisible
+  characters removed.
+- `agent_gateway/egress_uri_guard.py`: canonical SSRF / cloud-metadata
+  guard over URI and host arguments; `ssrf_boundary_violation`
+  (approximate AML.T0053). Metadata and obfuscated internal spellings are
+  denied, plain private targets are held for a bound OOB approval, and
+  the literal lab loopback hosts stay allowed.
+- `agent_gateway/side_channel_guard.py`: post-trifecta boolean-oracle,
+  cardinality, and timing-beacon detection;
+  `covert_side_channel_suspected` (approximate AML.T0086) holds the
+  session and freezes the registered root key for 15 minutes.
+- `agent-gateway` tests: **161 passed** (89 before this change).
+
+## v8 - MCP wire proxy, de-obfuscation, audit chain (PR #16)
 
 All three are zero-compute (standard library plus the existing Flask
 dependency; no model calls). ATLAS ids are approximate.

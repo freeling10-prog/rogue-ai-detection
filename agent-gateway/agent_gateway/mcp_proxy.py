@@ -21,6 +21,10 @@ Intercepted methods:
   server. Results of sensitive reads are fingerprinted for de-obfuscation.
 - ``resources/read`` and ``prompts/get`` (client request, server response):
   gated by the PEP; content from a non-core server taints the session.
+- Every ``tools/call``, ``resources/read``, and ``prompts/get`` result is
+  scanned by ``tool_output_scanner.py`` before it reaches the client. A
+  finding taints the session, attenuates the ``agw1.`` token, and the result
+  is forwarded with invisible Unicode removed.
 - ``sampling/createMessage`` (server-initiated request): rejected while the
   session is tainted, held for review, or lacks the root-keyed
   ``grant:sampling=`` caveat in its ``agw1.`` token.
@@ -268,15 +272,24 @@ class McpWireProxy:
             return FilterResult("pass", forward=[msg])
         if pending.method == "tools/list":
             return self._on_tools_list(msg)
+        decision = "pass"
         if pending.method == "tools/call":
             self.engine.ingest_tool_result(self.agent_key, self.session_id, pending.tool_name, msg.get("result"))
-            return FilterResult("pass", forward=[msg])
         if pending.method in ("resources/read", "prompts/get") and not self.is_core_server:
             self.engine.mark_untrusted_ingest(
                 self.agent_key, self.session_id, f"mcp.{pending.method}:{self.server_name}",
             )
-            return FilterResult("tainted", forward=[msg])
-        return FilterResult("pass", forward=[msg])
+            decision = "tainted"
+        if pending.method in ("tools/call", "resources/read", "prompts/get"):
+            # Scan before the result reaches the agent loop; forward it with invisible characters removed.
+            scanned = self.engine.scan_tool_output(
+                self.agent_key, self.session_id, pending.tool_name or pending.method, msg.get("result"),
+            )
+            if scanned["findings"]:
+                self.capability_token = self.engine.sessions[self.session_id].capability_token
+                return FilterResult("injection_flagged", forward=[{**msg, "result": scanned["result"]}],
+                                    detail={"findings": scanned["findings"]})
+        return FilterResult(decision, forward=[msg])
 
     def _gate_sampling(self, msg: dict) -> FilterResult:
         rid = msg.get("id")

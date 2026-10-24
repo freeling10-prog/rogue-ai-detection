@@ -64,7 +64,8 @@ Link: https://cursor.com/canvas/store-f783d059-8304-409e-8eee-8c518ae04f8b/91900
 ## 6. Lab gateway (agent-gateway)
 - `pep.py` is a loopback policy proxy for **registered internal** agent keys. The project maps it to ATLAS mitigation AML.M0030 (taint on untrusted ingest, then restrict the tool call). Whitepaper section 6 and [docs/phase2-gateway.md](docs/phase2-gateway.md).
 - Default bind `127.0.0.1`. Freeze and hard-block apply only to keys in `agent-gateway/config/agents.json`. They do not apply to visitors of the web honeypot.
-- Recorded tests: **14 of 14**, including **7 of 7** ATLAS falsification. Those tests check the gates against cases written for them. Not a production evaluation.
+- Recorded tests after the capability work: **29 passed**, including **7 of 7** ATLAS falsification, plus Hypothesis. The approval-webhook hook adds its own tests on that floor (see [docs/phase2-gateway.md](docs/phase2-gateway.md)). Those tests check the gates against cases written for them. Not a production evaluation.
+- Commercial hooks (lab, self-serve): a Slack / generic webhook formatter for a tainted call that is waiting on a person (`agent-gateway/agent_gateway/approval_webhook.py`; no HTTP unless `--webhook-deliver`), and `.github/workflows/atlas-agent-audit.yml` for the gateway, agent-watch, the pipeline, and an offline analyzer smoke. The workflow does not deploy the honeypot. Deny & Freeze is 15 minutes and only for a registered key.
 - Not a production WAF. Not Web Bot Auth. Tool backends in this prototype are simulated echoes. No wild deployment.
 
 ## 7. Offline analyzer (agentwatch-analyzer)

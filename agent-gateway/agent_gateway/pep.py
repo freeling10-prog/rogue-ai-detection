@@ -7,7 +7,7 @@ Safety:
 - Bind 127.0.0.1 by default.
 - freeze/block apply ONLY to keys in config/agents.json.
 - Web honeypot / public visitors: never auto-blocked (out of scope here).
-- No outbound network from the gateway except optional webhook stub (default OFF).
+- No outbound network from the gateway except an explicit approval-webhook opt-in (default OFF).
 - Session capabilities are chained HMAC tokens. Untrusted ingest appends
   ``allow_egress=false``; that caveat cannot be stripped without the root key.
 """
@@ -25,6 +25,7 @@ from typing import Any, Optional
 from flask import Flask, Response, jsonify, request
 
 from . import approve, capability
+from .approval_webhook import build_approval_payload, consume_approve_once, deliver_webhook
 from .registry import Registry
 from .scrub import scrub_obj
 from .taint import (
@@ -54,6 +55,14 @@ log = logging.getLogger("agent_gateway.pep")
 TICKET_STATUS_ENUM = frozenset({"shipped", "pending", "cancelled", "processing", "delivered"})
 HIGH_ENTROPY_THRESHOLD = 4.2  # bits/char; free-text / packed secrets sit above this
 
+# Tainted tool call held for a person. Not a hard deny (quota, unknown key, bad capability).
+_AWAITING_APPROVAL = frozenset({
+    "lethal_trifecta_external_egress",
+    "oob_required_while_tainted",
+    "post_taint_outbound_gated",
+    "oob_required_creds_while_tainted",
+})
+
 
 @dataclass
 class PepConfig:
@@ -62,6 +71,8 @@ class PepConfig:
     registry_path: Path = field(default_factory=lambda: Path(__file__).resolve().parent.parent / "config" / "agents.json")
     allow_nonlocal: bool = False
     webhook_url: Optional[str] = None  # default OFF
+    webhook_deliver: bool = False  # explicit opt-in; formatter never sends by itself
+    webhook_sender: Optional[Any] = None  # test hook; production uses deliver_webhook
     freeze_seconds: float = 900.0
     max_delegation_depth: int = 1
     max_children_per_parent: int = 3
@@ -468,22 +479,69 @@ class PolicyEngine:
             taint_source_id=sess.taint_source_id or "",
             now=self.now(),
         )
+        if not ok:
+            ok = consume_approve_once(
+                token,
+                session_id=sess.session_id,
+                step_index=step,
+                tool_name=tool_name,
+                arguments=args,
+                taint_source_id=sess.taint_source_id or "",
+                now=self.now(),
+            )
         if ok:
             self._alert("oob_consumed", {"session_id": sess.session_id, "step": step, "tool": tool_name})
         return ok
+
+    def _emit_approval_webhook(self, sess: SessionState, step: int, tool_name: str, args: dict, atlas: str) -> dict:
+        """Format a held call for a human. HTTP only when webhook_deliver is set."""
+        rec = self.registry.get(sess.agent_key)
+        payload = build_approval_payload(
+            principal_key=(rec.principal_key if rec else sess.root_parent_key or ""),
+            agent_id=(rec.agent_id if rec else ""),
+            agent_key=sess.agent_key,
+            session_id=sess.session_id,
+            capability_token=sess.capability_token,
+            allow_egress=bool(sess.allow_egress),
+            taint_source_id=sess.taint_source_id or "",
+            taint_reasons=list(sess.taint_reasons),
+            gate_atlas=atlas,
+            tool_name=tool_name,
+            arguments=args,
+            step_index=step,
+            now=self.now(),
+            freeze_seconds=self.cfg.freeze_seconds,
+        )
+        if self.cfg.webhook_deliver and self.cfg.webhook_url:
+            sender = self.cfg.webhook_sender or deliver_webhook
+            try:
+                outgoing = dict(payload)
+                outgoing["delivered"] = True
+                sender(self.cfg.webhook_url, outgoing)
+            except Exception as exc:  # noqa: BLE001 - delivery must not change the policy decision
+                log.warning("approval webhook deliver failed: %s", type(exc).__name__)
+            else:
+                payload["delivered"] = True
+        line = {"ts": self.now(), "kind": "approval_webhook", "payload": payload}
+        with self.alert_path.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(line, default=str) + "\n")
+        return payload
 
     def _deny(self, sess: SessionState, step: int, tool_name: str, args: dict, error: str, code: int,
               atlas: str = "") -> dict:
         sess.history.append({"step": step, "tool": tool_name, "ok": False, "error": error})
         self._alert("policy_deny", {"session_id": sess.session_id, "step": step, "tool": tool_name,
                                     "error": error, "atlas": atlas, "args": scrub_obj(args)})
-        return {
+        out = {
             "ok": False, "allowed": False, "error": error, "code": code,
             "tool": tool_name, "step_index": step, "tainted": sess.tainted,
             "sensitive_read": sess.sensitive_read, "atlas": atlas,
             "scrubbed_args": scrub_obj(args),
             "message": f"policy gate denied {tool_name}: {error}",
         }
+        if error in _AWAITING_APPROVAL and (sess.tainted or not sess.allow_egress):
+            out["approval_webhook"] = self._emit_approval_webhook(sess, step, tool_name, args, atlas)
+        return out
 
     def _allow(self, sess: SessionState, step: int, tool_name: str, args: dict, eclass: str,
                constrained: bool = False) -> dict:
@@ -528,7 +586,7 @@ def create_app(cfg: Optional[PepConfig] = None, engine: Optional[PolicyEngine] =
     @app.get("/health")
     def health():
         eng.registry.lift_expired(eng.now())
-        return jsonify({"ok": True, "service": "agent-gateway", "bind": "loopback", "version": "0.2.0"})
+        return jsonify({"ok": True, "service": "agent-gateway", "bind": "loopback", "version": "0.3.0"})
 
     def _agent_key_from_request(body: dict) -> str:
         auth = request.headers.get("Authorization") or ""

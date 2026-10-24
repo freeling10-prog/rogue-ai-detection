@@ -1,6 +1,6 @@
 # Show HN
 
-Status: **draft. Do not submit.** [LICENSE](../LICENSE) (Apache 2.0) and [NOTICE](../NOTICE) are in the tree. The GitHub remote is still private. A license file does not make the repository public. Do not submit this post, and do not call the project a public open-source release, until the repository is public. Replace the link TODO only then.
+Status: **ready to post after the repository is public.** [LICENSE](../LICENSE) is Apache 2.0 and [NOTICE](../NOTICE) is in the tree. Do not submit this post while the GitHub repository is still private. This file has not been posted. Visibility is changed outside this repository.
 
 ## Title
 
@@ -35,6 +35,8 @@ ATLAS technique ids used in the repo (T0051, T0053, T0080, T0086, T0118, mitigat
 
 I want criticism on two design choices: keeping the public honeypot review-only while the insider gateway is allowed to freeze a registered key, and treating "the model quit" as a first-class evaluation outcome instead of only scoring clients that finish the decoy walk.
 
-Link: TODO. Public repository URL goes here after the repo is public. LICENSE is not a substitute for making the remote public.
+The tree includes a free GitHub Action (`.github/workflows/atlas-agent-audit.yml`) that runs the offline audit on pull requests; an optional paid 48-hour tool-boundary note for a security reviewer is in `marketing/audit-offer.md` (not a pen-test, and not a certification).
+
+Link: https://github.com/freeling10-prog/rogue-ai-detection
 
 Further reading in the tree: `docs/phase1-tier2-report.md`, `docs/phase2-gateway.md`, `docs/phase3-analyzer.md`, `agent-gateway/agent_gateway/capability.py`.

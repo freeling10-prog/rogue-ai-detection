@@ -1,14 +1,28 @@
-# Launch copy (drafts)
+# Launch copy
 
-Drafts for a technical launch of the lab stack on current `main`: `agent-watch` (localhost honeypot), `agent-gateway` (taint-and-freeze policy proxy), and `agentwatch-analyzer` (offline CLI). They are written to be posted or sent later. They are not posted by adding them to the tree.
+Customer-facing and community copy for the lab stack on current `main`: `agent-watch` (localhost honeypot), `agent-gateway` (taint-and-freeze policy proxy), and `agentwatch-analyzer` (offline CLI). The name used for that stack, matching the root README and [NOTICE](../NOTICE), is AgentGate.
 
-| Draft | Audience | File |
+Nothing in this folder has been posted or emailed by adding it to the tree. Show HN and the Reddit draft are ready to post only after the GitHub repository is public. Visibility is changed outside this repository.
+
+| Piece | Audience | File |
 | --- | --- | --- |
-| Show HN title and post | Hacker News | [show-hn.md](show-hn.md) |
-| Technical write-up | Reddit, r/LocalLLaMA | [reddit-localllama.md](reddit-localllama.md) |
-| Cold email | Security lead at a B2B AI startup in an enterprise procurement review | [ciso-outreach.md](ciso-outreach.md) |
+| Paid offer | Security reviewer at a B2B agent or MCP team | [audit-offer.md](audit-offer.md) |
+| Email and LinkedIn sequence | LA companies in [la-targets.md](la-targets.md) | [outreach-sequence.md](outreach-sequence.md) |
+| First 10 LA targets | Jordan, before anyone is emailed | [la-targets.md](la-targets.md) |
+| Day 0–7 checklist | Zero-budget week | [7-day-execution-checklist.md](7-day-execution-checklist.md) |
+| Show HN title and post | Hacker News, optional, after the repo is public | [show-hn.md](show-hn.md) |
+| Technical write-up | Reddit, r/LocalLLaMA, optional, after the repo is public | [reddit-localllama.md](reddit-localllama.md) |
+| Scope source for the audit | Do not send this body | [ciso-outreach.md](ciso-outreach.md) |
 
-Names match the packages on `main`. This folder does not introduce a product brand.
+## Live call to action
+
+**[Book a 48-hour Agentic Tool-Boundary Audit](mailto:fleckalec@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit)**
+
+Offer page: [audit-offer.md](audit-offer.md). **$4,500** fixed. **$6,500** with instrumentation (a lab gateway pass on `127.0.0.1`, plus an offline analyzer pass on an authorized log they supply). They can reply to that email with a tool inventory. There is no scheduling link and no company domain.
+
+The open core is Apache 2.0 ([LICENSE](../LICENSE), [NOTICE](../NOTICE)). The paid audit is a commercial service. It is not a second license to the code, and it is not in the Apache grant. The free GitHub Action stays free.
+
+Public repository, once visibility has been changed: https://github.com/freeling10-prog/rogue-ai-detection
 
 ## Honesty rules
 
@@ -22,10 +36,11 @@ These are the limits already recorded in the root README, [docs/phase1-tier2-rep
 - **No wild-deployment result** is recorded. Do not add one.
 - **ATLAS mappings are approximate** (AML.M0030, T0051, T0053, T0080, T0086, T0118). They are not a certification. OWASP ASI notes on the Sigma rules are orientation, not a compliance claim.
 - **`agw1.` is macaroon-style chained HMAC attenuation**, not a full macaroon library (no third-party caveats, no discharges). A worker that holds `AGENT_GATEWAY_HMAC_KEY` can mint a fresh allowing token. A holder who does not have that key cannot strip `allow_egress=false`.
-- **Recorded tests, not re-run for these drafts.** [docs/phase2-gateway.md](../docs/phase2-gateway.md) records `agent-gateway` **35 passed** (7 basic, 7/7 ATLAS falsification, 10 attenuation, 5 stateful Hypothesis, 6 approval-webhook) and `agent-watch` **512 passed, 2 skipped**. [docs/phase3-analyzer.md](../docs/phase3-analyzer.md) records `agentwatch-analyzer` **10 passed**. Hypothesis pin in those tests is `hypothesis==6.170.9`.
+- **Recorded tests, not re-run for these drafts.** [docs/phase2-gateway.md](../docs/phase2-gateway.md) records `agent-gateway` **35 passed** (7 basic, 7/7 ATLAS falsification, 10 attenuation, 5 stateful Hypothesis, 6 approval-webhook) and `agent-watch` **512 passed, 2 skipped**. [docs/phase3-analyzer.md](../docs/phase3-analyzer.md) records `agentwatch-analyzer` **10 passed**. The root README records **40 passed** on this tree after five executive audit-report tests were added on top of that 35. Hypothesis pin in those tests is `hypothesis==6.170.9`.
 
 ## Before anyone posts or sends
 
-- The GitHub remote is still **private**. A root [LICENSE](../LICENSE) (Apache 2.0) and [NOTICE](../NOTICE) are in the tree. That does not make the repository public, and these drafts are not a public open-source announcement. Until the repository visibility is public, do not submit the Show HN post or the Reddit post, and do not describe the project as a public open-source release. Replace the link `TODO` only after the repository is public.
-- The CISO template has no company domain, no booking URL, and no mailto. Replace every `TODO` before sending. Do not invent a domain to fill the gap.
+- Show HN and the Reddit draft are **ready to post after the repository is public**. They have not been posted. If the remote is still private when you sit down to post, do not submit them. The link line is already https://github.com/freeling10-prog/rogue-ai-detection. Apache 2.0 describes the code. It does not by itself change repository visibility.
+- Send [outreach-sequence.md](outreach-sequence.md), not the body of [ciso-outreach.md](ciso-outreach.md). The sequence uses the mailto above. Do not invent a domain to fill a gap.
+- [la-targets.md](la-targets.md) is the first ten companies. Re-open the cited URL the day you send. Drop a row when the page no longer says what the row says.
 - Leave the numbers as fractions (`2 of 13`, `1 to 3` calls). Do not round them into a percentage in a title.

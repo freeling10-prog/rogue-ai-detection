@@ -29,9 +29,17 @@ SECRET_RES = [
 
 
 def _run_dirs():
+    """Archived Tier-2 captures are the flat ``t2-*`` directories.
+
+    Sibling folders such as ``multimodel/`` hold comparison notes and dry-run
+    metadata, not a single run with ``manifest.json``.
+    """
     if not TRACES.is_dir():
         return []
-    return sorted(p for p in TRACES.iterdir() if p.is_dir() and not p.name.startswith("."))
+    return sorted(
+        p for p in TRACES.iterdir()
+        if p.is_dir() and p.name.startswith("t2-")
+    )
 
 
 @pytest.mark.skipif(not _run_dirs(), reason="no real_llm_traces archived yet")

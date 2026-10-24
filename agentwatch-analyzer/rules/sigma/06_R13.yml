@@ -1,0 +1,28 @@
+title: Agentwatch R13 Timing / Adaptation (Honeypot instrumentation)
+id: a1b2c3d4-e5f6-7890-ab12-r13timing0001
+status: experimental
+description: NOT reliably offline-capable from commodity access logs. Needs honeypot think-time instrumentation.
+references:
+  - https://atlas.mitre.org/techniques/AML.T0053
+  - OWASP ASI07
+tags:
+  - attack.aml.t0053
+  - r13
+  - agentwatch
+  - owasp.asi07
+  - honeypot-only
+logsource:
+  product: agentwatch
+  service: access
+detection:
+  selection:
+    signal: adaptation_after_denial
+  condition: selection
+falsepositives:
+  - N/A offline
+level: medium
+agentwatch:
+  rule_id: R13
+  offline: false
+  atlas: [AML.T0053]
+  owasp_asi: [ASI07]

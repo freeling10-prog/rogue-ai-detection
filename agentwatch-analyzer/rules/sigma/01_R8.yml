@@ -1,0 +1,36 @@
+title: Agentwatch R8 Asset Starvation (Browser UA without CSS/JS)
+id: a1b2c3d4-e5f6-7890-ab12-r8asset000001
+status: experimental
+description: Client claims a browser User-Agent and fetches HTML-like paths but never requests CSS/JS assets. Offline-capable. False positives include text-only browsers.
+references:
+  - https://atlas.mitre.org/techniques/AML.T0053
+  - OWASP ASI01
+tags:
+  - attack.aml.t0053
+  - r8
+  - agentwatch
+  - owasp.asi01
+logsource:
+  product: webserver
+  service: access
+detection:
+  selection_ua:
+    cs-user-agent|re: (?i)mozilla/|chrome/|firefox/|safari/
+  selection_page:
+    cs-uri-stem|endswith:
+      - /
+      - .html
+  filter_asset:
+    cs-uri-stem|endswith:
+      - .css
+      - .js
+  condition: selection_ua and selection_page and not filter_asset
+falsepositives:
+  - Lynx/w3m
+  - privacy browsers blocking assets
+level: medium
+agentwatch:
+  rule_id: R8
+  offline: true
+  atlas: [AML.T0053]
+  owasp_asi: [ASI01]

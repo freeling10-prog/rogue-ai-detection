@@ -1,0 +1,30 @@
+{
+  "freeze_seconds": 900,
+  "max_children_per_parent": 3,
+  "webhook_url": null,
+  "core_mcp_servers": ["core", "internal", "builtin"],
+  "agents": [
+    {
+      "agent_id": "lab-assistant-1",
+      "api_key": "agk_demo_registered_0001",
+      "ephemeral_credential": "eph_lab_0001",
+      "max_delegation_depth": 1,
+      "max_children_per_parent": 3
+    },
+    {
+      "agent_id": "lab-assistant-2",
+      "api_key": "agk_demo_registered_0002",
+      "ephemeral_credential": "eph_lab_0002",
+      "max_delegation_depth": 1,
+      "max_children_per_parent": 3
+    },
+    {
+      "agent_id": "lab-worker-child",
+      "api_key": "agk_demo_child_0001",
+      "ephemeral_credential": "eph_child_0001",
+      "max_delegation_depth": 1,
+      "root_parent_key": "agk_demo_registered_0001"
+    }
+  ],
+  "notes": "LAB ONLY. Rotate before any real use. Web honeypot visitors are never listed here. Actions (freeze/block) apply ONLY to these registered keys."
+}

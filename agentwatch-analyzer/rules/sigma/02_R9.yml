@@ -1,0 +1,33 @@
+title: Agentwatch R9 Unlinked Jump (Referer link-graph)
+id: a1b2c3d4-e5f6-7890-ab12-r9unlink00001
+status: experimental
+description: Navigation to a path not offered by the Referer page or sitemap. Stronger with sitemap/JSON links[]. Offline-capable.
+references:
+  - https://atlas.mitre.org/techniques/AML.T0053
+  - OWASP ASI02
+tags:
+  - attack.aml.t0053
+  - r9
+  - agentwatch
+  - owasp.asi02
+logsource:
+  product: webserver
+  service: access
+detection:
+  selection:
+    cs-uri-stem|startswith:
+      - /api/
+      - /kb/
+      - /admin
+  filter_linked:
+    cs-referer|contains: /
+  condition: selection and not filter_linked
+falsepositives:
+  - Bookmarks
+  - typed URLs
+level: medium
+agentwatch:
+  rule_id: R9
+  offline: true
+  atlas: [AML.T0053]
+  owasp_asi: [ASI02]

@@ -1,0 +1,26 @@
+title: ATLAS AML.T0053 AI Agent Tool Invocation (Decoy Tool/API)
+id: a1b2c3d4-e5f6-7890-ab12-t0053tool0001
+status: experimental
+description: Decoy MCP/OpenAPI/tool invocation. Partial offline via machine-doc paths.
+references:
+  - https://atlas.mitre.org/techniques/AML.T0053
+  - OWASP ASI03
+tags:
+  - attack.aml.t0053
+  - agentwatch
+  - owasp.asi03
+logsource:
+  product: webserver
+  service: access
+detection:
+  selection:
+    cs-uri-stem|contains:
+      - /mcp
+      - /openapi.json
+      - /api/v1/tools
+  condition: selection
+level: medium
+agentwatch:
+  atlas: [AML.T0053]
+  offline: partial
+  owasp_asi: [ASI03]

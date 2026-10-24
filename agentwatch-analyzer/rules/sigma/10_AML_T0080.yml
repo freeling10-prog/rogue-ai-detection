@@ -1,0 +1,25 @@
+title: ATLAS AML.T0080 Context Poisoning / Memory (Gateway)
+id: a1b2c3d4-e5f6-7890-ab12-t0080mem00001
+status: experimental
+description: Scratchpad/memory taint inheritance — agent-gateway telemetry, not web access logs.
+references:
+  - https://atlas.mitre.org/techniques/AML.T0080
+  - OWASP ASI05
+  - OWASP ASI10
+tags:
+  - attack.aml.t0080
+  - agent-gateway
+  - owasp.asi05
+  - owasp.asi10
+logsource:
+  product: agent-gateway
+  service: tools
+detection:
+  selection:
+    taint_inherited: true
+  condition: selection
+level: high
+agentwatch:
+  atlas: [AML.T0080]
+  offline: false
+  owasp_asi: [ASI05, ASI10]

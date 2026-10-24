@@ -1,0 +1,28 @@
+title: Agentwatch R11 Browser Mimic / Beacon Signals (Honeypot-only)
+id: a1b2c3d4-e5f6-7890-ab12-r11beacon0001
+status: experimental
+description: NOT offline-capable. Requires honeypot beacons (challenge proof, kinematic dwell, inertial scroll, DOM inversion).
+references:
+  - https://atlas.mitre.org/techniques/AML.T0053
+  - OWASP ASI04
+tags:
+  - attack.aml.t0053
+  - r11
+  - agentwatch
+  - owasp.asi04
+  - honeypot-only
+logsource:
+  product: agentwatch
+  service: beacon
+detection:
+  selection:
+    beacon.challenge_proof_ok: false
+  condition: selection
+falsepositives:
+  - Do not fire on plain access logs
+level: high
+agentwatch:
+  rule_id: R11
+  offline: false
+  atlas: [AML.T0053]
+  owasp_asi: [ASI04]

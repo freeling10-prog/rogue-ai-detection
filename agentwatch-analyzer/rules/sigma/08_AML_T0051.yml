@@ -1,0 +1,28 @@
+title: ATLAS AML.T0051 Prompt Injection Canary Follow (Honeypot)
+id: a1b2c3d4-e5f6-7890-ab12-t0051can0001
+status: experimental
+description: Honeypot canary/hidden-instruction follow. Correlate with agentwatch leads JSONL.
+references:
+  - https://atlas.mitre.org/techniques/AML.T0051
+  - OWASP ASI01
+  - OWASP ASI09
+tags:
+  - attack.aml.t0051
+  - agentwatch
+  - owasp.asi01
+  - owasp.asi09
+logsource:
+  product: agentwatch
+  service: leads
+detection:
+  selection:
+    kind|contains:
+      - canary
+      - llms_txt_decoy
+      - hidden_link
+  condition: selection
+level: high
+agentwatch:
+  atlas: [AML.T0051]
+  offline: false
+  owasp_asi: [ASI01, ASI09]

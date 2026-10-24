@@ -1,0 +1,34 @@
+title: Agentwatch R14 Parasitic Session Fork (Partial Offline)
+id: a1b2c3d4-e5f6-7890-ab12-r14fork000001
+status: experimental
+description: Partial offline interleaved navigations on disjoint path prefixes with missing Referer within 500ms. Full R14 needs human-beacon corroboration.
+references:
+  - https://atlas.mitre.org/techniques/AML.T0075
+  - OWASP ASI08
+tags:
+  - attack.aml.t0075
+  - r14
+  - agentwatch
+  - owasp.asi08
+logsource:
+  product: webserver
+  service: access
+detection:
+  selection_noref:
+    cs-referer:
+      - "-"
+      - ""
+  selection_machine:
+    cs-uri-stem|startswith:
+      - /api/
+      - /openapi
+  condition: selection_noref and selection_machine
+falsepositives:
+  - Prefetch
+  - proxies stripping Referer
+level: medium
+agentwatch:
+  rule_id: R14
+  offline: partial
+  atlas: [AML.T0075]
+  owasp_asi: [ASI08]

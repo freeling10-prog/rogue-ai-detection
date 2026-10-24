@@ -10,9 +10,13 @@ Safety:
 - No outbound network from the gateway except an explicit approval-webhook opt-in (default OFF).
 - Session capabilities are chained HMAC tokens. Untrusted ingest appends
   ``allow_egress=false``; that caveat cannot be stripped without the root key.
+- Every decision-log line is SHA-256 hash-chained (``audit_chain.py``).
+- Outbound arguments are checked against fingerprints of sensitive reads and
+  canaries across steps and encodings (``deobfuscate.py``, approximate AML.T0086).
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import math
@@ -26,6 +30,8 @@ from flask import Flask, Response, jsonify, request
 
 from . import approve, capability
 from .approval_webhook import build_approval_payload, consume_approve_once, deliver_webhook
+from .audit_chain import ChainWriter
+from .deobfuscate import DeobfuscationGuard
 from .paths import default_registry_path
 from .registry import Registry
 from .scrub import scrub_obj
@@ -62,6 +68,7 @@ _AWAITING_APPROVAL = frozenset({
     "oob_required_while_tainted",
     "post_taint_outbound_gated",
     "oob_required_creds_while_tainted",
+    "mcp_rug_pull_hold",
 })
 
 
@@ -125,6 +132,30 @@ def _has_free_text_sink(arguments: dict) -> bool:
     return False
 
 
+_AGW1_RE = re.compile(r"agw1\.[A-Za-z0-9_-]{8,}\.[0-9a-f]{64}")
+
+
+def _log_safe(obj: Any) -> Any:
+    """Decision-log copy of an approval payload.
+
+    The log can ship inside an audit directory, so live callback MACs become a
+    SHA-256 fingerprint and ``agw1.`` tokens lose their signature.
+    """
+    if isinstance(obj, dict):
+        out = {}
+        for k, v in obj.items():
+            if k == "mac" and isinstance(v, str):
+                out["mac_sha256"] = hashlib.sha256(v.encode("utf-8")).hexdigest()
+            else:
+                out[k] = _log_safe(v)
+        return out
+    if isinstance(obj, list):
+        return [_log_safe(v) for v in obj]
+    if isinstance(obj, str):
+        return _AGW1_RE.sub("agw1.[redacted]", obj)
+    return obj
+
+
 class PolicyEngine:
     """In-process policy gate evaluated on every tools/call and tools/list."""
 
@@ -135,6 +166,9 @@ class PolicyEngine:
         self.sessions: dict[str, SessionState] = {}
         self.alert_path = self.cfg.alert_log or (approve.state_dir() / "alerts.jsonl")
         self.alert_path.parent.mkdir(parents=True, exist_ok=True)
+        self.chain = ChainWriter(self.alert_path)
+        self.deob = DeobfuscationGuard()
+        self.findings: list[dict] = []
         self._clock = time.time
 
     def now(self) -> float:
@@ -226,8 +260,7 @@ class PolicyEngine:
 
     def _alert(self, kind: str, detail: dict) -> None:
         rec = {"ts": self.now(), "kind": kind, **scrub_obj(detail)}
-        with self.alert_path.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(rec, default=str) + "\n")
+        self.chain.append(rec)
         # webhook stub: only if explicitly configured (still not used for public web)
         if self.cfg.webhook_url:
             log.warning("webhook stub configured but lab default is OFF-path; not sending: %s", kind)
@@ -342,6 +375,17 @@ class PolicyEngine:
             step = sess.step_index
         args = dict(arguments or {})
         eclass = egress_class(tool_name)
+        oob_memo: dict[str, bool] = {}
+
+        def oob() -> bool:
+            # One-time token: consume at most once even when several gates ask.
+            if "ok" not in oob_memo:
+                oob_memo["ok"] = self._try_oob(sess, step, tool_name, args, approval_token)
+            return oob_memo["ok"]
+
+        # --- MCP rug pull: every call waits for a person (approximate AML.T0051) ---
+        if sess.review_hold and not oob():
+            return self._deny(sess, step, tool_name, args, "mcp_rug_pull_hold", -32050, atlas="AML.T0051")
 
         # --- spawn quotas (AML.T0118) ---
         if tool_name == "spawn_subagent" or eclass == EGRESS_SPAWN:
@@ -447,17 +491,17 @@ class PolicyEngine:
         # allow_egress is the capability-chain view of the same gate (monotonic caveat).
         egress_closed = bool(sess.tainted or not sess.allow_egress)
         if egress_closed and sess.sensitive_read and places_params_on_external_boundary(tool_name, args):
-            if not self._try_oob(sess, step, tool_name, args, approval_token):
+            if not oob():
                 return self._deny(sess, step, tool_name, args, "lethal_trifecta_external_egress", -32030,
                                   atlas="AML.T0086")
 
         # --- Allowlisted constrained sink (falsification test 7 / usability DoS fix) ---
         if egress_closed and tool_name == "update_ticket_status" and _is_constrained_ticket_status(args) and not _has_free_text_sink(args):
-            return self._allow(sess, step, tool_name, args, eclass, constrained=True)
+            return self._release(sess, step, tool_name, args, eclass, constrained=True)
 
         # --- Block write/send/creds/bus while tainted unless bound OOB (spacers never clear taint) ---
         if egress_closed and eclass in BLOCKED_EGRESS_WHILE_TAINTED:
-            if not self._try_oob(sess, step, tool_name, args, approval_token):
+            if not oob():
                 err = "oob_required_while_tainted"
                 atlas = "AML.T0053"
                 if eclass in (EGRESS_WRITE, EGRESS_SEND):
@@ -470,7 +514,102 @@ class PolicyEngine:
         if tool_name == "credentials.pass_through":
             return self._deny(sess, step, tool_name, args, "credentials_pass_through_refused", -32012)
 
-        return self._allow(sess, step, tool_name, args, eclass)
+        return self._release(sess, step, tool_name, args, eclass)
+
+    def _release(self, sess: SessionState, step: int, tool_name: str, args: dict, eclass: str,
+                 constrained: bool = False) -> dict:
+        """Last gate before an allowed call leaves: cross-step / encoded exfil (approximate AML.T0086).
+
+        Arguments are appended to the session window only when the call is
+        released, so the window holds what actually left the gateway.
+        """
+        outbound = eclass != EGRESS_INTERNAL_READ
+        if outbound and self.deob.has_secrets(sess.session_id):
+            leak = self.deob.scan(sess.session_id, tool_name, args)
+            if leak is not None:
+                finding = {"kind": "deobfuscated_exfil_detected", "session_id": sess.session_id, "step": step,
+                           "tool": tool_name, **leak.as_dict()}
+                self.findings.append(finding)
+                self._alert("deobfuscated_exfil_detected", finding)
+                self._taint(sess, "deobfuscated_exfil", source_id=f"deobfuscate:{leak.form}")
+                frozen = self._freeze_root(sess.agent_key, "deobfuscated_exfil_detected")
+                out = self._deny(sess, step, tool_name, args, "deobfuscated_exfil_detected", -32031,
+                                 atlas="AML.T0086")
+                out["leak"] = leak.as_dict()
+                out["frozen_agents"] = frozen
+                return out
+            self.deob.commit(sess.session_id, tool_name, args)
+        return self._allow(sess, step, tool_name, args, eclass, constrained=constrained)
+
+    # --- MCP wire-proxy hooks (mcp_proxy.py) -------------------------------------
+
+    def register_canary(self, value: str, label: str = "canary", session_id: Optional[str] = None) -> bool:
+        """Fingerprint a canary secret. ``session_id=None`` watches every session."""
+        return self.deob.register(value, label=label, session_id=session_id)
+
+    def ingest_tool_result(self, agent_key: str, session_id: str, tool_name: str, result: Any) -> int:
+        """Fingerprint data returned by a sensitive read. Returns secrets registered."""
+        if tool_name not in SENSITIVE_READ_TOOLS and egress_class(tool_name) != EGRESS_CREDS:
+            return 0
+        sess = self.get_session(session_id, agent_key)
+        sess.mark_sensitive()
+        return self.deob.register_output(result, label=tool_name, session_id=session_id)
+
+    def mark_untrusted_ingest(self, agent_key: str, session_id: str, source: str) -> None:
+        sess = self.get_session(session_id, agent_key)
+        self._taint(sess, f"untrusted_ingest:{source}", source_id=sess.taint_source_id or source)
+
+    def flag_rug_pull(self, agent_key: str, session_id: str, server_name: str, changes: list[dict]) -> dict:
+        """A pinned MCP tool definition changed mid-session (approximate AML.T0051).
+
+        Taints the session, appends ``allow_egress=false``, and holds every
+        later tools/call for a bound one-time OOB approval.
+        """
+        sess = self.get_session(session_id, agent_key)
+        self._taint(sess, f"mcp_rug_pull:{server_name}", source_id=f"mcp.rug_pull:{server_name or 'unknown'}")
+        sess.review_hold = "mcp_rug_pull_detected"
+        finding = {
+            "kind": "mcp_rug_pull_detected", "atlas": "AML.T0051", "atlas_approximate": True,
+            "session_id": session_id, "server": server_name, "changes": changes,
+            "allow_egress": bool(sess.allow_egress),
+        }
+        self.findings.append(finding)
+        self._alert("mcp_rug_pull_detected", finding)
+        return finding
+
+    def evaluate_sampling(
+        self, agent_key: str, session_id: str, params: Optional[dict] = None,
+        capability_token: Optional[str] = None,
+    ) -> dict:
+        out = self._evaluate_sampling(agent_key, session_id, params, capability_token)
+        return self._attach_capability(session_id, out)
+
+    def _evaluate_sampling(
+        self, agent_key: str, session_id: str, params: Optional[dict], capability_token: Optional[str],
+    ) -> dict:
+        """Server-initiated sampling/createMessage: needs a clean session and a root-keyed grant."""
+        self.registry.lift_expired(self.now())
+        if not self.registry.get(agent_key):
+            return {"ok": False, "error": "unregistered_agent", "code": -32001}
+        if self.registry.is_frozen_key(agent_key, self.now()):
+            return {"ok": False, "error": "agent_frozen", "code": -32002}
+        sess = self.get_session(session_id, agent_key)
+        tool = "sampling/createMessage"
+        summary = {"max_tokens": (params or {}).get("maxTokens"),
+                   "n_messages": len((params or {}).get("messages") or [])}
+        rejected = self._adopt_presented_capability(sess, capability_token, agent_key)
+        sess.step_index += 1
+        step = sess.step_index
+        if rejected:
+            return self._deny(sess, step, tool, summary, rejected, -32040, atlas="AML.M0030")
+        if sess.tainted or not sess.allow_egress or sess.review_hold:
+            return self._deny(sess, step, tool, summary, "sampling_rejected_while_tainted", -32060,
+                              atlas="AML.T0051")
+        mac = capability.verify(sess.capability_token) if sess.capability_token else None
+        if mac is None or not capability.allows_sampling(mac):
+            return self._deny(sess, step, tool, summary, "sampling_not_granted", -32061, atlas="AML.M0030")
+        sess.history.append({"step": step, "tool": tool, "ok": True})
+        return {"ok": True, "allowed": True, "tool": tool, "step_index": step, "tainted": False}
 
     def _try_oob(self, sess: SessionState, step: int, tool_name: str, args: dict, token: Optional[str]) -> bool:
         if not token:
@@ -523,9 +662,7 @@ class PolicyEngine:
                 log.warning("approval webhook deliver failed: %s", type(exc).__name__)
             else:
                 payload["delivered"] = True
-        line = {"ts": self.now(), "kind": "approval_webhook", "payload": payload}
-        with self.alert_path.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(line, default=str) + "\n")
+        self.chain.append({"ts": self.now(), "kind": "approval_webhook", "payload": _log_safe(payload)})
         return payload
 
     def _deny(self, sess: SessionState, step: int, tool_name: str, args: dict, error: str, code: int,
@@ -552,6 +689,7 @@ class PolicyEngine:
         if tool_name in ("read_internal_secrets", "credentials.get", "secrets.get"):
             result["secret"] = "secret_value_123"
             sess.mark_sensitive()
+            self.deob.register(result["secret"], label=tool_name, session_id=sess.session_id)
         if tool_name in ("read_external_url", "web.fetch", "fetch_url"):
             result["body"] = "untrusted content from lab fixture"
         if tool_name == "lookup_order_status":

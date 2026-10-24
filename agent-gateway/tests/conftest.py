@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 REG = ROOT / "config" / "agents.json"
 KEY_A = "agk_demo_registered_0001"
 KEY_B = "agk_demo_registered_0002"
+CHILD_KEY = "agk_demo_child_0001"
 
 
 @pytest.fixture()

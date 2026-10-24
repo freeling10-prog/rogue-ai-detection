@@ -121,6 +121,7 @@ jobs:
           python -m agent_gateway audit analyzer-smoke --out-dir analyzer-smoke/audit-report
           test -s analyzer-smoke/audit-report/audit-report.html
           test -s analyzer-smoke/audit-report/audit-report.pdf
+          python -m agent_gateway verify analyzer-smoke/audit-report
       - name: Upload findings, replay, STIX bundle, and executive report
         uses: actions/upload-artifact@v4
         with:
@@ -133,3 +134,4 @@ jobs:
             analyzer-smoke/stix-validation.json
             analyzer-smoke/audit-report/audit-report.html
             analyzer-smoke/audit-report/audit-report.pdf
+            analyzer-smoke/audit-report/audit_manifest.json

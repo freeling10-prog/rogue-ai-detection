@@ -30,6 +30,9 @@ Implements ATLAS mitigation **AML.M0030** (Restrict Tool Invocation on Untrusted
 9. **Chained HMAC capabilities** — macaroon-style session tokens. Untrusted ingest appends `allow_egress=false`. A holder cannot strip or reorder that caveat; any worker that shares `AGENT_GATEWAY_HMAC_KEY` can verify the chain without a session table. A valid one-time OOB token is still the only bypass. See `docs/phase2-gateway.md`.
 10. **Approval webhook (formatter)** — a held tainted call emits scrubbed Slack Block Kit and a generic webhook payload (principal, session, `agw1.` capability, taint source, ATLAS id, tool, canonical args, one-time Approve Once / Deny & Freeze Key 15m callbacks). No HTTP unless `--webhook-deliver`. Freeze still applies only to registered keys, for 15 minutes.
 11. **Executive audit report** — `python -m agent_gateway audit <analyzer-out>` reads an `agentwatch-analyzer` output directory and writes a lab HTML report (and a pure-Python text PDF). It does not start the honeypot and does not open a socket.
+12. **MCP JSON-RPC 2.0 wire proxy** (`mcp_proxy.py`) — a standard-library filter for one client/server MCP session. It gates `tools/call`, `resources/read`, and `prompts/get` through the PEP and pins `sha256(name, description, inputSchema)` for every tool on the first complete `tools/list`. A later listing that mutates or adds a pinned tool is a rug pull (`mcp_rug_pull_detected`, approximate AML.T0051): the session capability gets `allow_egress=false`, the client keeps the pinned definitions, and every later call waits for a bound one-time OOB approval (`params._meta["agentgate/approval_token"]` and `["agentgate/bound_step_index"]`, stripped before forwarding). Server-initiated `sampling/createMessage` is rejected while tainted or when the `agw1.` token has no root-keyed `grant:sampling=` caveat (`capability.mint(..., sampling=True)`). The proxy opens no sockets; the caller moves the bytes.
+13. **Cross-step smuggling de-obfuscation** (`deobfuscate.py`) — sensitive-read results and registered canaries are kept only as salted SHA-256 digests of 8-character n-grams of the raw value and its Base64, hex, URL-encoded, and whitespace-stripped forms. Released outbound arguments join a per-session sliding window (one global stream and one per argument key), and each chunk is also decoded on its own. A match catches split-chunk leaks (4–6 characters per call), encode-then-split, and split-then-encode. The call is denied (`deobfuscated_exfil_detected`, approximate AML.T0086) and the registered root key is frozen for 15 minutes. Denied calls never join the window.
+14. **Hash-chained audit receipts** (`audit_chain.py`) — every decision-log line carries `seq`, `prev_hash`, and `entry_hash` (SHA-256 over canonical JSON). Live approval-callback MACs are logged as a fingerprint and `agw1.` signatures are redacted, because the log can ship in an audit directory. `audit` copies the log (`--decision-log`, or `decision-log.jsonl` / `alerts.jsonl` in the input directory), a scrubbed `findings.json`, and `replay.html`, then writes `audit_manifest.json` with every file's SHA-256, the chain head, and an HMAC with `AGENT_GATEWAY_HMAC_KEY`. `python -m agent_gateway verify <audit_dir>` recomputes all of it and exits 1 on any edit, drop, reorder, insert, truncation, extra file, or re-signed manifest. A passing verify means the files match the manifest. It is not a certification and not a penetration test.
 
 ## Quick start (loopback)
 
@@ -46,7 +49,9 @@ python -m agent_gateway approve sess-1 --step 3 --tool send_email \
 curl -s http://127.0.0.1:9100/health
 
 # offline executive report from an analyzer smoke directory
-python -m agent_gateway audit ./analyzer-out --out-dir ./audit-report
+python -m agent_gateway audit ./analyzer-out --out-dir ./audit-report \
+  --decision-log ~/.local/state/agent-gateway/alerts.jsonl
+python -m agent_gateway verify ./audit-report
 # same command via the console script, after pip install:
 agent-gateway audit ./analyzer-out --out-dir ./audit-report
 ```
@@ -85,9 +90,9 @@ Headers: `Authorization: Bearer <agent_key>` (must match registry).
 
 ```
 agent-gateway/
-├── agent_gateway/     # pep, capability, approve, approval_webhook, audit_report, taint, registry, scrub, cli
+├── agent_gateway/     # pep, mcp_proxy, deobfuscate, audit_chain, capability, approve, approval_webhook, audit_report, taint, registry, scrub, cli
 ├── config/agents.json # registered keys (lab secrets — not production)
-├── tests/             # basic + 7 ATLAS falsification + capability, Hypothesis, approval webhook, audit report
+├── tests/             # basic + 7 ATLAS falsification + capability, Hypothesis, approval webhook, audit report, MCP proxy, de-obfuscation, audit chain
 └── README.md
 ```
 

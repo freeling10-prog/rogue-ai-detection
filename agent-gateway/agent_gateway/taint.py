@@ -56,6 +56,10 @@ TOOL_EGRESS: dict[str, str] = {
     "spawn_subagent": EGRESS_SPAWN,
     # Meta
     "tools.list": EGRESS_META,
+    # MCP wire proxy: server content reads (taint is applied on the response
+    # for non-core servers, in mcp_proxy.py)
+    "mcp.resources/read": EGRESS_INTERNAL_READ,
+    "mcp.prompts/get": EGRESS_INTERNAL_READ,
 }
 
 # Tools whose successful call marks session TAINTED (untrusted ingest)
@@ -105,6 +109,8 @@ class SessionState:
     # Chained HMAC capability (macaroon-style). Empty until the PEP mints one.
     capability_token: str = ""
     allow_egress: bool = True
+    # Non-empty: every later call waits for a bound OOB approval (MCP rug pull).
+    review_hold: str = ""
 
     def mark_tainted(self, reason: str, source_id: str = "") -> None:
         self.tainted = True

@@ -119,7 +119,7 @@ The report links and embeds the static `replay.html`. The risk matrix splits too
 
 | Suite | Result |
 |---|---|
-| `agent-gateway` full pytest | **40 passed** (7 basic + **7/7 falsification** + 10 attenuation + 5 stateful + 6 approval-webhook + 5 audit-report) |
+| `agent-gateway` full pytest | **89 passed** (7 basic + **7/7 falsification** + 10 attenuation + 6 stateful + 6 approval-webhook + 5 audit-report + 12 MCP wire proxy + 21 de-obfuscation + 15 audit chain) |
 | Falsification `tests/test_pep_falsification.py` | **7/7 pass** |
 | `agent-watch` full pytest (safelog machine included) | **512 passed, 2 skipped** (prior pass; this change does not touch that suite) |
 

@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
+from .audit_chain import DECISION_LOG_NAME, write_manifest
 from .capability import parse, verify
 from .scrub import scrub_text
 
@@ -800,8 +801,23 @@ def _final_scrub(text: str) -> str:
     return scrub_text(_AGW1_RE.sub("agw1.[redacted]", text))
 
 
-def write_report(input_dir: Path, out_dir: Path, *, pdf: bool = True) -> dict[str, Any]:
-    """Compile ``input_dir`` into HTML, JSON, and (unless disabled) a text PDF."""
+def _default_decision_log(input_dir: Path) -> Optional[Path]:
+    for name in (DECISION_LOG_NAME, "alerts.jsonl"):
+        path = input_dir / name
+        if path.is_file():
+            return path
+    return None
+
+
+def write_report(
+    input_dir: Path, out_dir: Path, *, pdf: bool = True, decision_log: Optional[Path] = None,
+) -> dict[str, Any]:
+    """Compile ``input_dir`` into HTML, JSON, and (unless disabled) a text PDF.
+
+    Also copies a scrubbed ``findings.json`` and the hash-chained decision log
+    (byte for byte, so the chain still verifies), then writes
+    ``audit_manifest.json`` over every output file.
+    """
     loaded = load_audit_dir(input_dir)
     report = compile_report(loaded)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -816,14 +832,30 @@ def write_report(input_dir: Path, out_dir: Path, *, pdf: bool = True) -> dict[st
     if loaded.replay_text is not None:
         replay_out = out_dir / "replay.html"
         replay_out.write_text(_final_scrub(loaded.replay_text), encoding="utf-8")
+    findings_src = input_dir / "findings.json"
+    findings_out: Optional[Path] = None
+    if findings_src.is_file():
+        findings_out = out_dir / "findings.json"
+        findings_out.write_text(_final_scrub(findings_src.read_text(encoding="utf-8")), encoding="utf-8")
+    log_src = decision_log if decision_log is not None else _default_decision_log(input_dir)
+    log_out: Optional[Path] = None
+    if log_src is not None and log_src.is_file():
+        # Copied unchanged: lines are scrubbed when the PEP writes them, and any
+        # rewrite here would break entry_hash.
+        log_out = out_dir / DECISION_LOG_NAME
+        log_out.write_bytes(log_src.read_bytes())
     report["replay"] = replay_out.name if replay_out else None
     report["outputs"] = {
         "html": str(html_path),
         "pdf": str(pdf_path) if pdf_path else None,
         "json": str(out_dir / "audit-report.json"),
         "replay": str(replay_out) if replay_out else None,
+        "findings": str(findings_out) if findings_out else None,
+        "decision_log": str(log_out) if log_out else None,
+        "manifest": str(out_dir / "audit_manifest.json"),
     }
     json_path = out_dir / "audit-report.json"
     json_text = _final_scrub(json.dumps(report, indent=2, ensure_ascii=False) + "\n")
     json_path.write_text(json_text, encoding="utf-8")
+    write_manifest(out_dir, decision_log=log_out)
     return json.loads(json_path.read_text(encoding="utf-8"))

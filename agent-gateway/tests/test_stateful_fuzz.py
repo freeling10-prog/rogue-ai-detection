@@ -4,6 +4,7 @@ Settings (hypothesis==6.170.9):
 
 - ``PepPolicyMachine``: max_examples=40, stateful_step_count=16
 - ``GatewayScrubMachine``: max_examples=80, stateful_step_count=8
+- ``SmugglingMachine``: max_examples=60, stateful_step_count=24
 
 Invariants:
 
@@ -12,9 +13,14 @@ Invariants:
 - fan-out never exceeds ``max_children_per_parent`` (3), in any order
 - freeze and block apply only to registered keys (a public visitor key is never frozen)
 - scrubbed outputs never contain a configured secret pattern
+- a fingerprinted secret leaked across steps (4-6 characters per call, raw,
+  Base64, hex, URL-escaped, whitespace-padded, or encoded whole and then
+  split) is caught once 8 contiguous characters of one form have left, and
+  the registered root is frozen for 15 minutes; benign traffic never freezes
 """
 from __future__ import annotations
 
+import base64
 import os
 import tempfile
 from pathlib import Path
@@ -53,6 +59,13 @@ UNTRUSTED_TOOLS = ("read_external_url", "read_customer_ticket", "file.read", "we
 PEP_SETTINGS = settings(
     max_examples=40,
     stateful_step_count=16,
+    deadline=None,
+    database=None,
+    suppress_health_check=[HealthCheck.too_slow],
+)
+SMUGGLE_SETTINGS = settings(
+    max_examples=60,
+    stateful_step_count=24,
     deadline=None,
     database=None,
     suppress_health_check=[HealthCheck.too_slow],
@@ -399,6 +412,160 @@ class GatewayScrubMachine(RuleBasedStateMachine):
                 assert rx.search(blob) is None
 
 
+SMUGGLE_TOOLS = ("send_email", "send_webhook", "update_ticket_memo", "file.write")
+CHUNK_ENCODINGS = ("raw", "b64", "hex", "HEX", "url", "spaced")
+WHOLE_ENCODINGS = ("whole_b64", "whole_hex")
+NGRAM = 8
+
+
+def _encode_chunk(chunk: str, enc: str) -> str:
+    raw = chunk.encode()
+    if enc == "raw":
+        return chunk
+    if enc == "b64":
+        return base64.b64encode(raw).decode()
+    if enc == "hex":
+        return raw.hex()
+    if enc == "HEX":
+        return raw.hex().upper()
+    if enc == "url":
+        return "".join(f"%{b:02X}" for b in raw)
+    if enc == "spaced":
+        return " ".join(chunk)
+    raise ValueError(enc)
+
+
+class SmugglingMachine(RuleBasedStateMachine):
+    """Multi-step chunk-splitting and encoding evasion against the de-obfuscation gate.
+
+    The model tracks, per encoding, how many contiguous characters of one
+    secret form have left in a row on the leak argument key. Benign traffic
+    goes through a different key and uses an alphabet the secret never has.
+    """
+
+    @initialize(
+        secret=st.text(alphabet="ABCDEFGHJKLMNPQRSTUVWXYZ23456789", min_size=12, max_size=20),
+        leak_key=st.sampled_from(["body", "text", "memo", "payload"]),
+    )
+    def init_engine(self, secret, leak_key):
+        self._prev_state = os.environ.get("AGENT_GATEWAY_STATE_DIR")
+        self._prev_key = os.environ.get("AGENT_GATEWAY_HMAC_KEY")
+        self._td = tempfile.TemporaryDirectory()
+        os.environ["AGENT_GATEWAY_STATE_DIR"] = self._td.name
+        os.environ["AGENT_GATEWAY_HMAC_KEY"] = HMAC
+        cfg = PepConfig(registry_path=REG, alert_log=Path(self._td.name) / "alerts.jsonl")
+        self.engine = PolicyEngine(Registry.load(REG), shared=SharedState(), cfg=cfg)
+        self.sid = "smuggle"
+        self.secret = secret
+        self.leak_key = leak_key
+        assert self.engine.register_canary(secret, label="fuzz", session_id=self.sid)
+        self.mode = None
+        self.cursor = 0
+        self.run = 0
+        self.sent_secret_chars = 0
+        self.must_freeze = False
+        self.frozen = False
+        self.tainted = False
+
+    def teardown(self):
+        PepPolicyMachine.teardown(self)
+
+    def _send(self, tool: str, value: str, mode: str, advance: int, contiguous: bool) -> None:
+        out = self.engine.evaluate_call(KEY_A, self.sid, tool, {"to": "team@internal.local", self.leak_key: value})
+        if self.frozen:
+            assert out["ok"] is False and out["error"] == "agent_frozen"
+            return
+        if self.tainted:
+            assert out["ok"] is False and out["error"] != "deobfuscated_exfil_detected"
+            return
+        self.sent_secret_chars += advance
+        self.run = self.run + advance if (self.mode == mode and contiguous) else advance
+        self.mode = mode
+        if self.run >= NGRAM:
+            self.must_freeze = True
+        if out["ok"]:
+            assert not self.must_freeze, f"leak of {self.run} contiguous chars ({mode}) was released"
+            return
+        assert out["error"] == "deobfuscated_exfil_detected", out
+        assert out["atlas"] == "AML.T0086"
+        # An encoded chunk can complete an 8-char n-gram of the encoded form
+        # early (4 chars -> 8 hex chars, 6 chars -> 8 Base64 chars).
+        assert self.sent_secret_chars >= 4
+        self.frozen = True
+
+    @rule(size=st.integers(min_value=4, max_value=6), enc=st.sampled_from(CHUNK_ENCODINGS),
+          tool=st.sampled_from(SMUGGLE_TOOLS))
+    def split_chunk(self, size, enc, tool):
+        if self.mode in WHOLE_ENCODINGS:
+            self.cursor, self.run, self.mode = 0, 0, None
+        start = self.cursor
+        chunk = self.secret[start:start + size]
+        self.cursor = start + len(chunk)
+        wrapped = self.cursor >= len(self.secret)
+        if wrapped:
+            self.cursor = 0
+        self._send(tool, _encode_chunk(chunk, enc), enc, len(chunk), contiguous=start != 0 or self.run == 0)
+        if wrapped:
+            self.run, self.mode = 0, None
+
+    @rule(size=st.integers(min_value=4, max_value=6), enc=st.sampled_from(WHOLE_ENCODINGS),
+          tool=st.sampled_from(SMUGGLE_TOOLS))
+    def encode_then_split(self, size, enc, tool):
+        encoded = (base64.b64encode(self.secret.encode()).decode().rstrip("=") if enc == "whole_b64"
+                   else self.secret.encode().hex())
+        if self.mode != enc:
+            self.cursor, self.run, self.mode = 0, 0, None
+        start = self.cursor
+        piece = encoded[start:start + size]
+        self.cursor = start + len(piece)
+        wrapped = self.cursor >= len(encoded)
+        if wrapped:
+            self.cursor = 0
+        # Encoded characters, not secret characters, are what the window sees.
+        self._send(tool, piece, enc, len(piece), contiguous=True)
+        if wrapped:
+            self.run, self.mode = 0, None
+
+    @rule(text=st.text(alphabet="abcdefghijklmnopqrstuvwxyz .", min_size=1, max_size=24),
+          tool=st.sampled_from(SMUGGLE_TOOLS))
+    def benign(self, text, tool):
+        out = self.engine.evaluate_call(KEY_A, self.sid, tool, {"to": "team@internal.local", "subject": text})
+        if self.frozen:
+            assert out["error"] == "agent_frozen"
+        elif not self.tainted:
+            assert out["ok"] is True, out
+
+    @rule()
+    def other_session_unaffected(self):
+        out = self.engine.evaluate_call(KEY_B, "bystander", "send_email", {"to": "a@lab.local", "body": self.secret})
+        assert out["ok"] is True  # fingerprints here are scoped to the smuggling session
+
+    @rule()
+    def taint(self):
+        out = self.engine.evaluate_call(KEY_A, self.sid, "read_external_url", {"url": "http://127.0.0.1/p"})
+        if self.frozen:
+            assert out["error"] == "agent_frozen"
+            return
+        assert out["ok"] is True
+        self.tainted = True
+
+    @invariant()
+    def freeze_matches_model(self):
+        now = self.engine.now()
+        frozen = self.engine.registry.is_frozen_key(KEY_A, now)
+        assert frozen == self.frozen
+        if self.must_freeze and not self.tainted:
+            assert frozen
+        if frozen:
+            assert self.engine.registry.is_frozen_key(CHILD, now)
+        assert not self.engine.registry.is_frozen_key(KEY_B, now)
+        assert not self.engine.registry.is_frozen_key("visitor_public", now)
+        for line in (Path(self._td.name) / "alerts.jsonl").read_text().splitlines() if (
+            Path(self._td.name) / "alerts.jsonl"
+        ).is_file() else []:
+            assert self.secret not in line
+
+
 def _strings(obj):
     if isinstance(obj, str):
         yield obj
@@ -414,6 +581,10 @@ def _strings(obj):
 
 def test_pep_state_machine():
     run_state_machine_as_test(PepPolicyMachine, settings=PEP_SETTINGS)
+
+
+def test_smuggling_state_machine():
+    run_state_machine_as_test(SmugglingMachine, settings=SMUGGLE_SETTINGS)
 
 
 def test_gateway_scrubber_state_machine():

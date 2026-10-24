@@ -118,11 +118,12 @@ jobs:
       - name: Executive audit report
         run: |
           . .venv/bin/activate
-          python -m agent_gateway audit analyzer-smoke --out-dir analyzer-smoke/audit-report
+          python -m agent_gateway audit analyzer-smoke --out-dir analyzer-smoke/audit-report --sarif findings.sarif
           test -s analyzer-smoke/audit-report/audit-report.html
           test -s analyzer-smoke/audit-report/audit-report.pdf
+          test -s analyzer-smoke/audit-report/findings.sarif
           python -m agent_gateway verify analyzer-smoke/audit-report
-      - name: Upload findings, replay, STIX bundle, and executive report
+      - name: Upload findings, replay, STIX bundle, SARIF, and executive report
         uses: actions/upload-artifact@v4
         with:
           name: agentwatch-analyzer-smoke
@@ -135,3 +136,4 @@ jobs:
             analyzer-smoke/audit-report/audit-report.html
             analyzer-smoke/audit-report/audit-report.pdf
             analyzer-smoke/audit-report/audit_manifest.json
+            analyzer-smoke/audit-report/findings.sarif

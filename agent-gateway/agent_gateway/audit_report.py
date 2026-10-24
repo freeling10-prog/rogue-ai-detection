@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from . import toxic_combinations
+from . import sarif_export
 from .audit_chain import DECISION_LOG_NAME, write_manifest
 from .capability import parse, verify
 from .scrub import scrub_text
@@ -63,6 +64,9 @@ GATEWAY_FINDING_KINDS = (
     "covert_side_channel_suspected",
     "deobfuscated_exfil_detected",
     "mcp_rug_pull_detected",
+    "confused_deputy_delegation_blocked",
+    "arg_firewall_violation",
+    "canary_watermark_exfil",
 )
 _EXFIL_EGRESS = frozenset({"external_read", "send", "write", "creds"})
 _ATLAS_RE = re.compile(r"AML\.T\d{4}(?:\.\d{3})?")
@@ -946,7 +950,7 @@ def _default_decision_log(input_dir: Path) -> Optional[Path]:
 
 def write_report(
     input_dir: Path, out_dir: Path, *, pdf: bool = True, decision_log: Optional[Path] = None,
-    tool_inventory: Optional[Path] = None,
+    tool_inventory: Optional[Path] = None, sarif: Optional[Path] = None,
 ) -> dict[str, Any]:
     """Compile ``input_dir`` into HTML, JSON, and (unless disabled) a text PDF.
 
@@ -1002,8 +1006,18 @@ def write_report(
         "decision_log": str(log_out) if log_out else None,
         "manifest": str(out_dir / "audit_manifest.json"),
     }
+    sarif_out: Optional[Path] = None
+    if sarif is not None:
+        sarif_out = sarif if sarif.is_absolute() or sarif.parent != Path(".") else out_dir / sarif.name
+        doc = sarif_export.build_sarif(report, source_log=loaded.source_log)
+        problems = sarif_export.validate_sarif(doc)
+        if problems:
+            raise AuditInputError("SARIF build failed validation: " + "; ".join(problems[:5]))
+        sarif_out.write_text(_final_scrub(json.dumps(doc, indent=2, ensure_ascii=False) + "\n"), encoding="utf-8")
+        report["outputs"]["sarif"] = str(sarif_out)
     json_path = out_dir / "audit-report.json"
     json_text = _final_scrub(json.dumps(report, indent=2, ensure_ascii=False) + "\n")
     json_path.write_text(json_text, encoding="utf-8")
+    # The manifest only covers files inside the audit directory.
     write_manifest(out_dir, decision_log=log_out)
     return json.loads(json_path.read_text(encoding="utf-8"))

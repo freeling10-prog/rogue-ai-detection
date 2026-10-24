@@ -1,0 +1,5 @@
+198.51.100.10 - - [23/Oct/2026:20:00:00 +0000] "GET / HTTP/1.1" 200 2048 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"
+198.51.100.10 - - [23/Oct/2026:20:00:01 +0000] "GET /static/site.css HTTP/1.1" 200 800 "http://example.test/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"
+198.51.100.10 - - [23/Oct/2026:20:00:01 +0000] "GET /static/site.js HTTP/1.1" 200 1200 "http://example.test/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"
+198.51.100.10 - - [23/Oct/2026:20:00:02 +0000] "GET /about HTTP/1.1" 200 1800 "http://example.test/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"
+198.51.100.10 - - [23/Oct/2026:20:00:03 +0000] "GET /kb/ HTTP/1.1" 200 1600 "http://example.test/about" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"

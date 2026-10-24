@@ -22,6 +22,12 @@ Safety:
   approximate AML.T0086).
 - ``tools/list`` inventories are analyzed for multi-hop toxic combinations
   (``toxic_combinations.py``).
+- Tool arguments pass a lexical firewall for path / command / header / SQL
+  escalation (``arg_ast_guard.py``, approximate AML.T0051 / AML.T0053).
+- Delegation across agents is attenuated monotonically; a delegated agent
+  cannot egress what its parent was barred from (``delegation_guard.py``).
+- Sensitive reads are watermarked and credential-tracked; a watermark or
+  credential in an outbound call is denied and frozen (``canary_watermark.py``).
 """
 from __future__ import annotations
 
@@ -44,6 +50,9 @@ from .deobfuscate import DeobfuscationGuard
 from .egress_uri_guard import DEFAULT_LAB_ALLOW, inspect_arguments
 from .side_channel_guard import SideChannelGuard, SideChannelPolicy
 from . import tool_output_scanner, toxic_combinations
+from .arg_ast_guard import inspect_call as inspect_arg_call
+from .canary_watermark import CanaryRegistry
+from .delegation_guard import DelegationLedger, attenuate_for_handoff, profile_from_token
 from .paths import default_registry_path
 from .registry import Registry
 from .scrub import scrub_obj
@@ -193,6 +202,8 @@ class PolicyEngine:
         self.chain = ChainWriter(self.alert_path)
         self.deob = DeobfuscationGuard()
         self.side_channel = SideChannelGuard(self.cfg.side_channel)
+        self.delegation = DelegationLedger()
+        self.canary = CanaryRegistry()
         self.inventories: dict[str, dict[str, dict]] = {}
         self.toxic: dict[str, dict] = {}
         self.findings: list[dict] = []
@@ -412,6 +423,23 @@ class PolicyEngine:
                 oob_memo["ok"] = self._try_oob(sess, step, tool_name, args, approval_token)
             return oob_memo["ok"]
 
+        principal = sess.root_parent_key or agent_key
+        profile = profile_from_token(sess.capability_token, sensitive_read=sess.sensitive_read)
+        if profile is not None:
+            self.delegation.observe(principal, profile)
+
+        # --- Lexical / canonical argument firewall (approximate AML.T0051 / AML.T0053) ---
+        arg_hit = inspect_arg_call(tool_name, args, self._tool_class(tool_name))
+        if arg_hit is not None:
+            finding = {**arg_hit, "kind": "arg_firewall_violation", "violation": arg_hit["kind"],
+                       "session_id": sess.session_id, "step": step}
+            self.findings.append(finding)
+            self._alert("arg_firewall_violation", finding)
+            out = self._deny(sess, step, tool_name, args, "arg_firewall_violation", -32035,
+                             atlas=arg_hit.get("atlas", "AML.T0051"))
+            out["arg_violation"] = arg_hit
+            return out
+
         # --- Review hold (MCP rug pull, side channel): every call waits for a person ---
         if sess.review_hold and not oob():
             if sess.review_hold == "mcp_rug_pull_detected":
@@ -436,6 +464,13 @@ class PolicyEngine:
                 out["uri"] = uri.as_dict()
                 return out
 
+        # --- Multi-agent delegation hand-off (monotonic attenuation) ---
+        if tool_name == "delegate_task":
+            child_key = str(args.get("child_api_key") or args.get("to_agent_key") or "")
+            child_session = str(args.get("child_session_id") or args.get("to_session_id") or f"{session_id}:child")
+            merged = self.delegate(agent_key, session_id, child_key, child_session)
+            return self._allow(sess, step, tool_name, args, eclass, delegation=merged.as_dict())
+
         # --- spawn quotas (AML.T0118) ---
         if tool_name == "spawn_subagent" or eclass == EGRESS_SPAWN:
             if sess.delegation_depth >= self.cfg.max_delegation_depth or rec.max_delegation_depth < 1:
@@ -451,6 +486,9 @@ class PolicyEngine:
             self.shared.children_by_parent[root] = n + 1
             sess.children_spawned += 1
             child_key = str(args.get("child_api_key") or "")
+            child_session = str(args.get("child_session_id") or f"{session_id}:child")
+            if child_key:
+                self.delegate(agent_key, session_id, child_key, child_session)
             # propagate taint intent into result for caller
             result = {
                 "ok": True,
@@ -549,6 +587,18 @@ class PolicyEngine:
             return self._release(sess, step, tool_name, args, eclass, constrained=True,
                                  approved=oob_memo.get("ok", False))
 
+        # --- Confused-deputy: a clean-looking session whose principal was barred upstream ---
+        if not egress_closed and eclass in BLOCKED_EGRESS_WHILE_TAINTED:
+            dep = self.delegation.check_egress(principal, tool_name)
+            if dep is not None and not oob():
+                dep = {"session_id": sess.session_id, "step": step, **dep}
+                self.findings.append(dep)
+                self._alert("confused_deputy_delegation_blocked", dep)
+                out = self._deny(sess, step, tool_name, args, "confused_deputy_delegation_blocked", -32036,
+                                 atlas="AML.T0086")
+                out["delegation"] = dep["profile"]
+                return out
+
         # --- Block write/send/creds/bus while tainted unless bound OOB (spacers never clear taint) ---
         if egress_closed and eclass in BLOCKED_EGRESS_WHILE_TAINTED:
             if not oob():
@@ -574,6 +624,19 @@ class PolicyEngine:
         released, so the window holds what actually left the gateway.
         """
         outbound = eclass != EGRESS_INTERNAL_READ
+        if outbound and self.canary.has_canaries(sess.session_id):
+            prov = self.canary.scan_outbound(sess.session_id, args)
+            if prov is not None:
+                finding = {"kind": "canary_watermark_exfil", "session_id": sess.session_id, "step": step,
+                           "tool": tool_name, **prov.as_dict()}
+                self.findings.append(finding)
+                self._alert("canary_watermark_exfil", finding)
+                self._taint(sess, "canary_exfil", source_id=f"canary:{prov.origin_tool_name}")
+                frozen = self._freeze_root(sess.agent_key, "canary_watermark_exfil")
+                out = self._deny(sess, step, tool_name, args, "canary_watermark_exfil", -32037, atlas="AML.T0086")
+                out["provenance"] = prov.as_dict()
+                out["frozen_agents"] = frozen
+                return out
         if outbound and self.deob.has_secrets(sess.session_id):
             leak = self.deob.scan(sess.session_id, tool_name, args)
             if leak is not None:
@@ -607,6 +670,46 @@ class PolicyEngine:
                 return out
             self.side_channel.commit(sess.session_id, tool_name, args, now)
         return self._allow(sess, step, tool_name, args, eclass, constrained=constrained)
+
+    # --- Multi-agent delegation, argument class -----------------------------------
+
+    def _tool_class(self, tool_name: str) -> str:
+        return toxic_combinations.tool_class({"name": tool_name})
+
+    def delegate(self, sender_key: str, sender_session: str, recipient_key: str, recipient_session: str):
+        """Hand off sender -> recipient with monotonic attenuation.
+
+        The recipient's session capability is re-minted carrying the sender's
+        deny caveats, and both principals' ledger entries fold together so a
+        clean peer cannot launder the sender's taint. Returns the recipient's
+        merged :class:`CapProfile`.
+        """
+        from .delegation_guard import CapProfile
+
+        sender = self.sessions.get(sender_session)
+        sender_principal = (sender.root_parent_key or sender_key) if sender else sender_key
+        sender_profile = CapProfile()
+        if sender is not None and sender.capability_token:
+            p = profile_from_token(sender.capability_token, sensitive_read=sender.sensitive_read)
+            if p is not None:
+                sender_profile = p
+        self.delegation.observe(sender_principal, sender_profile)
+
+        recipient = self.get_session(recipient_session, recipient_key) if recipient_key else None
+        recipient_principal = (recipient.root_parent_key or recipient_key) if recipient else recipient_key
+        if recipient is not None and sender is not None and sender.capability_token and recipient.capability_token:
+            handed = attenuate_for_handoff(sender.capability_token, recipient.capability_token)
+            if handed is not None:
+                recipient.capability_token = handed
+                recipient.allow_egress = profile_from_token(handed).allow_egress
+                if not recipient.allow_egress:
+                    recipient.mark_tainted("delegation_attenuated", source_id=f"delegation:{sender_principal[:12]}")
+        merged = self.delegation.delegate(sender_principal, recipient_principal, at_step=sender.step_index if sender else 0)
+        if recipient is not None:
+            self.delegation.observe(recipient_principal,
+                                    profile_from_token(recipient.capability_token,
+                                                       sensitive_read=recipient.sensitive_read) or merged)
+        return self.delegation.profile(recipient_principal)
 
     # --- Inventory, output scanning ------------------------------------------------
 
@@ -788,7 +891,7 @@ class PolicyEngine:
         return out
 
     def _allow(self, sess: SessionState, step: int, tool_name: str, args: dict, eclass: str,
-               constrained: bool = False) -> dict:
+               constrained: bool = False, delegation: Optional[dict] = None) -> dict:
         sess.history.append({"step": step, "tool": tool_name, "ok": True, "constrained": constrained})
         # Simulated tool results for lab (no real egress)
         result: dict[str, Any] = {"echo": True, "tool": tool_name}
@@ -796,10 +899,14 @@ class PolicyEngine:
             result["secret"] = "secret_value_123"
             sess.mark_sensitive()
             self.deob.register(result["secret"], label=tool_name, session_id=sess.session_id)
+            # Forensic watermark + credential tracking on the returned secret (approximate AML.T0086).
+            result["secret"] = self.canary.watermark_output(sess.session_id, step, tool_name, result["secret"])
         if tool_name in ("read_external_url", "web.fetch", "fetch_url"):
             result["body"] = "untrusted content from lab fixture"
         if tool_name in self.cfg.lab_fixture_outputs:
             result["body"] = self.cfg.lab_fixture_outputs[tool_name]
+            if tool_name in SENSITIVE_READ_TOOLS or eclass == EGRESS_CREDS:
+                result["body"] = self.canary.watermark_output(sess.session_id, step, tool_name, result["body"])
         if tool_name == "lookup_order_status":
             result["order_id"] = args.get("order_id", 123)
             result["status"] = "shipped"
@@ -814,6 +921,8 @@ class PolicyEngine:
         }
         if output_findings:
             out["output_findings"] = output_findings
+        if delegation is not None:
+            out["delegation"] = delegation
         return out
 
 

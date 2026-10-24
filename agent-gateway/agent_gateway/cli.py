@@ -70,6 +70,13 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     audit.add_argument(
+        "--sarif",
+        type=Path,
+        default=None,
+        help="Also write OASIS SARIF 2.1.0 (GitHub code scanning). A bare filename lands in the "
+             "report directory and is covered by audit_manifest.json; a path elsewhere is written as given.",
+    )
+    audit.add_argument(
         "--tool-inventory",
         type=Path,
         default=None,
@@ -125,7 +132,7 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         try:
             doc = write_report(args.input_dir, out, pdf=not args.no_pdf, decision_log=args.decision_log,
-                               tool_inventory=args.tool_inventory)
+                               tool_inventory=args.tool_inventory, sarif=args.sarif)
         except AuditInputError as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 2

@@ -4,7 +4,37 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
-## [Unreleased] - v9 toxic-flow graph, ingress scanner, SSRF and side-channel guards
+## [Unreleased] - v10 delegation guard, argument firewall, canary watermarking, SARIF
+
+All four are zero-compute (standard library; no model calls). ATLAS ids
+are approximate.
+
+- `agent_gateway/delegation_guard.py`: monotonic capability attenuation
+  across multi-agent hand-offs. The meet of two `agw1.` capabilities
+  carries deny-egress, deny-sampling, and taint sources into the
+  recipient, cryptographically (appended caveats the recipient cannot
+  strip). A delegated agent that was barred upstream is blocked at egress
+  with `confused_deputy_delegation_blocked` (approximate AML.T0051 /
+  AML.T0086). New `delegate_task` tool; `spawn_subagent` with a child key
+  also attenuates.
+- `agent_gateway/arg_ast_guard.py`: lexical / canonical argument firewall.
+  Path traversal (encoded, backslash, NUL, UNC, sensitive system paths),
+  shell-metacharacter chaining, CRLF header splitting, and mutating /
+  file-exfil SQL in read-classified tools are denied with
+  `arg_firewall_violation` (approximate AML.T0051 / AML.T0053).
+- `agent_gateway/canary_watermark.py`: zero-width HMAC watermark bound to
+  `(session, step, tool)` woven into sensitive reads, plus a credential
+  tracker (AWS / GitHub / OpenAI / Anthropic / Google / Slack / JWT /
+  PEM). A watermark or credential in a later outbound call is denied, the
+  registered key is frozen for 15 minutes, and provenance is written to
+  the hash-chained log (`canary_watermark_exfil`, approximate AML.T0086).
+- `agent_gateway/sarif_export.py`: OASIS SARIF 2.1.0 exporter.
+  `audit --sarif <path>` emits gateway findings, toxic paths, and analyzer
+  matches for GitHub code scanning; a report-dir SARIF is covered by
+  `audit_manifest.json`. The workflow uploads `findings.sarif`.
+- `agent-gateway` tests: **240 passed** (161 before this change).
+
+## v9 - toxic-flow graph, ingress scanner, SSRF and side-channel guards (PR #17)
 
 All four are zero-compute (standard library; no model calls, no DNS).
 ATLAS ids are approximate.

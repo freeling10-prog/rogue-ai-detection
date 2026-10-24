@@ -1,0 +1,23 @@
+title: ATLAS AML.T0086 Exfiltration via Tool Invocation (Gateway)
+id: a1b2c3d4-e5f6-7890-ab12-t0086exfil001
+status: experimental
+description: External parameter egress while TAINTED and SENSITIVE_READ. Gateway policy gate.
+references:
+  - https://atlas.mitre.org/techniques/AML.T0086
+  - OWASP ASI06
+tags:
+  - attack.aml.t0086
+  - agent-gateway
+  - owasp.asi06
+logsource:
+  product: agent-gateway
+  service: tools
+detection:
+  selection:
+    error: lethal_trifecta_external_egress
+  condition: selection
+level: critical
+agentwatch:
+  atlas: [AML.T0086]
+  offline: false
+  owasp_asi: [ASI06]

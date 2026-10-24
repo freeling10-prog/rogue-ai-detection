@@ -1,0 +1,35 @@
+title: Agentwatch R10 Schema Cursor / Machine-Doc Pattern
+id: a1b2c3d4-e5f6-7890-ab12-r10schema0001
+status: experimental
+description: Partial offline schema provenance cursor or machine-readable doc paths. Full decoy contact needs honeypot.
+references:
+  - https://atlas.mitre.org/techniques/AML.T0051
+  - https://atlas.mitre.org/techniques/AML.T0053
+  - OWASP ASI03
+tags:
+  - attack.aml.t0051
+  - attack.aml.t0053
+  - r10
+  - agentwatch
+  - owasp.asi03
+logsource:
+  product: webserver
+  service: access
+detection:
+  selection_query:
+    cs-uri-query|contains:
+      - cursor=prov.schema.
+      - client_schema_rev=
+  selection_path:
+    cs-uri-stem|endswith:
+      - /openapi.json
+      - /llms.txt
+  condition: selection_query or selection_path
+falsepositives:
+  - Legitimate OpenAPI clients
+level: medium
+agentwatch:
+  rule_id: R10
+  offline: partial
+  atlas: [AML.T0051, AML.T0053]
+  owasp_asi: [ASI03]

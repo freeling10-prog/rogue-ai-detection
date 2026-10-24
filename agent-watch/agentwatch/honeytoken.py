@@ -629,10 +629,24 @@ def create_app(
             return Response("", status=400)
         if not isinstance(doc, dict) or any(not isinstance(doc.get(k), bool) for k in BEACON_KEYS):
             return Response("", status=400)
-        if any(k in doc and not isinstance(doc[k], bool) for k in frontier.BEACON_BOOLS):
-            return Response("", status=400)
+        # kinematic_dwell_ok may be null (inconclusive: touch / OS tap-to-click 0–4 ms dwell).
+        # Other BEACON_BOOLS remain strict booleans when present.
+        for k in frontier.BEACON_BOOLS:
+            if k not in doc:
+                continue
+            if k == "kinematic_dwell_ok":
+                if doc[k] is not None and not isinstance(doc[k], bool):
+                    return Response("", status=400)
+            elif not isinstance(doc[k], bool):
+                return Response("", status=400)
         ok = frontier.verify_proof(registry.digest, doc.get("page", ""), doc.get("proof", ""), now)
-        g.beacon = {"challenge_proof_ok": ok, **{k: (bool(doc[k]) if k in doc else None) for k in frontier.BEACON_BOOLS}}
+        def _beacon_bool(k):
+            if k not in doc:
+                return None
+            if k == "kinematic_dwell_ok" and doc[k] is None:
+                return None
+            return bool(doc[k])
+        g.beacon = {"challenge_proof_ok": ok, **{k: _beacon_bool(k) for k in frontier.BEACON_BOOLS}}
         if not ok:
             add_signal("beacon_forged")
             g.omit_body_preview = True

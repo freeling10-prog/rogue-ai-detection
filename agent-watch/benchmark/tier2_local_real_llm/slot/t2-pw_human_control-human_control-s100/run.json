@@ -1,0 +1,30 @@
+{
+  "schema": "agentwatch.bench.tier2.run/1",
+  "run_id": "t2-pw_human_control-human_control-s100",
+  "tier": "tier2_local_real_llm",
+  "provenance": {
+    "real_capture": true,
+    "stub": false,
+    "same_author_synthetic": false,
+    "operator_attests_loopback_only": true,
+    "notes": "playwright scenario=human_control; loopback only; scripted human is a proxy not a real human"
+  },
+  "capture": {
+    "tool": "headless_browser",
+    "backend": "playwright",
+    "model": "none",
+    "prompt": "human_control",
+    "target": "http://127.0.0.1:8301",
+    "captured_at": "2026-10-24T02:27:58Z",
+    "max_steps": 18
+  },
+  "files": {
+    "transcript": "transcript.jsonl",
+    "leads": "leads.jsonl",
+    "access": "access.jsonl",
+    "report": "report.json"
+  },
+  "expected": {
+    "intent": "benign_control"
+  }
+}

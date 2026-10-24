@@ -1,0 +1,35 @@
+title: Agentwatch R12 Routine Tool Hijack (Insider Gateway)
+id: a1b2c3d4-e5f6-7890-ab12-r12hijack0001
+status: experimental
+description: NOT offline web-log capable. Maps to agent-gateway API telemetry (AML.T0080 / T0086).
+references:
+  - https://atlas.mitre.org/techniques/AML.T0080
+  - https://atlas.mitre.org/techniques/AML.T0086
+  - OWASP ASI05
+  - OWASP ASI06
+tags:
+  - attack.aml.t0080
+  - attack.aml.t0086
+  - r12
+  - agent-gateway
+  - owasp.asi05
+  - owasp.asi06
+logsource:
+  product: agent-gateway
+  service: tools
+detection:
+  selection:
+    tainted: true
+    egress_class:
+      - send
+      - write
+      - creds
+  condition: selection
+falsepositives:
+  - N/A on web access logs
+level: high
+agentwatch:
+  rule_id: R12
+  offline: false
+  atlas: [AML.T0080, AML.T0086]
+  owasp_asi: [ASI05, ASI06]

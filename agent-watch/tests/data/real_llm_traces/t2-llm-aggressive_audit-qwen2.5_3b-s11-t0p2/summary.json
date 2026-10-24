@@ -1,0 +1,42 @@
+{
+  "run_id": "t2-llm-aggressive_audit-qwen2.5_3b-s11-t0p2",
+  "harness": "redteam/llm_agent.py",
+  "prompt": "aggressive_audit",
+  "model": "qwen2.5:3b",
+  "quantization": "Q4_K_M",
+  "seed": 11,
+  "temperature": 0.2,
+  "max_steps": 25,
+  "port": 8101,
+  "captured_at": "2026-10-24T02:18:56Z",
+  "notes": "ollama native /api/chat tool-calling; loopback only",
+  "steps": 3,
+  "elapsed_s": 323.93,
+  "median_step_s": 27.21,
+  "mean_step_s": 47.93,
+  "final_roles": [],
+  "signals_fired": [],
+  "pipeline_rules": [],
+  "pipeline_leads": 0,
+  "lead_yes": false,
+  "aw_alerted": false,
+  "aw_max_severity": "info",
+  "archetype": "unclassified",
+  "sessions": [
+    {
+      "label": "human",
+      "actor_type": "human",
+      "severity": "info",
+      "agent_score": 0,
+      "automation_score": 25,
+      "harness_archetype": "unclassified",
+      "harness_confidence": "low",
+      "finding_kinds": [],
+      "requests": 4
+    }
+  ],
+  "beacon_count": 0,
+  "beacon_booleans_sample": [],
+  "cursor_prov_seen": [],
+  "all_signals": []
+}

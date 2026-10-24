@@ -352,15 +352,31 @@ def test_schema_sanitizer_is_caught_by_cursor_provenance_not_by_the_canary_param
         assert not any("client_schema_rev" in q.query for q in r.session.requests)
 
 
+# =========================== kinematic_dwell inconclusive ===========================
+def test_kinematic_dwell_inconclusive_null_does_not_corroborate_vlm():
+    """dwell null (touch / OS tap 0–4ms) must not count as kinematic_dwell_ok is False for VLM."""
+    # full assets + valid proof + bad scroll + dwell null -> NOT vlm (needs dwell false OR inversion)
+    beacons = [{"inertial_scroll_ok": False, "kinematic_dwell_ok": None}] * 3
+    s = _browser_session(beacons)
+    assert not any(f.kind == "vlm_quantized_interaction" for f in detect_frontier(s, CFG))
+    # explicit false still corroborates
+    beacons_f = [{"inertial_scroll_ok": False, "kinematic_dwell_ok": False}] * 3
+    assert any(f.kind == "vlm_quantized_interaction" for f in detect_frontier(_browser_session(beacons_f), CFG))
+
+
 # =========================== R14 parasitic session fork ===========================
 def _human_with_rider(gap):
-    reqs = [page(0, "/", links=["/kb/"]), page(10, "/kb/", links=["/kb/a"], referer="http://127.0.0.1/"),
+    # Human tab advances / -> /kb/ -> /kb/doc1; fork on disjoint /api subtree with missing Referer + schema.
+    reqs = [page(0, "/", links=["/kb/"]), page(10, "/kb/", links=["/kb/doc1"], referer="http://127.0.0.1/"),
+            page(10.2, "/kb/doc1", links=[], referer="http://127.0.0.1/kb/"),
             asset(10.05, "/static/site.css"), asset(10.06, "/static/site.js")]
     b = mk(9.9, BEACON, ua=BROWSER, ip="192.0.2.77", referer="http://127.0.0.1/")
     b.method = "POST"
     b.beacon = {"challenge_proof_ok": True, "webdriver_present": False, "pointer_trail_seen": True, "dom_automation_props": False,
                 "kinematic_dwell_ok": True, "inertial_scroll_ok": True}
-    rider = page(10 + gap, "/api/v1/internal-guess", links=[], referer="http://127.0.0.1/kb/", content_type="application/json")
+    # Gemini: interleaved disjoint depth — fork Referer missing/non-parent (not Referer:/ BFS)
+    rider = page(10 + gap, "/api/v1/export", links=[], referer="", content_type="application/json")
+    rider.cursor_prov = "schema"
     return sess(reqs + [b, rider])
 
 
@@ -383,6 +399,82 @@ def test_simulated_rider_is_r14_and_replay_shows_the_sub_branch(ext):
     for name in ("web:human", "web:human_beacon_blocked"):
         for r in ext["groups"][name]:
             assert not any(x.kind == "parasitic_session_fork" for x in r.findings)
+
+
+
+def test_r14_single_client_bfs_unlinked_is_not_a_fork():
+    """Phase-1 crawler FP: human beacon + concurrent bare unlinked navigations from the SAME client must not be R14."""
+    ip = "192.0.2.70"
+    reqs = [page(0, "/", links=["/about", "/kb/"], ip=ip), page(1.0, "/about", links=[], referer="http://127.0.0.1/", ip=ip),
+            asset(1.05, "/static/site.css", ip=ip), asset(1.06, "/static/site.js", ip=ip)]
+    b = mk(0.9, BEACON, ua=BROWSER, ip=ip, referer="http://127.0.0.1/")
+    b.method = "POST"
+    b.beacon = {"challenge_proof_ok": True, "webdriver_present": False, "pointer_trail_seen": True, "dom_automation_props": False,
+                "kinematic_dwell_ok": True, "inertial_scroll_ok": True}
+    # BFS-style unlinked guesses (no schema cursor) within the fork window — single client
+    guess1 = page(1.1, "/api/v1/kb-snapshot", links=[], referer="", content_type="application/json", ip=ip)
+    guess2 = page(1.15, "/llms.txt", links=[], referer="", content_type="text/plain", ip=ip)
+    s = sess(reqs + [b, guess1, guess2])
+    assert not detect_parasitic_fork(s, CFG)
+
+
+def test_r14_same_client_bfs_with_referer_root_stays_negative():
+    """Gemini: same-client BFS fan-out with Referer:/ must stay R14-negative even if paths look 'forked'."""
+    ip = "192.0.2.71"
+    reqs = [page(0, "/", links=["/a", "/b", "/c"], ip=ip),
+            asset(0.05, "/static/site.css", ip=ip), asset(0.06, "/static/site.js", ip=ip)]
+    b = mk(0.04, BEACON, ua=BROWSER, ip=ip, referer="http://127.0.0.1/")
+    b.method = "POST"
+    b.beacon = {"challenge_proof_ok": True, "webdriver_present": False, "pointer_trail_seen": True, "dom_automation_props": False,
+                "kinematic_dwell_ok": True, "inertial_scroll_ok": True}
+    # Classic BFS: queue children of /, fetch within <500ms all carrying Referer: /
+    for i, pth in enumerate(("/a", "/b", "/c", "/openapi.json")):
+        reqs.append(page(0.1 + i * 0.05, pth, links=[], referer="http://127.0.0.1/", ip=ip))
+    s = sess(reqs + [b])
+    assert not detect_parasitic_fork(s, CFG)
+
+
+def test_r14_cross_client_two_sessions_on_same_ip():
+    from agentwatch.frontierdetect import detect_parasitic_across_clients
+    from agentwatch.scoring import analyze_sessions
+    ip = "192.0.2.88"
+    h_reqs = [page(0, "/", links=["/kb/"], ip=ip), page(10, "/kb/", links=["/kb/a"], referer="http://127.0.0.1/", ip=ip),
+              asset(10.05, "/static/site.css", ip=ip), asset(10.06, "/static/site.js", ip=ip)]
+    b = mk(9.9, BEACON, ua=BROWSER, ip=ip, referer="http://127.0.0.1/")
+    b.method = "POST"
+    b.beacon = {"challenge_proof_ok": True, "webdriver_present": False, "pointer_trail_seen": True, "dom_automation_props": False,
+                "kinematic_dwell_ok": True, "inertial_scroll_ok": True}
+    human = sess(h_reqs + [b])
+    rider_ua = "RiderAgent/1.0"
+    probe = page(10.2, "/api/v1/internal-guess", links=[], referer="", content_type="application/json", ua=rider_ua, ip=ip)
+    rider = sess([probe])
+    assert human.session_id != rider.session_id
+    out = detect_parasitic_across_clients([human, rider], CFG)
+    assert rider.session_id in out and out[rider.session_id][0].kind == "parasitic_session_fork"
+    assert out[rider.session_id][0].data.get("mode") == "cross_client"
+    # end-to-end: analyze_sessions attaches the finding to the rider
+    results = analyze_sessions([human, rider], CFG)
+    rider_res = next(r for r in results if r.session.session_id == rider.session_id)
+    assert any(f.kind == "parasitic_session_fork" for f in rider_res.findings)
+
+
+def test_phase1_crawler_trace_has_no_r14_after_fix():
+    """Replay the archived Phase-1 Playwright crawler access stream through analyze; R14 must not fire."""
+    from pathlib import Path
+    from agentwatch.pipeline import run_pipeline
+    from agentwatch.config import load_config
+    trace = Path(__file__).resolve().parent / "data/real_llm_traces/t2-pw_crawler_headless-crawler-s100"
+    access = trace / "access.jsonl"
+    leads = trace / "leads.jsonl"
+    if not access.is_file():
+        pytest.skip("phase1 crawler trace not archived")
+    inputs = [str(access)]
+    if leads.is_file() and leads.stat().st_size:
+        inputs = [str(leads), str(access)]
+    results, _ = run_pipeline(inputs, load_config())
+    for r in results:
+        kinds = {f.kind for f in r.findings}
+        assert "parasitic_session_fork" not in kinds, r.session.session_id
 
 
 # =========================== (4) LLMjacking decoy ===========================

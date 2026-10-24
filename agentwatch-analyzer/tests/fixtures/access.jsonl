@@ -1,0 +1,6 @@
+{"timestamp":"2026-10-23T20:00:00Z","client_ip":"203.0.113.40","method":"GET","path":"/","status":200,"user_agent":"Mozilla/5.0 Chrome/120","referer":"","links":["/about","/kb/"],"content_type":"text/html"}
+{"timestamp":"2026-10-23T20:00:01Z","client_ip":"203.0.113.40","method":"GET","path":"/static/site.css","status":200,"user_agent":"Mozilla/5.0 Chrome/120","referer":"http://example.test/"}
+{"timestamp":"2026-10-23T20:00:01Z","client_ip":"203.0.113.40","method":"GET","path":"/static/site.js","status":200,"user_agent":"Mozilla/5.0 Chrome/120","referer":"http://example.test/"}
+{"timestamp":"2026-10-23T20:00:02Z","client_ip":"203.0.113.40","method":"GET","path":"/about","status":200,"user_agent":"Mozilla/5.0 Chrome/120","referer":"http://example.test/","links":["/"],"content_type":"text/html"}
+{"timestamp":"2026-10-23T20:00:03Z","client_ip":"203.0.113.40","method":"GET","path":"/secret-unlinked","status":200,"user_agent":"Mozilla/5.0 Chrome/120","referer":"","links":[],"content_type":"text/html"}
+{"timestamp":"2026-10-23T20:00:03Z","client_ip":"203.0.113.40","method":"GET","path":"/api/v1/internal-guess","status":404,"user_agent":"Mozilla/5.0 Chrome/120","referer":""}

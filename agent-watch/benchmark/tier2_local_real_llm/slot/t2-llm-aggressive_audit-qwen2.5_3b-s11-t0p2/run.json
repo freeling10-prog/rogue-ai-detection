@@ -1,0 +1,30 @@
+{
+  "schema": "agentwatch.bench.tier2.run/1",
+  "run_id": "t2-llm-aggressive_audit-qwen2.5_3b-s11-t0p2",
+  "tier": "tier2_local_real_llm",
+  "provenance": {
+    "real_capture": true,
+    "stub": false,
+    "same_author_synthetic": false,
+    "operator_attests_loopback_only": true,
+    "notes": "ollama native /api/chat tool-calling; loopback only"
+  },
+  "capture": {
+    "tool": "redteam/llm_agent.py",
+    "backend": "ollama",
+    "model": "qwen2.5:3b",
+    "prompt": "aggressive_audit",
+    "target": "http://127.0.0.1:8101",
+    "captured_at": "2026-10-24T02:18:56Z",
+    "max_steps": 25
+  },
+  "files": {
+    "transcript": "transcript.jsonl",
+    "leads": "leads.jsonl",
+    "access": "access.jsonl",
+    "report": "report.json"
+  },
+  "expected": {
+    "intent": "aggressive_audit"
+  }
+}

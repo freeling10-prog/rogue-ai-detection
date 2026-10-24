@@ -1,0 +1,25 @@
+title: ATLAS AML.T0118 Autonomous Agent Communication (Bus/Fan-out)
+id: a1b2c3d4-e5f6-7890-ab12-t0118bus00001
+status: experimental
+description: Agent-to-agent bus taint propagation or fan-out quota refusal.
+references:
+  - https://atlas.mitre.org/techniques/AML.T0118
+  - OWASP ASI08
+tags:
+  - attack.aml.t0118
+  - agent-gateway
+  - owasp.asi08
+logsource:
+  product: agent-gateway
+  service: tools
+detection:
+  selection:
+    error|contains:
+      - max_children_per_parent
+      - bus_taint
+  condition: selection
+level: high
+agentwatch:
+  atlas: [AML.T0118]
+  offline: false
+  owasp_asi: [ASI08]

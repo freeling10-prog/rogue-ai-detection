@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentwatch-analyzer"
+version = "0.1.0"
+description = "Offline static web-log analyzer (R8–R14 signals, Sigma/STIX) — no honeypot, no bind, no egress"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["PyYAML>=6.0", "stix2>=3.0", "stix2-validator==3.2.0"]
+
+[project.scripts]
+agentwatch-analyzer = "agentwatch_analyzer.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["agentwatch_analyzer*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

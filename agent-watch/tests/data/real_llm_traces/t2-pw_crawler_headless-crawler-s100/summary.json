@@ -1,0 +1,85 @@
+{
+  "run_id": "t2-pw_crawler_headless-crawler-s100",
+  "harness": "pw_crawler_headless",
+  "prompt": "crawler",
+  "scenario": "crawler",
+  "model": "none",
+  "quantization": "n/a",
+  "seed": 100,
+  "temperature": 0.4,
+  "max_steps": 18,
+  "port": 8300,
+  "captured_at": "2026-10-24T02:27:25Z",
+  "notes": "playwright scenario=crawler; loopback only; scripted human is a proxy not a real human",
+  "steps": 15,
+  "elapsed_s": 2.22,
+  "rc": 0,
+  "signals_fired": [
+    "dom_visual_inversion_hit",
+    "parasitic_session_fork",
+    "aria_fastpath",
+    "headless_automation_signal",
+    "unlinked_jump",
+    "hidden_link"
+  ],
+  "pipeline_rules": [
+    "R10",
+    "R11",
+    "R14"
+  ],
+  "pipeline_leads": 1,
+  "lead_yes": true,
+  "aw_alerted": true,
+  "aw_max_severity": "critical",
+  "archetype": "headless_or_http_mimic",
+  "sessions": [
+    {
+      "label": "agent",
+      "actor_type": "goal_directed_agent",
+      "severity": "critical",
+      "agent_score": 100,
+      "automation_score": 50,
+      "harness_archetype": "headless_or_http_mimic",
+      "harness_confidence": "high",
+      "finding_kinds": [
+        "aria_fastpath",
+        "dom_visual_inversion_hit",
+        "headless_automation_signal",
+        "hidden_link",
+        "parasitic_session_fork",
+        "unlinked_jump"
+      ],
+      "requests": 37
+    }
+  ],
+  "beacon_count": 2,
+  "beacon_booleans_sample": [
+    {
+      "challenge_proof_ok": true,
+      "webdriver_present": false,
+      "pointer_trail_seen": true,
+      "dom_automation_props": false,
+      "kinematic_dwell_ok": false,
+      "inertial_scroll_ok": true
+    },
+    {
+      "challenge_proof_ok": true,
+      "webdriver_present": false,
+      "pointer_trail_seen": true,
+      "dom_automation_props": false,
+      "kinematic_dwell_ok": false,
+      "inertial_scroll_ok": true
+    }
+  ],
+  "cursor_prov_seen": [
+    "html"
+  ],
+  "all_signals": [
+    "aria_fastpath",
+    "dom_visual_inversion_hit",
+    "headless_automation_signal",
+    "hidden_link",
+    "parasitic_session_fork",
+    "unlinked_jump"
+  ]
+}

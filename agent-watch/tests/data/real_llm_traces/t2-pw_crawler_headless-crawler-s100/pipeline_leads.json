@@ -1,0 +1,184 @@
+[
+  {
+    "actor_class": "goal_directed",
+    "agent": "ag_d5abe56f4e05c229",
+    "anomaly_explanations": [],
+    "automatic_action": "none",
+    "cluster": null,
+    "components": {
+      "graph_density": 0.0,
+      "isolation_forest": 0.0,
+      "rules": 0.95,
+      "sequence": 0.0
+    },
+    "disclaimer": "Lead for human review only. High score means 'worth a person looking', not 'confirmed misuse'. No automatic action is taken or recommended. ATLAS mapping is approximate. Synthetic-data prototype.",
+    "families": [
+      "rules"
+    ],
+    "floor_applied": 0.8,
+    "gate_reason": "floor",
+    "harness": {
+      "archetype": "headless_or_http_mimic",
+      "confidence": "high"
+    },
+    "lead_id": "lead-f005c1573acf",
+    "priority_band": "review_first",
+    "recommended_action": "human_review",
+    "rule_families": [
+      "session_fork",
+      "web_interaction"
+    ],
+    "rule_flags": [
+      {
+        "atlas": [
+          {
+            "id": "AML.T0075",
+            "name": "Enterprise Resource Discovery",
+            "url": "https://atlas.mitre.org/techniques/AML.T0075"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "481ca1908c914bf1805636b2c4ec9c29",
+            "summary": "access status=allowed bytes=413",
+            "ts": 1792808844.276
+          },
+          {
+            "event_id": "06bb35dede394b939897763b7d47f736",
+            "summary": "access status=allowed bytes=2250",
+            "ts": 1792808844.815
+          }
+        ],
+        "explanation": "2 high-signal event(s): ['aria_fastpath', 'hidden_link'] across 2 decoy kind(s). Used something a decoy offered (a parsed schema, a tool call, a canary): adaptive behaviour. Sets a floor that unrelated benign events cannot dilute.",
+        "extra": {
+          "distinct_decoys": 2,
+          "floor": 0.8,
+          "signals": [
+            "aria_fastpath",
+            "hidden_link"
+          ],
+          "tier": "strong"
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R10",
+        "strength": 0.8,
+        "title": "Single high-signal event (score floor)"
+      },
+      {
+        "atlas": [
+          {
+            "id": "AML.T0075",
+            "name": "Enterprise Resource Discovery",
+            "url": "https://atlas.mitre.org/techniques/AML.T0075"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "481ca1908c914bf1805636b2c4ec9c29",
+            "summary": "access status=allowed bytes=413",
+            "ts": 1792808844.276
+          },
+          {
+            "event_id": "5b13a0468d6a40a29520fabb87be7847",
+            "summary": "access status=allowed bytes=2276",
+            "ts": 1792808844.703
+          }
+        ],
+        "explanation": "Signals: ['aria_canary_hit', 'dom_visual_inversion_hit']. The client reported automation properties, forged the beacon's challenge proof, interacted in quantized OS-level jumps with zero-dwell clicks, or clicked a link in DOM order that is rendered last. A person does not normally do these (a screen-reader user can reach the DOM-order link; the decoys are read-only, synthetic). Contact/behaviour evidence only, not intent.",
+        "extra": {
+          "floor": 0.8,
+          "js_assets_fetched": 10,
+          "reasons": [
+            "aria_canary_hit",
+            "dom_visual_inversion_hit"
+          ],
+          "tier": "strong"
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R11",
+        "strength": 0.8,
+        "title": "Browser-backed client behaving like automation"
+      },
+      {
+        "atlas": [
+          {
+            "id": "AML.T0075",
+            "name": "Enterprise Resource Discovery",
+            "url": "https://atlas.mitre.org/techniques/AML.T0075"
+          }
+        ],
+        "evidence": [
+          {
+            "event_id": "481ca1908c914bf1805636b2c4ec9c29",
+            "summary": "access status=allowed bytes=413",
+            "ts": 1792808844.276
+          },
+          {
+            "event_id": "w00000009",
+            "summary": "access status=allowed bytes=3180",
+            "ts": 1792808844.373
+          },
+          {
+            "event_id": "w00000012",
+            "summary": "access status=allowed bytes=1235",
+            "ts": 1792808844.522
+          },
+          {
+            "event_id": "w00000022",
+            "summary": "access status=allowed bytes=2816",
+            "ts": 1792808845.104
+          },
+          {
+            "event_id": "w00000032",
+            "summary": "access status=allowed bytes=2783",
+            "ts": 1792808845.473
+          },
+          {
+            "event_id": "w00000035",
+            "summary": "access status=allowed bytes=2809",
+            "ts": 1792808845.568
+          },
+          {
+            "event_id": "w00000004",
+            "summary": "access status=allowed bytes=2269",
+            "ts": 1792808844.179
+          },
+          {
+            "event_id": "w00000004",
+            "summary": "access status=allowed bytes=2269",
+            "ts": 1792808844.179
+          }
+        ],
+        "explanation": "13 request(s) (0 with a schema-provenance cursor) ran within 500 ms of a human-branch page load on a different path, outside that page's Referer lineage. Consistent with an agent piggybacking inside a person's browser session (shared IP / cookies / beacons). Two people sharing one account or a browser extension can look similar.",
+        "extra": {
+          "collector_signal": 7,
+          "fork_event_ids": [
+            "481ca1908c914bf1805636b2c4ec9c29",
+            "w00000009",
+            "w00000012",
+            "w00000022",
+            "w00000032",
+            "w00000035"
+          ],
+          "forks": 13,
+          "human_branch_event_ids": [
+            "w00000004",
+            "w00000004",
+            "w00000004",
+            "w00000029",
+            "w00000029",
+            "w00000029"
+          ],
+          "schema_provenance_forks": 0
+        },
+        "mapping_note": "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, not proof of it. Verify against the evidence events before relying on the tag.",
+        "rule_id": "R14",
+        "strength": 0.75,
+        "title": "Parasitic sub-tree forked off a live human session"
+      }
+    ],
+    "score": 0.855,
+    "sequence": null,
+    "severity": "low"
+  }
+]

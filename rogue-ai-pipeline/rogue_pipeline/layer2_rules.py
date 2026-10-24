@@ -738,9 +738,9 @@ class RuleEngine:
 
     # -- R14 (v6): parasitic session fork -------------------------------------------------------------------------------------------
     def _r14(self, agent: str, evs: Sequence[NormalizedEvent]) -> List[RuleFlag]:
-        """Per-session Referer tree (parent = the latest earlier request whose path is this request's Referer).  A FORK is a suspicious
-        request - unlinked without a valid Referer, or presenting a schema-provenance cursor - within ``r14_window_s`` of a human-branch
-        page load (linked / valid Referer, HTML) on a DIFFERENT path that is neither its ancestor nor its descendant.  A stealth agent
+        """Per-session Referer tree (parent = the latest earlier request whose path is this request's Referer).  A FORK is a schema-provenance (or collector-signalled) request within ``r14_window_s`` of a human-branch
+        page load (linked / valid Referer, HTML) on a DIFFERENT path that is neither its ancestor nor its descendant.
+        Bare unlinked navigations from a single client are NOT forks (Phase-1 Playwright crawler false positive).  A stealth agent
         riding inside a real person's browser shares IP, UA, cookies and valid beacons, but its background sub-tree runs concurrently
         with the person's clicks.  >= ``r14_min_forks`` forks (or the collector's ``parasitic_session_fork`` signal) fire."""
         w = self.web
@@ -767,9 +767,11 @@ class RuleEngine:
             return out
 
         def suspicious(e: NormalizedEvent) -> bool:
+            # Phase-1 fix: bare unlinked navigations from one client are NOT a parasitic fork (Playwright BFS FP).
+            # R14 needs schema-provenance (or the collector's parasitic_session_fork signal from a two-client / schema case).
             wf = e.web
             return wf is not None and (wf.cursor_prov == "schema" or "schema_provenance_cursor" in wf.signals
-                                       or (wf.linked_from_prev is False and not wf.referer_valid))
+                                       or "parasitic_session_fork" in wf.signals)
 
         def human(e: NormalizedEvent) -> bool:
             wf = e.web
@@ -779,15 +781,47 @@ class RuleEngine:
         partners: List[NormalizedEvent] = []
         sus = [e for e in nav if suspicious(e)]
         hum = [e for e in nav if human(e) and not suspicious(e)]
+
+        def _seg(pk: str) -> str:
+            parts = [p for p in (pk or "/").split("/") if p]
+            return parts[0] if parts else ""
+
+        def _non_parent_referer(e: NormalizedEvent) -> bool:
+            """Missing Referer or Referer that is not a path-prefix parent (Referer:/ counts as parent / BFS)."""
+            wf = e.web
+            if wf is None:
+                return False
+            rk = wf.referer_key or ""
+            if not rk or not wf.referer_present:
+                return True
+            if rk == "/":
+                return False  # classic same-client BFS fan-out
+            pk = wf.path_key or "/"
+            if rk == pk:
+                return False
+            return not pk.startswith(rk.rstrip("/") + "/")
+
         for x in sus:
+            if not _non_parent_referer(x):
+                continue
             lx = lineage(x.event_id)
             for y in hum:
                 if abs(y.ts - x.ts) > w.r14_window_s or y.web is None or x.web is None or y.web.path_key == x.web.path_key:
                     continue
                 if y.event_id in lx or x.event_id in lineage(y.event_id):
                     continue
+                # interleaved disjoint subtrees: different first segment OR fork outside human path prefix
+                xs, ys = _seg(x.web.path_key), _seg(y.web.path_key)
+                disjoint = (xs and ys and xs != ys) or (xs != ys)
+                if not disjoint:
+                    continue
                 forks.append(x); partners.append(y)
                 break
+        # Gemini: need evidence of human depth progression interleaved with forks
+        if forks and hum:
+            hum_paths = [e.web.path_key for e in hum if e.web and e.web.path_key]
+            if len(set(hum_paths)) < 2 and not collector:
+                forks, partners = [], []
         n = len(forks) + len(collector)
         if n < w.r14_min_forks:
             return []

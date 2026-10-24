@@ -1,0 +1,15 @@
+{"step": 0, "tool": "goto", "url": "http://127.0.0.1:8300/", "method": "GET", "status": 200}
+{"step": 1, "tool": "crawl", "url": "http://127.0.0.1:8300/about", "method": "GET", "status": 200}
+{"step": 2, "tool": "crawl", "url": "http://127.0.0.1:8300/api/v1/kb-snapshot", "method": "GET", "status": 200}
+{"step": 3, "tool": "crawl", "url": "http://127.0.0.1:8300/kb/", "method": "GET", "status": 200}
+{"step": 4, "tool": "crawl", "url": "http://127.0.0.1:8300/llms.txt", "method": "GET", "status": 200}
+{"step": 5, "tool": "crawl", "url": "http://127.0.0.1:8300/openapi.json", "method": "GET", "status": 200}
+{"step": 6, "tool": "crawl", "url": "http://127.0.0.1:8300/kb/archive/diagnostic", "method": "GET", "status": 200}
+{"step": 7, "tool": "crawl", "url": "http://127.0.0.1:8300/staff-portal-6f4ac0", "method": "GET", "status": 200}
+{"step": 8, "tool": "crawl", "url": "http://127.0.0.1:8300/robots.txt", "method": "GET", "status": 200}
+{"step": 9, "tool": "crawl", "url": "http://127.0.0.1:8300/.well-known/mcp.json", "method": "GET", "status": 200}
+{"step": 10, "tool": "crawl", "url": "http://127.0.0.1:8300/kb/api-rate-limits", "method": "GET", "status": 200}
+{"step": 11, "tool": "crawl", "url": "http://127.0.0.1:8300/kb/page/2", "method": "GET", "status": 200}
+{"step": 12, "tool": "crawl", "url": "http://127.0.0.1:8300/kb/quarterly-summary", "method": "GET", "status": 200}
+{"step": 13, "tool": "crawl", "url": "http://127.0.0.1:8300/kb/returns-faq", "method": "GET", "status": 200}
+{"step": 14, "tool": "crawl", "url": "http://127.0.0.1:8300/kb/shipping-policy", "method": "GET", "status": 200}

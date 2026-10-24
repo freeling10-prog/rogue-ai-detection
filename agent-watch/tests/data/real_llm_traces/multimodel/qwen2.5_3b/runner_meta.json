@@ -1,0 +1,22 @@
+{
+  "model": {
+    "id": "qwen2.5_3b",
+    "backend": "ollama",
+    "model": "qwen2.5:3b"
+  },
+  "cmd": [
+    "/workspace/agent-watch/.venv/bin/python",
+    "/workspace/agent-watch/scripts/run_tier2_eval.py",
+    "--model",
+    "qwen2.5:3b",
+    "--max-steps",
+    "15",
+    "--port-base",
+    "18100",
+    "--only",
+    "llm"
+  ],
+  "started": "2026-10-24T04:30:28Z",
+  "dry_run": true,
+  "traces_dir": "/workspace/agent-watch/tests/data/real_llm_traces/multimodel/qwen2.5_3b"
+}

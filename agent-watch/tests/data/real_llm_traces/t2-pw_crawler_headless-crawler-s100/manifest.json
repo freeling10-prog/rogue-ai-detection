@@ -1,0 +1,15 @@
+{
+  "run_id": "t2-pw_crawler_headless-crawler-s100",
+  "model": "none",
+  "quantization": "n/a",
+  "harness": "pw_crawler_headless",
+  "prompt": "crawler",
+  "seed": 100,
+  "temperature": 0.4,
+  "date": "2026-10-24T02:27:25Z",
+  "steps": 15,
+  "max_steps": 18,
+  "notes": "playwright scenario=crawler; loopback only; scripted human is a proxy not a real human",
+  "operator_attests_loopback_only": true,
+  "real_capture": true
+}

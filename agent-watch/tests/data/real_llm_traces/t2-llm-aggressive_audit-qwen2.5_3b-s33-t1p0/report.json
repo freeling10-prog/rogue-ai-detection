@@ -1,0 +1,110 @@
+{
+  "schema": "agentwatch.report/1",
+  "tool": "agent-watch 0.2.0",
+  "generated_at": "2026-10-24T02:22:48.480696Z",
+  "inputs": [
+    "/workspace/phase1-runs/t2-llm-aggressive_audit-qwen2.5_3b-s33-t1p0/leads.jsonl",
+    "/workspace/phase1-runs/t2-llm-aggressive_audit-qwen2.5_3b-s33-t1p0/leads.jsonl.access.jsonl"
+  ],
+  "config": "defaults",
+  "parse": {
+    "lines": 4,
+    "requests": 3,
+    "errors": 0,
+    "honeypot_context_events": 1
+  },
+  "summary": {
+    "sessions": 1,
+    "by_label": {
+      "human": 1
+    },
+    "by_severity": {
+      "info": 1
+    },
+    "honeytoken_sessions": 0
+  },
+  "disclaimer": "Heuristic scores from synthetic-tested rules; every alert needs human review.",
+  "sessions": [
+    {
+      "session_id": "s-f9f058c2",
+      "ip": "127.0.0.1",
+      "user_agents": [
+        "Python-urllib/3.13"
+      ],
+      "start": "2026-10-24T02:22:24.267594Z",
+      "end": "2026-10-24T02:22:45.812205Z",
+      "requests": 3,
+      "label": "human",
+      "actor_type": "possible_mimic",
+      "floors": [],
+      "harness_archetype": "headless_or_http_mimic",
+      "harness_confidence": "medium",
+      "harness_reasons": [
+        "moved to URLs no page had offered it, with no valid Referer (R9)"
+      ],
+      "harness_also_matched": [],
+      "payload_structure": {
+        "json_key_count": 0,
+        "objective_length_bucket": "none",
+        "retry_latency_after_4xx_trap": "none"
+      },
+      "severity": "info",
+      "agent_score": 15,
+      "automation_score": 25,
+      "benign": false,
+      "benign_reason": "",
+      "reasons": [
+        "+25 scripted-client User-Agent (library/CLI)",
+        "+15 1 unlinked jump(s) to URLs no page ever offered this client, with no valid Referer, e.g. /robots.txt -> /api-docs",
+        "timing not scored: only 3 page requests (< 8)"
+      ],
+      "features": {
+        "ttna_pairs": null,
+        "ttna_spearman": null,
+        "ttna_band_fraction": null,
+        "requests": 3,
+        "page_requests": 3,
+        "duration_s": 21.5,
+        "asset_ratio": 0.0,
+        "referer_ratio": 0.0,
+        "interval_median_s": 10.772,
+        "interval_cv": 0.604,
+        "interval_entropy": 0.27,
+        "max_depth": 1,
+        "unique_paths": 3,
+        "breadth_ratio": 1.0,
+        "blocked_responses": 0,
+        "user_agents": 1,
+        "bot_ua": false,
+        "scripted_ua": true,
+        "benign_ua": false
+      },
+      "findings": [
+        {
+          "detector": "web",
+          "kind": "unlinked_jump",
+          "summary": "went from /robots.txt to /api-docs, which /robots.txt does not link, with no valid Referer (no page ever offered it to this client)"
+        }
+      ],
+      "honeytoken_leads": [],
+      "evidence": [
+        {
+          "detector": "web",
+          "kind": "unlinked_jump",
+          "line": "{\"schema\":\"agentwatch.access/1\",\"timestamp\":\"2026-10-24T02:22:41.549543Z\",\"client_ip\":\"127.0.0.1\",\"method\":\"GET\",\"path\":\"/robots.txt\",\"query\":\"\",\"status\":200,\"bytes\":387,\"user_agent\":\"Python-urllib..."
+        },
+        {
+          "detector": "web",
+          "kind": "unlinked_jump",
+          "line": "{\"schema\":\"agentwatch.access/1\",\"timestamp\":\"2026-10-24T02:22:45.812205Z\",\"client_ip\":\"127.0.0.1\",\"method\":\"GET\",\"path\":\"/api-docs\",\"query\":\"\",\"status\":404,\"bytes\":207,\"user_agent\":\"Python-urllib/3..."
+        }
+      ],
+      "cognitive_captures": [],
+      "coordination": {
+        "events": 0,
+        "cross_session_events": 0,
+        "cross_ip_events": 0
+      }
+    }
+  ]
+}

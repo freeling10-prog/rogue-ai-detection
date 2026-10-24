@@ -276,16 +276,17 @@ def test_bare_missing_required_cursor_is_advisory():
 
 # ======================================================================== R14
 def _rider(ip: str, gap: float) -> G:
+    """Human tab advances /kb/*; fork on disjoint /api/* with missing Referer + schema (Gemini interleaved depth)."""
     g = G(ip).pages(1, beacon=HUMAN6)
     for i in range(1, 6):
         g.req(f"/kb/article-{i}", 4.0, referer_present=True, referer_path=f"/kb/article-{i - 1}", referer_valid=True, linked_from_prev=True,
               sec_fetch_state="coherent", beacon_offered=True)
         g.req("/api/v1/telemetry/nav", 0.1, kind="beacon", beacon=HUMAN6)
-        g.req(f"/kb/vault/item-{i}", gap - 0.1, linked_from_prev=False, referer_present=False)
+        g.req(f"/api/v1/export/item-{i}", gap - 0.1, linked_from_prev=False, referer_present=False, cursor_prov="schema")
     return g
 
 
-def test_r14_fires_on_concurrent_unlinked_subtree():
+def test_r14_fires_on_concurrent_schema_subtree():
     g = _rider("192.0.2.75", 0.25)
     res, p = run(g.events)
     f = flags(res, p, "client:192.0.2.75")
@@ -304,6 +305,28 @@ def test_two_tab_reader_is_not_a_fork():
           offered_earlier=True, sec_fetch_state="coherent")
     res, p = run(g.events)
     assert "R14" not in flags(res, p, "client:192.0.2.77")
+
+
+def test_r14_bare_unlinked_single_client_is_not_a_fork():
+    """Phase-1 fix: Playwright-style BFS unlinked guesses without schema cursor must not fire R14."""
+    g = G("192.0.2.78").pages(1, beacon=HUMAN6)
+    g.req("/about", 1.0, referer_present=True, referer_path="/", referer_valid=True, linked_from_prev=True,
+          sec_fetch_state="coherent", beacon_offered=True)
+    g.req("/api/v1/telemetry/nav", 0.05, kind="beacon", beacon=HUMAN6)
+    for path in ("/api/v1/kb-snapshot", "/llms.txt", "/kb/", "/openapi.json"):
+        g.req(path, 0.08, linked_from_prev=False, referer_present=False)
+    res, p = run(g.events)
+    assert "R14" not in flags(res, p, "client:192.0.2.78")
+
+
+def test_r14_bfs_referer_root_stays_negative():
+    """Gemini: same-client BFS with Referer:/ must not fire R14 even with schema-looking fan-out."""
+    g = G("192.0.2.79").pages(1, beacon=HUMAN6)
+    for path in ("/a", "/b", "/c", "/openapi.json"):
+        g.req(path, 0.05, referer_present=True, referer_path="/", referer_valid=True, linked_from_prev=True,
+              sec_fetch_state="coherent")
+    res, p = run(g.events)
+    assert "R14" not in flags(res, p, "client:192.0.2.79")
 
 
 # ======================================================================== R12

@@ -1,0 +1,27 @@
+{
+  "hp_cmd": [
+    "/workspace/agent-watch/.venv/bin/python",
+    "-m",
+    "agentwatch",
+    "honeypot",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "18100",
+    "--log",
+    "/workspace/agent-watch/tests/data/real_llm_traces/multimodel/_smoke_playwright_human/2026-10-24T043028Z/leads.jsonl",
+    "--registry",
+    "/workspace/agent-watch/tests/data/real_llm_traces/multimodel/_smoke_playwright_human/2026-10-24T043028Z/registry.json"
+  ],
+  "pw_cmd": [
+    "/workspace/agent-watch/.venv/bin/python",
+    "/workspace/agent-watch/redteam/playwright_agents/run_browser_agent.py",
+    "--target",
+    "http://127.0.0.1:18100/",
+    "--scenario",
+    "human_control",
+    "--out",
+    "/workspace/agent-watch/tests/data/real_llm_traces/multimodel/_smoke_playwright_human/2026-10-24T043028Z/pw.json"
+  ],
+  "dry_run": true
+}

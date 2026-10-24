@@ -302,9 +302,9 @@ def _strong_headless(f: Finding) -> bool:
     return f.detector == "web" and (f.kind in R11_FAMILY or f.kind == "schema_provenance_cursor") and bool(f.data.get("strong"))
 
 
-def score_session(session: Session, cfg: dict[str, Any]) -> SessionResult:
+def score_session(session: Session, cfg: dict[str, Any], extra_findings: Optional[list[Finding]] = None) -> SessionResult:
     """Detect, score, label and grade one session."""
-    findings = run_detectors(session, cfg)
+    findings = run_detectors(session, cfg) + list(extra_findings or [])
     feat = extract_features(session, cfg)
     reasons: list[str] = []
     auto = _automation(feat, findings, cfg, reasons)
@@ -395,7 +395,13 @@ def score_session(session: Session, cfg: dict[str, Any]) -> SessionResult:
 
 
 def analyze_sessions(sessions: list[Session], cfg: dict[str, Any]) -> list[SessionResult]:
-    """Score every session; most severe / highest agent score first."""
-    results = [score_session(s, cfg) for s in sessions]
+    """Score every session; most severe / highest agent score first.
+
+    Cross-client R14 (distinct sessions on the same IP) is attached before scoring so a rider
+    session that never looked human alone still gets the parasitic_session_fork finding.
+    """
+    from .frontierdetect import detect_parasitic_across_clients
+    cross = detect_parasitic_across_clients(sessions, cfg)
+    results = [score_session(s, cfg, extra_findings=cross.get(s.session_id)) for s in sessions]
     results.sort(key=lambda r: (-SEVERITIES.index(r.severity), -r.agent_score, -r.automation_score))
     return results

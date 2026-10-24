@@ -53,6 +53,33 @@ Use **40** on this tree (approval webhook plus the executive audit report). Use 
 
 Tool backends inside the gateway are simulated echoes. There is no Web Bot Auth in this tree.
 
+## Install the CLIs
+
+Two packages install from this tree. There is no package index and no company domain. From the repository root:
+
+```bash
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ./agentwatch-analyzer
+python -m pip install -e ./agent-gateway
+```
+
+The same paths work without `-e`: `pip install ./agentwatch-analyzer` and `pip install ./agent-gateway`.
+
+On a log you already have:
+
+```bash
+agentwatch-analyzer ./access.log --format nginx --out-dir ./analyzer-out
+python -m agent_gateway audit ./analyzer-out
+```
+
+`agent-gateway audit ./analyzer-out` is the same audit command. It writes `analyzer-out/audit-report/audit-report.html` and `audit-report.pdf`. The PDF writer is pure Python. WeasyPrint and wkhtmltopdf are not dependencies and are not required.
+
+That audit command does not bind a port and does not start the honeypot. `agent-gateway serve` still defaults to `127.0.0.1` and does not POST unless you pass `--webhook-deliver`.
+
+The Sigma pack is 12 files in [`agentwatch-analyzer/rules/sigma`](agentwatch-analyzer/rules/sigma). After install, `agentwatch_analyzer.sigma_rules_dir()` points at that directory (editable) or at the copy inside the wheel.
+
 ## Three minutes
 
 [docs/quickstart.md](docs/quickstart.md) is a copy-paste Docker run and the same Python without Docker. The loop is: `web.fetch` (taint and attenuate) → `lookup_order_status` (still tainted) → `send_email` (held). The process prints the Slack / webhook JSON and asserts `delivered` is false.
@@ -111,6 +138,16 @@ The advisory offline R14 on the crawler is not the live R14 false positive. Resc
 - [rogue-ai-pipeline/README.md](rogue-ai-pipeline/README.md) — v6 pipeline.
 - [prototype-v1/README.md](prototype-v1/README.md) — first prototype (synthetic only).
 - [docs/examples/sample-replay.html](docs/examples/sample-replay.html) — static replay example. It makes no network requests.
+
+## License
+
+The default license for this repository is the Apache License, Version 2.0. The full text is [LICENSE](LICENSE). [NOTICE](NOTICE) states the scope.
+
+Apache 2.0 covers the open core in this tree: `agent-watch`, `agent-gateway` (including `pep.py`, `agw1.` attenuation, and the executive audit CLI), `agentwatch-analyzer`, [`.github/workflows/atlas-agent-audit.yml`](.github/workflows/atlas-agent-audit.yml), `rogue-ai-pipeline`, and the documentation under `docs/` and `marketing/`. There is no separate proprietary module in the tree. Marketing drafts are documentation under the same license.
+
+A hosted audit, paid support, and proprietary connectors are not in this repository. If they are offered later, they are licensed separately. Notes for this snapshot are in [CHANGELOG.md](CHANGELOG.md).
+
+The GitHub remote is still private. The license file does not make it public. Drafts in [`marketing/`](marketing/README.md) stay do-not-submit until the repository is public.
 
 ## Book or run it
 

@@ -14,13 +14,24 @@ This is **not** a WAF and **not** a substitute for the live honeypot. Beacon boo
 
 ## Install
 
+From the repository root, in a virtualenv:
+
 ```bash
-cd /workspace/agentwatch-analyzer
-python3 -m venv .venv && . .venv/bin/activate
-pip install -r requirements.txt
-pip install -e .
-pytest -q
+python -m pip install -e ./agentwatch-analyzer
+agentwatch-analyzer --help
 ```
+
+Non-editable: `pip install ./agentwatch-analyzer`. The console script is `agentwatch-analyzer`. `python -m agentwatch_analyzer` is the same entry point.
+
+Tests (pytest is not a runtime dependency):
+
+```bash
+python -m pip install -r agentwatch-analyzer/requirements.txt
+python -m pip install -e ./agentwatch-analyzer
+cd agentwatch-analyzer && pytest -q
+```
+
+The 12 Sigma files live in `rules/sigma/`. After install, `agentwatch_analyzer.sigma_rules_dir()` returns that directory for an editable install, or the copy packaged inside the wheel.
 
 ## Run on your logs
 
@@ -51,7 +62,7 @@ Outputs in `--out-dir`:
 | R13 timing/adaptation | **No** | honeypot instrumentation |
 | R14 session fork | **Partial** | interleaved disjoint Referer trees; human-beacon N/A |
 
-Sigma pack: `rules/sigma/` (R8–R14 + ATLAS AML.T0051, T0053, T0080, T0086, T0118; OWASP ASI01–ASI10 noted where mapped).
+Sigma pack: `rules/sigma/` — **12** files (R8–R14 + ATLAS AML.T0051, T0053, T0080, T0086, T0118; OWASP ASI01–ASI10 noted where mapped).
 
 ## Honest limits / FP caveats
 

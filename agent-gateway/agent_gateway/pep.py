@@ -26,6 +26,7 @@ from flask import Flask, Response, jsonify, request
 
 from . import approve, capability
 from .approval_webhook import build_approval_payload, consume_approve_once, deliver_webhook
+from .paths import default_registry_path
 from .registry import Registry
 from .scrub import scrub_obj
 from .taint import (
@@ -68,7 +69,7 @@ _AWAITING_APPROVAL = frozenset({
 class PepConfig:
     host: str = "127.0.0.1"
     port: int = 9100
-    registry_path: Path = field(default_factory=lambda: Path(__file__).resolve().parent.parent / "config" / "agents.json")
+    registry_path: Path = field(default_factory=default_registry_path)
     allow_nonlocal: bool = False
     webhook_url: Optional[str] = None  # default OFF
     webhook_deliver: bool = False  # explicit opt-in; formatter never sends by itself

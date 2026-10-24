@@ -33,10 +33,11 @@ Implements ATLAS mitigation **AML.M0030** (Restrict Tool Invocation on Untrusted
 
 ## Quick start (loopback)
 
+From the repository root, in a virtualenv:
+
 ```bash
-cd /workspace/agent-gateway
-python3 -m venv .venv && . .venv/bin/activate
-pip install -r requirements.txt
+python -m pip install -e "./agent-gateway[test]"
+cd agent-gateway
 pytest -q
 python -m agent_gateway serve --host 127.0.0.1 --port 9100
 # another terminal — mint bound approval (step from deny response):
@@ -46,7 +47,11 @@ curl -s http://127.0.0.1:9100/health
 
 # offline executive report from an analyzer smoke directory
 python -m agent_gateway audit ./analyzer-out --out-dir ./audit-report
+# same command via the console script, after pip install:
+agent-gateway audit ./analyzer-out --out-dir ./audit-report
 ```
+
+`pip install -e ./agent-gateway` (without `[test]`) installs the runtime dependency Flask and the `agent-gateway` console script. It does not install pytest or Hypothesis. The audit PDF writer is pure Python. WeasyPrint and wkhtmltopdf are not required. Non-editable: `pip install ./agent-gateway` from the repository root. The lab registry is `config/agents.json` in a checkout, and `agent_gateway/data/agents.json` inside a wheel.
 
 ## Executive audit report
 

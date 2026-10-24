@@ -1,0 +1,8 @@
+include README.md
+include requirements.txt
+include pyproject.toml
+include setup.py
+recursive-include agentwatch_analyzer *.py
+recursive-include rules *.yml
+recursive-include tests *.py
+recursive-include tests/fixtures *

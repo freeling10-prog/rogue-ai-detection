@@ -1,0 +1,43 @@
+AgentGate
+Copyright 2026 freeling10-prog
+
+This NOTICE states the licensing scope of the rogue-ai-detection repository.
+It is not a third-party attribution list. Python dependencies are installed
+from PyPI and remain under their own licenses. They are not vendored in this
+tree.
+
+Default license
+---------------
+
+The default license is the Apache License, Version 2.0 (see LICENSE). It
+applies to the open-source engine and to the rest of the files in this
+repository, including:
+
+  * agent-watch (log detector and localhost honeypot)
+  * agent-gateway (runtime behavioral gateway, pep.py, agw1. capability
+    attenuation, and the executive audit CLI)
+  * agentwatch-analyzer (offline log analyzer, Sigma rules, and STIX 2.1
+    bundles)
+  * .github/workflows/atlas-agent-audit.yml
+  * rogue-ai-pipeline, prototype-v1, and the other research code in this
+    repository
+  * documentation under docs/ and marketing/
+
+No separate proprietary codebase is included. Marketing drafts are
+documentation under Apache 2.0. The executive audit CLI and the GitHub
+Action are part of the open core, not a second license.
+
+Enterprise offerings
+--------------------
+
+A hosted agentic security audit, paid support, and proprietary connectors
+are not shipped in this repository. When those are offered commercially,
+they are licensed under separate terms. Nothing in this tree is a closed
+source product, and this NOTICE does not grant those offerings.
+
+Copyright holder
+----------------
+
+Copyright 2026 freeling10-prog. The name used for the lab stack in the
+documentation is AgentGate. The repository does not record a separate legal
+entity.

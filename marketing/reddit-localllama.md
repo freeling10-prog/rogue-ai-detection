@@ -1,6 +1,6 @@
 # Reddit — r/LocalLLaMA
 
-Status: **draft. Do not submit.** The GitHub remote is private and the tree has no LICENSE file. Do not call the project open source in the post until a license file exists and the repository is public. Replace the link TODO at that point.
+Status: **draft. Do not submit.** [LICENSE](../LICENSE) (Apache 2.0) and [NOTICE](../NOTICE) are in the tree. The GitHub remote is still private. A license file does not make the repository public. Do not submit this post, and do not describe the project as a public open-source release, until the repository is public. Replace the link TODO only then.
 
 Flair: whatever the subreddit uses for projects or research. Do not use a "we detect all agents" claim in the title.
 

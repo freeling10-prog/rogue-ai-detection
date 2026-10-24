@@ -27,6 +27,7 @@ Implements ATLAS mitigation **AML.M0030** (Restrict Tool Invocation on Untrusted
 6. **Delegation quotas** — `max_delegation_depth=1`, `max_children_per_parent=3`; TAINTED propagates across internal bus posts; R12-style **15 min freeze** keys to Root Parent Principal; auto-lift; local alert log.
 7. **Allowlisted constrained sinks** — `update_ticket_status` with int/enum/exact ID may proceed without OOB while free-text/high-entropy sinks still need approval.
 8. **Deterministic scrubbing** of logged tool args.
+9. **Chained HMAC capabilities** — macaroon-style session tokens. Untrusted ingest appends `allow_egress=false`. A holder cannot strip or reorder that caveat; any worker that shares `AGENT_GATEWAY_HMAC_KEY` can verify the chain without a session table. A valid one-time OOB token is still the only bypass. See `docs/phase2-gateway.md`.
 
 ## Quick start (loopback)
 

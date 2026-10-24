@@ -102,6 +102,9 @@ class SessionState:
     last_untrusted_read_at: float = 0.0
     last_sensitive_read_at: float = 0.0
     history: list[dict[str, Any]] = field(default_factory=list)
+    # Chained HMAC capability (macaroon-style). Empty until the PEP mints one.
+    capability_token: str = ""
+    allow_egress: bool = True
 
     def mark_tainted(self, reason: str, source_id: str = "") -> None:
         self.tainted = True

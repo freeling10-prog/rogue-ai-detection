@@ -1,0 +1,15 @@
+{
+  "run_id": "t2-pw_human_control-human_control-s100",
+  "model": "none",
+  "quantization": "n/a",
+  "harness": "pw_human_control",
+  "prompt": "human_control",
+  "seed": 100,
+  "temperature": 0.4,
+  "date": "2026-10-24T02:27:58Z",
+  "steps": 6,
+  "max_steps": 18,
+  "notes": "playwright scenario=human_control; loopback only; scripted human is a proxy not a real human",
+  "operator_attests_loopback_only": true,
+  "real_capture": true
+}

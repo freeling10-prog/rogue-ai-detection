@@ -131,26 +131,46 @@ def inversion_link() -> str:
 # Inline, same-origin beacon script (v6).  On a click on an internal link it POSTs ONE JSON object: the challenge proof (page meta +
 # rendered probe size), the page path (for proof verification only; not stored) and five booleans.  No identifiers.
 def beacon_script(path: str) -> str:
+    """Inline beacon.  ``kinematic_dwell_ok`` is true when press duration >= 12 ms AND the recent pointer
+    path is non-collinear (max cross-product deviation > 1 px).  Uses pointerdown/up (Playwright) as well
+    as mouse events.
+
+    Dwell < 12 ms is *inconclusive* (JSON null), not false, when ``pointerType === "touch"`` / TouchEvent
+    is present, or when OS-level tap-to-click produces 0–4 ms dwell without other automation signals
+    (mobile and trackpad humans commonly land in that band). Short dwell *with* webdriver / DOM
+    automation props remains false. ``vlm_quantized_interaction`` still requires
+    ``kinematic_dwell_ok is False`` (null does not corroborate) plus bad scroll on >= vlm_min_beacons
+    (or an inversion hit), so a touch / trackpad user alone is not labelled VLM.
+    """
+    # Built without nested quote hell: the only tricky bit is a[href^="/"].
+    href_sel = "a[href^=\"/\"]"
     return (
         "<script>(function(){var c=document.querySelector('meta[name=aw-challenge]');c=c?c.content:'';"
-        "var m=0,P=[],dn=0,dw=-1,W=[],sc=0;"
-        "function mv(e){m=1;if(e.clientX!=null){P.push([e.clientX,e.clientY]);if(P.length>8)P.shift()}}"
-        "addEventListener('pointermove',mv,{passive:true});addEventListener('touchmove',function(){m=1},{passive:true});"
+        "var m=0,P=[],dn=0,dw=-1,W=[],sc=0,pt='';"
+        "function mv(e){m=1;if(e.clientX!=null){P.push([e.clientX,e.clientY]);if(P.length>10)P.shift()}}"
+        "addEventListener('pointermove',mv,{passive:true});addEventListener('mousemove',mv,{passive:true});"
+        "addEventListener('touchmove',function(){m=1},{passive:true});"
         "addEventListener('touchstart',function(){m=1},{passive:true});"
-        "addEventListener('mousedown',function(){dn=performance.now()},true);"
-        "addEventListener('mouseup',function(){if(dn)dw=performance.now()-dn},true);"
+        "function pd(e){dn=performance.now();if(e&&e.pointerType)pt=e.pointerType}"
+        "function pu(){if(dn)dw=performance.now()-dn}"
+        "addEventListener('pointerdown',pd,true);addEventListener('pointerup',pu,true);"
+        "addEventListener('mousedown',pd,true);addEventListener('mouseup',pu,true);"
         "addEventListener('wheel',function(e){sc=1;W.push(Math.abs(e.deltaY));if(W.length>12)W.shift()},{passive:true});"
-        "function nc(){for(var i=2;i<P.length;i++){var a=P[i-2],b=P[i-1],d=P[i];"
-        "if(Math.abs((b[0]-a[0])*(d[1]-a[1])-(b[1]-a[1])*(d[0]-a[0]))>1)return true}return false}"
+        "function nc(){if(P.length<3)return false;var max=0;for(var i=2;i<P.length;i++){var a=P[i-2],b=P[i-1],d=P[i];"
+        "var v=Math.abs((b[0]-a[0])*(d[1]-a[1])-(b[1]-a[1])*(d[0]-a[0]));if(v>max)max=v}return max>1}"
         "function inert(){if(!sc||W.length<3)return true;var dec=0,flat=true;for(var i=1;i<W.length;i++){if(W[i]<W[i-1])dec++;"
         "if(W[i]!==W[0])flat=false}return !flat&&dec>=(W.length-1)/3}"
-        "addEventListener('click',function(e){var t=e.target,a=t&&t.closest&&t.closest('a[href^=\"/\"]');if(!a)return;"
+        "function dwellOk(p){if(dw<0)return null;if(dw>=12)return nc();var touch=pt==='touch'||pt==='pen';"
+        "try{if(!touch&&pt!=='mouse'&&(('ontouchstart'in window)||(navigator.maxTouchPoints>0)))touch=true}catch(_){}"
+        "if(touch)return null;if(dw<=4&&!p&&navigator.webdriver!==true)return null;return false}"
+        "addEventListener('click',function(e){var t=e.target,a=t&&t.closest&&t.closest('" + href_sel + "');if(!a)return;"
         "var p=false;try{for(var k in window){if(/^(__playwright|__pw|cdc_|\\$cdc_|__nightmare|_phantom|callPhantom|__selenium|__webdriver)/.test(k)){p=true;break}}}catch(_){}"
         "var pr=document.getElementById('aw-probe');var proof=c+'.'+(pr?pr.offsetWidth+'x'+pr.offsetHeight:'0x0');"
         "try{fetch('/api/v1/telemetry/nav',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',keepalive:true,"
         "body:JSON.stringify({proof:proof,page:location.pathname,webdriver_present:navigator.webdriver===true,pointer_trail_seen:!!m,"
-        "dom_automation_props:p,kinematic_dwell_ok:dw>=12&&nc(),inertial_scroll_ok:inert()})})}catch(_){}},true)})();</script>"
+        "dom_automation_props:p,kinematic_dwell_ok:dwellOk(p),inertial_scroll_ok:inert()})})}catch(_){}},true)})();</script>"
     )
+
 
 
 AUTONOMY_RE = re.compile(r"\b(loop|keep going|continue until|until (?:done|complete|finished)|autonomous(?:ly)?|without (?:asking|confirmation|"

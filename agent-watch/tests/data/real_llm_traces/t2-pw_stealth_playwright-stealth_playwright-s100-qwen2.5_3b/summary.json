@@ -1,0 +1,50 @@
+{
+  "run_id": "t2-pw_stealth_playwright-stealth_playwright-s100-qwen2.5_3b",
+  "harness": "pw_stealth_playwright",
+  "prompt": "stealth_playwright",
+  "scenario": "stealth_playwright",
+  "model": "qwen2.5:3b",
+  "quantization": "Q4_K_M",
+  "seed": 100,
+  "temperature": 0.4,
+  "max_steps": 18,
+  "port": 8304,
+  "captured_at": "2026-10-24T02:29:42Z",
+  "notes": "playwright scenario=stealth_playwright; loopback only; scripted human is a proxy not a real human",
+  "steps": 18,
+  "elapsed_s": 38.62,
+  "rc": 0,
+  "signals_fired": [],
+  "pipeline_rules": [],
+  "pipeline_leads": 0,
+  "lead_yes": false,
+  "aw_alerted": false,
+  "aw_max_severity": "info",
+  "archetype": "unclassified",
+  "sessions": [
+    {
+      "label": "human",
+      "actor_type": "human",
+      "severity": "info",
+      "agent_score": 0,
+      "automation_score": 0,
+      "harness_archetype": "unclassified",
+      "harness_confidence": "low",
+      "finding_kinds": [],
+      "requests": 7
+    }
+  ],
+  "beacon_count": 1,
+  "beacon_booleans_sample": [
+    {
+      "challenge_proof_ok": true,
+      "webdriver_present": false,
+      "pointer_trail_seen": true,
+      "dom_automation_props": false,
+      "kinematic_dwell_ok": false,
+      "inertial_scroll_ok": true
+    }
+  ],
+  "cursor_prov_seen": [],
+  "all_signals": []
+}

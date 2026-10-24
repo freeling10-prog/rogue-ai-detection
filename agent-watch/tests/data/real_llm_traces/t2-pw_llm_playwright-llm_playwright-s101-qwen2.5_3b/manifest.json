@@ -1,0 +1,15 @@
+{
+  "run_id": "t2-pw_llm_playwright-llm_playwright-s101-qwen2.5_3b",
+  "model": "qwen2.5:3b",
+  "quantization": "Q4_K_M",
+  "harness": "pw_llm_playwright",
+  "prompt": "llm_playwright",
+  "seed": 101,
+  "temperature": 0.4,
+  "date": "2026-10-24T02:29:02Z",
+  "steps": 5,
+  "max_steps": 18,
+  "notes": "playwright scenario=llm_playwright; loopback only; scripted human is a proxy not a real human",
+  "operator_attests_loopback_only": true,
+  "real_capture": true
+}

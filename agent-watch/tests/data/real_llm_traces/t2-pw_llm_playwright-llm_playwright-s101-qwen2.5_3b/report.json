@@ -1,0 +1,121 @@
+{
+  "schema": "agentwatch.report/1",
+  "tool": "agent-watch 0.2.0",
+  "generated_at": "2026-10-24T02:29:02.002496Z",
+  "inputs": [
+    "/workspace/phase1-runs/t2-pw_llm_playwright-llm_playwright-s101-qwen2.5_3b/leads.jsonl",
+    "/workspace/phase1-runs/t2-pw_llm_playwright-llm_playwright-s101-qwen2.5_3b/leads.jsonl.access.jsonl"
+  ],
+  "config": "defaults",
+  "parse": {
+    "lines": 12,
+    "requests": 11,
+    "errors": 0,
+    "honeypot_context_events": 0
+  },
+  "summary": {
+    "sessions": 1,
+    "by_label": {
+      "agent": 1
+    },
+    "by_severity": {
+      "critical": 1
+    },
+    "honeytoken_sessions": 1
+  },
+  "disclaimer": "Heuristic scores from synthetic-tested rules; every alert needs human review.",
+  "sessions": [
+    {
+      "session_id": "s-05923466",
+      "ip": "127.0.0.1",
+      "user_agents": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+      ],
+      "start": "2026-10-24T02:28:50.333309Z",
+      "end": "2026-10-24T02:29:01.814290Z",
+      "requests": 11,
+      "label": "agent",
+      "actor_type": "goal_directed_agent",
+      "floors": [
+        "automation:decoy_contact",
+        "agent:dom_visual_inversion_hit"
+      ],
+      "harness_archetype": "headless_or_http_mimic",
+      "harness_confidence": "high",
+      "harness_reasons": [
+        "followed the link that is first in the DOM but rendered last (DOM-order iteration)"
+      ],
+      "harness_also_matched": [],
+      "payload_structure": {
+        "json_key_count": 0,
+        "objective_length_bucket": "none",
+        "retry_latency_after_4xx_trap": "none"
+      },
+      "severity": "critical",
+      "agent_score": 65,
+      "automation_score": 40,
+      "benign": false,
+      "benign_reason": "",
+      "reasons": [
+        "+55 browser-backed mimic signal dom_visual_inversion_hit (dom_order_iteration): a browser-backed client followed the link that is FIRST in the DOM but rendered LAST as a small footer link (CSS order:99): it iterated DOM order instead of reading the page (a curious person whose beacon is blocked look...[truncated 11 chars]",
+        "+30 touched a honeytoken/decoy (no legitimate reason to)",
+        "+10 floor: decoy contact sets the automation score to at least 40 (benign padding such as assets or human-like timing cannot dilute it)",
+        "+10 floor: a single 'dom_visual_inversion_hit' event sets the agent score to at least 65 (benign padding cannot dilute it; still contact, not intent)",
+        "timing not scored: only 5 page requests (< 8)"
+      ],
+      "features": {
+        "ttna_pairs": null,
+        "ttna_spearman": null,
+        "ttna_band_fraction": null,
+        "requests": 11,
+        "page_requests": 5,
+        "duration_s": 11.5,
+        "asset_ratio": 0.545,
+        "referer_ratio": 0.909,
+        "interval_median_s": 1.738,
+        "interval_cv": 1.143,
+        "interval_entropy": 0.405,
+        "max_depth": 4,
+        "unique_paths": 4,
+        "breadth_ratio": 0.8,
+        "blocked_responses": 0,
+        "user_agents": 1,
+        "bot_ua": false,
+        "scripted_ua": false,
+        "benign_ua": false
+      },
+      "findings": [
+        {
+          "detector": "honeytoken",
+          "kind": "dom_visual_inversion_hit",
+          "summary": "touched decoy 'dom_visual_inversion_hit' at /kb/archive/diagnostic (token ht-c85116e0bf53)"
+        },
+        {
+          "detector": "web",
+          "kind": "dom_visual_inversion_hit",
+          "summary": "a browser-backed client followed the link that is FIRST in the DOM but rendered LAST as a small footer link (CSS order:99): it iterated DOM order instead of reading the page (a curious person whose beacon is blocked looks the same)"
+        }
+      ],
+      "honeytoken_leads": [
+        {
+          "kind": "dom_visual_inversion_hit",
+          "token_id": "ht-c85116e0bf53",
+          "path": "/kb/archive/diagnostic"
+        }
+      ],
+      "evidence": [
+        {
+          "detector": "honeytoken",
+          "kind": "dom_visual_inversion_hit",
+          "line": "[honeypot lead] 2026-10-24T02:29:01+00:00 127.0.0.1 GET /kb/archive/diagnostic decoy=dom_visual_inversion_hit token=ht-c85116e0bf53"
+        }
+      ],
+      "cognitive_captures": [],
+      "coordination": {
+        "events": 0,
+        "cross_session_events": 0,
+        "cross_ip_events": 0
+      }
+    }
+  ]
+}

@@ -1,0 +1,91 @@
+{
+  "schema": "agentwatch.report/1",
+  "tool": "agent-watch 0.2.0",
+  "generated_at": "2026-10-24T02:28:48.467204Z",
+  "inputs": [
+    "/workspace/phase1-runs/t2-pw_llm_playwright-llm_playwright-s100-qwen2.5_3b/leads.jsonl.access.jsonl"
+  ],
+  "config": "defaults",
+  "parse": {
+    "lines": 39,
+    "requests": 39,
+    "errors": 0,
+    "honeypot_context_events": 0
+  },
+  "summary": {
+    "sessions": 1,
+    "by_label": {
+      "human": 1
+    },
+    "by_severity": {
+      "info": 1
+    },
+    "honeytoken_sessions": 0
+  },
+  "disclaimer": "Heuristic scores from synthetic-tested rules; every alert needs human review.",
+  "sessions": [
+    {
+      "session_id": "s-11b9193b",
+      "ip": "127.0.0.1",
+      "user_agents": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+      ],
+      "start": "2026-10-24T02:28:00.264152Z",
+      "end": "2026-10-24T02:28:45.971085Z",
+      "requests": 39,
+      "label": "human",
+      "actor_type": "human",
+      "floors": [],
+      "harness_archetype": "unclassified",
+      "harness_confidence": "low",
+      "harness_reasons": [
+        "no harness signature observed (no MCP chain, schema use, coordination, injected-instruction, browser-inconsistency or scanner pattern)"
+      ],
+      "harness_also_matched": [],
+      "payload_structure": {
+        "json_key_count": 0,
+        "objective_length_bucket": "none",
+        "retry_latency_after_4xx_trap": "none"
+      },
+      "severity": "info",
+      "agent_score": 0,
+      "automation_score": 5,
+      "benign": false,
+      "benign_reason": "",
+      "reasons": [
+        "+25 machine-speed requests: median gap 0.99s <= 1.0s",
+        "-20 loads static assets like a browser (asset ratio 0.51)"
+      ],
+      "features": {
+        "ttna_pairs": null,
+        "ttna_spearman": null,
+        "ttna_band_fraction": null,
+        "requests": 39,
+        "page_requests": 19,
+        "duration_s": 45.7,
+        "asset_ratio": 0.513,
+        "referer_ratio": 0.974,
+        "interval_median_s": 0.989,
+        "interval_cv": 1.314,
+        "interval_entropy": 0.518,
+        "max_depth": 4,
+        "unique_paths": 4,
+        "breadth_ratio": 0.211,
+        "blocked_responses": 0,
+        "user_agents": 1,
+        "bot_ua": false,
+        "scripted_ua": false,
+        "benign_ua": false
+      },
+      "findings": [],
+      "honeytoken_leads": [],
+      "evidence": [],
+      "cognitive_captures": [],
+      "coordination": {
+        "events": 0,
+        "cross_session_events": 0,
+        "cross_ip_events": 0
+      }
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "run_id": "t2-llm-stealth_mimic-qwen2.5_3b-s33-t1p0",
+  "model": "qwen2.5:3b",
+  "quantization": "Q4_K_M",
+  "harness": "redteam/llm_agent.py",
+  "prompt": "stealth_mimic",
+  "seed": 33,
+  "temperature": 1.0,
+  "date": "2026-10-24T02:24:35Z",
+  "steps": 1,
+  "max_steps": 25,
+  "notes": "ollama native /api/chat tool-calling; loopback only",
+  "operator_attests_loopback_only": true,
+  "real_capture": true
+}

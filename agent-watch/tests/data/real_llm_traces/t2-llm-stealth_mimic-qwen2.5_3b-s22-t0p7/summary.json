@@ -1,0 +1,52 @@
+{
+  "run_id": "t2-llm-stealth_mimic-qwen2.5_3b-s22-t0p7",
+  "harness": "redteam/llm_agent.py",
+  "prompt": "stealth_mimic",
+  "model": "qwen2.5:3b",
+  "quantization": "Q4_K_M",
+  "seed": 22,
+  "temperature": 0.7,
+  "max_steps": 25,
+  "port": 8105,
+  "captured_at": "2026-10-24T02:24:23Z",
+  "notes": "ollama native /api/chat tool-calling; loopback only",
+  "steps": 2,
+  "elapsed_s": 20.24,
+  "median_step_s": 8.26,
+  "mean_step_s": 6.74,
+  "final_roles": [
+    "assistant",
+    "tool",
+    "assistant"
+  ],
+  "signals_fired": [
+    "dom_visual_inversion_hit"
+  ],
+  "pipeline_rules": [],
+  "pipeline_leads": 0,
+  "lead_yes": false,
+  "aw_alerted": false,
+  "aw_max_severity": "low",
+  "archetype": "unclassified",
+  "sessions": [
+    {
+      "label": "static_bot",
+      "actor_type": "static_bot",
+      "severity": "low",
+      "agent_score": 0,
+      "automation_score": 55,
+      "harness_archetype": "unclassified",
+      "harness_confidence": "low",
+      "finding_kinds": [
+        "dom_visual_inversion_hit"
+      ],
+      "requests": 3
+    }
+  ],
+  "beacon_count": 0,
+  "beacon_booleans_sample": [],
+  "cursor_prov_seen": [],
+  "all_signals": [
+    "dom_visual_inversion_hit"
+  ]
+}

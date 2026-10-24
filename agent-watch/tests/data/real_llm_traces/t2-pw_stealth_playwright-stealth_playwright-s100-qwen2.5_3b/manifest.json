@@ -1,0 +1,15 @@
+{
+  "run_id": "t2-pw_stealth_playwright-stealth_playwright-s100-qwen2.5_3b",
+  "model": "qwen2.5:3b",
+  "quantization": "Q4_K_M",
+  "harness": "pw_stealth_playwright",
+  "prompt": "stealth_playwright",
+  "seed": 100,
+  "temperature": 0.4,
+  "date": "2026-10-24T02:29:42Z",
+  "steps": 18,
+  "max_steps": 18,
+  "notes": "playwright scenario=stealth_playwright; loopback only; scripted human is a proxy not a real human",
+  "operator_attests_loopback_only": true,
+  "real_capture": true
+}

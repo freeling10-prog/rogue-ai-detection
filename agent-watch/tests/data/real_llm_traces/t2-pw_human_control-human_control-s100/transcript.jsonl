@@ -1,0 +1,6 @@
+{"step": 0, "tool": "goto", "url": "http://127.0.0.1:8301/", "method": "GET", "status": 200}
+{"step": 1, "tool": "human_click", "url": "http://127.0.0.1:8301/about", "method": "GET", "status": 200, "text": "About"}
+{"step": 2, "tool": "human_click", "url": "http://127.0.0.1:8301/kb/", "method": "GET", "status": 200, "text": "/kb/"}
+{"step": 3, "tool": "human_click", "url": "http://127.0.0.1:8301/kb/returns-faq", "method": "GET", "status": 200, "text": "Returns FAQ (synthetic)"}
+{"step": 4, "tool": "human_click", "url": "http://127.0.0.1:8301/kb/shipping-policy", "method": "GET", "status": 400, "text": "/kb/shipping-policy"}
+{"step": 5, "tool": "human_click", "url": "http://127.0.0.1:8301/kb/api-rate-limits", "method": "GET", "status": 400, "text": "/kb/api-rate-limits"}

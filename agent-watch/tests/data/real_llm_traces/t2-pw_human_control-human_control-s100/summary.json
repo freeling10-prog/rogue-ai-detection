@@ -1,0 +1,69 @@
+{
+  "run_id": "t2-pw_human_control-human_control-s100",
+  "harness": "pw_human_control",
+  "prompt": "human_control",
+  "scenario": "human_control",
+  "model": "none",
+  "quantization": "n/a",
+  "seed": 100,
+  "temperature": 0.4,
+  "max_steps": 18,
+  "port": 8301,
+  "captured_at": "2026-10-24T02:27:58Z",
+  "notes": "playwright scenario=human_control; loopback only; scripted human is a proxy not a real human",
+  "steps": 6,
+  "elapsed_s": 31.15,
+  "rc": 0,
+  "signals_fired": [
+    "missing_required_cursor",
+    "unlinked_jump"
+  ],
+  "pipeline_rules": [],
+  "pipeline_leads": 0,
+  "lead_yes": false,
+  "aw_alerted": false,
+  "aw_max_severity": "info",
+  "archetype": "unclassified",
+  "sessions": [
+    {
+      "label": "human",
+      "actor_type": "human",
+      "severity": "info",
+      "agent_score": 15,
+      "automation_score": 0,
+      "harness_archetype": "unclassified",
+      "harness_confidence": "low",
+      "finding_kinds": [
+        "missing_required_cursor",
+        "unlinked_jump"
+      ],
+      "requests": 16
+    }
+  ],
+  "beacon_count": 2,
+  "beacon_booleans_sample": [
+    {
+      "challenge_proof_ok": true,
+      "webdriver_present": false,
+      "pointer_trail_seen": true,
+      "dom_automation_props": false,
+      "kinematic_dwell_ok": false,
+      "inertial_scroll_ok": true
+    },
+    {
+      "challenge_proof_ok": true,
+      "webdriver_present": false,
+      "pointer_trail_seen": true,
+      "dom_automation_props": false,
+      "kinematic_dwell_ok": false,
+      "inertial_scroll_ok": true
+    }
+  ],
+  "cursor_prov_seen": [
+    "html"
+  ],
+  "all_signals": [
+    "missing_required_cursor",
+    "unlinked_jump"
+  ]
+}

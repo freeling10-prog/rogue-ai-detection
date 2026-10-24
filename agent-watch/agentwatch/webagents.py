@@ -235,12 +235,13 @@ def run_web_client(fetch: Fetch, variant: str, before_step: Optional[BeforeStep]
         return [x for x in out if follows_aria or "kb-snapshot" not in x]
 
     def ride() -> None:
-        """mimic_parasitic_rider: the second actor fires ~0.25 s after the person's page load (Referer = the person's page)."""
+        """mimic_parasitic_rider: second actor on a disjoint subtree with missing Referer (Gemini interleaved-depth)."""
         if not rider_queue:
             return
         if c.before:
             c.before(-1)                        # sub-second step (see pace_for)
-        c.get(rider_queue.pop(0), via=c.current, dest="empty", think=False)
+        # missing Referer (via=None): non-parent fork vs advancing human tab
+        c.get(rider_queue.pop(0), via=None, dest="empty", think=False)
 
     home = c.get("/")
     if loads_assets:
@@ -249,8 +250,10 @@ def run_web_client(fetch: Fetch, variant: str, before_step: Optional[BeforeStep]
         if c.before:
             c.before(-1)
         llms = c.get("/llms.txt", via="/", dest="empty", think=False)
-        rider_queue += [m for m in re.findall(r"\((/kb/[a-z0-9-]+\?cursor=prov\.schema\.[0-9a-f]{12})\)", llms)][:3]
-        rider_queue += [m for m in re.findall(r"\((/api/v1/kb/articles\?cursor=prov\.schema\.[0-9a-f]{12})\)", llms)][:1]
+        # Prefer /api schema URLs (disjoint from human /kb tab); fall back to openapi then kb schema
+        rider_queue += [m for m in re.findall(r"\((/api/v1/kb/articles\?cursor=prov\.schema\.[0-9a-f]{12})\)", llms)][:2]
+        rider_queue += ["/openapi.json", "/api/v1/export"]
+        rider_queue += [m for m in re.findall(r"\((/kb/[a-z0-9-]+\?cursor=prov\.schema\.[0-9a-f]{12})\)", llms)][:1]
     if sanitizer:
         llms = c.get("/llms.txt", via="/", dest="empty")
         kb_api = re.findall(r"\((/kb/[a-z0-9-]+\?cursor=prov\.schema\.[0-9a-f]{12})\)", llms)

@@ -1,0 +1,112 @@
+{
+  "schema": "agentwatch.report/1",
+  "tool": "agent-watch 0.2.0",
+  "generated_at": "2026-10-24T02:24:23.185546Z",
+  "inputs": [
+    "/workspace/phase1-runs/t2-llm-stealth_mimic-qwen2.5_3b-s22-t0p7/leads.jsonl",
+    "/workspace/phase1-runs/t2-llm-stealth_mimic-qwen2.5_3b-s22-t0p7/leads.jsonl.access.jsonl"
+  ],
+  "config": "defaults",
+  "parse": {
+    "lines": 4,
+    "requests": 3,
+    "errors": 0,
+    "honeypot_context_events": 0
+  },
+  "summary": {
+    "sessions": 1,
+    "by_label": {
+      "static_bot": 1
+    },
+    "by_severity": {
+      "low": 1
+    },
+    "honeytoken_sessions": 1
+  },
+  "disclaimer": "Heuristic scores from synthetic-tested rules; every alert needs human review.",
+  "sessions": [
+    {
+      "session_id": "s-7638b425",
+      "ip": "127.0.0.1",
+      "user_agents": [
+        "Python-urllib/3.13"
+      ],
+      "start": "2026-10-24T02:24:02.850620Z",
+      "end": "2026-10-24T02:24:14.832731Z",
+      "requests": 3,
+      "label": "static_bot",
+      "actor_type": "static_bot",
+      "floors": [],
+      "harness_archetype": "unclassified",
+      "harness_confidence": "low",
+      "harness_reasons": [
+        "no harness signature observed (no MCP chain, schema use, coordination, injected-instruction, browser-inconsistency or scanner pattern)"
+      ],
+      "harness_also_matched": [],
+      "payload_structure": {
+        "json_key_count": 0,
+        "objective_length_bucket": "none",
+        "retry_latency_after_4xx_trap": "none"
+      },
+      "severity": "low",
+      "agent_score": 0,
+      "automation_score": 55,
+      "benign": false,
+      "benign_reason": "",
+      "reasons": [
+        "+30 touched a honeytoken/decoy (no legitimate reason to)",
+        "+25 scripted-client User-Agent (library/CLI)",
+        "timing not scored: only 3 page requests (< 8)",
+        "flat navigation: max path depth 3, 2 unique path(s) over 3 requests"
+      ],
+      "features": {
+        "ttna_pairs": null,
+        "ttna_spearman": null,
+        "ttna_band_fraction": null,
+        "requests": 3,
+        "page_requests": 3,
+        "duration_s": 12.0,
+        "asset_ratio": 0.0,
+        "referer_ratio": 0.0,
+        "interval_median_s": 5.991,
+        "interval_cv": 0.595,
+        "interval_entropy": 0.27,
+        "max_depth": 3,
+        "unique_paths": 2,
+        "breadth_ratio": 0.667,
+        "blocked_responses": 0,
+        "user_agents": 1,
+        "bot_ua": false,
+        "scripted_ua": true,
+        "benign_ua": false
+      },
+      "findings": [
+        {
+          "detector": "honeytoken",
+          "kind": "dom_visual_inversion_hit",
+          "summary": "touched decoy 'dom_visual_inversion_hit' at /kb/archive/diagnostic (token ht-5c8ca015cd25)"
+        }
+      ],
+      "honeytoken_leads": [
+        {
+          "kind": "dom_visual_inversion_hit",
+          "token_id": "ht-5c8ca015cd25",
+          "path": "/kb/archive/diagnostic"
+        }
+      ],
+      "evidence": [
+        {
+          "detector": "honeytoken",
+          "kind": "dom_visual_inversion_hit",
+          "line": "[honeypot lead] 2026-10-24T02:24:14+00:00 127.0.0.1 GET /kb/archive/diagnostic decoy=dom_visual_inversion_hit token=ht-5c8ca015cd25"
+        }
+      ],
+      "cognitive_captures": [],
+      "coordination": {
+        "events": 0,
+        "cross_session_events": 0,
+        "cross_ip_events": 0
+      }
+    }
+  ]
+}

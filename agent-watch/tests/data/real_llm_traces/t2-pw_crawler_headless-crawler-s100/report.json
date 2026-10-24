@@ -1,0 +1,239 @@
+{
+  "schema": "agentwatch.report/1",
+  "tool": "agent-watch 0.2.0",
+  "generated_at": "2026-10-24T02:27:25.817830Z",
+  "inputs": [
+    "/workspace/phase1-runs/t2-pw_crawler_headless-crawler-s100/leads.jsonl",
+    "/workspace/phase1-runs/t2-pw_crawler_headless-crawler-s100/leads.jsonl.access.jsonl"
+  ],
+  "config": "defaults",
+  "parse": {
+    "lines": 48,
+    "requests": 37,
+    "errors": 0,
+    "honeypot_context_events": 8
+  },
+  "summary": {
+    "sessions": 1,
+    "by_label": {
+      "agent": 1
+    },
+    "by_severity": {
+      "critical": 1
+    },
+    "honeytoken_sessions": 1
+  },
+  "disclaimer": "Heuristic scores from synthetic-tested rules; every alert needs human review.",
+  "sessions": [
+    {
+      "session_id": "s-aafb3824",
+      "ip": "127.0.0.1",
+      "user_agents": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+      ],
+      "start": "2026-10-24T02:27:23.978568Z",
+      "end": "2026-10-24T02:27:25.582411Z",
+      "requests": 37,
+      "label": "agent",
+      "actor_type": "goal_directed_agent",
+      "floors": [],
+      "harness_archetype": "headless_or_http_mimic",
+      "harness_confidence": "high",
+      "harness_reasons": [
+        "browser-backed automation signal: a browser-backed client (it loads our styles/scripts) followed the muted ARIA 'AI Assistant Fast-Path' element that peop",
+        "followed the link that is first in the DOM but rendered last (DOM-order iteration)",
+        "a second actor's sub-branch rides a human session (R14)"
+      ],
+      "harness_also_matched": [
+        {
+          "archetype": "schema_driven_api_agent",
+          "confidence": "medium"
+        }
+      ],
+      "payload_structure": {
+        "json_key_count": 0,
+        "objective_length_bucket": "none",
+        "retry_latency_after_4xx_trap": "none"
+      },
+      "severity": "critical",
+      "agent_score": 100,
+      "automation_score": 50,
+      "benign": false,
+      "benign_reason": "",
+      "reasons": [
+        "+55 browser-backed mimic signal headless_automation_signal (aria_fastpath): a browser-backed client (it loads our styles/scripts) followed the muted ARIA 'AI Assistant Fast-Path' element that people do not click (an agent reading the accessibility tree chose it)",
+        "+50 R14 parasitic session fork: a second actor's sub-branch rides a human session",
+        "+30 touched a honeytoken/decoy (no legitimate reason to)",
+        "+30 honeytoken evidence 'aria_fastpath' (touched decoy 'aria_fastpath' at /api/v1/kb-snapshot (token ht-24ef538d659d))",
+        "+25 machine-speed requests: median gap 0.09s <= 1.0s",
+        "+15 low timing entropy 0.15 <= 0.25",
+        "+15 9 jump(s) to URLs offered on an earlier page but not the previous one, no valid Referer (weak: breadth-first crawlers, new tabs and typed bookmarks look the same)",
+        "+10 1 additional distinct decoy(s) touched",
+        "-20 loads static assets like a browser (asset ratio 0.54)"
+      ],
+      "features": {
+        "ttna_pairs": 14,
+        "ttna_spearman": 0.275,
+        "ttna_band_fraction": 0.0,
+        "requests": 37,
+        "page_requests": 17,
+        "duration_s": 1.6,
+        "asset_ratio": 0.541,
+        "referer_ratio": 0.649,
+        "interval_median_s": 0.094,
+        "interval_cv": 0.482,
+        "interval_entropy": 0.147,
+        "max_depth": 4,
+        "unique_paths": 16,
+        "breadth_ratio": 0.941,
+        "blocked_responses": 0,
+        "user_agents": 1,
+        "bot_ua": false,
+        "scripted_ua": false,
+        "benign_ua": false
+      },
+      "findings": [
+        {
+          "detector": "honeytoken",
+          "kind": "aria_fastpath",
+          "summary": "touched decoy 'aria_fastpath' at /api/v1/kb-snapshot (token ht-24ef538d659d)"
+        },
+        {
+          "detector": "honeytoken",
+          "kind": "dom_visual_inversion_hit",
+          "summary": "touched decoy 'dom_visual_inversion_hit' at /kb/archive/diagnostic (token ht-493685b8d716)"
+        },
+        {
+          "detector": "honeytoken",
+          "kind": "hidden_link",
+          "summary": "touched decoy 'hidden_link' at /staff-portal-6f4ac0 (token ht-24c8cdb508ad)"
+        },
+        {
+          "detector": "web",
+          "kind": "headless_automation_signal",
+          "summary": "a browser-backed client (it loads our styles/scripts) followed the muted ARIA 'AI Assistant Fast-Path' element that people do not click (an agent reading the accessibility tree chose it)"
+        },
+        {
+          "detector": "web",
+          "kind": "unlinked_jump",
+          "summary": "went from /about to /api/v1/kb-snapshot, which /about does not link, with no valid Referer (but an earlier page offered it)"
+        },
+        {
+          "detector": "web",
+          "kind": "unlinked_jump",
+          "summary": "went from /api/v1/kb-snapshot to /kb/, which /api/v1/kb-snapshot does not link, with no valid Referer (but an earlier page offered it)"
+        },
+        {
+          "detector": "web",
+          "kind": "unlinked_jump",
+          "summary": "went from /kb/ to /llms.txt, which /kb/ does not link, with no valid Referer (but an earlier page offered it)"
+        },
+        {
+          "detector": "web",
+          "kind": "unlinked_jump",
+          "summary": "went from /openapi.json to /kb/archive/diagnostic, which /openapi.json does not link, with no valid Referer (but an earlier page offered it)"
+        },
+        {
+          "detector": "web",
+          "kind": "unlinked_jump",
+          "summary": "went from /kb/archive/diagnostic to /staff-portal-6f4ac0, which /kb/archive/diagnostic does not link, with no valid Referer (but an earlier page offered it)"
+        },
+        {
+          "detector": "web",
+          "kind": "unlinked_jump",
+          "summary": "went from /.well-known/mcp.json to /kb/api-rate-limits, which /.well-known/mcp.json does not link, with no valid Referer (but an earlier page offered it)"
+        },
+        {
+          "detector": "web",
+          "kind": "unlinked_jump",
+          "summary": "went from /kb/api-rate-limits to /kb/page/2, which /kb/api-rate-limits does not link, with no valid Referer (but an earlier page offered it)"
+        },
+        {
+          "detector": "web",
+          "kind": "unlinked_jump",
+          "summary": "went from /kb/quarterly-summary to /kb/returns-faq, which /kb/quarterly-summary does not link, with no valid Referer (but an earlier page offered it)"
+        },
+        {
+          "detector": "web",
+          "kind": "unlinked_jump",
+          "summary": "went from /kb/returns-faq to /kb/shipping-policy, which /kb/returns-faq does not link, with no valid Referer (but an earlier page offered it)"
+        },
+        {
+          "detector": "web",
+          "kind": "dom_visual_inversion_hit",
+          "summary": "a browser-backed client followed the link that is FIRST in the DOM but rendered LAST as a small footer link (CSS order:99): it iterated DOM order instead of reading the page (a curious person whose beacon is blocked looks the same)"
+        },
+        {
+          "detector": "web",
+          "kind": "parasitic_session_fork",
+          "summary": "7 request(s) forked off this session's human branch within 0.5s of a page load on a different path (e.g. / at the same moment as /api/v1/kb-snapshot, unlinked): a second actor appears to ride the person's session (browser extension / injected agent)"
+        }
+      ],
+      "honeytoken_leads": [
+        {
+          "kind": "aria_fastpath",
+          "token_id": "ht-24ef538d659d",
+          "path": "/api/v1/kb-snapshot"
+        },
+        {
+          "kind": "dom_visual_inversion_hit",
+          "token_id": "ht-493685b8d716",
+          "path": "/kb/archive/diagnostic"
+        },
+        {
+          "kind": "hidden_link",
+          "token_id": "ht-24c8cdb508ad",
+          "path": "/staff-portal-6f4ac0"
+        }
+      ],
+      "evidence": [
+        {
+          "detector": "honeytoken",
+          "kind": "aria_fastpath",
+          "line": "[honeypot lead] 2026-10-24T02:27:24+00:00 127.0.0.1 GET /api/v1/kb-snapshot?mode=aria-fastpath decoy=aria_fastpath token=ht-24ef538d659d"
+        },
+        {
+          "detector": "honeytoken",
+          "kind": "dom_visual_inversion_hit",
+          "line": "[honeypot lead] 2026-10-24T02:27:24+00:00 127.0.0.1 GET /kb/archive/diagnostic decoy=dom_visual_inversion_hit token=ht-493685b8d716"
+        },
+        {
+          "detector": "honeytoken",
+          "kind": "hidden_link",
+          "line": "[honeypot lead] 2026-10-24T02:27:24+00:00 127.0.0.1 GET /staff-portal-6f4ac0 decoy=hidden_link token=ht-24c8cdb508ad"
+        },
+        {
+          "detector": "web",
+          "kind": "unlinked_jump",
+          "line": "{\"schema\":\"agentwatch.access/1\",\"timestamp\":\"2026-10-24T02:27:24.179344Z\",\"client_ip\":\"127.0.0.1\",\"method\":\"GET\",\"path\":\"/about\",\"query\":\"\",\"status\":200,\"bytes\":2269,\"user_agent\":\"Mozilla/5.0 (X11;..."
+        },
+        {
+          "detector": "web",
+          "kind": "unlinked_jump",
+          "line": "{\"schema\":\"agentwatch.access/1\",\"timestamp\":\"2026-10-24T02:27:24.373068Z\",\"client_ip\":\"127.0.0.1\",\"method\":\"GET\",\"path\":\"/kb/\",\"query\":\"\",\"status\":200,\"bytes\":3180,\"user_agent\":\"Mozilla/5.0 (X11; L..."
+        },
+        {
+          "detector": "web",
+          "kind": "unlinked_jump",
+          "line": "{\"schema\":\"agentwatch.access/1\",\"timestamp\":\"2026-10-24T02:27:24.522809Z\",\"client_ip\":\"127.0.0.1\",\"method\":\"GET\",\"path\":\"/llms.txt\",\"query\":\"\",\"status\":200,\"bytes\":1235,\"user_agent\":\"Mozilla/5.0 (X..."
+        },
+        {
+          "detector": "web",
+          "kind": "unlinked_jump",
+          "line": "{\"schema\":\"agentwatch.access/1\",\"timestamp\":\"2026-10-24T02:27:24.616008Z\",\"client_ip\":\"127.0.0.1\",\"method\":\"GET\",\"path\":\"/openapi.json\",\"query\":\"\",\"status\":200,\"bytes\":4023,\"user_agent\":\"Mozilla/5...."
+        },
+        {
+          "detector": "web",
+          "kind": "unlinked_jump",
+          "line": "{\"schema\":\"agentwatch.access/1\",\"timestamp\":\"2026-10-24T02:27:25.013606Z\",\"client_ip\":\"127.0.0.1\",\"method\":\"GET\",\"path\":\"/.well-known/mcp.json\",\"query\":\"\",\"status\":200,\"bytes\":1467,\"user_agent\":\"Mo..."
+        }
+      ],
+      "cognitive_captures": [],
+      "coordination": {
+        "events": 0,
+        "cross_session_events": 0,
+        "cross_ip_events": 0
+      }
+    }
+  ]
+}

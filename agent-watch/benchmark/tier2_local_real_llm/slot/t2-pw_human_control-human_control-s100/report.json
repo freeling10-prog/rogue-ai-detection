@@ -1,0 +1,141 @@
+{
+  "schema": "agentwatch.report/1",
+  "tool": "agent-watch 0.2.0",
+  "generated_at": "2026-10-24T02:27:58.462349Z",
+  "inputs": [
+    "/workspace/phase1-runs/t2-pw_human_control-human_control-s100/leads.jsonl",
+    "/workspace/phase1-runs/t2-pw_human_control-human_control-s100/leads.jsonl.access.jsonl"
+  ],
+  "config": "defaults",
+  "parse": {
+    "lines": 17,
+    "requests": 16,
+    "errors": 0,
+    "honeypot_context_events": 1
+  },
+  "summary": {
+    "sessions": 1,
+    "by_label": {
+      "human": 1
+    },
+    "by_severity": {
+      "info": 1
+    },
+    "honeytoken_sessions": 0
+  },
+  "disclaimer": "Heuristic scores from synthetic-tested rules; every alert needs human review.",
+  "sessions": [
+    {
+      "session_id": "s-cc4b3f8c",
+      "ip": "127.0.0.1",
+      "user_agents": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+      ],
+      "start": "2026-10-24T02:27:27.650122Z",
+      "end": "2026-10-24T02:27:53.664399Z",
+      "requests": 16,
+      "label": "human",
+      "actor_type": "human",
+      "floors": [],
+      "harness_archetype": "unclassified",
+      "harness_confidence": "low",
+      "harness_reasons": [
+        "no harness signature observed (no MCP chain, schema use, coordination, injected-instruction, browser-inconsistency or scanner pattern)"
+      ],
+      "harness_also_matched": [],
+      "payload_structure": {
+        "json_key_count": 0,
+        "objective_length_bucket": "none",
+        "retry_latency_after_4xx_trap": "none"
+      },
+      "severity": "info",
+      "agent_score": 15,
+      "automation_score": 0,
+      "benign": false,
+      "benign_reason": "",
+      "reasons": [
+        "+15 low timing entropy 0.23 <= 0.25",
+        "+15 3 jump(s) to URLs offered on an earlier page but not the previous one, no valid Referer (weak: breadth-first crawlers, new tabs and typed bookmarks look the same)",
+        "-20 loads static assets like a browser (asset ratio 0.50)",
+        "0 advisory (no points): 2 request(s) to cursor-bearing routes without a valid cursor (400; advisory: stale bookmarks and pasted URLs do this)"
+      ],
+      "features": {
+        "ttna_pairs": null,
+        "ttna_spearman": null,
+        "ttna_band_fraction": null,
+        "requests": 16,
+        "page_requests": 8,
+        "duration_s": 26.0,
+        "asset_ratio": 0.5,
+        "referer_ratio": 0.75,
+        "interval_median_s": 4.979,
+        "interval_cv": 0.634,
+        "interval_entropy": 0.233,
+        "max_depth": 4,
+        "unique_paths": 7,
+        "breadth_ratio": 0.875,
+        "blocked_responses": 0,
+        "user_agents": 1,
+        "bot_ua": false,
+        "scripted_ua": false,
+        "benign_ua": false
+      },
+      "findings": [
+        {
+          "detector": "web",
+          "kind": "unlinked_jump",
+          "summary": "went from /about to /kb/, which /about does not link, with no valid Referer (but an earlier page offered it)"
+        },
+        {
+          "detector": "web",
+          "kind": "unlinked_jump",
+          "summary": "went from /kb/returns-faq to /kb/shipping-policy, which /kb/returns-faq does not link, with no valid Referer (but an earlier page offered it)"
+        },
+        {
+          "detector": "web",
+          "kind": "unlinked_jump",
+          "summary": "went from /kb/shipping-policy to /kb/api-rate-limits, which /kb/shipping-policy does not link, with no valid Referer (but an earlier page offered it)"
+        },
+        {
+          "detector": "web_advisory",
+          "kind": "missing_required_cursor",
+          "summary": "2 request(s) to cursor-bearing routes without a valid cursor (400; advisory: stale bookmarks and pasted URLs do this)"
+        }
+      ],
+      "honeytoken_leads": [],
+      "evidence": [
+        {
+          "detector": "web",
+          "kind": "unlinked_jump",
+          "line": "{\"schema\":\"agentwatch.access/1\",\"timestamp\":\"2026-10-24T02:27:32.633082Z\",\"client_ip\":\"127.0.0.1\",\"method\":\"GET\",\"path\":\"/about\",\"query\":\"\",\"status\":200,\"bytes\":2269,\"user_agent\":\"Mozilla/5.0 (X11;..."
+        },
+        {
+          "detector": "web",
+          "kind": "unlinked_jump",
+          "line": "{\"schema\":\"agentwatch.access/1\",\"timestamp\":\"2026-10-24T02:27:37.549379Z\",\"client_ip\":\"127.0.0.1\",\"method\":\"GET\",\"path\":\"/kb/\",\"query\":\"\",\"status\":200,\"bytes\":3180,\"user_agent\":\"Mozilla/5.0 (X11; L..."
+        },
+        {
+          "detector": "web",
+          "kind": "unlinked_jump",
+          "line": "{\"schema\":\"agentwatch.access/1\",\"timestamp\":\"2026-10-24T02:27:42.894225Z\",\"client_ip\":\"127.0.0.1\",\"method\":\"GET\",\"path\":\"/kb/returns-faq\",\"query\":\"cursor=prov.html.4968f93a3bab\",\"status\":200,\"bytes..."
+        },
+        {
+          "detector": "web",
+          "kind": "unlinked_jump",
+          "line": "{\"schema\":\"agentwatch.access/1\",\"timestamp\":\"2026-10-24T02:27:48.109656Z\",\"client_ip\":\"127.0.0.1\",\"method\":\"GET\",\"path\":\"/kb/shipping-policy\",\"query\":\"\",\"status\":400,\"bytes\":24,\"user_agent\":\"Mozill..."
+        },
+        {
+          "detector": "web",
+          "kind": "unlinked_jump",
+          "line": "{\"schema\":\"agentwatch.access/1\",\"timestamp\":\"2026-10-24T02:27:53.664399Z\",\"client_ip\":\"127.0.0.1\",\"method\":\"GET\",\"path\":\"/kb/api-rate-limits\",\"query\":\"\",\"status\":400,\"bytes\":24,\"user_agent\":\"Mozill..."
+        }
+      ],
+      "cognitive_captures": [],
+      "coordination": {
+        "events": 0,
+        "cross_session_events": 0,
+        "cross_ip_events": 0
+      }
+    }
+  ]
+}

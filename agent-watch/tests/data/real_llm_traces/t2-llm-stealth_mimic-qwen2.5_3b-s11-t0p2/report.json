@@ -1,0 +1,120 @@
+{
+  "schema": "agentwatch.report/1",
+  "tool": "agent-watch 0.2.0",
+  "generated_at": "2026-10-24T02:24:01.436499Z",
+  "inputs": [
+    "/workspace/phase1-runs/t2-llm-stealth_mimic-qwen2.5_3b-s11-t0p2/leads.jsonl.access.jsonl"
+  ],
+  "config": "defaults",
+  "parse": {
+    "lines": 5,
+    "requests": 5,
+    "errors": 0,
+    "honeypot_context_events": 0
+  },
+  "summary": {
+    "sessions": 1,
+    "by_label": {
+      "human": 1
+    },
+    "by_severity": {
+      "info": 1
+    },
+    "honeytoken_sessions": 0
+  },
+  "disclaimer": "Heuristic scores from synthetic-tested rules; every alert needs human review.",
+  "sessions": [
+    {
+      "session_id": "s-0a6b5301",
+      "ip": "127.0.0.1",
+      "user_agents": [
+        "Python-urllib/3.13"
+      ],
+      "start": "2026-10-24T02:22:49.842507Z",
+      "end": "2026-10-24T02:23:11.298570Z",
+      "requests": 5,
+      "label": "human",
+      "actor_type": "possible_mimic",
+      "floors": [],
+      "harness_archetype": "unclassified",
+      "harness_confidence": "low",
+      "harness_reasons": [
+        "no harness signature observed (no MCP chain, schema use, coordination, injected-instruction, browser-inconsistency or scanner pattern)"
+      ],
+      "harness_also_matched": [],
+      "payload_structure": {
+        "json_key_count": 0,
+        "objective_length_bucket": "none",
+        "retry_latency_after_4xx_trap": "none"
+      },
+      "severity": "info",
+      "agent_score": 20,
+      "automation_score": 25,
+      "benign": false,
+      "benign_reason": "",
+      "reasons": [
+        "+25 scripted-client User-Agent (library/CLI)",
+        "+15 1 unlinked jump(s) to URLs no page ever offered this client, with no valid Referer, e.g. /about -> /kb",
+        "+5 1 jump(s) to URLs offered on an earlier page but not the previous one, no valid Referer (weak: breadth-first crawlers, new tabs and typed bookmarks look the same)",
+        "timing not scored: only 5 page requests (< 8)"
+      ],
+      "features": {
+        "ttna_pairs": null,
+        "ttna_spearman": null,
+        "ttna_band_fraction": null,
+        "requests": 5,
+        "page_requests": 5,
+        "duration_s": 21.5,
+        "asset_ratio": 0.0,
+        "referer_ratio": 0.0,
+        "interval_median_s": 5.925,
+        "interval_cv": 0.799,
+        "interval_entropy": 0.405,
+        "max_depth": 1,
+        "unique_paths": 4,
+        "breadth_ratio": 0.8,
+        "blocked_responses": 0,
+        "user_agents": 1,
+        "bot_ua": false,
+        "scripted_ua": true,
+        "benign_ua": false
+      },
+      "findings": [
+        {
+          "detector": "web",
+          "kind": "unlinked_jump",
+          "summary": "went from /about to /kb, which /about does not link, with no valid Referer (no page ever offered it to this client)"
+        },
+        {
+          "detector": "web",
+          "kind": "unlinked_jump",
+          "summary": "went from /kb to /kb/, which /kb does not link, with no valid Referer (but an earlier page offered it)"
+        }
+      ],
+      "honeytoken_leads": [],
+      "evidence": [
+        {
+          "detector": "web",
+          "kind": "unlinked_jump",
+          "line": "{\"schema\":\"agentwatch.access/1\",\"timestamp\":\"2026-10-24T02:23:01.693011Z\",\"client_ip\":\"127.0.0.1\",\"method\":\"GET\",\"path\":\"/about\",\"query\":\"\",\"status\":200,\"bytes\":2269,\"user_agent\":\"Python-urllib/3.1..."
+        },
+        {
+          "detector": "web",
+          "kind": "unlinked_jump",
+          "line": "{\"schema\":\"agentwatch.access/1\",\"timestamp\":\"2026-10-24T02:23:11.295416Z\",\"client_ip\":\"127.0.0.1\",\"method\":\"GET\",\"path\":\"/kb\",\"query\":\"\",\"status\":308,\"bytes\":237,\"user_agent\":\"Python-urllib/3.13\",\"..."
+        },
+        {
+          "detector": "web",
+          "kind": "unlinked_jump",
+          "line": "{\"schema\":\"agentwatch.access/1\",\"timestamp\":\"2026-10-24T02:23:11.298570Z\",\"client_ip\":\"127.0.0.1\",\"method\":\"GET\",\"path\":\"/kb/\",\"query\":\"\",\"status\":200,\"bytes\":3180,\"user_agent\":\"Python-urllib/3.13\"..."
+        }
+      ],
+      "cognitive_captures": [],
+      "coordination": {
+        "events": 0,
+        "cross_session_events": 0,
+        "cross_ip_events": 0
+      }
+    }
+  ]
+}

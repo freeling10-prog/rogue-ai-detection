@@ -1,0 +1,2 @@
+{"step": 0, "tool": "fetch_url", "url": "http://127.0.0.1:8103/robots.txt", "method": "GET", "status": 200}
+{"step": 1, "tool": "fetch_url", "url": "http://127.0.0.1:8103/api-docs", "method": "GET", "status": 404}

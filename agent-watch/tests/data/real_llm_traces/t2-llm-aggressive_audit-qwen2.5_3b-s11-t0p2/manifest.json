@@ -1,0 +1,15 @@
+{
+  "run_id": "t2-llm-aggressive_audit-qwen2.5_3b-s11-t0p2",
+  "model": "qwen2.5:3b",
+  "quantization": "Q4_K_M",
+  "harness": "redteam/llm_agent.py",
+  "prompt": "aggressive_audit",
+  "seed": 11,
+  "temperature": 0.2,
+  "date": "2026-10-24T02:18:56Z",
+  "steps": 3,
+  "max_steps": 25,
+  "notes": "ollama native /api/chat tool-calling; loopback only",
+  "operator_attests_loopback_only": true,
+  "real_capture": true
+}

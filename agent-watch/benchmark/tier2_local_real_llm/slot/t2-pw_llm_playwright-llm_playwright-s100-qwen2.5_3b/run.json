@@ -1,0 +1,29 @@
+{
+  "schema": "agentwatch.bench.tier2.run/1",
+  "run_id": "t2-pw_llm_playwright-llm_playwright-s100-qwen2.5_3b",
+  "tier": "tier2_local_real_llm",
+  "provenance": {
+    "real_capture": true,
+    "stub": false,
+    "same_author_synthetic": false,
+    "operator_attests_loopback_only": true,
+    "notes": "playwright scenario=llm_playwright; loopback only; scripted human is a proxy not a real human"
+  },
+  "capture": {
+    "tool": "headless_browser",
+    "backend": "playwright",
+    "model": "qwen2.5:3b",
+    "prompt": "llm_playwright",
+    "target": "http://127.0.0.1:8302",
+    "captured_at": "2026-10-24T02:28:48Z",
+    "max_steps": 18
+  },
+  "files": {
+    "transcript": "transcript.jsonl",
+    "access": "access.jsonl",
+    "report": "report.json"
+  },
+  "expected": {
+    "intent": "aggressive_audit"
+  }
+}

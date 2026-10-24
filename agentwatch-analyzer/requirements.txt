@@ -1,3 +1,4 @@
+# Tests. Runtime dependencies for pip install are in pyproject.toml.
 pytest>=8.0
 stix2>=3.0
 stix2-validator==3.2.0

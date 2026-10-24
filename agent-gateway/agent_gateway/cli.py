@@ -11,6 +11,8 @@ import json
 import sys
 from pathlib import Path
 
+from .paths import default_registry_path
+
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(
@@ -62,7 +64,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "serve":
         from .pep import PepConfig, run_server
 
-        reg = args.registry or Path(__file__).resolve().parent.parent / "config" / "agents.json"
+        reg = args.registry or default_registry_path()
         cfg = PepConfig(
             host=args.host, port=args.port, registry_path=reg, allow_nonlocal=args.allow_nonlocal,
             webhook_url=args.webhook_url, webhook_deliver=bool(args.webhook_deliver),

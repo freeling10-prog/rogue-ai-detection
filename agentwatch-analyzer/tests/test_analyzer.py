@@ -7,6 +7,7 @@ import pytest
 import yaml
 
 from agentwatch_analyzer.cli import main
+from agentwatch_analyzer.paths import sigma_rules_dir
 from agentwatch_analyzer.detect import OFFLINE_MATRIX, analyze_sessions
 from agentwatch_analyzer.parse import iter_events, parse_nginx_line
 from agentwatch_analyzer.prefilter import partition
@@ -86,8 +87,10 @@ def test_two_round_decode_scrub():
 
 
 def test_sigma_rules_valid_yaml_and_ids():
-    files = sorted(RULES.glob("*.yml"))
-    assert len(files) >= 12
+    rules = sigma_rules_dir()
+    assert rules.resolve() == RULES.resolve()
+    files = sorted(rules.glob("*.yml"))
+    assert len(files) == 12
     ids = set()
     for f in files:
         doc = yaml.safe_load(f.read_text())

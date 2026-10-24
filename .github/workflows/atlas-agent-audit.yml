@@ -28,7 +28,7 @@ jobs:
           python -m venv .venv
           . .venv/bin/activate
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
+          python -m pip install -e ".[test]"
       - name: Suite (ATLAS falsification + Hypothesis)
         run: |
           . .venv/bin/activate
@@ -105,6 +105,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r agentwatch-analyzer/requirements.txt
           python -m pip install -e agentwatch-analyzer
+          python -m pip install -e agent-gateway
       - name: Unit tests
         working-directory: agentwatch-analyzer
         run: |
@@ -117,7 +118,7 @@ jobs:
       - name: Executive audit report
         run: |
           . .venv/bin/activate
-          PYTHONPATH=agent-gateway python -m agent_gateway audit analyzer-smoke --out-dir analyzer-smoke/audit-report
+          python -m agent_gateway audit analyzer-smoke --out-dir analyzer-smoke/audit-report
           test -s analyzer-smoke/audit-report/audit-report.html
           test -s analyzer-smoke/audit-report/audit-report.pdf
       - name: Upload findings, replay, STIX bundle, and executive report

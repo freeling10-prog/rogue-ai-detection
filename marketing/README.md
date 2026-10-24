@@ -26,6 +26,6 @@ These are the limits already recorded in the root README, [docs/phase1-tier2-rep
 
 ## Before anyone posts or sends
 
-- The GitHub remote is private and the tree has **no LICENSE file**. The drafts do not call the project open source. Add a license and make the repository public before replacing the `TODO` link. Until then, do not submit the Show HN post or the Reddit post.
+- The GitHub remote is still **private**. A root [LICENSE](../LICENSE) (Apache 2.0) and [NOTICE](../NOTICE) are in the tree. That does not make the repository public, and these drafts are not a public open-source announcement. Until the repository visibility is public, do not submit the Show HN post or the Reddit post, and do not describe the project as a public open-source release. Replace the link `TODO` only after the repository is public.
 - The CISO template has no company domain, no booking URL, and no mailto. Replace every `TODO` before sending. Do not invent a domain to fill the gap.
 - Leave the numbers as fractions (`2 of 13`, `1 to 3` calls). Do not round them into a percentage in a title.

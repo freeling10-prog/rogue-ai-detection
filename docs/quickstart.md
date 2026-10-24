@@ -233,6 +233,38 @@ python -m agent_gateway serve --host 127.0.0.1 --port 9100
 
 Approve Once from a held call is a one-shot bypass of that exact step, tool, and canonical args. It does not clear the deny-egress caveat. Deny & Freeze Key 15m freezes the registered principal for 900 seconds. The quickstart does not exercise either button; it only prints them.
 
+## Install the CLIs
+
+The loop above uses `PYTHONPATH` and a read-only mount. It does not install console scripts. To put the analyzer and the audit command on `PATH`, from the repository root:
+
+```bash
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ./agentwatch-analyzer
+python -m pip install -e ./agent-gateway
+```
+
+Non-editable installs use the same paths without `-e`:
+
+```bash
+python -m pip install ./agentwatch-analyzer
+python -m pip install ./agent-gateway
+```
+
+Then, on a log you already have. This does not start the honeypot and does not bind a port:
+
+```bash
+agentwatch-analyzer ./access.log --format nginx --out-dir ./analyzer-out
+python -m agent_gateway audit ./analyzer-out
+```
+
+`python -m agent_gateway audit` writes `audit-report.html` and `audit-report.pdf` under `./analyzer-out/audit-report`. The PDF writer is pure Python. WeasyPrint and wkhtmltopdf are not required. `agent-gateway audit ./analyzer-out` is the same command after the gateway package is installed.
+
+Tests for the gateway package: `pip install -e "./agent-gateway[test]"` then `pytest` in `agent-gateway`. Analyzer tests need `pip install -r agentwatch-analyzer/requirements.txt` as well as the editable install (pytest is not a runtime dependency).
+
+The gateway server, if you start it, still defaults to `127.0.0.1`. Do not pass `--allow-nonlocal` for this install check. Do not pass `--webhook-deliver`.
+
 ## What this does not do
 
 - It does not bind a public address, and it does not pass `--allow-nonlocal`.

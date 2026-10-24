@@ -1,6 +1,6 @@
 # Show HN
 
-Status: **draft. Do not submit.** The GitHub remote is private and the tree has no LICENSE file. Replace the link TODO only after the repository is public and a license file is in the tree. Until then, do not add the words "open source."
+Status: **draft. Do not submit.** [LICENSE](../LICENSE) (Apache 2.0) and [NOTICE](../NOTICE) are in the tree. The GitHub remote is still private. A license file does not make the repository public. Do not submit this post, and do not call the project a public open-source release, until the repository is public. Replace the link TODO only then.
 
 ## Title
 
@@ -35,6 +35,6 @@ ATLAS technique ids used in the repo (T0051, T0053, T0080, T0086, T0118, mitigat
 
 I want criticism on two design choices: keeping the public honeypot review-only while the insider gateway is allowed to freeze a registered key, and treating "the model quit" as a first-class evaluation outcome instead of only scoring clients that finish the decoy walk.
 
-Link: TODO. Public repository URL goes here after the repo is public and a LICENSE file exists.
+Link: TODO. Public repository URL goes here after the repo is public. LICENSE is not a substitute for making the remote public.
 
 Further reading in the tree: `docs/phase1-tier2-report.md`, `docs/phase2-gateway.md`, `docs/phase3-analyzer.md`, `agent-gateway/agent_gateway/capability.py`.

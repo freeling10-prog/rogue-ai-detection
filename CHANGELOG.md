@@ -4,6 +4,30 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
+## [Unreleased] - v8 MCP wire proxy, de-obfuscation, audit chain
+
+All three are zero-compute (standard library plus the existing Flask
+dependency; no model calls). ATLAS ids are approximate.
+
+- `agent_gateway/mcp_proxy.py`: MCP JSON-RPC 2.0 wire interceptor around the
+  PEP. Tool-schema pinning (`sha256(name, description, inputSchema)`) on the
+  first complete `tools/list`. A mid-session mutation or addition records
+  `mcp_rug_pull_detected` (approximate AML.T0051), appends
+  `allow_egress=false` to the `agw1.` token, and holds later `tools/call`
+  requests for a bound one-time OOB approval. Server-initiated
+  `sampling/createMessage` is rejected while tainted or without a root-keyed
+  `grant:sampling=` caveat.
+- `agent_gateway/deobfuscate.py`: salted n-gram digests of sensitive reads
+  and canaries (raw, Base64, hex, URL-encoded, whitespace-stripped) matched
+  against a per-session window of released outbound arguments. Split-chunk
+  and encoded exfiltration is denied and the registered root key is frozen
+  for 15 minutes (approximate AML.T0086). New Hypothesis `SmugglingMachine`.
+- `agent_gateway/audit_chain.py`: SHA-256 hash chain (`seq`, `prev_hash`,
+  `entry_hash`) on every PEP decision-log line; `audit` writes
+  `audit_manifest.json`; new `python -m agent_gateway verify <audit_dir>`.
+  Not a certification and not a penetration test.
+- `agent-gateway` tests: **89 passed** (40 before this change).
+
 ## [1.0.0] - 2026-10-24
 
 Prepared as release-prep on the private tree. The installable packages

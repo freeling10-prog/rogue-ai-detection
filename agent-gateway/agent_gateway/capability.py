@@ -24,6 +24,12 @@ Initial caveats, minted by a worker that holds the root key:
 2. ``bind:agent=<sha256("agent|" + agent_key)[:32]>``
 3. ``allow_egress=true``
 
+A session that may answer server-initiated MCP ``sampling/createMessage``
+requests carries ``grant:sampling=<HMAC(root_key, "sampling|" + session_id)[:32]>``
+right after ``allow_egress=true``. Only a worker that holds the root key can
+compute that tag, so a holder cannot grant sampling by attenuation.
+``allow_sampling=false`` revokes it for the rest of the chain.
+
 On untrusted ingest the PEP appends ``allow_egress=false`` and
 ``taint_source=<sanitized id>``. Verification recomputes the chain from the
 root key only — no shared session table.
@@ -46,6 +52,8 @@ from typing import Optional
 TOKEN_PREFIX = "agw1"
 CAVEAT_ALLOW_EGRESS = "allow_egress=true"
 CAVEAT_DENY_EGRESS = "allow_egress=false"
+CAVEAT_DENY_SAMPLING = "allow_sampling=false"
+GRANT_SAMPLING_PREFIX = "grant:sampling="
 MAX_CAVEATS = 32
 _CAVEAT_RE = re.compile(r"^[A-Za-z0-9_.:@=+/-]{1,512}$")
 _SIG_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -79,6 +87,21 @@ def sanitize_source(source: str) -> str:
     """Caveat-safe taint source id (no raw secrets; charset is authenticated)."""
     safe = re.sub(r"[^A-Za-z0-9_.:@=+/-]", "_", source)[:160]
     return safe or "unknown"
+
+
+def sampling_grant(session_id: str, *, key: Optional[bytes] = None) -> str:
+    """Root-keyed grant caveat. A holder without the root key cannot forge it."""
+    root = hmac_key() if key is None else key
+    tag = hmac.new(root, f"sampling|{session_id}".encode("utf-8"), hashlib.sha256).hexdigest()[:32]
+    return f"{GRANT_SAMPLING_PREFIX}{tag}"
+
+
+def allows_sampling(cap: "Capability", *, key: Optional[bytes] = None) -> bool:
+    """Explicit root-keyed sampling grant, egress still open, and no revocation."""
+    if not cap.allows_egress or CAVEAT_DENY_SAMPLING in cap.caveats:
+        return False
+    expect = sampling_grant(cap.session_id, key=key)
+    return any(len(c) == len(expect) and hmac.compare_digest(c, expect) for c in cap.caveats)
 
 
 def taint_source_caveat(source: str) -> str:
@@ -200,8 +223,13 @@ def extends(prefix: tuple[str, ...], longer: tuple[str, ...]) -> bool:
     return len(longer) >= len(prefix) and longer[: len(prefix)] == prefix
 
 
-def mint(session_id: str, agent_key: str, *, key: Optional[bytes] = None) -> Capability:
-    """Mint an allowing capability. Requires the root key."""
+def mint(
+    session_id: str, agent_key: str, *, key: Optional[bytes] = None, sampling: bool = False,
+) -> Capability:
+    """Mint an allowing capability. Requires the root key.
+
+    ``sampling=True`` adds the root-keyed MCP sampling grant.
+    """
     if not isinstance(session_id, str) or not session_id:
         raise ValueError("session_id required")
     if not isinstance(agent_key, str) or not agent_key:
@@ -211,6 +239,8 @@ def mint(session_id: str, agent_key: str, *, key: Optional[bytes] = None) -> Cap
         f"bind:agent={agent_binding(agent_key)}",
         CAVEAT_ALLOW_EGRESS,
     )
+    if sampling:
+        caveats += (sampling_grant(session_id, key=key),)
     root = hmac_key() if key is None else key
     sig = _chain(root, session_id, caveats).hex()
     return Capability(session_id=session_id, caveats=caveats, signature=sig)

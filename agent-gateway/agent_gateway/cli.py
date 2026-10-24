@@ -1,8 +1,12 @@
-"""CLI: python -m agent_gateway serve|approve|audit|health-check
+"""CLI: python -m agent_gateway serve|approve|audit|verify|health-check
 
 ``audit`` reads an agentwatch-analyzer output directory and writes an executive
-HTML report plus a pure-Python text PDF. It does not import the PEP, bind a
-port, start a honeypot, or open a socket.
+HTML report plus a pure-Python text PDF, a scrubbed ``findings.json``, an
+optional hash-chained decision log, and ``audit_manifest.json``. It does not
+import the PEP, bind a port, start a honeypot, or open a socket.
+
+``verify`` recomputes the manifest digests, the manifest HMAC, and the
+decision-log hash chain. It is offline too.
 """
 from __future__ import annotations
 
@@ -57,6 +61,19 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Skip the pure-Python text PDF (HTML is always written)",
     )
+    audit.add_argument(
+        "--decision-log",
+        type=Path,
+        default=None,
+        help="Hash-chained PEP decision log (alerts.jsonl) to include "
+             "(default: <input_dir>/decision-log.jsonl or alerts.jsonl if present)",
+    )
+
+    verify = sub.add_parser(
+        "verify",
+        help="Check audit_manifest.json digests and the decision-log hash chain (offline)",
+    )
+    verify.add_argument("audit_dir", type=Path, help="Directory written by `audit`")
 
     sub.add_parser("health-check", help="Print local health path reminder")
 
@@ -91,13 +108,22 @@ def main(argv: list[str] | None = None) -> int:
         from .audit_report import AuditInputError, write_report
 
         out = args.out_dir or (args.input_dir / "audit-report")
+        if args.decision_log is not None and not args.decision_log.is_file():
+            print(f"error: decision log not found: {args.decision_log}", file=sys.stderr)
+            return 2
         try:
-            doc = write_report(args.input_dir, out, pdf=not args.no_pdf)
+            doc = write_report(args.input_dir, out, pdf=not args.no_pdf, decision_log=args.decision_log)
         except AuditInputError as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 2
         print(json.dumps(doc, indent=2))
         return 0
+    if args.cmd == "verify":
+        from .audit_chain import verify_audit_dir
+
+        res = verify_audit_dir(args.audit_dir)
+        print(json.dumps(res, indent=2))
+        return 0 if res["ok"] else 1
     if args.cmd == "health-check":
         print("GET http://127.0.0.1:9100/health")
         return 0

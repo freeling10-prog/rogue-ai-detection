@@ -20,7 +20,12 @@ ATLAS_TECHNIQUES: Dict[str, str] = {
     "AML.T0053": "AI Agent Tool Invocation",
     "AML.T0086": "Exfiltration via AI Agent Tool Invocation",
     "AML.T0075": "Enterprise Resource Discovery",
+    # v6 additions.  Names copied from the agent-watch replay table (the sibling project); they were NOT re-checked against an ATLAS
+    # YAML on this machine (none is present offline).  Run ``run.py check-atlas --yaml <local ATLAS file>`` before relying on them.
+    "AML.T0080": "AI Agent Context Poisoning",
+    "AML.T0118": "Autonomous AI Agent Communication",
 }
+V6_UNVERIFIED = ("AML.T0080", "AML.T0118")      # listed for honesty: added without an offline re-check
 
 ATLAS_MAPPING_NOTE = (
     "The MITRE ATLAS mapping is approximate: the rule observes behavior consistent with the technique, "

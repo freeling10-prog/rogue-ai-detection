@@ -2,6 +2,7 @@
 """Web-client evaluation, v2 vs v3 vs v4.  REGRESSION CHECK ON SYNTHETIC DATA WRITTEN BY THE SAME AUTHOR - NOT A BENCHMARK.
 
     python scripts/eval_web.py --v2-tree /path/to/v2 --v3-tree /path/to/v3 --out eval-web-out [--seeds 0 1 2 3 4]
+    python scripts/eval_web.py --v5-tree /path/to/v5 --out eval-web-v6-out     # v6: v5 vs v6 on v6 traffic (see eval_v6.py)
     (--old-tree is accepted as a synonym of --v2-tree; without --v3-tree the v3 column is skipped)
 
 Per seed it builds benign background agents (the v1 simulator, positives off, WITH its declared suppression policy) + the web
@@ -57,6 +58,10 @@ def _rate(n: int, d: int) -> Any:
 
 
 def main() -> int:
+    if "--v5-tree" in sys.argv:                         # v6: v5 vs v6 on the same v6 web traffic (scripts/eval_v6.py, web part)
+        sys.path.insert(0, str(HERE / "scripts"))
+        import eval_v6                                  # noqa: E402
+        return int(eval_v6.main(["--only", "web"] + sys.argv[1:]))
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--v2-tree", "--old-tree", dest="v2", required=True)
     ap.add_argument("--v3-tree", dest="v3", default=None)

@@ -13,6 +13,9 @@
   ``x_harness_archetype`` (v5: collector-supplied harness label + confidence, descriptive only), ``x_untrusted_agent_capture`` (sanitized AND re-truncated captured agent metadata; ATTACKER-CONTROLLED data, never
   to be executed, rendered, or put in an LLM prompt) and ``x_cross_ip_token_handoff`` (token class, issuing/presenting
   pseudonyms). Capture text is never placed in ``description`` or ``name``.
+* v6: ``x_rogue_v6_detections`` lists the R10 (schema_provenance_cursor / llmjacking_probe) / R11-R14 reasons, rule families and the
+  AML.T0118 swarm edges (disjoint_target_partition, epistemic_discovery_inheritance: kind, pseudonyms, weight, p-values / coverage).
+  Techniques AML.T0080 and AML.T0118 are carried as attack-patterns like every other mapped technique.
 * Sharing: TLP:CLEAR marking is applied only because the data is synthetic. Real sharing needs a TLP decision,
   a disclosure review (see README) and consent of affected parties. This module never transmits anything.
 """
@@ -98,6 +101,31 @@ def _capture_props(lead: Dict[str, Any]) -> Dict[str, Any]:
         if red:
             props["x_shared_redacted_token"] = {"edges": len(red), "confidence": "moderate",
                                                 "note": "the same scrubber marker (opaque hash; never un-redacted) appeared in two sessions"}
+    # v6: which new rules / swarm edges carried the lead (identifiers and counts only - no paths, no payload, no free text)
+    v6: Dict[str, Any] = {}
+    for f in lead.get("rule_flags", []):
+        ex = f.get("extra") or {}
+        new_r10 = f["rule_id"] == "R10" and any(k in (ex.get("signals") or []) for k in ("schema_provenance_cursor", "llmjacking_probe"))
+        if f["rule_id"] in ("R11", "R12", "R13", "R14") or new_r10:
+            raw = ex.get("reasons") or ex.get("kinds") or ex.get("signals") or (["parasitic_session_fork"] if f["rule_id"] == "R14" else [])
+            reasons = [_cut(r, 48) for r in raw][:8]
+            v6.setdefault("rules", []).append({"rule_id": f["rule_id"], "strength": f["strength"], "reasons": reasons})
+        lj = ex.get("llmjacking")
+        if isinstance(lj, dict):
+            v6["llmjacking_probe"] = {"tool_count": int(lj.get("tool_count", 0)), "system_prompt_len_bucket": _cut(lj.get("system_prompt_len_bucket", ""), 12),
+                                      "autonomous_loop_directive": bool(lj.get("autonomous_loop_directive")),
+                                      "note": "a client sent an LLM-API-shaped request to a decoy endpoint; sizes are bucketed, content never stored"}
+    if lead.get("rule_families"):
+        v6["rule_families"] = [_cut(x, 32) for x in lead["rule_families"]][:8]
+    if cl:
+        sw = [e for e in cl.get("edges", []) if e.get("kind") in ("disjoint_target_partition", "epistemic_discovery_inheritance")]
+        if sw:
+            v6["swarm_edges"] = [{"kind": e["kind"], "a": e["a"], "b": e["b"], "weight": e["weight"],
+                                  **{k: v for k, v in (e.get("detail") or {}).items() if isinstance(v, (int, float)) and not isinstance(v, bool)}}
+                                 for e in sw][:20]
+    if v6:
+        v6["note"] = "v6 detections; low-severity, human-reviewed lead; synthetic evaluation only"
+        props["x_rogue_v6_detections"] = v6
     return props
 
 

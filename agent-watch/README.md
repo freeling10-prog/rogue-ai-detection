@@ -48,11 +48,14 @@ agent-watch/
 │   ├── safelog.py      v3: console/process log hygiene (werkzeug handler, gunicorn logger class, logging filter)
 │   ├── webdetectors.py v3: asset starvation, per-transition unlinked jumps, schema param, session canary, MCP flow
 │   ├── webagents.py    v3: simulated browsers / scrapers / four "mimic" variants (transport-agnostic)
+│   ├── frontier.py     v6: challenge-bound beacon, provenance cursors, DOM-visual inversion markup, LRU rate map, CSP
+│   ├── frontierdetect.py v6: beacon_forged, script_fetched_but_unexecuted, inversion, VLM-quantized input, cursors, R14 forks
 │   ├── synthetic.py    synthetic traffic generator (demo/tests)
 │   └── cli.py          argparse CLI
 ├── config/thresholds.json   all default thresholds/weights (mirrors config.py)
 ├── scripts/simulated_agent.py   localhost-only simulated agent (--scenario classic|discovery|coordination)
 ├── scripts/eval_v3.py       v3 before/after evaluation (needs a pristine v2 tree for the "before" columns)
+├── scripts/eval_v6.py       v6: v5-tree vs this tree on the same simulated clients, seeds 7-11 (regression check, not a benchmark)
 ├── redteam/                 v3: real-LLM tool-calling harness (loopback-only; NEVER run against a real model) + runbook
 ├── docs/                    ja4-tls-fingerprinting.md (v3 design note, NOT implemented/tested), eval-v3.md/.json (v3 before/after),
 │                            security-review.md + docker-smoke-test.md (from the separate GitHub PR #2 review)
@@ -620,6 +623,76 @@ ATLAS ids (AML.T0051, T0053, T0080, T0086, T0118) are an **approximate** mapping
 * `mcp_tool_runner` high confidence depends on the server having seen the tools/list before the call; a client that guesses tool names gets a lower confidence.
 * The replay is a viewer. It decides nothing, and its triage suggestion is a lead for a person.
 * Benchmark toolkit: see `docs/benchmark-protocol.md` and `benchmark/` (built separately; not described here).
+
+## v6: Deep-Cover & Frontier Evasion
+
+Everything below is a honeypot-side trap plus a passive rule. Leads stay low-severity, human-review only. Event names are fixed in the
+v6 event contract (`beacon_forged`, `script_fetched_but_unexecuted`, `dom_visual_inversion_hit`, `vlm_quantized_interaction`,
+`schema_provenance_cursor`, `missing_required_cursor`, `parasitic_session_fork`, `llmjacking_probe`).
+
+* **Challenge-bound beacon** (`POST /api/v1/telemetry/nav`). Every HTML page embeds a challenge: the HMAC of the page path and a
+  5-minute bucket under the server key. It is the same for every client and carries no identifier. The page also embeds a tiny
+  off-screen probe whose size is derived from that challenge. The inline script sends the proof (the challenge plus the probe's
+  *rendered* size) and five booleans: `webdriver_present`, `pointer_trail_seen`, `dom_automation_props`, `kinematic_dwell_ok`
+  (mouseup−mousedown ≥ 12 ms and a non-collinear pointer path) and `inertial_scroll_ok` (wheel deltas decay, or there was no scroll).
+  - The server verifies the proof (up to 24 h old, so stale tabs are fine) and stores ONLY the six booleans. The proof and page are
+    discarded, and the beacon body is never written to a lead.
+  - A canned, wrong-page, expired or legacy proof produces a `beacon_forged` lead and finding.
+  - `script_fetched_but_unexecuted` replaces the v4 "beacon missing" rule. It fires only when `.js` was fetched and no valid beacon
+    arrived over ≥ 3 click-throughs (or a forged one did).
+  - It never fires when `js_assets_fetched == 0`, or for coherent Sec-Fetch navigation that touched no decoy. That exemption is what
+    removed the v4/v5 `human_beacon_blocked` false positive.
+* **DOM-visual order inversion** (`/` and `/kb/`). The first link in the DOM is a small "Diagnostic archive" footer link
+  (`/kb/archive/diagnostic`), rendered last with CSS `order:99` in a flex column; normal links use `order:1`.
+  - The bare hit is a passive, human-plausible, context-only lead. It scores nothing, because every DOM-order crawler meets it first.
+  - It becomes a strong R11 finding only for a script-fetching, browser-backed client whose preceding beacon did not show pointer and
+    press kinematics.
+  - `vlm_quantized_interaction` requires full assets, a valid proof, and ≥ 2 beacons with `inertial_scroll_ok=false` AND
+    (`kinematic_dwell_ok=false` or an inversion hit).
+* **Load-bearing provenance cursors.** `/kb/<slug>`, `/kb/page/2` and `/api/v1/kb/articles` need `cursor` / `page_ref`. Without one
+  they return `400 Missing Required Cursor` (advisory, no points).
+  - Tokens are HMAC-bound to the target and carry their provenance: `prov.html.*` in our HTML links, `prov.schema.*` in
+    `/openapi.json`, `/llms.txt` and `POST /mcp` results. Every link a person can click carries a valid html cursor; a test crawls
+    them all.
+  - Access records log `cursor_prov`. A schema cursor used inside a browsing session is `schema_provenance_cursor`: strong, R10.
+* **R14 `parasitic_session_fork`.** Inside one IP+UA session that already has a human branch (a valid beacon with pointer movement),
+  an unlinked or schema-cursor request within ≤ 500 ms of a page load on a different path is flagged. The replay shows the sub-branch
+  in its own "Parasitic sub-branch (R14)" table.
+* **LLMjacking decoy** `POST /v1/chat/completions`. It is advertised only in `/.well-known/mcp.json` and as a robots `Disallow`.
+  - It is read-only, with a 16 KB cap and 10 requests/min/IP (LRU), and returns a static refusal (nothing is reflected).
+  - The lead logs `tool_count`, `system_prompt_len_bucket`, `autonomous_loop_directive` and scrubbed, truncated message/tool previews.
+  - ATLAS (approximate): AML.T0051 + AML.T0053. The fingerprint maps it to `schema_driven_api_agent`.
+* **Review notes.**
+  - CSP on all honeypot HTML: `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:;
+    object-src 'none'; base-uri 'none'`. **Deviation:** `'self'` was added to `script-src`. Without it a compliant browser would not
+    load `/static/site.js` and every person would look like a non-script client.
+  - The beacon/LLM rate maps are an OrderedDict LRU that evicts the oldest 25 % at 2000 keys.
+  - The replay puts the R9 chip on the destination step.
+* **PR #4 sync.** The scrubber's 2-round decode now continues when the unicode pass changed the text, so `bob\u002540example.com` is
+  redacted.
+
+### v6 before/after (`scripts/eval_v6.py`, seeds 7-11, n=15 per cohort; SAME-AUTHOR synthetic regression check, NOT a benchmark)
+Both trees run the same v6 client population against their own honeypot and detectors (see `/workspace/v6-aw-changes.md` for the
+full table). Humans (all five cohorts, 75 sessions) were alerted 15/75 in v5 (all `human_beacon_blocked`) and 0/75 in v6.
+`mimic_browser_stealth`, `mimic_header_forger`, `mimic_vlm_os` and `mimic_parasitic_rider` went from 0/15 to 15/15 alerted.
+`mimic_assets` went from alerted-but-not-agent to agent. `mimic_linked` is unchanged (alerted, never labelled agent).
+
+### v6 limits (unmeasured; each is a false-positive or false-negative risk)
+* The v6 cohorts were designed by the same author as the v6 detectors. Catching them is expected by construction and is **not
+  evidence of real-world efficacy**.
+* **Real VLM / computer-use agents** may produce smooth scroll and plausible click timing, and would then pass as people.
+* **Real stealth browsers** (patched Chromium, CDP-less drivers) can click in visual order and run our script; they then pass. A
+  client that re-implements the script (it parses the meta tag and the probe style) can forge a valid proof, and a proof captured
+  from the same page within 24 h replays.
+* **Real parasitic extensions** may issue requests outside the 500 ms window, or only along linked paths. A person's own prefetch,
+  new tabs or a fast double-open can fall inside it.
+* **Timing jitter on real devices**, mobile touch kinematics (touch generates near-instant synthetic mousedown/up) and notched mouse
+  wheels (constant wheel deltas) can make a person's beacon look "quantized". The VLM rule needs both signals on ≥ 2 beacons, but this
+  is untested on real devices.
+* **Accessibility tools** (switch access, voice control, screen readers, keyboard-only users) produce instant activations and no
+  pointer path, and may look like VLM-quantized input. A curious person whose beacon is blocked and who clicks the footer link reads
+  as DOM-order iteration.
+* A person who copy-pastes a link from `/llms.txt` into the browser carries a schema cursor while browsing.
 
 ## Known limitations
 

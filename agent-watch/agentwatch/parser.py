@@ -99,7 +99,10 @@ def _first(d: dict[str, Any], keys: Iterable[str]) -> Any:
     return None
 
 
-BEACON_KEYS = ("webdriver_present", "pointer_trail_seen", "dom_automation_props")
+BEACON_KEYS = ("webdriver_present", "pointer_trail_seen", "dom_automation_props")             # v4: required
+BEACON_V6_KEYS = ("challenge_proof_ok", "kinematic_dwell_ok", "inertial_scroll_ok")           # v6: optional (None when absent)
+SIGNAL_NAMES = ("beacon_forged", "script_fetched_but_unexecuted", "dom_visual_inversion_hit", "vlm_quantized_interaction",
+                "schema_provenance_cursor", "missing_required_cursor", "parasitic_session_fork", "llmjacking_probe")
 
 
 def parse_json_line(line: str, line_no: int = 0) -> tuple[Optional[Request], bool]:
@@ -162,7 +165,16 @@ def parse_json_line(line: str, line_no: int = 0) -> tuple[Optional[Request], boo
     req.beacon_offered = obj.get("beacon_script") is True
     bc = obj.get("beacon")
     if isinstance(bc, dict) and all(isinstance(bc.get(k), bool) for k in BEACON_KEYS):
-        req.beacon = {k: bool(bc[k]) for k in BEACON_KEYS}       # strictly the three booleans; anything else is dropped
+        beacon: dict[str, Optional[bool]] = {k: bool(bc[k]) for k in BEACON_KEYS}   # strictly booleans; anything else is dropped
+        for k in BEACON_V6_KEYS:
+            beacon[k] = bc[k] if isinstance(bc.get(k), bool) else None
+        req.beacon = beacon
+    if "cursor_prov" in obj:
+        req.cursor_route = True
+        req.cursor_prov = obj["cursor_prov"] if obj.get("cursor_prov") in ("html", "schema") else None
+    sig = obj.get("signals")
+    if isinstance(sig, list):
+        req.signals = [s for s in sig[:12] if isinstance(s, str) and s in SIGNAL_NAMES]
     ja4 = str(obj.get("ja4") or "").strip()
     ja4h = str(obj.get("ja4h") or "").strip()
     req.ja4 = ja4 if JA4_RE.match(ja4) else ""        # optional; malformed values are dropped, a missing one is normal

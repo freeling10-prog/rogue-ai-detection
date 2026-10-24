@@ -127,10 +127,9 @@ def _percent_decode_once(pieces: list[tuple[str, int, int]]) -> tuple[list[tuple
     return out, changed
 
 
-def _unicode_escape_once(pieces: list[tuple[str, int, int]]) -> tuple[list[tuple[str, int, int]], bool]:
+def _unicode_escape_once(pieces: list[tuple[str, int, int]]) -> list[tuple[str, int, int]]:
     """Decode one JSON-style ``\\uXXXX`` escape (the raw six characters) into its code point."""
     out: list[tuple[str, int, int]] = []
-    changed = False
     i = 0
     while i < len(pieces):
         if (i + 5 < len(pieces) and pieces[i][0] == "\\" and pieces[i + 1][0] == "u"
@@ -138,29 +137,29 @@ def _unicode_escape_once(pieces: list[tuple[str, int, int]]) -> tuple[list[tuple
             cp = int("".join(p[0] for p in pieces[i + 2:i + 6]), 16)
             if cp <= 0x10FFFF and not 0xD800 <= cp <= 0xDFFF:
                 out.append((chr(cp), pieces[i][1], pieces[i + 5][2]))
-                changed = True
                 i += 6
                 continue
         out.append(pieces[i])
         i += 1
-    return out, changed
+    return out
 
 
 def _match_view(text: str) -> tuple[str, list[tuple[int, int]]]:
     """Text as the matcher sees it, plus each kept character's span in *text*.
 
-    Percent-encoding (two rounds) and ``\\uXXXX`` are decoded.  A ``\\u`` escape
-    that produces a percent sequence (``\\u002540`` -> ``%40``) still gets the
-    remaining percent-decode round.  Controls, format characters, and the
-    ``\\\\n`` / ``\\\\r`` / ``\\\\t`` escapes written by ``sanitize_text`` are
-    gaps: they do not break a token, and a match that straddles them still
-    covers them in *text*.
+    Percent-encoding (two rounds) and ``\\uXXXX`` are decoded.  Controls, format
+    characters, and the ``\\\\n`` / ``\\\\r`` / ``\\\\t`` escapes written by
+    ``sanitize_text`` are gaps: they do not break a token, and a match that
+    straddles them still covers them in *text*.
     """
     pieces = _pieces(text)
     for _ in range(2):
-        pieces, pct_changed = _percent_decode_once(pieces)
-        pieces, uni_changed = _unicode_escape_once(pieces)
-        if not pct_changed and not uni_changed:
+        pieces, changed = _percent_decode_once(pieces)
+        before = len(pieces)
+        pieces = _unicode_escape_once(pieces)
+        # PR #4 review: continue when EITHER pass changed the text (``bob\u002540example.com`` needs the unicode pass,
+        # then a percent pass); still capped at two rounds.
+        if not changed and len(pieces) == before:
             break
     kept: list[tuple[str, int, int]] = []
     i = 0

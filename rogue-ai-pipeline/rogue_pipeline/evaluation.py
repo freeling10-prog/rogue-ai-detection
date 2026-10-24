@@ -28,7 +28,7 @@ from .features import group_events
 from .normalize import Normalizer
 from .pipeline import Pipeline, PipelineResult
 from .pseudonymize import Pseudonymizer
-from .simulator import EXTENDED_SCENARIOS, SCENARIOS, SimData, build, sim_identity
+from .simulator import EXTENDED_SCENARIOS, SCENARIOS, V6_SCENARIOS, SimData, build, sim_identity
 
 
 @dataclass
@@ -68,7 +68,7 @@ def score_predictions(pred: Set[str], labels: Dict[str, Tuple[str, str]]) -> Dic
     overall = Counts(fp=fp, tn=tn)
     core = Counts(fp=fp, tn=tn)
     present = {g for k, g in labels.values() if k == "positive"}
-    for sc in [x for x in SCENARIOS + EXTENDED_SCENARIOS if x in SCENARIOS or x in present]:
+    for sc in [x for x in SCENARIOS + EXTENDED_SCENARIOS + V6_SCENARIOS if x in SCENARIOS or x in present]:
         pos = {a for a, (k, g) in labels.items() if k == "positive" and g == sc}
         tp = len(pred & pos)
         out[sc] = Counts(tp, fp, len(pos) - tp, tn)
@@ -128,16 +128,21 @@ class EvalContext:
     holdout_groups: Tuple[str, ...]
     registry: Any
     cfg_identity: Config
+    v6: bool = True
 
 
 HOLDOUT_GROUPS = ("crawler", "compliance_scanner", "cron_declared", "cron_undeclared", "orchestrator_pool", "broadcaster")
+# v6: the DECLARED sharded worker pool is handled by policy (suppression), not by the behavioural baseline.  Measured: training the
+# frozen baseline WITH its short read-only worker sessions makes short read-only sessions "normal" and drops proxy_rotation recall
+# from 50/50 to 12/50 (5 seeds) - see v6-pipeline-changes.md.  It stays in the TEST data as a hard negative.
+V6_REFERENCE_EXCLUDE = ("sharded_pool",)
 
 
-def _reference_by_agent(cfg: Config, seeds: Iterable[int], n_assistants: int, drop_groups: Iterable[str] = ()):
+def _reference_by_agent(cfg: Config, seeds: Iterable[int], n_assistants: int, drop_groups: Iterable[str] = (), v6: bool = True):
     drop = set(drop_groups)
     items: List[Dict[str, Any]] = []
     for k in seeds:
-        d = build(k, n_assistants, extended=True, positives=False)
+        d = build(k, n_assistants, extended=True, positives=False, v6=v6)
         keep = {a for a, (_, g) in d.labels.items() if g not in drop}
         for e in d.events:
             if e["agent_id"] in keep:
@@ -146,13 +151,17 @@ def _reference_by_agent(cfg: Config, seeds: Iterable[int], n_assistants: int, dr
     return group_events(rep.events)
 
 
-def make_context(cfg: Optional[Config] = None, ref_seeds: Iterable[int] = (1000, 1001, 1002), n_assistants: int = 60) -> EvalContext:
+def make_context(cfg: Optional[Config] = None, ref_seeds: Iterable[int] = (1000, 1001, 1002), n_assistants: int = 60,
+                 v6: bool = True) -> EvalContext:
+    """``v6=True`` (default): the reference also contains the v6 BENIGN cohorts (permission drift, a declared sharded pool) and the
+    test data contains the v6 cohorts; ``v6=False`` reproduces the v5 harness data exactly."""
     cfg = cfg or Config()
     ref_seeds = list(ref_seeds)
-    base = train_baseline(_reference_by_agent(cfg, ref_seeds, n_assistants), cfg, created_at="2026-01-01T00:00:00+00:00")
-    hold = train_baseline(_reference_by_agent(cfg, ref_seeds, n_assistants, HOLDOUT_GROUPS), cfg, created_at="2026-01-01T00:00:00+00:00")
+    base = train_baseline(_reference_by_agent(cfg, ref_seeds, n_assistants, V6_REFERENCE_EXCLUDE, v6=v6), cfg, created_at="2026-01-01T00:00:00+00:00")
+    hold = train_baseline(_reference_by_agent(cfg, ref_seeds, n_assistants, HOLDOUT_GROUPS + V6_REFERENCE_EXCLUDE, v6=v6), cfg,
+                          created_at="2026-01-01T00:00:00+00:00")
     reg, idcfg = sim_identity()
-    return EvalContext(base, hold, HOLDOUT_GROUPS, reg, cfg.model_copy(update={"identity": idcfg}))
+    return EvalContext(base, hold, HOLDOUT_GROUPS, reg, cfg.model_copy(update={"identity": idcfg}), v6)
 
 
 def _agents(leads) -> Set[str]:
@@ -173,7 +182,7 @@ def evaluate_once(seed: int, evasive: float = 0.0, cfg: Optional[Config] = None,
         preds = predictors(res, data, cfg, inv)
         extra: Dict[str, Any] = {}
     else:
-        data = build(seed, n_assistants, evasive, extended=True)
+        data = build(seed, n_assistants, evasive, extended=True, v6=ctx.v6)
         pseudo = Pseudonymizer(_eval_key(seed))
         res = Pipeline(ctx.cfg_identity, data.policy, pseudo, run_tag=f"eval-{seed}", baseline=ctx.baseline,
                        identity=ctx.registry).run(data.events, alternatives=True)       # identity + frozen + sequence
@@ -315,12 +324,14 @@ def aggregate(runs: List[RunEval]) -> Dict[str, Any]:
 
 
 def run_evaluation(seeds: Iterable[int] = (0, 1, 2, 3, 4), levels: Iterable[float] = (0.0, 0.5, 1.0),
-                   cfg: Optional[Config] = None, extended: bool = True) -> Dict[str, Any]:
-    """``extended=True`` (default) is the v1.1 evaluation; ``False`` reproduces the v1.0 harness."""
+                   cfg: Optional[Config] = None, extended: bool = True, v6: bool = True) -> Dict[str, Any]:
+    """``extended=True`` (default) is the v1.1 evaluation; ``False`` reproduces the v1.0 harness.  ``v6=False`` drops the v6 cohorts
+    (the v5 harness data)."""
     cfg = cfg or Config()
     seeds = list(seeds)
-    ctx = make_context(cfg) if extended else None
-    result: Dict[str, Any] = {"disclaimer": "SYNTHETIC DATA. Regression check, not a benchmark.", "extended": extended, "levels": {}}
+    ctx = make_context(cfg, v6=v6) if extended else None
+    result: Dict[str, Any] = {"disclaimer": "SYNTHETIC DATA. Regression check, not a benchmark.", "extended": extended,
+                              "v6_cohorts": bool(extended and v6), "levels": {}}
     for lv in levels:
         runs = [evaluate_once(s, lv, cfg, ctx=ctx) for s in seeds]
         result["levels"][str(lv)] = aggregate(runs)

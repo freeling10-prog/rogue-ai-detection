@@ -12,7 +12,10 @@ Archetypes (``ARCHETYPES``)
   prompt_injected_crawler    followed /canary/... instructions, echoed a canary phrase, or harvested the /.env decoy credentials
                              (AWFAKE-...) and replayed them in an Authorization header
   headless_or_http_mimic     browser-claiming client with asset starvation (R8), unlinked jumps (R9) or v4 browser-backed signals
-                             (webdriver / ARIA canary / beacon) WITHOUT touching an explicit honeytoken
+                             (webdriver / ARIA canary / beacon) WITHOUT touching an explicit honeytoken; v6: also forged beacons,
+                             script fetched but not executed, DOM-visual inversion, VLM-quantized interaction, parasitic forks (R14)
+  (v6) schema_driven_api_agent also covers a schema-provenance cursor used while browsing and POSTs to the decoy
+                             /v1/chat/completions (llmjacking_probe; advertised only in /.well-known/mcp.json and robots.txt)
   commodity_or_static_scanner  linear/BFS crawl or >= 80 % scanner paths, no adaptive branching
   unclassified               no harness evidence (typical for people and quiet clients)
 
@@ -49,7 +52,15 @@ SCANNER_PATHS = [re.compile(p, re.I) for p in (
     r"/\.aws/", r"/actuator", r"/vendor/phpunit", r"/server-status", r"/boaform", r"/config\.(json|yml|yaml|php)$", r"/\.env\b")]
 SCANNER_SHARE = 0.8
 _NUM = re.compile(r"\d+")
-_STRONG_WEB = {"asset_starvation", "unlinked_jump", "headless_automation_signal", "headless_beacon_missing"}
+_STRONG_WEB = {"asset_starvation", "unlinked_jump", "headless_automation_signal", "headless_beacon_missing",
+               # v6 R11 family + R14 (descriptive only)
+               "beacon_forged", "script_fetched_but_unexecuted", "dom_visual_inversion_hit", "vlm_quantized_interaction",
+               "parasitic_session_fork"}
+_V6_WHY = {"beacon_forged": "posted an interaction beacon whose challenge proof did not verify (canned / not computed on a rendered page)",
+           "script_fetched_but_unexecuted": "fetched our script but never sent a valid beacon (weak alone: blockers do this)",
+           "dom_visual_inversion_hit": "followed the link that is first in the DOM but rendered last (DOM-order iteration)",
+           "vlm_quantized_interaction": "runs our script but scrolls without momentum and clicks without human press/approach kinematics",
+           "parasitic_session_fork": "a second actor's sub-branch rides a human session (R14)"}
 _EXPLICIT_HONEYTOKEN = {"canary_follow", "canary_phrase_echo", "error_hint_follow", "mcp_decoy_tool_call", "fake_credential_use",
                         "schema_param_use", "session_canary_param", "stateful_dump_start", "stateful_dump_step"}
 
@@ -135,16 +146,23 @@ def _schema(reqs: list[Request]) -> Match:
     api_after = [r for r in (reqs[first_doc + 1:] if first_doc is not None else [])
                  if r.path.startswith("/api") or r.path in ("/mcp", "/graphql")]
     rev = any(SCHEMA_REV in (r.params.get("client_schema_rev") or []) for r in reqs) or any(_has_tag(r, "schema_param_use") for r in reqs)
+    schema_cursor = [r for r in reqs if r.cursor_prov == "schema"]                                   # v6
+    llm = [r for r in reqs if r.decoy_kind == "llmjacking_probe" or (r.method == "POST" and r.path == "/v1/chat/completions")]
     why: list[str] = []
+    if schema_cursor:
+        why.append(f"used {len(schema_cursor)} cursor(s) that only /openapi.json, /llms.txt or MCP hand out")
+    if llm:
+        tools = max((int(r.detail.get("tool_count", 0) or 0) for r in llm if r.detail), default=0)
+        why.append(f"POSTed {len(llm)} chat-completions request(s) to the decoy inference endpoint (tools declared: {tools})")
     if first_doc is not None:
         why.append(f"fetched the machine-readable description {reqs[first_doc].path} directly (no Referer, i.e. not by clicking a link)")
     if api_after:
         why.append(f"then called {len(api_after)} API/tool route(s) (first: {api_after[0].path})")
     if rev:
         why.append(f"presented client_schema_rev={SCHEMA_REV}, a parameter that exists only inside the fetched schema")
-    if rev:
+    if rev or llm or (schema_cursor and first_doc is not None):
         return 2, why
-    if first_doc is not None and api_after:
+    if schema_cursor or (first_doc is not None and api_after):
         return 1, why
     return 0, []
 
@@ -217,8 +235,11 @@ def _mimic(reqs: list[Request], findings: list[Finding]) -> Match:
         why.append("browser-backed automation signal: " + str(web["headless_automation_signal"].summary)[:120] + weak)
     if "headless_beacon_missing" in hit:
         why.append("clicked through pages and fetched scripts but never sent the interaction beacon (weak: JS-disabled people do this)")
+    for k in sorted(hit & set(_V6_WHY)):
+        why.append(_V6_WHY[k])
     hf = web.get("headless_automation_signal")
-    strong_hf = hf is not None and bool(hf.data.get("strong"))
+    strong_hf = (hf is not None and bool(hf.data.get("strong"))) or any(
+        bool(web[k].data.get("strong")) for k in hit & set(_V6_WHY))
     strong = strong_hf or {"asset_starvation", "unlinked_jump"} <= hit
     return (2 if strong else 1), why
 

@@ -37,10 +37,14 @@ MAX_SESSIONS = 60
 
 # finding -> pipeline rule analogue (same ids the pipeline uses; agent-watch itself has no R-numbers)
 _WEB_RULE = {"asset_starvation": "R8", "unlinked_jump": "R9", "headless_automation_signal": "R11",
-             "schema_param": "R10", "session_canary_param": "R10", "mcp_list_then_call": "R10"}
+             "schema_param": "R10", "session_canary_param": "R10", "mcp_list_then_call": "R10",
+             # v6
+             "beacon_forged": "R11", "script_fetched_but_unexecuted": "R11", "dom_visual_inversion_hit": "R11",
+             "vlm_quantized_interaction": "R11", "schema_provenance_cursor": "R10", "parasitic_session_fork": "R14"}
 RULE_TEXT = {"R8": "asset starvation (claims a browser, never loads css/js)", "R9": "unlinked jump (moved to a URL no page offered it)",
              "R10": "single high-signal event (decoy / canary / schema-parameter contact)",
-             "R11": "browser-backed mimic signal (webdriver / ARIA canary / missing beacon)"}
+             "R11": "browser-backed mimic signal (webdriver / ARIA canary / forged or missing beacon / DOM-visual inversion / VLM-quantized input)",
+             "R14": "parasitic session fork (a second actor's sub-branch rides a human session within 500 ms)"}
 ATLAS_APPROX = {
     "AML.T0051": "LLM Prompt Injection - a hidden-instruction canary / honeytoken was followed",
     "AML.T0053": "AI Agent Tool Invocation - a decoy tool or schema-advertised endpoint was called",
@@ -48,11 +52,12 @@ ATLAS_APPROX = {
     "AML.T0086": "Exfiltration via AI Agent Tool Invocation - a decoy export / credential was fetched or replayed",
     "AML.T0118": "Autonomous AI Agent Communication - coordination-board / peer-thread use",
 }
-_ATLAS_BY_KIND = {
+_ATLAS_BY_KIND: dict[str, "str | tuple[str, ...]"] = {
     "canary_follow": "AML.T0051", "canary_phrase_echo": "AML.T0051", "llms_txt_decoy": "AML.T0051", "hidden_link": "AML.T0051",
     "aria_fastpath": "AML.T0051", "error_hint_follow": "AML.T0051",
     "mcp_decoy_tool_call": "AML.T0053", "schema_param_use": "AML.T0053", "fake_admin_api": "AML.T0053", "graphql_decoy": "AML.T0053",
     "openapi_decoy": "AML.T0053",
+    "llmjacking_probe": ("AML.T0051", "AML.T0053"),     # v6: decoy chat-completions endpoint (prompt + tool payloads sent to it)
     "coordination_board_read": "AML.T0118", "coordination_register": "AML.T0118", "coordination_claim_step": "AML.T0118",
     "fake_export": "AML.T0086", "fake_credentials_file": "AML.T0086", "fake_credential_use": "AML.T0086",
     "stateful_dump_start": "AML.T0086", "stateful_dump_step": "AML.T0086",
@@ -134,7 +139,9 @@ def _rules_by_request(res: SessionResult) -> tuple[dict[int, list[str]], list[st
             continue
         if rule not in seen:
             seen.append(rule)
-        for r in f.evidence:
+        # v5 review: an unlinked jump is a property of the DESTINATION step (the one that made the jump), not of the page it left
+        ev = f.evidence[-1:] if f.kind == "unlinked_jump" else f.evidence
+        for r in ev:
             if rule not in per.setdefault(id(r), []):
                 per[id(r)].append(rule)
     return per, sorted(seen, key=lambda x: int(x[1:]))
@@ -144,11 +151,20 @@ def _atlas_for(res: SessionResult) -> list[str]:
     ids: list[str] = []
     for r in res.session.requests:
         t = _ATLAS_BY_KIND.get(r.decoy_kind or "")
-        if t and t not in ids:
-            ids.append(t)
+        for x in ((t,) if isinstance(t, str) else (t or ())):
+            if x not in ids:
+                ids.append(x)
         if any(str(e.get("type", "")).startswith("handoff_token") for e in r.events) and "AML.T0080" not in ids:
             ids.append("AML.T0080")
     return sorted(ids)
+
+
+def _path_of_ref(referer: str) -> str:
+    from urllib.parse import urlsplit
+    try:
+        return urlsplit(referer).path if referer else ""
+    except ValueError:
+        return ""
 
 
 def _status_cell(code: int) -> str:
@@ -193,8 +209,10 @@ def _chips(e: _Esc, r: Request) -> str:
         if typ.startswith("handoff_token"):
             flag = " cross-IP" if ev.get("cross_ip") else (" cross-session" if ev.get("cross_session") else "")
             out.append(f'<span class="chip a">{e.t(typ, 40)} ref {e.t(ev.get("ref", ""), 24)}{flag}</span>')
+    if r.cursor_route:
+        out.append(f'<span class="chip {"a" if r.cursor_prov == "schema" else ""}">cursor {e.t(r.cursor_prov or "missing", 10)}</span>')
     if r.beacon is not None:
-        bits = ",".join(f"{k.split('_')[0]}={'Y' if v else 'n'}" for k, v in r.beacon.items())
+        bits = ",".join(f"{k.split('_')[0]}={'Y' if v else ('n' if v is False else '?')}" for k, v in r.beacon.items())
         out.append(f'<span class="chip b">beacon {e.t(bits, 60)}</span>')
     return "".join(out)
 
@@ -240,6 +258,15 @@ def _session_html(e: _Esc, res: SessionResult, n: int, cfg: dict[str, Any]) -> t
     tri = "".join(
         f'<label><input type="checkbox"{" checked" if k == bucket else ""}> <span class="{"sug" if k == bucket else ""}">{html.escape(name)}</span>'
         f' <span class="note">- {html.escape(why)}{" (suggested)" if k == bucket else ""}</span></label>' for k, name, why in TRIAGE)
+    fork = next((f for f in res.findings if f.kind == "parasitic_session_fork" and f.detector == "web"), None)
+    fork_html = ""
+    if fork is not None:        # v6 R14: the parasitic sub-branch, shown separately from the human branch
+        frows = "".join(f'<tr><td>{s.requests.index(r) + 1 if r in s.requests else "?"}</td><td>{e.t(utc_iso(r.ts), 40)}</td>'
+                        f'<td>{e.t(r.method, 8)}</td><td class="p">{e.t(r.path, 240)}</td><td>{e.t(_path_of_ref(r.referer), 120)}</td>'
+                        f'<td>{e.t(r.cursor_prov or "", 10)}</td></tr>' for r in fork.evidence[:20])
+        fork_html = (f'<details open><summary>Parasitic sub-branch (R14)</summary><p class="note">{e.t(fork.summary, 400)}</p>'
+                     f'<table class="t"><tr><th>step</th><th>time (UTC)</th><th>method</th><th>path</th><th>Referer parent</th>'
+                     f'<th>cursor</th></tr>{frows}</table></details>')
     doc = (
         f'<section class="s" data-bucket="{bucket}" data-jump="{1 if has_jump else 0}" id="s{n}">'
         f'<h2>Session {e.t(s.session_id, 40)}</h2>'
@@ -247,12 +274,12 @@ def _session_html(e: _Esc, res: SessionResult, n: int, cfg: dict[str, Any]) -> t
         f'<dt>harness_archetype</dt><dd><b>{e.t(arche, 40)}</b> ({e.t(conf, 10) or "n/a"} confidence: how much of the signature was seen, not a probability)'
         f'<ul>{reasons}</ul></dd>'
         f'<dt>scores</dt><dd>agent {int(res.agent_score)} / automation {int(res.automation_score)} (0-100, heuristic)</dd>'
-        f'<dt>rules R8-R11</dt><dd>{rule_txt}</dd>'
+        f'<dt>rules R8-R14</dt><dd>{rule_txt}</dd>'
         f'<dt>ATLAS (approximate)</dt><dd>{atlas_txt} <span class="note">approximate mapping from signals; not a finding</span></dd>'
         f'<dt>client</dt><dd>{e.t(s.ip, 64)} - {len(s.requests)} request(s)</dd></dl>'
         f'<div class="untrusted"><span class="badge">UNTRUSTED AGENT INPUT - SCRUBBED</span><pre>user-agent: {e.t(ua, 300)}</pre></div>'
         f'<details open><summary>Causal step timeline</summary><table class="t"><tr><th>#</th><th>time (UTC)</th><th>+delta</th><th>method</th>'
-        f'<th>path</th><th>status</th><th>offered? / rules / traps</th></tr>{"".join(rows)}</table></details>'
+        f'<th>path</th><th>status</th><th>offered? / rules / traps</th></tr>{"".join(rows)}</table></details>{fork_html}'
         f'<div class="triage"><b>Reviewer triage</b> <span class="note">(a human-review lead, NOT an automatic block; ticks are local to this page and are not saved)</span>{tri}</div>'
         f'</section>')
     return doc, bucket, has_jump

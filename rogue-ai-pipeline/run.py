@@ -214,7 +214,8 @@ def cmd_inspect_baseline(args: argparse.Namespace) -> int:
 
 def cmd_evaluate(args: argparse.Namespace) -> int:
     cfg = load_config(args.config)
-    res = run_evaluation(range(args.seeds), [float(x) for x in args.levels.split(",")], cfg, extended=not args.v1)
+    res = run_evaluation(range(args.seeds), [float(x) for x in args.levels.split(",")], cfg, extended=not args.v1,
+                         v6=not getattr(args, "no_v6", False))
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     (out / "evaluation.json").write_text(json.dumps(res, indent=2))
@@ -346,7 +347,8 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("evaluate", help="precision/recall/FPR on simulated scenarios"); common(sp)
     sp.add_argument("--seeds", type=int, default=5); sp.add_argument("--levels", default="0.0,0.5,1.0",
                     help="comma list of evasiveness levels (0=standard, 1=all evasive)")
-    sp.add_argument("--v1", action="store_true", help="v1.0 harness (batch Isolation Forest, core scenarios only)"); sp.set_defaults(fn=cmd_evaluate)
+    sp.add_argument("--v1", action="store_true", help="v1.0 harness (batch Isolation Forest, core scenarios only)")
+    sp.add_argument("--no-v6", action="store_true", help="leave out the v6 cohorts (the v5 harness data)"); sp.set_defaults(fn=cmd_evaluate)
     sp = sub.add_parser("verify-log", help="verify the hash chain of an audit log")
     sp.add_argument("--log", required=True); sp.add_argument("--anchor", default=None, help="externally stored head hash"); sp.set_defaults(fn=cmd_verify)
     sp = sub.add_parser("export-stix", help="export HUMAN-CONFIRMED leads as a STIX 2.1 bundle and validate it")

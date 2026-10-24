@@ -38,7 +38,7 @@ from typing import Any, Optional
 
 from .honeypot import create_honeypot_app
 from .simagent import run_board_reader, run_coordination_agent, run_discovery_agent, run_mcp_runner, run_obedient_agent
-from .webagents import WEB_PLAN, WEB_PLAN_V4, actor_ip, pace_for, run_web_client
+from .webagents import WEB_PLAN, WEB_PLAN_V4, WEB_PLAN_V6, actor_ip, pace_for, run_web_client
 
 T0 = datetime(2026, 10, 22, 10, 0, 0, tzinfo=timezone.utc)
 BROWSER_UAS = [
@@ -398,7 +398,7 @@ def _json_line(e: Event) -> str:
 def add_web_actors(g: "Generator") -> None:
     """The v3 extended demo: browsers and scrapers on the honeypot site plus the four mimic variants (see webagents.WEB_PLAN)."""
     n = 0
-    for variant, label, note, copies, benign in WEB_PLAN + WEB_PLAN_V4:
+    for variant, label, note, copies, benign in WEB_PLAN + WEB_PLAN_V4 + WEB_PLAN_V6:
         for k in range(copies):
             g.web_client(f"web:{variant} #{k + 1}", actor_ip(n, label), 600 + 40 * n, variant, label, note, benign=benign)
             n += 1

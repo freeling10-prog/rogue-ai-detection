@@ -193,8 +193,18 @@ def export_web_events(paths: Iterable[str | Path], cfg: Optional[dict[str, Any]]
     n = 0
     from .scoring import score_session
     for sess in build_sessions(reqs, cfg):
-        fp = score_session(sess, cfg).fingerprint                    # v5: descriptive harness label, one per session
+        res = score_session(sess, cfg)
+        fp = res.fingerprint                                          # v5: descriptive harness label, one per session
         trans = {id(r): (st, ok) for r, _, st, ok in transitions(sess, cfg)}
+        from .frontierdetect import js_assets_fetched
+        from .parser import SIGNAL_NAMES
+        js_n = js_assets_fetched(sess, cfg)
+        # v6: per-event signal names = what the honeypot attached to the request + v6 findings whose evidence includes it
+        ev_sig: dict[int, set[str]] = {}
+        for f in res.findings:
+            if f.kind in SIGNAL_NAMES:
+                for er in f.evidence:
+                    ev_sig.setdefault(id(er), set()).add(f.kind)
         for r in sess.requests:
             n += 1
             ip = r.ip
@@ -210,7 +220,8 @@ def export_web_events(paths: Iterable[str | Path], cfg: Optional[dict[str, Any]]
             if kind == "asset":
                 web["asset_kind"] = asset_kind(r, cfg) or "other"
             if kind == "beacon" and r.beacon is not None:
-                web["beacon"] = dict(r.beacon)                     # exactly the three booleans
+                web["beacon"] = {k: r.beacon.get(k) for k in ("challenge_proof_ok", "webdriver_present", "pointer_trail_seen",
+                                                              "dom_automation_props", "kinematic_dwell_ok", "inertial_scroll_ok")}
             if kind == "html":
                 web["referer_present"] = bool(r.referer)
                 if r.referer:
@@ -248,6 +259,10 @@ def export_web_events(paths: Iterable[str | Path], cfg: Optional[dict[str, Any]]
                 web["mcp"] = _MCP[dk]
             if r.ja4:
                 web["ja4"] = r.ja4
+            web["signals"] = sorted(set(r.signals) | ev_sig.get(id(r), set()) | ({dk} if dk in SIGNAL_NAMES else set()))
+            web["js_assets_fetched"] = js_n
+            if r.cursor_route:
+                web["cursor_prov"] = r.cursor_prov
             ev = {
                 "event_id": (r.event_id or f"w{n:08d}")[:64], "ts": r.ts.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z", "source": "web_server",
                 "agent_id": _ID_BAD.sub("_", f"client:{ip}")[:64] or "client:unknown", "action": "access",

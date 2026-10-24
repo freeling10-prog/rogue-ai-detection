@@ -36,17 +36,18 @@ from markupsafe import escape
 from werkzeug.exceptions import HTTPException, RequestEntityTooLarge
 from werkzeug.middleware.proxy_fix import ProxyFix
 
+from . import frontier
 from .scrubber import Scrubber, get_default_scrubber
 from .state import StateStore
 from .leads import (DEFAULT_MAX_LOG_BYTES, MAX_BODY_BYTES, MAX_PATH, LeadWriter,
                     make_lead, sanitize_headers, sanitize_query, sanitize_text, utc_iso)
 
-BEACON_PATH = "/api/v1/telemetry/nav"     # v4: minimal interaction beacon (three booleans, nothing else)
-BEACON_KEYS = ("webdriver_present", "pointer_trail_seen", "dom_automation_props")
-BEACON_MAX_BYTES = 256
+BEACON_PATH = "/api/v1/telemetry/nav"     # v4: minimal interaction beacon; v6: challenge proof + five booleans (six stored)
+BEACON_KEYS = ("webdriver_present", "pointer_trail_seen", "dom_automation_props")   # v4 keys (required in every beacon)
+BEACON_MAX_BYTES = 512
 BEACON_RATE_PER_MIN = 60
 BEACON_RATE_MAX_KEYS = 2000
-# Inline script, same-origin only.  On a click on an internal link it POSTs ONE small JSON object with three booleans:
+# v4 inline script (kept for reference / tests; v6 pages embed frontier.beacon_script()).  On a click on an internal link it POSTs ONE small JSON object with three booleans:
 # navigator.webdriver === true; whether pointer/touch movement happened before the click; whether Playwright/CDP-style
 # globals exist on window.  No identifiers, no fingerprinting surface beyond these three bits, no third-party requests.
 BEACON_SCRIPT = (
@@ -242,6 +243,8 @@ class Context:
     behind_proxy: bool = False          # werkzeug ProxyFix active (remote_addr already corrected)
     access_writer: Optional[LeadWriter] = None   # mirrored request stream (every request); None = disabled
     _seen_lock: threading.Lock = field(default_factory=threading.Lock)
+    beacon_rate: Any = None             # v6: frontier.LRURateLimiter for the beacon endpoint
+    llm_rate: Any = None                # v6: frontier.LRURateLimiter for the chat-completions decoy
 
     def decoy_route(self, rule: str, decoy: Decoy) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         """Register a view for *rule* as a decoy endpoint (all common methods)."""
@@ -334,7 +337,11 @@ class Context:
         if g.get("beacon_offered"):
             rec["beacon_script"] = True                  # this response embedded the interaction beacon (so one is expected)
         if g.get("beacon"):
-            rec["beacon"] = g.beacon                     # exactly the three validated booleans
+            rec["beacon"] = g.beacon                     # exactly the six validated booleans (v6; v4 had three)
+        if g.get("cursor_required") or g.get("cursor_prov"):
+            rec["cursor_prov"] = g.get("cursor_prov")    # v6: "html" | "schema" | None (cursor-bearing routes only)
+        if g.get("signals"):
+            rec["signals"] = sorted(set(g.signals))      # v6 event-contract signal names seen on this request
         if self.behind_proxy:       # JA4 is only trustworthy when set by an edge we control (see docs/ja4-tls-fingerprinting.md)
             ja4 = request.headers.get("X-JA4", "").strip()
             if _JA4.match(ja4):
@@ -407,6 +414,8 @@ class Context:
         body = self.read_body()
         truncated = len(body) > self.body_cap or bool(g.get("body_too_large"))
         preview = sanitize_text(body[: self.body_cap].decode("utf-8", "replace"), self.body_cap)
+        if g.get("omit_body_preview"):      # v6: beacon leads never store the beacon body (booleans only, see telemetry_nav)
+            preview = "[omitted: beacon body is never stored]"
         headers = list(request.headers.items())
         board = request.path.startswith("/api/v1/coordination-board")
         if board:
@@ -488,14 +497,40 @@ def get_context() -> Context:
 # --------------------------------------------------------------------------
 # app factory
 # --------------------------------------------------------------------------
+def add_signal(name: str) -> None:
+    """Attach a v6 event-contract signal name to the current request's access record."""
+    if has_request_context():
+        g.setdefault("signals", [])
+        g.signals.append(name)
+
+
+def require_cursor(ctx: "Context", param: str, target: str) -> Optional[Response]:
+    """v6 load-bearing cursor check.  None when ``request.args[param]`` is a valid cursor for *target* (provenance recorded on
+    the access record); otherwise a plain 400 "Missing Required Cursor" (tampered / foreign cursors count as missing)."""
+    g.cursor_required = True
+    prov = frontier.check_cursor(ctx.registry.digest, request.args.get(param), target)
+    g.cursor_prov = prov
+    if prov is None:
+        add_signal("missing_required_cursor")
+        return Response("Missing Required Cursor\n", status=400, mimetype="text/plain")
+    if prov == "schema":
+        add_signal("schema_provenance_cursor")
+    return None
+
+
 def _html(body: str, title: str = "Acme Synthetic Corp") -> Response:
+    head = frontier.beacon_script("")
     if has_request_context():
         g.beacon_offered = True
+        from flask import current_app
+        ctx = current_app.extensions.get("agentwatch")
+        if ctx is not None:      # v6: per-page, per-time-bucket challenge + layout probe (no client identifiers)
+            head = frontier.challenge_html(ctx.registry.digest, request.path, ctx.clock().timestamp()) + head
     # Pages reference a stylesheet, a script, a favicon and a logo (all served `no-store`, so a warm cache cannot
     # explain a client that never fetches them): a browser-like client loads them, a text-only agent does not.
     return Response(f"<!doctype html><html><head><meta charset='utf-8'><title>{escape(title)}</title>"
                     "<link rel='stylesheet' href='/static/site.css'><link rel='icon' href='/favicon.ico'>"
-                    "<script src='/static/site.js' defer></script>" + BEACON_SCRIPT + "</head>"
+                    "<script src='/static/site.js' defer></script>" + head + "</head>"
                     f"<body><img src='/static/logo.svg' alt='' width='24' height='24'>{body}</body></html>",
                     mimetype="text/html")
 
@@ -563,7 +598,7 @@ def create_app(
         nav = "".join(ctx.extra_home_html)
         return _html(
             "<h1>Acme Synthetic Corp</h1><p>Internal demo site (synthetic content).</p>"
-            f"<nav><a href='/about'>About</a> {nav}</nav>"
+            + frontier.inversion_list(frontier.inversion_link(), f"<nav><a href='/about'>About</a> {nav}</nav>") +
             f"<!-- TODO remove before launch: api_key={escape(key_in_comment)} (synthetic, unusable) -->"
             f"<a href='{escape(hidden.path)}' style='display:none' aria-hidden='true' tabindex='-1'>staff</a>"
         )
@@ -572,25 +607,18 @@ def create_app(
     def about() -> Response:
         return _html("<h1>About</h1><p>Nothing to see; this is a synthetic honeypot site.</p>")
 
-    beacon_rate: dict[str, list[float]] = {}
-    beacon_lock = threading.Lock()
+    beacon_rate = frontier.LRURateLimiter(BEACON_RATE_PER_MIN, BEACON_RATE_MAX_KEYS)   # v5 review: LRU, evicts oldest 25%
+    ctx.beacon_rate = beacon_rate      # tests inspect it
 
     @app.post(BEACON_PATH)
     def telemetry_nav() -> Response:
-        """Interaction beacon: accepts ONLY {webdriver_present, pointer_trail_seen, dom_automation_props} as booleans.
-        Size-limited (256 B), rate-capped per client IP, 204 with no body; anything else is rejected and nothing is stored
-        beyond the three booleans on the mirrored access record (the usual request metadata is logged like for any request)."""
+        """Interaction beacon (v6, challenge-bound).  Body: {proof, page, + five booleans}.  The server verifies the proof against
+        the page's challenge (current or previous 5-minute bucket) and stores ONLY six booleans (``challenge_proof_ok`` plus the
+        five) on the mirrored access record; the proof and page are used for verification and discarded.  A beacon with a missing /
+        canned / invalid proof (incl. a v4-style three-key beacon) is recorded as a low-severity ``beacon_forged`` lead.
+        Size-limited (512 B), rate-capped per client IP (LRU map), 204 with no body."""
         now = ctx.clock().timestamp()
-        key = ctx.client_ip()
-        with beacon_lock:
-            if len(beacon_rate) > BEACON_RATE_MAX_KEYS:
-                beacon_rate.clear()
-            window = [t for t in beacon_rate.get(key, []) if now - t < 60.0]
-            limited = len(window) >= BEACON_RATE_PER_MIN
-            if not limited:
-                window.append(now)
-            beacon_rate[key] = window
-        if limited:
+        if not beacon_rate.allow(ctx.client_ip(), now):
             return Response("", status=429, headers={"Retry-After": "30"})
         raw = ctx.read_body(BEACON_MAX_BYTES)
         if len(raw) > BEACON_MAX_BYTES:
@@ -601,7 +629,15 @@ def create_app(
             return Response("", status=400)
         if not isinstance(doc, dict) or any(not isinstance(doc.get(k), bool) for k in BEACON_KEYS):
             return Response("", status=400)
-        g.beacon = {k: bool(doc[k]) for k in BEACON_KEYS}
+        if any(k in doc and not isinstance(doc[k], bool) for k in frontier.BEACON_BOOLS):
+            return Response("", status=400)
+        ok = frontier.verify_proof(registry.digest, doc.get("page", ""), doc.get("proof", ""), now)
+        g.beacon = {"challenge_proof_ok": ok, **{k: (bool(doc[k]) if k in doc else None) for k in frontier.BEACON_BOOLS}}
+        if not ok:
+            add_signal("beacon_forged")
+            g.omit_body_preview = True
+            ctx.record(decoy_name="beacon_challenge", kind="beacon_forged", token_id=registry.token_id("beacon_challenge"),
+                       status=204, tags=["beacon_forged"], detail={"proof_present": "proof" in doc})
         return Response("", status=204)
 
     @app.get("/static/site.css")
@@ -650,6 +686,8 @@ def create_app(
             resp.status_code = 413
         resp.headers["Cache-Control"] = "no-store"
         resp.headers["X-Content-Type-Options"] = "nosniff"
+        if resp.mimetype == "text/html":
+            resp.headers["Content-Security-Policy"] = frontier.HONEYPOT_CSP      # v5 review (see frontier.HONEYPOT_CSP note)
         ctx.flush_pending(resp)
         ctx.mirror(resp, g.get("last_lead_id"))
         return resp

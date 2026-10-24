@@ -124,7 +124,7 @@ class Pipeline:
         anomaly = frozen if self.baseline is not None else batch
         if anomaly is None:
             notes.append("Layer 1 skipped: fewer than 10 profiled agents and no frozen baseline (no population to compare with)")
-        engine = RuleEngine(cfg.layer2, cfg.tools, self.resolved, cfg.web)
+        engine = RuleEngine(cfg.layer2, cfg.tools, self.resolved, cfg.web, cfg.probing)
         if cfg.web.enabled and cfg.web.link_graph_fallback:
             # With a benign reference the graph comes ONLY from it (clients in this batch cannot vouch for each other); without one it is
             # learned from the batch itself, leave-one-out per client (a pair of clients with identical unsupported moves still validates itself)

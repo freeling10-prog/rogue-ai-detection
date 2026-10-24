@@ -98,3 +98,24 @@ link_min_support = 2               # other clients that must have taken a transi
 link_fallback_min_jumps = 4
 link_fallback_strength = 0.5
 # scanner_ua_patterns / scanner_path_patterns / declared_bot_ua_patterns / browser_ua_patterns: lists of regexes (see config.py defaults)
+# --- v6: R11 tiers (beacon_forged / script_fetched_but_unexecuted / vlm / inversion), R9 missing cursor, R14 parasitic fork ---
+nav_coherent_share = 0.8           # R11: a missing beacon is IGNORED when js_assets_fetched == 0 or >= this share of navigations has coherent headers
+vlm_min_beacons = 2
+missing_cursor_min = 2
+r14_enabled = true
+r14_window_s = 0.5                 # a fork = a suspicious request within 500 ms of a human-branch page load on an unrelated path
+r14_min_forks = 2
+
+[probing]                     # v6 R13 slow_or_shielded_probing - calibrated on BENIGN reference data only (scripts/calibrate_r13.py)
+enabled = true
+min_events = 12
+min_probes = 3
+p0 = 0.05                     # benign 99th-percentile per-session probe rate (0.0476), rounded up
+p1 = 0.15
+p1_low = 0.1                  # small-shift CUSUM (padded probers just above the benign tail)
+cusum_h_low = 2.6             # benign max 2.01 x 1.25 = 2.51, rounded up
+paced_rate_min = 0.05
+cusum_h = 4.0                 # benign max CUSUM 2.87 x 1.25 = 3.59, rounded up
+w3_min = 3                    # benign max 2 + 1 (4 = disabled)
+w7_min = 3                    # benign max 2 + 1 (8 = disabled)
+collapse_max_logstd = 0.6     # half of the benign 1% quantile (1.20) of per-session max sub-window log-gap std

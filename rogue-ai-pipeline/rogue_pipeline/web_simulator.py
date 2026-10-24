@@ -39,6 +39,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from .config import Policy
 from .simulator import SimData, T0
+from .schema import V6_SIGNALS
 
 BROWSER = "Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0"
 SCRAPER = "NaiveScraper/1.0"
@@ -76,14 +77,15 @@ class _Web:
         self._i += 1
         ip = f"192.0.2.{self._i}" if self._i < 250 else f"198.51.100.{self._i - 249}"
         agent = f"client:{ip}"
-        self.labels[agent] = (GROUPS.get(group) or V4_GROUPS[group], group)
+        self.labels[agent] = (GROUPS.get(group) or V4_GROUPS.get(group) or V6_GROUPS[group], group)
         return agent
 
     def req(self, t: float, agent: str, path: str, ua: str, *, kind: str = "html", status: str = "allowed", linked: Any = None,
             ref_ok: Any = None, earlier: Any = None, sec: Any = None, strong: Any = None, decoy: Any = None, mcp: Any = None,
-            size: int = 2400, referer: Optional[str] = None, sec_state: Optional[str] = None, beacon: Optional[Dict[str, bool]] = None) -> None:
+            size: int = 2400, referer: Optional[str] = None, sec_state: Optional[str] = None, beacon: Optional[Dict[str, bool]] = None,
+            extra: Optional[Dict[str, Any]] = None) -> None:
         self._n += 1
-        web: Dict[str, Any] = {"user_agent": ua, "content_kind": kind}
+        web: Dict[str, Any] = {"user_agent": ua, "content_kind": kind, **(extra or {})}
         if self.v4:
             if kind == "html":
                 web["beacon_offered"] = True
@@ -127,9 +129,13 @@ class _Web:
         return t
 
 
-def build_web(seed: int = 0, v4: bool = False) -> SimData:
+def build_web(seed: int = 0, v4: bool = False, v6: bool = False) -> SimData:
     """Web-client events + labels (raw agent id -> (kind, group)).  Same seed => same data.  ``v4=True`` adds the v4 event fields
-    and appends the v4 groups AFTER the v3 groups (the v3 groups keep their random draws, so their events are unchanged)."""
+    and appends the v4 groups AFTER the v3 groups (the v3 groups keep their random draws, so their events are unchanged).
+    ``v6=True`` (implies v4) is what the v6 agent-watch collector would record for the same site with the v6 traps: six-boolean beacons,
+    ``js_assets_fetched``, ``cursor_prov``, ``signals``; the v4 header forger / browser-stealth clients behave as they would on that
+    site (post-processing with a SEPARATE random stream, so every v3/v4 draw is unchanged); and the v6 groups are appended."""
+    v4 = v4 or v6
     w = _Web(seed, v4)
     rng = w.rng
     start = lambda: 3600.0 * rng.uniform(1, 20)                                  # noqa: E731
@@ -198,6 +204,8 @@ def build_web(seed: int = 0, v4: bool = False) -> SimData:
         w.req(t + 3, a, "/mcp", "zgrab/0.x", kind="api", mcp="tools_call", strong="mcp_list_then_call", decoy="mcp_decoy_tool")
     if v4:
         _build_v4_groups(w, start)
+    if v6:
+        _build_v6(w, seed, start)
     w.events.sort(key=lambda e: (e["ts"], e["event_id"]))
     return SimData(w.events, w.labels, Policy(), [], True)
 
@@ -250,6 +258,348 @@ def to_v3_format(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             w = {k: v for k, v in w.items() if k not in V4_EVENT_KEYS}
             if w.get("strong_signal") == "aria_fastpath":
                 w.pop("strong_signal"); w.pop("decoy_kind", None)
+            e = {**e, "web": w}
+        out.append(e)
+    return out
+
+
+# ======================================================================================================================== v6
+# SAME-AUTHOR SYNTHETIC COHORTS.  Every evader below was written by the author of the v6 rules, knowing them.  To keep them from
+# being trivially tailored, each cohort mixes variants that the rules are NOT expected to catch (humanized kinematics, cursor-free
+# HTML-only readers, riders whose timing falls outside the fork window, swarms whose inheritance is late or partial).  Numbers on
+# them are regression checks.
+V6_GROUPS = {"human_accessibility": "benign", "human_flaky_network": "benign", "slow_legit_crawler": "benign", "human_two_tabs": "benign",
+             "human_kb_reader": "benign",
+             "mimic_vlm_os": "positive", "mimic_schema_sanitizer": "positive", "mimic_parasitic_rider": "positive",
+             "swarm_schelling_overlap": "positive", "swarm_disjoint_partition": "positive", "llmjacking_prober": "positive"}
+V6_COUNTS = {"human_accessibility": 3, "human_flaky_network": 3, "slow_legit_crawler": 3, "human_two_tabs": 3, "human_kb_reader": 6,
+             "mimic_vlm_os": 3, "mimic_schema_sanitizer": 3, "mimic_parasitic_rider": 3, "swarm_schelling_overlap": 6,
+             "swarm_disjoint_partition": 3, "llmjacking_prober": 2}
+V6_EVENT_KEYS = ("js_assets_fetched", "cursor_prov", "signals", "llmjacking")
+V6_ONLY_DECOYS = ("dom_visual_inversion_hit", "llmjacking_probe", "beacon_forged")
+INVERSION_PATH = "/kb/archive/diagnostic"
+LLM_PATH = "/v1/chat/completions"
+KB = [f"/kb/article-{i}" for i in range(1, 71)]
+CRAWLER_UA = "ExampleSearchBot/2.1 (+https://search.example/bot)"
+_BEACON_OK6 = {"challenge_proof_ok": True, "kinematic_dwell_ok": True, "inertial_scroll_ok": True}
+
+
+def _cur(rng: random.Random) -> str:
+    return "".join(rng.choice("abcdef0123456789") for _ in range(12))
+
+
+def _b6(base: Dict[str, bool], proof: Optional[bool], dwell: Optional[bool], inertial: Optional[bool]) -> Dict[str, Any]:
+    out: Dict[str, Any] = dict(base)
+    for k, v in (("challenge_proof_ok", proof), ("kinematic_dwell_ok", dwell), ("inertial_scroll_ok", inertial)):
+        if v is not None:
+            out[k] = v
+    return out
+
+
+def _upgrade_v4_cohorts(w: _Web, seed: int) -> None:
+    """What the v4 cohorts look like to the v6 collector (separate random stream; the v3/v4 draws are untouched)."""
+    rng = random.Random(seed * 104729 + 6)
+    by_agent: Dict[str, List[Dict[str, Any]]] = {}
+    for e in w.events:
+        by_agent.setdefault(e["agent_id"], []).append(e)
+    extra: List[Dict[str, Any]] = []
+    forger_i = stealth_i = 0
+    for agent, evs in sorted(by_agent.items()):
+        grp = w.labels[agent][1]
+        evs.sort(key=lambda e: e["ts"])
+        for e in evs:
+            b = e["web"].get("beacon")
+            if b is None:
+                continue
+            if grp in ("mimic_browser_stealth", "mimic_aria"):        # CDP clicks: zero dwell, no pointer; scrollIntoView jumps
+                e["web"]["beacon"] = _b6(b, True, False, False)
+            elif grp == "mimic_browser_webdriver":
+                e["web"]["beacon"] = _b6(b, True, False, rng.random() < 0.5)
+            else:                                                     # people: our JS ran, natural kinematics
+                e["web"]["beacon"] = _b6(b, True, True, rng.random() < 0.9)
+        if grp == "mimic_header_forger":
+            if forger_i % 3 != 2:                                     # 2 of 3 post a CANNED beacon they never computed
+                for e in evs:
+                    if e["web"].get("content_kind") == "html" and e["web"].get("referer_present"):
+                        w._n += 1
+                        extra.append({**{k: e[k] for k in ("source", "agent_id", "ip", "synthetic")}, "event_id": f"w{w._n:07d}",
+                                      "ts": round(e["ts"] + 0.4, 3), "action": "access", "status": "allowed", "resource": BEACON_PATH,
+                                      "payload_bytes": 40, "web": {"user_agent": e["web"]["user_agent"], "content_kind": "beacon",
+                                                                   "beacon": _b6(_HUMAN_BEACON, False, True, True), "signals": ["beacon_forged"],
+                                                                   "decoy_kind": "beacon_forged"}})
+            forger_i += 1                                              # the third posts nothing: indistinguishable from a NoScript reader
+        if grp == "mimic_browser_stealth":
+            if stealth_i % 3 != 2:                                    # DOM-order link pickers hit the inverted link on the first page
+                first = next(e for e in evs if e["web"].get("content_kind") == "html")
+                w._n += 1
+                extra.append({**{k: first[k] for k in ("source", "agent_id", "ip", "synthetic")}, "event_id": f"w{w._n:07d}",
+                              "ts": round(first["ts"] + 1.1, 3), "action": "access", "status": "allowed", "resource": INVERSION_PATH,
+                              "payload_bytes": 1800, "web": {"user_agent": first["web"]["user_agent"], "content_kind": "html", "linked_from_prev": True,
+                                                             "referer_valid": True, "referer_present": True, "referer_path": first["resource"],
+                                                             "beacon_offered": True, "sec_fetch_state": "coherent", "sec_fetch_mismatch": False,
+                                                             "strong_signal": "decoy_hit", "decoy_kind": "dom_visual_inversion_hit",
+                                                             "signals": ["dom_visual_inversion_hit"]}})
+            stealth_i += 1                                             # the third picks links by visible text: no inversion hit
+    w.events += extra
+
+
+class _V6:
+    def __init__(self, w: _Web, seed: int) -> None:
+        self.w = w
+        self.rng = random.Random(seed * 15485863 + 66)
+
+    def page(self, t: float, a: str, path: str, ua: str = BROWSER, *, prev: Optional[str], linked: Any = True, status: str = "allowed",
+             sec: Optional[str] = "coherent", cursor_prov: Optional[str] = None, signals: Sequence[str] = (), decoy: Optional[str] = None,
+             strong: Optional[str] = None, kind: str = "html", earlier: Any = None, offered: bool = True) -> None:
+        ex: Dict[str, Any] = {}
+        if cursor_prov:
+            ex["cursor_prov"] = cursor_prov
+        if signals:
+            assert all(x in V6_SIGNALS for x in signals)
+            ex["signals"] = list(signals)
+        self.w.req(t, a, path, ua, kind=kind, status=status, linked=None if prev is None and linked is True else linked,
+                   ref_ok=(True if prev is not None and linked else (False if linked is False else None)), earlier=earlier,
+                   sec=None if sec is None else sec != "coherent", referer=prev if linked is not False else None,
+                   sec_state=sec if kind == "html" else None, strong=strong, decoy=decoy, extra=ex)
+        if kind == "html" and not offered:
+            self.w.events[-1]["web"].pop("beacon_offered", None)
+
+    def assets(self, t: float, a: str, ua: str = BROWSER) -> float:
+        for p in ("/static/site.css", "/static/site.js", "/favicon.ico"):
+            t += 0.05
+            self.w.req(t, a, p, ua, kind="asset", linked=True, ref_ok=True, size=900)
+        return t
+
+    def beacon(self, t: float, a: str, b: Dict[str, Any], ua: str = BROWSER) -> None:
+        self.w.req(t, a, BEACON_PATH, ua, kind="beacon", size=40, beacon=b)
+
+    def human_nav(self, a: str, t: float, paths: Sequence[str], *, pace: Tuple[float, float] = (5.0, 25.0), beacon_p: float = 1.0,
+                  b: Optional[Dict[str, Any]] = None) -> float:
+        rng = self.rng
+        prev: Optional[str] = None
+        for i, p in enumerate(paths):
+            t += rng.uniform(*pace)
+            cp = "html" if p.startswith("/kb/article") else None
+            self.page(t, a, p + (f"?cursor=h{_cur(rng)}" if cp else ""), prev=prev, cursor_prov=cp)
+            t = self.assets(t, a)
+            if i >= 1 and rng.random() < beacon_p:
+                self.beacon(t + 0.1, a, b or _b6(_HUMAN_BEACON, True, True, rng.random() < 0.9))
+            prev = p
+        return t
+
+
+def _js_counts(w: _Web) -> None:
+    """``js_assets_fetched`` on every event of a session, as the v6 exporter writes it."""
+    n: Dict[str, int] = {}
+    for e in w.events:
+        if e["web"].get("asset_kind") == "js" and e["status"] == "allowed":
+            n[e["agent_id"]] = n.get(e["agent_id"], 0) + 1
+    for e in w.events:
+        e["web"]["js_assets_fetched"] = n.get(e["agent_id"], 0)
+
+
+def _build_v6(w: _Web, seed: int, start: Any) -> None:
+    _upgrade_v4_cohorts(w, seed)
+    v = _V6(w, seed)
+    rng = v.rng
+    st = lambda: 3600.0 * rng.uniform(1, 20)                                    # noqa: E731
+    kb_paths = lambda n: rng.sample(KB, n)                                       # noqa: E731
+    # ------------------------------------------------------------------ benign
+    for i in range(V6_COUNTS["human_kb_reader"]):          # ordinary readers of the knowledge base (cursor from the HTML page)
+        a = w.client("human_kb_reader")
+        v.human_nav(a, st(), ["/", "/kb/"] + kb_paths(rng.randint(5, 12)))
+    for i in range(V6_COUNTS["human_accessibility"]):      # keyboard / screen reader: DOM order, PageDown jumps, no pointer
+        a = w.client("human_accessibility")
+        t = st()
+        prev: Optional[str] = None
+        paths = ["/", "/kb/"] + kb_paths(rng.randint(4, 8))
+        for k, p in enumerate(paths):
+            t += rng.uniform(8, 40)
+            cp = "html" if p.startswith("/kb/article") else None
+            v.page(t, a, p + (f"?cursor=h{_cur(rng)}" if cp else ""), prev=prev, cursor_prov=cp)
+            t = v.assets(t, a)
+            if k == 1 and rng.random() < 0.6:              # tabbing in DOM order reaches the inverted archive link first
+                t += rng.uniform(4, 12)
+                v.page(t, a, INVERSION_PATH, prev=p, signals=["dom_visual_inversion_hit"], decoy="dom_visual_inversion_hit", strong="decoy_hit")
+                t = v.assets(t, a)
+            if k >= 1:
+                v.beacon(t + 0.1, a, _b6({"webdriver_present": False, "pointer_trail_seen": False, "dom_automation_props": False}, True,
+                                        None if rng.random() < 0.7 else True, False))
+            prev = p
+    for i in range(V6_COUNTS["human_flaky_network"]):      # timeouts, proxy 502/504s and retries; half the beacons are lost
+        a = w.client("human_flaky_network")
+        t = st()
+        prev = None
+        for k, p in enumerate(["/"] + PAGES[1:] + kb_paths(4)):
+            t += rng.uniform(4, 20)
+            cp = "html" if p.startswith("/kb/article") else None
+            q = p + (f"?cursor=h{_cur(rng)}" if cp else "")
+            if rng.random() < 0.3:                           # failed attempt(s), then a retry of the SAME URL
+                for _ in range(rng.randint(1, 2)):
+                    v.page(t, a, q, prev=prev, status="denied", cursor_prov=cp)
+                    t += rng.uniform(1.0, 6.0)
+            v.page(t, a, q, prev=prev, cursor_prov=cp)
+            t = v.assets(t, a)
+            if k >= 1 and rng.random() < 0.5:
+                v.beacon(t + 0.3, a, _b6(_HUMAN_BEACON, True, True, True))
+            prev = p
+    for i in range(V6_COUNTS["slow_legit_crawler"]):       # declared search crawler: robots, sitemap order, slow, dead links 404
+        a = w.client("slow_legit_crawler")
+        t = st()
+        v.page(t, a, "/robots.txt", CRAWLER_UA, prev=None, kind="other", sec=None)
+        v.page(t + 2, a, "/sitemap.xml", CRAWLER_UA, prev=None, kind="other", sec=None)
+        for p in rng.sample(PAGES + KB, 40):
+            t += rng.uniform(30, 120)
+            dead = rng.random() < 0.06
+            cp = "html" if p.startswith("/kb/article") else None
+            v.page(t, a, p + (f"?cursor=h{_cur(rng)}" if cp else ""), CRAWLER_UA, prev=None, linked=False, earlier=True,
+                   status="denied" if dead else "allowed", sec=None, cursor_prov=cp)
+    for i in range(V6_COUNTS["human_two_tabs"]):           # opens several links in background tabs at once (all linked, valid Referer)
+        a = w.client("human_two_tabs")
+        t = st()
+        v.page(t, a, "/kb/", prev=None)
+        t = v.assets(t, a)
+        for _ in range(3):
+            t += rng.uniform(5, 20)
+            for p in kb_paths(rng.randint(2, 3)):
+                t += rng.uniform(0.08, 0.35)
+                v.page(t, a, p + f"?cursor=h{_cur(rng)}", prev="/kb/", cursor_prov="html")
+                v.assets(t, a)
+            v.beacon(t + 0.5, a, _b6(_HUMAN_BEACON, True, True, True))
+    # ------------------------------------------------------------------ positives (same-author; mixed variants)
+    for i in range(V6_COUNTS["mimic_vlm_os"]):             # pixel-space VLM driving a real browser with OS cursor jumps
+        a = w.client("mimic_vlm_os")
+        humanized = i % 3 == 2                             # one in three synthesizes human dwell + curved paths: expected miss
+        t = st()
+        prev = None
+        for k, p in enumerate(["/", "/kb/"] + kb_paths(rng.randint(5, 8))):
+            t += rng.uniform(3, 12)
+            cp = "html" if p.startswith("/kb/article") else None
+            v.page(t, a, p + (f"?cursor=h{_cur(rng)}" if cp else ""), prev=prev, cursor_prov=cp)
+            t = v.assets(t, a)
+            if k == 1 and rng.random() < 0.1:              # it SEES visual order, so it rarely clicks the inverted link
+                t += 2
+                v.page(t, a, INVERSION_PATH, prev=p, signals=["dom_visual_inversion_hit"], decoy="dom_visual_inversion_hit", strong="decoy_hit")
+            if k >= 1:
+                scrolled = rng.random() < 0.8
+                v.beacon(t + 0.2, a, _b6(_HUMAN_BEACON, True, True if humanized else rng.random() < 0.15,
+                                        not scrolled))       # quantized OS scroll jumps when it scrolls
+            prev = p
+    for i in range(V6_COUNTS["mimic_schema_sanitizer"]):   # Dual-LLM quarantined reader + privileged planner
+        a = w.client("mimic_schema_sanitizer")
+        variant = i % 3
+        t = st()
+        for p in ("/llms.txt", "/openapi.json"):
+            t += rng.uniform(1, 3)
+            v.page(t, a, p, prev=None, kind="api", sec=None)
+        prev = None
+        for k, p in enumerate(["/", "/kb/"] + kb_paths(rng.randint(5, 8))):
+            t += rng.uniform(2, 6)
+            if not p.startswith("/kb/article"):
+                v.page(t, a, p, prev=prev)
+            elif variant == 0:                             # keeps the cursor it read in the schema (load-bearing)
+                v.page(t, a, p + f"?cursor=s{_cur(rng)}", prev=prev, cursor_prov="schema", signals=["schema_provenance_cursor"])
+            elif variant == 1 and k < 6:                   # strips "optional-looking" parameters -> 400, then retries via the HTML link
+                v.page(t, a, p, prev=prev, status="denied", signals=["missing_required_cursor"])
+                t += rng.uniform(1, 3)
+                v.page(t, a, p + f"?cursor=h{_cur(rng)}", prev=prev, cursor_prov="html")
+            else:                                          # uses only cursors the HTML handed out: expected miss
+                v.page(t, a, p + f"?cursor=h{_cur(rng)}", prev=prev, cursor_prov="html")
+            prev = p
+    for i in range(V6_COUNTS["mimic_parasitic_rider"]):    # agent riding inside a real person's browser session
+        a = w.client("mimic_parasitic_rider")
+        t = st()
+        prev = None
+        for k, p in enumerate(["/", "/kb/"] + kb_paths(rng.randint(6, 9))):
+            t += rng.uniform(5, 25)
+            cp = "html" if p.startswith("/kb/article") else None
+            v.page(t, a, p + (f"?cursor=h{_cur(rng)}" if cp else ""), prev=prev, cursor_prov=cp)
+            if k >= 1 and rng.random() < 0.55:             # background request; offset sometimes outside the 500 ms window
+                off = rng.uniform(0.05, 1.3)
+                target = rng.choice(KB)
+                if i % 2 == 0:
+                    v.page(t + off, a, target + f"?cursor=s{_cur(rng)}", prev=None, linked=False, kind="api", sec=None,
+                           cursor_prov="schema", signals=["schema_provenance_cursor"], earlier=False)
+                else:
+                    v.page(t + off, a, target, prev=None, linked=False, kind="api", sec=None, earlier=True)
+            t = v.assets(t, a)
+            if k >= 1:
+                v.beacon(t + 0.1, a, _b6(_HUMAN_BEACON, True, True, True))        # the person's real, valid beacon
+            prev = p
+    # swarms: never on the same IP, de-synchronised start times
+    probes = [f"/kb/internal-{x}" for x in ("admin", "export", "backup", "dump", "keys", "staff", "old", "dev", "test", "private", "tmp", "legacy")]
+    for s_i in range(V6_COUNTS["swarm_schelling_overlap"] // 3):
+        members = [w.client("swarm_schelling_overlap") for _ in range(3)]
+        base = st()
+        shared = kb_paths(8)                               # ~30% of each member's article reads are common (Schelling points)
+        vault: List[str] = []
+        for m_i, a in enumerate(members):
+            t = base + m_i * rng.uniform(600, 3600)
+            inherited = list(vault)                         # discoveries teammates made before this member started
+            own = shared[: rng.randint(5, 7)] + rng.sample([x for x in KB if x not in shared], 14)
+            rng.shuffle(own)
+            prev = None
+            for p in ["/kb/"] + own:
+                t += rng.uniform(2, 9)
+                v.page(t, a, p + (f"?cursor=h{_cur(rng)}" if p != "/kb/" else ""), prev=prev, cursor_prov="html" if p != "/kb/" else None)
+                prev = "/kb/"
+            for f_ in inherited:
+                if rng.random() < 0.85:                    # goes straight to a teammate's discovery (sometimes below it), skipping its 404s
+                    t += rng.uniform(5, 30)
+                    v.page(t, a, f_ + ("/export" if rng.random() < 0.4 else ""), prev=None, linked=False, earlier=False)
+            if m_i == 0 or rng.random() < 0.4:             # the scout (and sometimes another member) guesses URLs itself
+                for g in rng.sample(probes, rng.randint(3, 6)):
+                    t += rng.uniform(2, 6)
+                    v.page(t, a, g, prev=None, linked=False, earlier=False, status="denied")
+                found = f"/kb/vault/{_cur(rng)[:6]}"
+                t += rng.uniform(2, 6)
+                v.page(t, a, found, prev=None, linked=False, earlier=False)
+                vault.append(found)
+    for s_i in range(V6_COUNTS["swarm_disjoint_partition"] // 3):
+        members = [w.client("swarm_disjoint_partition") for _ in range(3)]
+        order = KB[:]
+        rng.shuffle(order)
+        base = st()
+        for m_i, a in enumerate(members):                  # each takes a disjoint shard of the sitemap, hours apart
+            t = base + m_i * rng.uniform(1800, 7200)
+            shard = order[m_i * 22:(m_i + 1) * 22]
+            for p in shard:
+                t += rng.uniform(3, 15)
+                v.page(t, a, p + f"?cursor=h{_cur(rng)}", prev=None, linked=False, earlier=True, cursor_prov="html")
+    for i in range(V6_COUNTS["llmjacking_prober"]):
+        a = w.client("llmjacking_prober")
+        t = st()
+        v.page(t, a, "/robots.txt", "python-httpx/0.27", prev=None, kind="other", sec=None)
+        v.page(t + 1, a, "/.well-known/mcp.json", "python-httpx/0.27", prev=None, kind="api", sec=None)
+        agentic = i % 2 == 1
+        for k in range(rng.randint(1, 3)):
+            t += rng.uniform(1, 4)
+            w.req(t, a, LLM_PATH, "python-httpx/0.27", kind="api", decoy="llmjacking_probe", strong="decoy_hit", size=200,
+                  extra={"signals": ["llmjacking_probe"],
+                         "llmjacking": {"tool_count": 6 if agentic else 0, "system_prompt_len_bucket": "1001-4000" if agentic else "1-200",
+                                        "autonomous_loop_directive": agentic}})
+    _js_counts(w)
+
+
+def to_v5_format(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """What the v5 collector would have recorded for the same traffic: three-boolean beacons, no v6 fields, no v6-only decoys (the
+    inverted link, the forged-beacon tag and the LLM endpoint did not exist: the endpoint answers 404, the inverted link is an ordinary
+    page, a forged beacon is just a beacon), and no cursor requirement (a request without a cursor succeeds)."""
+    out: List[Dict[str, Any]] = []
+    for e in events:
+        w = e.get("web")
+        if w is not None:
+            sig = set(w.get("signals", []))
+            w = {k: v for k, v in w.items() if k not in V6_EVENT_KEYS}
+            if isinstance(w.get("beacon"), dict):
+                w["beacon"] = {k: w["beacon"][k] for k in ("webdriver_present", "pointer_trail_seen", "dom_automation_props")}
+            if w.get("decoy_kind") in V6_ONLY_DECOYS:
+                dk = w.pop("decoy_kind")
+                w.pop("strong_signal", None)
+                if dk == "llmjacking_probe":
+                    e = {**e, "status": "denied"}
+            if "missing_required_cursor" in sig:
+                e = {**e, "status": "allowed"}
             e = {**e, "web": w}
         out.append(e)
     return out

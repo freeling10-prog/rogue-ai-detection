@@ -185,7 +185,7 @@ def test_leads_carry_time_since_previous_response_and_its_size(tmp_path):
     rec = hits(tmp_path / "l.jsonl")[0]
     assert rec["timing"]["since_prev_response_s"] == pytest.approx(4.0, abs=0.01)
     assert rec["timing"]["prev_response_bytes"] == len(first.data)
-    assert rec["timing"]["approx_prev_tokens"] == len(first.data) // 4
+    assert rec["timing"]["approx_prev_tokens"] == round(len(first.data) / 4)    # v6: the code rounds; the old // only matched by size luck
 
 
 def test_tarpit_stays_capped_on_new_surfaces(tmp_path):

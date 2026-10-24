@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from .detectors import is_asset, page_requests, run_detectors, ttna_stats
+from .frontierdetect import R11_FAMILY
 from .models import Finding, Request, Session
 
 SEVERITIES = ("info", "low", "medium", "high", "critical")
@@ -263,11 +264,12 @@ def _agent(feat: dict[str, Any], findings: list[Finding], cfg: dict[str, Any], r
         score += pts
         reasons.append(f"+{pts} {len(earlier)} jump(s) to URLs offered on an earlier page but not the previous one, no valid Referer "
                        "(weak: breadth-first crawlers, new tabs and typed bookmarks look the same)")
-    hl = [f for f in webf if f.kind == "headless_automation_signal"]
+    hl = [f for f in webf if f.kind in R11_FAMILY and f.kind != "parasitic_session_fork"]     # v6: whole R11 family, scored once
     if any(f.data.get("strong") for f in hl):
         strong_hl = next(f for f in hl if f.data.get("strong"))
         score += w["headless_automation_signal"]
-        reasons.append(f"+{w['headless_automation_signal']} headless/browser-automation signal ({strong_hl.data['reason']}): {strong_hl.summary}")
+        reasons.append(f"+{w['headless_automation_signal']} browser-backed mimic signal {strong_hl.kind} "
+                       f"({strong_hl.data.get('reason', '')}): {strong_hl.summary}")
     elif hl:
         score += w["headless_beacon_missing"]
         reasons.append(f"+{w['headless_beacon_missing']} {hl[0].summary}")
@@ -275,13 +277,15 @@ def _agent(feat: dict[str, Any], findings: list[Finding], cfg: dict[str, Any], r
         reasons.append(f"0 advisory (no points): {f.summary}")
     for kind, text in (("schema_param", "camouflaged schema parameter used (read the decoy openapi.json and used what it advertised)"),
                        ("session_canary_param", "replayed the per-session canary that is only served inside machine-readable docs"),
-                       ("mcp_list_then_call", "MCP tools/list followed by a valid tools/call")):
+                       ("mcp_list_then_call", "MCP tools/list followed by a valid tools/call"),
+                       ("schema_provenance_cursor", "used a schema-provenance cursor (only /openapi.json, /llms.txt or MCP hand it out) while browsing"),
+                       ("parasitic_session_fork", "R14 parasitic session fork: a second actor's sub-branch rides a human session")):
         if any(f.kind == kind for f in webf):
             score += w[kind]
             reasons.append(f"+{w[kind]} {text}")
     # --- honeytokens
     hw = w["honeytoken"]
-    hits = [f for f in findings if f.detector == "honeytoken"]
+    hits = [f for f in findings if f.detector == "honeytoken" and f.kind not in cfg["contact"]["context_only_kinds"]]
     if hits:
         best = max(hits, key=lambda f: hw.get(f.kind, hw["default"]))
         pts = hw.get(best.kind, hw["default"])
@@ -294,7 +298,8 @@ def _agent(feat: dict[str, Any], findings: list[Finding], cfg: dict[str, Any], r
 
 
 def _strong_headless(f: Finding) -> bool:
-    return f.detector == "web" and f.kind == "headless_automation_signal" and bool(f.data.get("strong"))
+    """v6: any STRONG member of the R11 family (and the strong browsing-session schema cursor)."""
+    return f.detector == "web" and (f.kind in R11_FAMILY or f.kind == "schema_provenance_cursor") and bool(f.data.get("strong"))
 
 
 def score_session(session: Session, cfg: dict[str, Any]) -> SessionResult:
@@ -305,7 +310,7 @@ def score_session(session: Session, cfg: dict[str, Any]) -> SessionResult:
     auto = _automation(feat, findings, cfg, reasons)
     agent = _agent(feat, findings, cfg, reasons)
     th = cfg["thresholds"]
-    hits = [f for f in findings if f.detector == "honeytoken"]
+    hits = [f for f in findings if f.detector == "honeytoken" and f.kind not in cfg["contact"]["context_only_kinds"]]
     webf = [f for f in findings if f.detector == "web"]
     ccfg = cfg["contact"]
     passive = set(ccfg["passive_kinds"])
@@ -322,8 +327,9 @@ def score_session(session: Session, cfg: dict[str, Any]) -> SessionResult:
                                f"{fl['automation_any_decoy']} (benign padding such as assets or human-like timing cannot dilute it)")
                 auto = fl["automation_any_decoy"]
                 floors_applied.append("automation:decoy_contact")
-        cands = [(fl["agent"][f.kind], f.kind) for f in hits if f.kind in fl["agent"]]
-        cands += [(fl["agent"][f.kind], f.kind) for f in webf if f.kind in fl["agent"] and (f.kind != "headless_automation_signal" or _strong_headless(f))]
+        cands = [(fl["agent"][f.kind], f.kind) for f in hits if f.kind in fl["agent"] and f.kind not in R11_FAMILY]
+        cands += [(fl["agent"][f.kind], f.kind) for f in webf if f.kind in fl["agent"]
+                  and ((f.kind not in R11_FAMILY and f.kind != "schema_provenance_cursor") or _strong_headless(f))]
         if cands:
             value, kind = max(cands)
             if agent < value:
@@ -367,7 +373,7 @@ def score_session(session: Session, cfg: dict[str, Any]) -> SessionResult:
         reasons.append("classified as a likely accidental scraper, not a goal-directed agent: only passive decoys touched "
                        f"({', '.join(sorted(hit_kinds))}), no adaptation, no schema/MCP/error-hint use. Contact is not intent; "
                        "severity is capped at medium")
-    elif any(f.kind in ("asset_starvation", "headless_automation_signal") or (f.kind == "unlinked_jump" and not f.data.get("offered_earlier")) for f in webf):
+    elif any(f.kind == "asset_starvation" or f.kind in R11_FAMILY or (f.kind == "unlinked_jump" and not f.data.get("offered_earlier")) for f in webf):
         actor = "possible_mimic"
     else:
         actor = label

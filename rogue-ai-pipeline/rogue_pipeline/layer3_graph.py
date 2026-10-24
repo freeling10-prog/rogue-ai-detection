@@ -58,8 +58,12 @@ CROSS_IP = "cross_ip_token_handoff"
 SEMANTIC = "semantic_state"
 REDACTED = "shared_redacted_token"
 TIMING_CONTENT = "timing_content"
+PARTITION = "disjoint_target_partition"
+INHERITANCE = "epistemic_discovery_inheritance"
+SWARM_KINDS = frozenset({PARTITION, INHERITANCE})
 DETERMINISTIC_CLASSES = frozenset({"handoff_token", "verification_nonce", "claim_shard"})
 CLUSTER_ATLAS = [{"id": "AML.T0051", "name": "LLM Prompt Injection", "url": "https://atlas.mitre.org/techniques/AML.T0051"}]
+SWARM_ATLAS = [{"id": "AML.T0118", "name": "Autonomous AI Agent Communication", "url": "https://atlas.mitre.org/techniques/AML.T0118"}]
 
 
 @dataclass
@@ -81,8 +85,20 @@ class EdgeInfo:
     issue_event_ids: List[str] = field(default_factory=list)
     present_event_ids: List[str] = field(default_factory=list)
 
+    detail: Dict[str, object] = field(default_factory=dict)   # v6 swarm edges: p-values, coverage, inherited paths (pseudonymous counts)
+
     def reason(self) -> str:
         """Plain-language explanation (pseudonyms only)."""
+        if self.kind == PARTITION:
+            return (f"{self.a} and {self.b} belong to a group of {self.detail.get('group_size')} sessions that split one resource family between "
+                    f"them with almost no overlap (largest pairwise lower-tail hypergeometric p = {self.detail.get('max_p'):.1e}, group p = "
+                    f"{self.detail.get('group_p'):.1e}) while "
+                    f"together covering {self.detail.get('coverage'):.0%} of its observed targets. Lag-invariant: the sessions need not overlap "
+                    f"in time (edge weight {self.weight:.2f}).")
+        if self.kind == INHERITANCE:
+            return (f"{self.holder} found {self.detail.get('paths')} rare unlinked page(s) only after failed probes; "
+                    f"{self.b if self.holder == self.a else self.a} later went straight to them (or below them) while repeating "
+                    f"{self.detail.get('sibling_share', 0.0):.0%} of those failed probes (edge weight {self.weight:.2f}).")
         if self.kind == CROSS_IP:
             other = self.b if self.holder == self.a else self.a
             return (f"Session {self.holder} was issued a {self.token_class} on IP {self.holder_ip}; session {other} presented "
@@ -119,8 +135,12 @@ class Cluster:
 
     @property
     def atlas(self) -> List[Dict[str, str]]:
-        """Approximate ATLAS tag: deterministic honeypot-token handoff means agents acted on decoy instructions."""
-        return CLUSTER_ATLAS if any(e.kind == CROSS_IP for e in self.edges) else []
+        """Approximate ATLAS tags: deterministic honeypot-token handoff means agents acted on decoy instructions (T0051); v6 swarm edges
+        (disjoint partition / discovery inheritance) mean agents shared work or knowledge (T0118, approximate)."""
+        out = list(CLUSTER_ATLAS) if any(e.kind == CROSS_IP for e in self.edges) else []
+        if any(e.kind in SWARM_KINDS for e in self.edges):
+            out += SWARM_ATLAS
+        return out
 
     @property
     def score(self) -> float:
@@ -146,6 +166,15 @@ class GraphResult:
             for m in c.members:
                 out[m] = max(out.get(m, 0.0), c.density)
         return out
+
+
+@dataclass
+class _Inheritance:
+    holder: str
+    paths: Set[str] = field(default_factory=set)
+    share: float = 0.0
+    issue: List[str] = field(default_factory=list)
+    present: List[str] = field(default_factory=list)
 
 
 def _cv(ts: Sequence[float]) -> float:
@@ -279,6 +308,134 @@ class CoordinationDetector:
                         out[(x, y)][r] = who[x]
         return out
 
+    # -- v6: lag-invariant swarm edges ----------------------------------------------------------------------------------------------
+    def partition_links(self, by_all: Dict[str, List[NormalizedEvent]]) -> Dict[Tuple[str, str], EdgeInfo]:
+        """``disjoint_target_partition``: >= ``partition_min_agents`` agents that each touched >= ``partition_min_targets`` distinct targets
+        of ONE resource family, whose pairwise overlaps are all improbably SMALL (hypergeometric lower tail P(X <= k) <= ``partition_max_p``
+        with the family's observed targets as the urn) and whose union covers >= ``partition_min_coverage`` of the targets that agents
+        OUTSIDE the group touched in that family (>= ``partition_min_outside_targets`` of them; a capture-recapture style check that the
+        urn is really exhausted).  Timing plays no
+        part, so de-synchronised swarms are caught.  Random independent readers of a large family overlap about as much as chance says and
+        get p ~ 0.5; a deliberately sharded work queue (declared orchestrator pool) looks exactly like this and must be declared."""
+        c = self.cfg
+        fam_targets: Dict[str, Dict[str, Set[str]]] = defaultdict(lambda: defaultdict(set))
+        for a, evs in by_all.items():
+            for e in evs:
+                if e.family_key and e.action in ("read", "access") and not (e.web is not None and e.web.content_kind in ("asset", "beacon")):
+                    # web: the path WITHOUT its query string (cursors make every request URL unique)
+                    fam_targets[e.family_key][a].add(e.web.path_key if e.web is not None and e.web.path_key else e.resource_key)
+        out: Dict[Tuple[str, str], EdgeInfo] = {}
+        for fam, per in fam_targets.items():
+            universe = set().union(*per.values())
+            cand = sorted((a for a, t in per.items() if len(t) >= c.partition_min_targets), key=lambda a: (-len(per[a]), a))
+            cand = cand[: c.partition_max_candidates]
+            if len(cand) < c.partition_min_agents:
+                continue
+            N = len(universe)
+            g = nx.Graph()
+            pv: Dict[Tuple[str, str], float] = {}
+            for i, x in enumerate(cand):
+                for y in cand[i + 1:]:
+                    k = len(per[x] & per[y])
+                    p = float(hypergeom.cdf(k, N, len(per[x]), len(per[y])))
+                    if p <= c.partition_max_p:
+                        g.add_edge(x, y)
+                        pv[(min(x, y), max(x, y))] = p
+            if g.number_of_edges() < 3:
+                continue
+            for clique in nx.find_cliques(g):
+                if len(clique) < c.partition_min_agents:
+                    continue
+                union = set().union(*[per[m] for m in clique])
+                # Coverage is measured on an INDEPENDENT sample (capture-recapture): the targets OTHER agents touched in this family.
+                # Disjoint random reads of an effectively unbounded space (crawlers on /page/<n>) look like a partition against the
+                # observed urn; what they cannot do is cover where everybody else goes.  No outside sample -> abstain.
+                outside = set().union(*[t for a2, t in per.items() if a2 not in clique]) if len(per) > len(clique) else set()
+                if len(outside) < c.partition_min_outside_targets:
+                    continue
+                cov = len(outside & union) / len(outside)
+                if cov < c.partition_min_coverage:
+                    continue
+                pairs = [(min(x, y), max(x, y)) for i, x in enumerate(clique) for y in clique[i + 1:]]
+                pmax = max(pv[q] for q in pairs)
+                # group-level surprise: sequential lower tails of each member's overlap with the union of the members before it
+                # (largest first); exact for zero overlaps, conservative ordering otherwise.  Sets the edge weight, not the test.
+                seen: Set[str] = set()
+                log_p = 0.0
+                for m in sorted(clique, key=lambda a: (-len(per[a]), a)):
+                    if seen:
+                        log_p += float(hypergeom.logcdf(len(per[m] & seen), N, len(seen), len(per[m])))
+                    seen |= per[m]
+                p_group = math.exp(max(log_p, -690.0))
+                decades = max(0.0, -log_p / LN10 + math.log10(c.partition_max_p))
+                wgt = round(min(c.partition_weight_cap, c.partition_weight + 0.05 * math.floor(decades)), 4)
+                for q in pairs:
+                    if q not in out or out[q].weight < wgt:
+                        out[q] = EdgeInfo(q[0], q[1], 0.0, 0, 0.0, 0.0, wgt, PARTITION,
+                                          detail={"group_size": len(clique), "max_p": pmax, "group_p": p_group, "coverage": round(cov, 3),
+                                                  "family_targets": N, "members": sorted(clique)})
+        return out
+
+    def inheritance_links(self, by_all: Dict[str, List[NormalizedEvent]]) -> Dict[Tuple[str, str], EdgeInfo]:
+        """``epistemic_discovery_inheritance``: session A requests >= ``inheritance_min_404`` URLs that fail, then an UNLINKED URL that
+        succeeds and is rare (requested by <= ``inheritance_rare_max_agents`` agents in the batch): a discovery.  Session B LATER requests
+        that exact path or a sub-path, unlinked, while repeating at most ``inheritance_max_sibling_share`` of A's failed probes.  This is
+        how a Schelling-point swarm that deliberately overlaps ~30% still leaks: knowledge, not timing or targets, is shared.
+        Pseudonymous path-prefix keys only; a person who shares a link they found after typos with a colleague looks the same."""
+        c = self.cfg
+        uses: Dict[str, Set[str]] = defaultdict(set)
+        for a, evs in by_all.items():
+            for e in evs:
+                if e.web is not None and e.web.path_key:
+                    uses[e.web.path_key].add(a)
+        disc: List[Tuple[str, NormalizedEvent, Set[str]]] = []
+        for a, evs in by_all.items():
+            fails: List[str] = []
+            for e in evs:
+                w = e.web
+                if w is None or w.content_kind in ("asset", "beacon") or not w.path_key:
+                    continue
+                if e.denied:
+                    fails.append(w.path_key)
+                    continue
+                unlinked = w.linked_from_prev is False and not w.referer_valid and not w.offered_earlier
+                if unlinked and len(fails) >= c.inheritance_min_404 and len(uses[w.path_key]) <= c.inheritance_rare_max_agents:
+                    disc.append((a, e, set(fails)))
+        if not disc:
+            return {}
+        later: Dict[str, List[NormalizedEvent]] = {}
+        for a, evs in by_all.items():
+            later[a] = [e for e in evs if e.web is not None and e.web.content_kind not in ("asset", "beacon") and e.status == "allowed"
+                        and e.web.linked_from_prev is False and not e.web.referer_valid]
+        found: Dict[Tuple[str, str], _Inheritance] = {}
+        for a, de, failed in disc:
+            key = de.web.path_key if de.web is not None else None
+            if key is None:
+                continue
+            for b, evs in later.items():
+                if b == a:
+                    continue
+                hit = next((e for e in evs if e.ts > de.ts and e.web is not None and key in e.web.prefix_keys), None)
+                if hit is None:
+                    continue
+                b_paths = {e.web.path_key for e in by_all[b] if e.web is not None and e.web.path_key}
+                share = len(failed & b_paths) / len(failed)
+                if share > c.inheritance_max_sibling_share:
+                    continue
+                q = (min(a, b), max(a, b))
+                rec = found.setdefault(q, _Inheritance(a))
+                rec.paths.add(key)
+                rec.share = max(rec.share, share)
+                rec.issue.append(de.event_id)
+                rec.present.append(hit.event_id)
+        out: Dict[Tuple[str, str], EdgeInfo] = {}
+        for q, rec in found.items():
+            wgt = round(min(c.inheritance_weight_cap, c.inheritance_weight + c.inheritance_weight_step * (len(rec.paths) - 1)), 4)
+            out[q] = EdgeInfo(q[0], q[1], 0.0, 0, 0.0, 0.0, wgt, INHERITANCE, len(rec.paths), 0.0, holder=rec.holder,
+                              issue_event_ids=rec.issue, present_event_ids=rec.present,
+                              detail={"paths": len(rec.paths), "sibling_share": round(rec.share, 3)})
+        return out
+
     # -- main ----------------------------------------------------------------------------------------
     def detect(self, by_agent: Dict[str, List[NormalizedEvent]]) -> GraphResult:
         c = self.cfg
@@ -321,6 +478,18 @@ class CoordinationDetector:
                                        issue_event_ids=[l["issue_event"] for l in lk] + list(rd.values()),
                                        present_event_ids=[l["present_event"] for l in lk])
                 proj.add_edge(pair[0], pair[1], weight=w, state=(ss > 0 or bool(rd)))
+        swarm: Dict[Tuple[str, str], EdgeInfo] = {}
+        if c.partition_enabled:
+            swarm.update(self.partition_links(by_all))
+        if c.inheritance_enabled:
+            for q, e in self.inheritance_links(by_all).items():
+                if q not in swarm or swarm[q].weight < e.weight:
+                    swarm[q] = e
+        for q, e in swarm.items():
+            if q in edges and edges[q].weight >= e.weight:
+                continue
+            edges[q] = e
+            proj.add_edge(q[0], q[1], weight=e.weight, state=True)
         clusters: List[Cluster] = []
         for comp in self.split_components(proj):
             if len(comp) < c.min_cluster_size:

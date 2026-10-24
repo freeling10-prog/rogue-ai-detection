@@ -39,6 +39,7 @@ from agent_gateway import approve, capability
 from agent_gateway.pep import PepConfig, PolicyEngine
 from agent_gateway.registry import Registry
 from agent_gateway.scrub import _PATTERNS, scrub_obj, scrub_text
+from agent_gateway.side_channel_guard import SideChannelPolicy
 from agent_gateway.taint import SharedState
 from tests.conftest import KEY_A, KEY_B
 
@@ -102,7 +103,12 @@ class PepPolicyMachine(RuleBasedStateMachine):
         os.environ["AGENT_GATEWAY_STATE_DIR"] = self._td.name
         os.environ["AGENT_GATEWAY_HMAC_KEY"] = HMAC
         self.frozen_a = False
-        cfg = PepConfig(registry_path=REG, alert_log=Path(self._td.name) / "alerts.jsonl")
+        # This machine models the v1 gates. The side-channel guard counts
+        # post-trifecta traffic and would freeze KEY_A on its own; it has its
+        # own machine (SideChannelMachine), so its thresholds are lifted here.
+        cfg = PepConfig(registry_path=REG, alert_log=Path(self._td.name) / "alerts.jsonl",
+                        side_channel=SideChannelPolicy(max_distinct=10**6, max_calls=10**6,
+                                                       beacon_min_intervals=10**6))
         self.engine = PolicyEngine(Registry.load(REG), shared=SharedState(), cfg=cfg)
 
     def teardown(self):

@@ -69,6 +69,15 @@ def main(argv: list[str] | None = None) -> int:
              "(default: <input_dir>/decision-log.jsonl or alerts.jsonl if present)",
     )
 
+    audit.add_argument(
+        "--tool-inventory",
+        type=Path,
+        default=None,
+        help="Tool list JSON (MCP tools/list shape, optional class labels) for the toxic-combination "
+             "graph (default: <input_dir>/tool-inventory.json if present). Enough on its own for a "
+             "tool-list-only audit.",
+    )
+
     verify = sub.add_parser(
         "verify",
         help="Check audit_manifest.json digests and the decision-log hash chain (offline)",
@@ -111,8 +120,12 @@ def main(argv: list[str] | None = None) -> int:
         if args.decision_log is not None and not args.decision_log.is_file():
             print(f"error: decision log not found: {args.decision_log}", file=sys.stderr)
             return 2
+        if args.tool_inventory is not None and not args.tool_inventory.is_file():
+            print(f"error: tool inventory not found: {args.tool_inventory}", file=sys.stderr)
+            return 2
         try:
-            doc = write_report(args.input_dir, out, pdf=not args.no_pdf, decision_log=args.decision_log)
+            doc = write_report(args.input_dir, out, pdf=not args.no_pdf, decision_log=args.decision_log,
+                               tool_inventory=args.tool_inventory)
         except AuditInputError as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 2

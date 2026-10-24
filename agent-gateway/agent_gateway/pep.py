@@ -13,6 +13,15 @@ Safety:
 - Every decision-log line is SHA-256 hash-chained (``audit_chain.py``).
 - Outbound arguments are checked against fingerprints of sensitive reads and
   canaries across steps and encodings (``deobfuscate.py``, approximate AML.T0086).
+- URI / host arguments are canonicalized and checked for SSRF and cloud
+  metadata targets (``egress_uri_guard.py``, approximate AML.T0053).
+- Untrusted tool output is scanned for invisible-Unicode smuggling, delimiter
+  spoofing, and cross-tool name shadowing (``tool_output_scanner.py``,
+  approximate AML.T0051).
+- Post-trifecta oracle and timing beacons are held (``side_channel_guard.py``,
+  approximate AML.T0086).
+- ``tools/list`` inventories are analyzed for multi-hop toxic combinations
+  (``toxic_combinations.py``).
 """
 from __future__ import annotations
 
@@ -32,6 +41,9 @@ from . import approve, capability
 from .approval_webhook import build_approval_payload, consume_approve_once, deliver_webhook
 from .audit_chain import ChainWriter
 from .deobfuscate import DeobfuscationGuard
+from .egress_uri_guard import DEFAULT_LAB_ALLOW, inspect_arguments
+from .side_channel_guard import SideChannelGuard, SideChannelPolicy
+from . import tool_output_scanner, toxic_combinations
 from .paths import default_registry_path
 from .registry import Registry
 from .scrub import scrub_obj
@@ -69,7 +81,14 @@ _AWAITING_APPROVAL = frozenset({
     "post_taint_outbound_gated",
     "oob_required_creds_while_tainted",
     "mcp_rug_pull_hold",
+    "session_review_hold",
+    "ssrf_internal_target_hold",
 })
+# Default sink names for cross-tool shadowing when a session has no tools/list.
+_DEFAULT_SINK_TOOLS = tuple(sorted(
+    name for name, ec in TOOL_EGRESS.items() if ec in (EGRESS_WRITE, EGRESS_SEND, EGRESS_CREDS)
+    and name not in SENSITIVE_READ_TOOLS
+))
 
 
 @dataclass
@@ -85,6 +104,11 @@ class PepConfig:
     max_delegation_depth: int = 1
     max_children_per_parent: int = 3
     alert_log: Optional[Path] = None
+    # Literal loopback hosts lab fixtures may use. Any other spelling of them is denied.
+    ssrf_lab_allow: frozenset = DEFAULT_LAB_ALLOW
+    side_channel: SideChannelPolicy = field(default_factory=SideChannelPolicy)
+    # Lab-only: simulated result body for a tool name (tests feed untrusted output here).
+    lab_fixture_outputs: dict = field(default_factory=dict)
 
 
 def shannon_entropy(s: str) -> float:
@@ -168,6 +192,9 @@ class PolicyEngine:
         self.alert_path.parent.mkdir(parents=True, exist_ok=True)
         self.chain = ChainWriter(self.alert_path)
         self.deob = DeobfuscationGuard()
+        self.side_channel = SideChannelGuard(self.cfg.side_channel)
+        self.inventories: dict[str, dict[str, dict]] = {}
+        self.toxic: dict[str, dict] = {}
         self.findings: list[dict] = []
         self._clock = time.time
 
@@ -306,9 +333,11 @@ class PolicyEngine:
             self._taint(sess, f"untrusted_tools_list:{server_name}", source_id=src)
             self._alert("taint_tools_list", {"session_id": session_id, "server": server_name,
                                             "n_descriptions": len(descriptions or [])})
+        toxic = self.record_inventory(session_id, descriptions or [])
         return {
             "ok": True,
             "tainted": sess.tainted,
+            "toxic_combinations": toxic,
             "tools": descriptions or [],
             "scrubbed_log": scrub_obj({"method": "tools/list", "server": server_name}),
         }
@@ -383,9 +412,29 @@ class PolicyEngine:
                 oob_memo["ok"] = self._try_oob(sess, step, tool_name, args, approval_token)
             return oob_memo["ok"]
 
-        # --- MCP rug pull: every call waits for a person (approximate AML.T0051) ---
+        # --- Review hold (MCP rug pull, side channel): every call waits for a person ---
         if sess.review_hold and not oob():
-            return self._deny(sess, step, tool_name, args, "mcp_rug_pull_hold", -32050, atlas="AML.T0051")
+            if sess.review_hold == "mcp_rug_pull_detected":
+                return self._deny(sess, step, tool_name, args, "mcp_rug_pull_hold", -32050, atlas="AML.T0051")
+            return self._deny(sess, step, tool_name, args, "session_review_hold", -32051, atlas="AML.T0086")
+
+        # --- SSRF / cloud metadata in any URI or host argument (approximate AML.T0053) ---
+        uri = inspect_arguments(args, self.cfg.ssrf_lab_allow)
+        if uri is not None:
+            finding = {"kind": "ssrf_boundary_violation", "session_id": sess.session_id, "step": step,
+                       "tool": tool_name, **uri.as_dict()}
+            released = uri.verdict == "hold" and oob()
+            finding["released_by_oob"] = released
+            self.findings.append(finding)
+            self._alert("ssrf_boundary_violation", finding)
+            if uri.verdict == "deny":
+                out = self._deny(sess, step, tool_name, args, "ssrf_boundary_violation", -32032, atlas="AML.T0053")
+                out["uri"] = uri.as_dict()
+                return out
+            if not released:
+                out = self._deny(sess, step, tool_name, args, "ssrf_internal_target_hold", -32034, atlas="AML.T0053")
+                out["uri"] = uri.as_dict()
+                return out
 
         # --- spawn quotas (AML.T0118) ---
         if tool_name == "spawn_subagent" or eclass == EGRESS_SPAWN:
@@ -497,7 +546,8 @@ class PolicyEngine:
 
         # --- Allowlisted constrained sink (falsification test 7 / usability DoS fix) ---
         if egress_closed and tool_name == "update_ticket_status" and _is_constrained_ticket_status(args) and not _has_free_text_sink(args):
-            return self._release(sess, step, tool_name, args, eclass, constrained=True)
+            return self._release(sess, step, tool_name, args, eclass, constrained=True,
+                                 approved=oob_memo.get("ok", False))
 
         # --- Block write/send/creds/bus while tainted unless bound OOB (spacers never clear taint) ---
         if egress_closed and eclass in BLOCKED_EGRESS_WHILE_TAINTED:
@@ -514,10 +564,10 @@ class PolicyEngine:
         if tool_name == "credentials.pass_through":
             return self._deny(sess, step, tool_name, args, "credentials_pass_through_refused", -32012)
 
-        return self._release(sess, step, tool_name, args, eclass)
+        return self._release(sess, step, tool_name, args, eclass, approved=oob_memo.get("ok", False))
 
     def _release(self, sess: SessionState, step: int, tool_name: str, args: dict, eclass: str,
-                 constrained: bool = False) -> dict:
+                 constrained: bool = False, approved: bool = False) -> dict:
         """Last gate before an allowed call leaves: cross-step / encoded exfil (approximate AML.T0086).
 
         Arguments are appended to the session window only when the call is
@@ -539,7 +589,63 @@ class PolicyEngine:
                 out["frozen_agents"] = frozen
                 return out
             self.deob.commit(sess.session_id, tool_name, args)
+        # A call a person released with a bound OOB token is not oracle traffic.
+        if outbound and sess.tainted and sess.sensitive_read and not approved:
+            now = self.now()
+            sig = self.side_channel.check(sess.session_id, tool_name, args, now)
+            if sig is not None:
+                finding = {"kind": "covert_side_channel_suspected", "session_id": sess.session_id,
+                           "step": step, "tool": tool_name, **sig.as_dict()}
+                self.findings.append(finding)
+                self._alert("covert_side_channel_suspected", finding)
+                sess.review_hold = "covert_side_channel_suspected"
+                frozen = self._freeze_root(sess.agent_key, "covert_side_channel_suspected")
+                out = self._deny(sess, step, tool_name, args, "covert_side_channel_suspected", -32033,
+                                 atlas="AML.T0086")
+                out["side_channel"] = sig.as_dict()
+                out["frozen_agents"] = frozen
+                return out
+            self.side_channel.commit(sess.session_id, tool_name, args, now)
         return self._allow(sess, step, tool_name, args, eclass, constrained=constrained)
+
+    # --- Inventory, output scanning ------------------------------------------------
+
+    def record_inventory(self, session_id: str, tools: list[dict]) -> dict:
+        """Merge a tools/list into the session inventory and re-run the toxic-flow analysis."""
+        inv = self.inventories.setdefault(session_id, {})
+        for tool in tools:
+            if isinstance(tool, dict) and tool.get("name"):
+                inv[str(tool["name"])] = tool
+        report = toxic_combinations.analyze(list(inv.values())).as_dict()
+        self.toxic[session_id] = report
+        totals = report["totals"]
+        if totals["toxic"]:
+            self._alert("toxic_combinations", {"session_id": session_id, "totals": totals,
+                                               "atlas": "AML.T0086", "atlas_approximate": True})
+        return totals
+
+    def sink_tools(self, session_id: str) -> list[str]:
+        inv = self.inventories.get(session_id)
+        if inv:
+            return tool_output_scanner.sink_tools_from(inv.values())
+        return list(_DEFAULT_SINK_TOOLS)
+
+    def scan_tool_output(self, agent_key: str, session_id: str, tool_name: str, result: Any) -> dict:
+        """Scan untrusted output before it reaches the agent loop (approximate AML.T0051).
+
+        Any finding taints the session and attenuates its ``agw1.`` capability.
+        Returns ``{"findings": [...], "result": <invisible characters removed>}``.
+        """
+        found = [f.as_dict() for f in tool_output_scanner.scan_output(result, self.sink_tools(session_id))]
+        if found:
+            sess = self.get_session(session_id, agent_key)
+            self._taint(sess, f"tool_output_injection:{tool_name}", source_id=f"tool_output:{tool_name}")
+            finding = {"kind": "tool_output_injection", "session_id": session_id, "tool": tool_name,
+                       "signals": found, "atlas": "AML.T0051", "atlas_approximate": True,
+                       "allow_egress": bool(sess.allow_egress)}
+            self.findings.append(finding)
+            self._alert("tool_output_injection", finding)
+        return {"findings": found, "result": tool_output_scanner.sanitize_output(result) if found else result}
 
     # --- MCP wire-proxy hooks (mcp_proxy.py) -------------------------------------
 
@@ -692,14 +798,23 @@ class PolicyEngine:
             self.deob.register(result["secret"], label=tool_name, session_id=sess.session_id)
         if tool_name in ("read_external_url", "web.fetch", "fetch_url"):
             result["body"] = "untrusted content from lab fixture"
+        if tool_name in self.cfg.lab_fixture_outputs:
+            result["body"] = self.cfg.lab_fixture_outputs[tool_name]
         if tool_name == "lookup_order_status":
             result["order_id"] = args.get("order_id", 123)
             result["status"] = "shipped"
-        return {
+        output_findings: list[dict] = []
+        if tool_name in UNTRUSTED_INGEST_TOOLS or eclass == EGRESS_EXTERNAL_READ:
+            scanned = self.scan_tool_output(sess.agent_key, sess.session_id, tool_name, result)
+            output_findings, result = scanned["findings"], scanned["result"]
+        out = {
             "ok": True, "allowed": True, "tool": tool_name, "egress_class": eclass,
             "step_index": step, "tainted": sess.tainted, "sensitive_read": sess.sensitive_read,
             "constrained_sink": constrained, "result": result, "scrubbed_args": scrub_obj(args),
         }
+        if output_findings:
+            out["output_findings"] = output_findings
+        return out
 
 
 def create_app(cfg: Optional[PepConfig] = None, engine: Optional[PolicyEngine] = None) -> Flask:

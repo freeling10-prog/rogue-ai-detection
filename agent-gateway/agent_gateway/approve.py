@@ -2,6 +2,11 @@
 
 Token = HMAC over (session_id, step_index, tool_name, sha256(canonical_args), taint_source_id).
 One-time use; argument swap and replay are rejected (ATLAS AML.T0051 / AML.T0053 policy gate).
+
+Separate from the session capability macaroon in ``capability.py``. OOB is the
+one-time, hash-bound exception that authorizes a single gated call. The
+capability chain is what attenuation uses to deny egress without a shared
+session table.
 """
 from __future__ import annotations
 
@@ -13,6 +18,8 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
+from .capability import hmac_key as _hmac_key
+
 
 def state_dir() -> Path:
     raw = os.environ.get("AGENT_GATEWAY_STATE_DIR")
@@ -22,11 +29,6 @@ def state_dir() -> Path:
         p = Path.home() / ".local" / "state" / "agent-gateway"
     (p / "approvals").mkdir(parents=True, exist_ok=True)
     return p
-
-
-def _hmac_key() -> bytes:
-    env = os.environ.get("AGENT_GATEWAY_HMAC_KEY", "agent-gateway-lab-hmac-key-32b!!")
-    return env.encode()
 
 
 def canonical_args_hash(arguments: Any) -> str:

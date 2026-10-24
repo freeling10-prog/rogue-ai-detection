@@ -306,8 +306,10 @@ every log sink, not only that one:
 | gunicorn access log | off by default (`accesslog = None`) **and** a no-op even if someone forces `--access-logfile -` |
 
 Policy for every message: percent-decode, run the salted-hash scrubber, **drop query strings entirely** (`?[query-redacted]`),
-mask the honeypot's own decoy keys/passwords/canary phrases/session canaries and long opaque path segments. The tests start the
-**real** servers (`tests/test_console_logs.py`): the dev server, and gunicorn with the shipped config including a forced
+mask the honeypot's own decoy keys/passwords/canary phrases/session canaries and long opaque path segments.
+`tests/test_safelog_stateful.py` is a Hypothesis `RuleBasedStateMachine` (80 examples, 8 steps) that appends those patterns — including percent-encoding and query strings — and checks `safe_text` never emits them. It does not change honeypot blocking: public visitors stay human-review only.
+
+The console tests start the **real** servers (`tests/test_console_logs.py`): the dev server, and gunicorn with the shipped config including a forced
 access log, send fake `sk-…`/`AKIA…`/e-mail/token/nonce/decoy-key values in query strings, paths and headers plus malformed raw-socket
 requests (bad HTTP version, bad header, bad method, 70 kB request line, bad JSON), stop them with SIGINT and grep captured
 stdout/stderr; the same traffic against the previous code leaks the raw query line (confirmed by hand). Not covered: anything third-party

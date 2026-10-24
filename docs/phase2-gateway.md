@@ -19,6 +19,7 @@ This is **not** a WAF, **not** malware, and **not** for blocking public web visi
 | Egress classes; block external *parameter* egress when TAINTED∧SENSITIVE_READ (lethal-trifecta style gate) | AML.T0086 |
 | `max_delegation_depth=1`, `max_children_per_parent=3`; bus taint propagation; R12 freeze (15 min) on Root Parent Principal; auto-lift; local alert log | AML.T0118 |
 | Allowlisted constrained sinks (`update_ticket_status` int/enum/ID) without OOB; free-text still gated | usability DoS fix |
+| Chained HMAC capability (macaroon-style). Untrusted ingest appends `allow_egress=false`; the caveat cannot be stripped | **AML.M0030** (attenuation) |
 
 ## Layout
 
@@ -26,6 +27,7 @@ This is **not** a WAF, **not** malware, and **not** for blocking public web visi
 agent-gateway/
 ├── agent_gateway/
 │   ├── pep.py          # PolicyEngine + Flask JSON-RPC interceptor
+│   ├── capability.py   # Chained HMAC capability tokens (macaroon-style)
 │   ├── approve.py      # Bound OOB HMAC mint/verify
 │   ├── taint.py        # Session taint, egress classes, scratchpad/bus
 │   ├── registry.py     # Registered keys; root-parent freeze
@@ -34,7 +36,9 @@ agent-gateway/
 ├── config/agents.json
 ├── tests/
 │   ├── test_basic.py
-│   └── test_pep_falsification.py   # 7 ATLAS regression cases
+│   ├── test_pep_falsification.py   # 7 ATLAS regression cases
+│   ├── test_capability_attenuation.py
+│   └── test_stateful_fuzz.py       # Hypothesis RuleBasedStateMachine
 └── README.md
 ```
 
@@ -47,12 +51,45 @@ agent-gateway/
 - No deploy / push / merge from this workstream.
 - No outbound network from the gateway except optional webhook stub (**default OFF**).
 
+## Capability tokens
+
+Session capabilities are separate from the one-time OOB approval in `approve.py`.
+
+```
+agw1.<base64url(json)>.<hex HMAC-SHA256>
+
+json = {"v":1,"id":"<session_id>","caveats":[...]}
+sig0 = HMAC-SHA256(root_key, "agw1|" + session_id)
+sig_i = HMAC-SHA256(sig_{i-1}, caveat_i)
+```
+
+Minted caveats: `bind:session=<sha256("session|"+id)[:32]>`, `bind:agent=<sha256("agent|"+key)[:32]>`, `allow_egress=true`.
+
+On untrusted ingest the PEP appends `allow_egress=false` and `taint_source=<id>` and returns the new token (`capability_token`, `allow_egress`). Egress is monotonic: a later `allow_egress=true` does not restore it. Dropping or reordering caveats fails verification. Any worker that has `AGENT_GATEWAY_HMAC_KEY` can recompute the chain; it does not need the other worker's session table.
+
+The root key is the trust root (a worker can mint a fresh allowing token for a session it has never seen). What a token holder cannot do is upgrade an attenuated chain. On a worker that already stored the attenuated token, replaying the earlier allowing discharge is rejected (`capability_upgrade_rejected`).
+
+A valid hash-bound OOB token is still the only one-shot bypass of a closed egress, and it does not remove the deny caveat. Freeze still applies only to keys in `config/agents.json`. The web honeypot is unchanged (human-review only).
+
+## Stateful fuzzing
+
+Hypothesis `RuleBasedStateMachine` (package pin `hypothesis==6.170.9`):
+
+| Machine | max_examples | stateful steps |
+|---|---|---|
+| `PepPolicyMachine` (`agent-gateway/tests/test_stateful_fuzz.py`) | 40 | 16 |
+| `GatewayScrubMachine` (same file) | 80 | 8 |
+| `SafelogMachine` (`agent-watch/tests/test_safelog_stateful.py`) | 80 | 8 |
+
+Properties: blocked write/send/creds egress after taint requires a valid OOB token; fan-out stays ≤ 3 in any order; freeze does not apply to unregistered keys; scrubber outputs do not contain configured secret patterns.
+
 ## Test counts (this pass)
 
 | Suite | Result |
 |---|---|
-| `agent-gateway` full pytest | **14 passed** (7 basic + **7/7 falsification**) |
+| `agent-gateway` full pytest | **29 passed** (7 basic + **7/7 falsification** + 10 attenuation + 5 stateful) |
 | Falsification `tests/test_pep_falsification.py` | **7/7 pass** |
+| `agent-watch` full pytest (safelog machine included) | **512 passed, 2 skipped** |
 
 ### Falsification results
 

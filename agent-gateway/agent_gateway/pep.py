@@ -8,6 +8,8 @@ Safety:
 - freeze/block apply ONLY to keys in config/agents.json.
 - Web honeypot / public visitors: never auto-blocked (out of scope here).
 - No outbound network from the gateway except optional webhook stub (default OFF).
+- Session capabilities are chained HMAC tokens. Untrusted ingest appends
+  ``allow_egress=false``; that caveat cannot be stripped without the root key.
 """
 from __future__ import annotations
 
@@ -22,7 +24,7 @@ from typing import Any, Optional
 
 from flask import Flask, Response, jsonify, request
 
-from . import approve
+from . import approve, capability
 from .registry import Registry
 from .scrub import scrub_obj
 from .taint import (
@@ -133,7 +135,82 @@ class PolicyEngine:
             root = (rec.principal_key if rec else agent_key) or agent_key
             s = SessionState(session_id=session_id, agent_key=agent_key, root_parent_key=root)
             self.sessions[session_id] = s
+        if not s.capability_token:
+            self._install_fresh_capability(s)
         return s
+
+    def _install_fresh_capability(self, sess: SessionState) -> None:
+        mac = capability.mint(sess.session_id, sess.agent_key)
+        sess.capability_token = capability.serialize(mac)
+        sess.allow_egress = mac.allows_egress
+
+    def _taint(self, sess: SessionState, reason: str, source_id: str = "") -> None:
+        """Mark TAINTED and attenuate the session capability in place."""
+        safe = capability.sanitize_source(source_id) if source_id else ""
+        sess.mark_tainted(reason, source_id=safe)
+        self._attenuate_session(sess)
+
+    def _attenuate_session(self, sess: SessionState) -> None:
+        """Append deny-egress caveats. The previous tag cannot strip them."""
+        mac = capability.verify(sess.capability_token) if sess.capability_token else None
+        if mac is None:
+            mac = capability.mint(sess.session_id, sess.agent_key)
+            if sess.tainted or not sess.allow_egress:
+                mac = capability.attenuate(mac, capability.CAVEAT_DENY_EGRESS)
+        elif mac.allows_egress:
+            mac = capability.attenuate(mac, capability.CAVEAT_DENY_EGRESS)
+        source = sess.taint_source_id or ""
+        if source:
+            caveat = capability.taint_source_caveat(source)
+            if caveat not in mac.caveats:
+                mac = capability.attenuate(mac, caveat)
+        sess.capability_token = capability.serialize(mac)
+        sess.allow_egress = mac.allows_egress
+
+    def _adopt_presented_capability(
+        self, sess: SessionState, presented: Optional[str], agent_key: str,
+    ) -> Optional[str]:
+        """Verify a client-presented chain. Return an error code, or None.
+
+        A stateless worker needs only the HMAC secret. An attenuated chain
+        cannot be upgraded: dropping ``allow_egress=false`` fails verification,
+        and replaying an earlier allowing discharge is rejected while this
+        worker still holds the attenuated session copy.
+        """
+        if not presented:
+            return None
+        mac = capability.verify(presented)
+        if mac is None or mac.session_id != sess.session_id:
+            return "capability_rejected"
+        if not capability.agent_matches(mac, agent_key):
+            return "capability_agent_mismatch"
+        current = capability.verify(sess.capability_token) if sess.capability_token else None
+        if current is None:
+            return "capability_rejected"
+        if not current.allows_egress and mac.allows_egress:
+            return "capability_upgrade_rejected"
+        if capability.extends(current.caveats, mac.caveats):
+            sess.capability_token = capability.serialize(mac)
+            sess.allow_egress = mac.allows_egress
+            if not mac.allows_egress:
+                self._taint(sess, "capability_attenuated", source_id=mac.taint_source or "capability")
+            return None
+        # Older prefix of the in-place chain that already denies egress: keep ours.
+        if not mac.allows_egress and capability.extends(mac.caveats, current.caveats):
+            return None
+        return "capability_rejected"
+
+    def _attach_capability(self, session_id: str, out: dict) -> dict:
+        if not isinstance(out, dict):
+            return out
+        if out.get("error") in ("unregistered_agent", "agent_frozen"):
+            return out
+        sess = self.sessions.get(session_id)
+        if sess is None or not sess.capability_token:
+            return out
+        out["capability_token"] = sess.capability_token
+        out["allow_egress"] = bool(sess.allow_egress)
+        return out
 
     def _alert(self, kind: str, detail: dict) -> None:
         rec = {"ts": self.now(), "kind": kind, **scrub_obj(detail)}
@@ -143,12 +220,26 @@ class PolicyEngine:
         if self.cfg.webhook_url:
             log.warning("webhook stub configured but lab default is OFF-path; not sending: %s", kind)
 
-    def _freeze_root(self, agent_key: str, reason: str) -> None:
+    def _freeze_root(self, agent_key: str, reason: str) -> list[str]:
         ids = self.registry.freeze_root(agent_key, seconds=self.cfg.freeze_seconds, now=self.now())
-        self._alert("r12_freeze", {"agent_key_prefix": agent_key[:12], "frozen_agents": ids, "reason": reason,
-                                   "seconds": self.cfg.freeze_seconds})
+        if ids:
+            self._alert("r12_freeze", {"agent_key_prefix": agent_key[:12], "frozen_agents": ids, "reason": reason,
+                                       "seconds": self.cfg.freeze_seconds})
+        return ids
 
-    def evaluate_tools_list(self, agent_key: str, session_id: str, server_name: str, descriptions: list[dict]) -> dict:
+    def evaluate_tools_list(
+        self, agent_key: str, session_id: str, server_name: str, descriptions: list[dict],
+        capability_token: Optional[str] = None,
+    ) -> dict:
+        out = self._evaluate_tools_list(
+            agent_key, session_id, server_name, descriptions, capability_token=capability_token,
+        )
+        return self._attach_capability(session_id, out)
+
+    def _evaluate_tools_list(
+        self, agent_key: str, session_id: str, server_name: str, descriptions: list[dict],
+        capability_token: Optional[str] = None,
+    ) -> dict:
         """Ingesting tools/list from non-allowlisted MCP servers sets TAINTED (AML.T0051.001)."""
         self.registry.lift_expired(self.now())
         if not self.registry.get(agent_key):
@@ -156,6 +247,9 @@ class PolicyEngine:
         if self.registry.is_frozen_key(agent_key, self.now()):
             return {"ok": False, "error": "agent_frozen", "code": -32002}
         sess = self.get_session(session_id, agent_key)
+        rejected = self._adopt_presented_capability(sess, capability_token, agent_key)
+        if rejected:
+            return self._deny(sess, sess.step_index, "tools/list", {}, rejected, -32040, atlas="AML.M0030")
         sess.step_index += 1
         core = CORE_MCP_SERVERS | set(
             json.loads(self.cfg.registry_path.read_text()).get("core_mcp_servers") or []
@@ -164,7 +258,7 @@ class PolicyEngine:
         if (server_name or "").lower() not in {c.lower() for c in core}:
             # capability pinning: non-core description ingest = untrusted
             src = f"tools.list:{server_name or 'unknown'}"
-            sess.mark_tainted(f"untrusted_tools_list:{server_name}", source_id=src)
+            self._taint(sess, f"untrusted_tools_list:{server_name}", source_id=src)
             self._alert("taint_tools_list", {"session_id": session_id, "server": server_name,
                                             "n_descriptions": len(descriptions or [])})
         return {
@@ -184,6 +278,27 @@ class PolicyEngine:
         delegation_depth: int = 0,
         parent_key: Optional[str] = None,
         bound_step_index: Optional[int] = None,
+        capability_token: Optional[str] = None,
+    ) -> dict:
+        out = self._evaluate_call(
+            agent_key, session_id, tool_name, arguments,
+            approval_token=approval_token, delegation_depth=delegation_depth,
+            parent_key=parent_key, bound_step_index=bound_step_index,
+            capability_token=capability_token,
+        )
+        return self._attach_capability(session_id, out)
+
+    def _evaluate_call(
+        self,
+        agent_key: str,
+        session_id: str,
+        tool_name: str,
+        arguments: Optional[dict] = None,
+        approval_token: Optional[str] = None,
+        delegation_depth: int = 0,
+        parent_key: Optional[str] = None,
+        bound_step_index: Optional[int] = None,
+        capability_token: Optional[str] = None,
     ) -> dict:
         self.registry.lift_expired(self.now())
         rec = self.registry.get(agent_key)
@@ -195,6 +310,11 @@ class PolicyEngine:
                     "message": "Root Parent Principal frozen (R12); auto-lift when timer expires"}
 
         sess = self.get_session(session_id, agent_key)
+        rejected = self._adopt_presented_capability(sess, capability_token, agent_key)
+        if rejected:
+            return self._deny(
+                sess, sess.step_index, tool_name, dict(arguments or {}), rejected, -32040, atlas="AML.M0030",
+            )
         if parent_key:
             pref = self.registry.get(parent_key)
             if pref:
@@ -266,7 +386,7 @@ class PolicyEngine:
             for m in self.shared.bus:
                 out.append(m)
                 if m.get("tainted"):
-                    sess.mark_tainted("bus_taint_propagation", source_id=str(m.get("taint_source_id") or "bus"))
+                    self._taint(sess, "bus_taint_propagation", source_id=str(m.get("taint_source_id") or "bus"))
             return {"ok": True, "allowed": True, "tool": tool_name, "egress_class": eclass,
                     "tainted": sess.tainted, "result": {"messages": out}, "scrubbed_args": scrub_obj(args)}
 
@@ -293,7 +413,7 @@ class PolicyEngine:
                 if not note_id and self.shared.scratchpad:
                     entry = list(self.shared.scratchpad.values())[-1]
             if entry and entry.taint_inherited:
-                sess.mark_tainted("scratchpad_taint_inherited", source_id=f"scratchpad:{entry.note_id}")
+                self._taint(sess, "scratchpad_taint_inherited", source_id=f"scratchpad:{entry.note_id}")
             return {"ok": True, "allowed": True, "tool": tool_name, "egress_class": eclass,
                     "tainted": sess.tainted,
                     "result": None if entry is None else {
@@ -306,23 +426,25 @@ class PolicyEngine:
         if tool_name in UNTRUSTED_INGEST_TOOLS or eclass == EGRESS_EXTERNAL_READ:
             # file.read of allowlisted internal paths could be internal — treat file.read as untrusted for lab safety
             src = f"{tool_name}:{step}"
-            sess.mark_tainted(f"untrusted_ingest:{tool_name}", source_id=sess.taint_source_id or src)
+            self._taint(sess, f"untrusted_ingest:{tool_name}", source_id=sess.taint_source_id or src)
         if tool_name in SENSITIVE_READ_TOOLS or eclass == EGRESS_CREDS:
             # reading creds is both sensitive and blocked while tainted without OOB
             sess.mark_sensitive()
 
         # --- Lethal trifecta gate (AML.T0086): TAINTED + SENSITIVE_READ + external param egress ---
-        if sess.tainted and sess.sensitive_read and places_params_on_external_boundary(tool_name, args):
+        # allow_egress is the capability-chain view of the same gate (monotonic caveat).
+        egress_closed = bool(sess.tainted or not sess.allow_egress)
+        if egress_closed and sess.sensitive_read and places_params_on_external_boundary(tool_name, args):
             if not self._try_oob(sess, step, tool_name, args, approval_token):
                 return self._deny(sess, step, tool_name, args, "lethal_trifecta_external_egress", -32030,
                                   atlas="AML.T0086")
 
         # --- Allowlisted constrained sink (falsification test 7 / usability DoS fix) ---
-        if sess.tainted and tool_name == "update_ticket_status" and _is_constrained_ticket_status(args) and not _has_free_text_sink(args):
+        if egress_closed and tool_name == "update_ticket_status" and _is_constrained_ticket_status(args) and not _has_free_text_sink(args):
             return self._allow(sess, step, tool_name, args, eclass, constrained=True)
 
         # --- Block write/send/creds/bus while tainted unless bound OOB (spacers never clear taint) ---
-        if sess.tainted and eclass in BLOCKED_EGRESS_WHILE_TAINTED:
+        if egress_closed and eclass in BLOCKED_EGRESS_WHILE_TAINTED:
             if not self._try_oob(sess, step, tool_name, args, approval_token):
                 err = "oob_required_while_tainted"
                 atlas = "AML.T0053"
@@ -406,7 +528,7 @@ def create_app(cfg: Optional[PepConfig] = None, engine: Optional[PolicyEngine] =
     @app.get("/health")
     def health():
         eng.registry.lift_expired(eng.now())
-        return jsonify({"ok": True, "service": "agent-gateway", "bind": "loopback", "version": "0.1.0"})
+        return jsonify({"ok": True, "service": "agent-gateway", "bind": "loopback", "version": "0.2.0"})
 
     def _agent_key_from_request(body: dict) -> str:
         auth = request.headers.get("Authorization") or ""
@@ -429,11 +551,13 @@ def create_app(cfg: Optional[PepConfig] = None, engine: Optional[PolicyEngine] =
         agent_key = _agent_key_from_request(body)
         session_id = str(params.get("session_id") or request.headers.get("X-Session-Id") or "sess-default")
 
+        cap_tok = params.get("capability_token") or request.headers.get("X-Capability-Token") or None
         if method == "tools/list":
             out = eng.evaluate_tools_list(
                 agent_key, session_id,
                 server_name=str(params.get("server") or params.get("server_name") or ""),
                 descriptions=list(params.get("tools") or params.get("descriptions") or []),
+                capability_token=str(cap_tok) if cap_tok else None,
             )
             if not out.get("ok"):
                 return jsonify({"jsonrpc": "2.0", "id": rid, "error": {"code": out.get("code", -32000), "message": out.get("error")}})
@@ -450,11 +574,15 @@ def create_app(cfg: Optional[PepConfig] = None, engine: Optional[PolicyEngine] =
                 agent_key, session_id, name, arguments,
                 approval_token=token, delegation_depth=depth, parent_key=parent,
                 bound_step_index=int(bound) if bound is not None else None,
+                capability_token=str(cap_tok) if cap_tok else None,
             )
             if not out.get("ok"):
                 return jsonify({"jsonrpc": "2.0", "id": rid, "error": {
                     "code": out.get("code", -32000), "message": out.get("message") or out.get("error"),
-                    "data": {k: out[k] for k in ("error", "tainted", "sensitive_read", "atlas", "step_index") if k in out},
+                    "data": {k: out[k] for k in (
+                        "error", "tainted", "sensitive_read", "atlas", "step_index",
+                        "allow_egress", "capability_token",
+                    ) if k in out},
                 }})
             return jsonify({"jsonrpc": "2.0", "id": rid, "result": out})
 
@@ -466,6 +594,7 @@ def create_app(cfg: Optional[PepConfig] = None, engine: Optional[PolicyEngine] =
         body = request.get_json(force=True, silent=True) or {}
         agent_key = _agent_key_from_request(body) or str(body.get("agent_key") or "")
         bound = body.get("bound_step_index")
+        cap_tok = body.get("capability_token") or request.headers.get("X-Capability-Token") or None
         out = eng.evaluate_call(
             agent_key,
             str(body.get("session_id") or "sess"),
@@ -475,6 +604,7 @@ def create_app(cfg: Optional[PepConfig] = None, engine: Optional[PolicyEngine] =
             delegation_depth=int(body.get("delegation_depth") or 0),
             parent_key=body.get("parent_key"),
             bound_step_index=int(bound) if bound is not None else None,
+            capability_token=str(cap_tok) if cap_tok else None,
         )
         return jsonify(out), (200 if out.get("ok") else 403)
 

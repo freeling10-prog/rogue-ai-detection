@@ -4,6 +4,32 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
+## [Unreleased] - fail-closed HMAC key
+
+- `capability.hmac_key()` now raises if `AGENT_GATEWAY_HMAC_KEY` is unset or
+  shorter than 32 bytes. The built-in lab key is used only with an explicit
+  `allow_default=True`. The CLI exits with code 2 and a clear message at
+  startup. The test suite sets its own key.
+- `examples/replay_attenuation.py`: in-process replay against the real
+  `PolicyEngine` with simulated backends (one denied call, allowed calls, a
+  failed re-enable of egress, and the direct-call limit).
+- `docs/tool-classification.md`: egress classes, and that unknown tools fail
+  closed as writes once tainted. Quickstart examples now generate a random
+  32-byte key. The replay asserts the direct-bypass limit. README notes that
+  key rotation is not supported.
+- HTTP resource limits (`max_body_bytes`, `max_arg_bytes`, `max_sessions`,
+  `max_id_len`) with tests. `docs/integration-contract.md` and
+  `examples/gated_dispatch.py` state the caller's side of the boundary. Two
+  more synthetic boundary notes under `docs/examples/`.
+- Offer page, README, and site pricing now show the Tool Inventory Review
+  ($1,800), Fixed Note ($4,500), Note + Lab Instrumentation ($6,500), and
+  the add-ons. The marketing drafts (`outreach-sequence.md`, `ciso-outreach.md`,
+  `marketing/README.md`, `la-targets.md`) were aligned to the same tiers.
+  `show-hn.md`, `reddit-localllama.md`, and the checklist quote no prices
+  and are unchanged.
+- README: "What this is not" box, boundary replay command, and a "Known
+  non-goals and bypasses wanted" section.
+
 ## [Unreleased] - v10 delegation guard, argument firewall, canary watermarking, SARIF
 
 All four are zero-compute (standard library; no model calls). ATLAS ids
@@ -174,5 +200,5 @@ created by this change.
   the policy decision.
 - Tool backends inside the gateway are simulated echoes. There is no Web
   Bot Auth in this tree.
-- The GitHub repository is still private. `LICENSE` does not make it
-  public.
+- The repository is public under Apache 2.0. The paid audit is a separate
+  written service and does not change the license.

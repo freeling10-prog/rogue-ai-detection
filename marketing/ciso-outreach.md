@@ -20,7 +20,7 @@ Hello [TODO: first name],
 
 Enterprise reviews of agent products now ask a concrete question: after the model reads something it did not write (a web page, a ticket, an MCP tool description), which tools can it still call, and who has to agree first?
 
-We run a 48-hour Agentic Tool-Boundary Audit for startups in that review. The clock starts when we have your tool list. You get a short written note your security reviewer can read, not a logo and not a detection-rate claim.
+We run a 48-hour Agentic Tool-Boundary Audit for startups in that review. The clock starts when we have your tool list. You get a short written note your security reviewer can read, not a logo and not a detection-rate claim. If you only want a first look, there is a one-page $1,800 Tool Inventory Review; the full note is $4,500. Terms are in `marketing/audit-offer.md`.
 
 In those 48 hours we:
 

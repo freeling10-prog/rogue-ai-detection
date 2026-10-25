@@ -18,7 +18,7 @@ Nothing in this folder has been posted or emailed by adding it to the tree. Show
 
 **[Book a 48-hour Agentic Tool-Boundary Audit](mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit)**
 
-Offer page: [audit-offer.md](audit-offer.md). **$4,500** fixed. **$6,500** with instrumentation (a lab gateway pass on `127.0.0.1`, plus an offline analyzer pass on an authorized log they supply). They can reply to that email with a tool inventory. There is no scheduling link and no company domain.
+Offer page: [audit-offer.md](audit-offer.md). **$1,800** Tool Inventory Review (one page: egress classification, top 3 taint paths, short remediation list), **$4,500** Fixed Tool-Boundary Note, or **$6,500** with instrumentation (a lab gateway pass on `127.0.0.1`, plus an offline analyzer pass on an authorized log they supply). Optional add-ons (Integration Blueprint +$2,500, Reviewer Briefing Call +$750, Quarterly Refresh Retainer $2,500 per quarter) are on the offer page. They can reply to that email with a tool inventory. There is no scheduling link and no company domain.
 
 The open core is Apache 2.0 ([LICENSE](../LICENSE), [NOTICE](../NOTICE)). The paid audit is a commercial service. It is not a second license to the code, and it is not in the Apache grant. The free GitHub Action stays free.
 

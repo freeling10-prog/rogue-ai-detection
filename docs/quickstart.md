@@ -10,6 +10,8 @@ Lab key `agk_demo_registered_0001` is the demo entry in [`config/agents.json`](.
 
 From the repository root. Requires Docker. The script is the entire program; nothing else is written into the repo.
 
+The gateway refuses to start without `AGENT_GATEWAY_HMAC_KEY` (at least 32 bytes). The commands below generate a fresh random key per run with `python -c "import secrets; print(secrets.token_hex(32))"`. Do not reuse a key from a shared or networked process.
+
 ```bash
 docker run --rm -i \
   -v "$PWD":/src:ro \
@@ -17,7 +19,7 @@ docker run --rm -i \
   -e PYTHONDONTWRITEBYTECODE=1 \
   -e PYTHONPATH=/src/agent-gateway \
   -e AGENT_GATEWAY_STATE_DIR=/tmp/agentgate-state \
-  -e AGENT_GATEWAY_HMAC_KEY=lab-quickstart-not-for-production \
+  -e AGENT_GATEWAY_HMAC_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')" \
   -e AGENT_GATEWAY_SCRUB_SALT=lab-quickstart-salt \
   python:3.12-slim \
   bash -s <<'EOS'
@@ -126,7 +128,7 @@ pip install -r requirements.txt
 export PYTHONDONTWRITEBYTECODE=1
 export PYTHONPATH=.
 export AGENT_GATEWAY_STATE_DIR="${TMPDIR:-/tmp}/agentgate-quickstart"
-export AGENT_GATEWAY_HMAC_KEY=lab-quickstart-not-for-production
+export AGENT_GATEWAY_HMAC_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')"
 export AGENT_GATEWAY_SCRUB_SALT=lab-quickstart-salt
 mkdir -p "$AGENT_GATEWAY_STATE_DIR"
 python - <<'PY'

@@ -7,7 +7,7 @@ Checked 24 October 2026. No earlier target list was in this repository. This lis
 - **High** — a primary page (the company, Y Combinator, or an SEC filing) states the LA location, and a primary page states the agent, MCP, or security-review fact used in the angle.
 - **Medium** — the product fact is primary, and the LA fact is one step removed (a job located in Los Angeles, or a directory line).
 
-Send order for the first five emails is the first five rows. Snap and Riot are real and public. They are last because a $4,500 cold note is a weak fit for a large company. Use them when you have a warmer path.
+Send order for the first five emails is the first five rows. Snap and Riot are real and public. They are last because a $4,500 cold note is a weak fit for a large company; if you reach them, the $1,800 Tool Inventory Review is the lighter first ask. Use them when you have a warmer path.
 
 Prices and limits you may repeat are only those in [audit-offer.md](audit-offer.md). Angles below are the `{{role_hook}}` source. `{{public_detail}}` must stay inside the cited page.
 
@@ -81,7 +81,7 @@ Prices and limits you may repeat are only those in [audit-offer.md](audit-offer.
 - **Suggested role:** A staff or platform engineer on the agent platform, or that group's security partner. A cold note to the company CISO is unlikely to land at this price. Prefer a warm introduction.
 - **Angle:** The Casper post says agents reach Snap systems through an MCP Gateway under a narrow identity, and the Ads MCP page warns that prompt injection can ride in with tool output. The offer is a written classification of a tool list Snap chooses to share. It is not a review of Casper, and it is not a pen-test.
 - **Public URL:** https://eng.snap.com/casper and https://developers.snap.com/marketing-api/Ads-MCP/Introduction
-- **Confidence:** High for HQ and for the agent work. Santa Monica headquarters: Snap careers calls Santa Monica the headquarters (https://careers.snap.com/santa-monica) and the 31 March 2026 Form 10-Q lists 3000 31st Street, Santa Monica. Medium for a cold $4,500 email. Do not cite unreleased internal tools beyond what those two pages say.
+- **Confidence:** High for HQ and for the agent work. Santa Monica headquarters: Snap careers calls Santa Monica the headquarters (https://careers.snap.com/santa-monica) and the 31 March 2026 Form 10-Q lists 3000 31st Street, Santa Monica. Medium for a cold $4,500 email (the $1,800 Tool Inventory Review is the lighter first ask). Do not cite unreleased internal tools beyond what those two pages say.
 
 ## 10. Riot Games
 

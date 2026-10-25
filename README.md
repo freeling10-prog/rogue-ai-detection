@@ -4,6 +4,16 @@ AgentGate is the lab policy gate in this repository. It sits in the tool loop of
 
 **Live interactive demo (public, no login):** <https://freeling10-prog.github.io/rogue-ai-detection/> · Source: [github.com/freeling10-prog/rogue-ai-detection](https://github.com/freeling10-prog/rogue-ai-detection) · Book: [alecagentboundary@gmail.com](mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit)
 
+**What this is not.** Not a production WAF. Not an injection detector. Not an OS sandbox or network isolation. Not a penetration test, a benchmark, or a certification. It governs only tool calls that are routed through it. See [Known non-goals and bypasses wanted](#known-non-goals-and-bypasses-wanted).
+
+**Run the boundary replay** (in-process, simulated backends, no network, no port):
+
+```bash
+AGENT_GATEWAY_HMAC_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')" python examples/replay_attenuation.py
+```
+
+It starts a session, ingests untrusted content, then shows one denied call, two calls that stay allowed, and one known limit. The gateway refuses to start without an explicit key of at least 32 bytes. See [examples/replay_attenuation.py](examples/replay_attenuation.py).
+
 This page is the product front door. The research write-up is the whitepaper ([PDF](docs/rogue-ai-detection-whitepaper.pdf), [Word](docs/rogue-ai-detection-whitepaper.docx)), updated 24 October 2026. Read the [lab limits](#lab-limits) before treating any number below as a deployment result.
 
 ## Choose a path
@@ -20,7 +30,19 @@ The workflow above is the free lab audit of this tree. It is not the paid review
 
 ### How to book
 
-The paid offer is the [AgentGate — 48-Hour Agentic Tool-Boundary Audit](marketing/audit-offer.md). **$4,500** fixed, or **$6,500** with instrumentation: a lab gateway pass on `127.0.0.1` and an offline analyzer pass on an authorized log you supply. Email [alecagentboundary@gmail.com](mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit) with the subject `Book 48-Hour Agentic Tool-Boundary Audit`. You can reply in that thread with a tool inventory (names and argument shapes, no secrets). The clock starts when the tool list arrives. This is not a penetration test and not a certification. The honeypot stays human-review only, freeze applies only to registered lab keys for 15 minutes, and ATLAS ids in the note are approximate.
+The free path comes first: the GitHub Action and the offline analyzer above are free, Apache 2.0, and run on your own logs.
+
+The paid offer is the [AgentGate — 48-Hour Agentic Tool-Boundary Audit](marketing/audit-offer.md), a written document and a person's time. It does not change the license or add a proprietary module.
+
+| Tier | Price | What you get |
+| --- | --- | --- |
+| Tool Inventory Review | **$1,800** | One-page egress classification, top 3 taint paths, short remediation list. No full note, no lab pass |
+| Fixed Tool-Boundary Note | **$4,500** | Full written note: classification, taint-path map, held calls, approximate ATLAS ids, remediation sketch |
+| Note + Lab Instrumentation | **$6,500** | The $4,500 note plus a lab gateway pass on `127.0.0.1` (simulated backends) and an offline analyzer pass on an authorized log you supply |
+
+Optional add-ons: Integration Blueprint (+$2,500, code or config sketches for the top held calls, nothing deployed on your hosts), Reviewer Briefing Call (+$750), Quarterly Refresh Retainer ($2,500 per quarter). All prices are fixed.
+
+Email [alecagentboundary@gmail.com](mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit) with the subject `Book 48-Hour Agentic Tool-Boundary Audit`. You can reply in that thread with a tool inventory (names and argument shapes, no secrets). The clock starts when a usable tool list arrives. This is not a penetration test and not a certification. The honeypot stays human-review only, freeze applies only to registered lab keys for 15 minutes, and ATLAS ids in the note are approximate. See an [example note](docs/examples/sample-boundary-note.md).
 
 **[Book a 48-hour Agentic Tool-Boundary Audit](mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit)**
 
@@ -101,6 +123,23 @@ That command does not deliver webhooks. Add `--webhook-url` and `--webhook-deliv
 - **Synthetic tables are same-author regression checks.** The person who wrote the detectors wrote the simulated clients. A second, larger local model was not run (about 5 GiB free RAM and no swap). There is no mid-size multimodel result to cite.
 - **Not a production WAF.** Gateway tests check the gates against cases written for them.
 
+## Known non-goals and bypasses wanted
+
+These are outside what the lab gateway does. Some are open design questions, and a report that breaks a stated claim below is welcome as an issue.
+
+- **Answer-only injections.** If untrusted text only changes what the model says and triggers no gated tool call, there is nothing for the gateway to hold. Taint gates tool egress. It does not judge the answer.
+- **Unlabeled or unrouted sources.** Taint starts only when a tool is classified as an untrusted ingest or the session is marked. A tool that is not in the classification table is treated as a write and held after taint, but an untrusted source that is never routed or labeled never taints the session. Direct calls that do not go through the gateway are not seen at all.
+- **No injection detection.** The gateway does not decide whether content is malicious. Any external read taints the session, whether or not the content is an attack. Pattern checks on arguments and tool output are lexical and best-effort.
+- **Key rotation.** Not supported or covered. There is no rotation, revocation list, or dual-key verification window. Changing `AGENT_GATEWAY_HMAC_KEY` invalidates every outstanding `agw1.` token and approval token, and the audit manifest HMAC of earlier audit directories will no longer verify under the new key.
+- **Host or key compromise.** Anyone holding `AGENT_GATEWAY_HMAC_KEY` can mint and extend capabilities. A compromised gateway host, state directory, or registered agent key defeats the boundary. There is no key rotation or hardware-backed storage here.
+- **Malicious tools at first pin.** Tool-schema pinning detects a change after the first pin (rug-pull). It cannot tell that the schema or behavior pinned the first time was already hostile.
+- **No OS sandboxing or network isolation.** The gateway is a policy check in the tool loop. It does not confine processes, files, or sockets. A tool backend with its own network path can still reach out unless the host prevents it.
+- **Tool backends in the lab pass are simulated echoes.** Nothing here shows how a real backend behaves.
+
+Tool classification, including how unknown tools fail closed, is in [docs/tool-classification.md](docs/tool-classification.md).
+
+Bypasses wanted: a way to restore egress on a tainted `agw1.` capability, to reach a gated tool without a hold, or to pass a free-text sink through the constrained status allowlist. Open an issue with the steps. ATLAS ids remain approximate.
+
 ## Evidence
 
 Full narrative, methods, and the 24 October 2026 update for v6 and Phases 1 to 3: [docs/rogue-ai-detection-whitepaper.pdf](docs/rogue-ai-detection-whitepaper.pdf) ([Word](docs/rogue-ai-detection-whitepaper.docx)). Section 4 is the loopback sample and the analyzer. Section 6 is the gateway. Section 9 is related work. Search notes for that section: [docs/prior-art.md](docs/prior-art.md) (23 October 2026; not repeated for the later update). The capability comparison that used to lead this README lives in that note and in the paper. In that search, "not found in my search" means the pages that were read did not document the capability.
@@ -140,6 +179,8 @@ The advisory offline R14 on the crawler is not the live R14 false positive. Resc
 - [rogue-ai-pipeline/README.md](rogue-ai-pipeline/README.md) — v6 pipeline.
 - [prototype-v1/README.md](prototype-v1/README.md) — first prototype (synthetic only).
 - [docs/examples/sample-replay.html](docs/examples/sample-replay.html) — static replay example. It makes no network requests.
+- [docs/examples/sample-boundary-note.md](docs/examples/sample-boundary-note.md) — anonymized example of the written tool-boundary note, built from a synthetic tool list. Two more synthetic examples: [repository-maintenance agent](docs/examples/sample-boundary-note-devops.md) and [research assistant with a third-party MCP server](docs/examples/sample-boundary-note-mcp-research.md).
+- [docs/integration-contract.md](docs/integration-contract.md) — what the gateway assumes, what the caller must enforce, resource limits, and a reference dispatcher ([examples/gated_dispatch.py](examples/gated_dispatch.py)).
 
 ## License
 
@@ -161,4 +202,4 @@ Add [`.github/workflows/atlas-agent-audit.yml`](.github/workflows/atlas-agent-au
 
 **[Book a 48-hour Agentic Tool-Boundary Audit](mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit)**
 
-One-page offer, price, and out-of-scope list: **[AgentGate — 48-Hour Agentic Tool-Boundary Audit](marketing/audit-offer.md)**. Reply to that email with a tool inventory if you already have one. $4,500 fixed, or $6,500 with instrumentation. Not a penetration test and not a certification.
+One-page offer, price, and out-of-scope list: **[AgentGate — 48-Hour Agentic Tool-Boundary Audit](marketing/audit-offer.md)**. Reply to that email with a tool inventory if you already have one. $1,800 Tool Inventory Review, $4,500 fixed note, or $6,500 with instrumentation, plus optional add-ons listed on the offer page. Not a penetration test and not a certification. The GitHub Action above is the free alternative.

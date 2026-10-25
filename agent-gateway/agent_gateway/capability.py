@@ -59,10 +59,29 @@ _CAVEAT_RE = re.compile(r"^[A-Za-z0-9_.:@=+/-]{1,512}$")
 _SIG_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
-def hmac_key() -> bytes:
-    """Shared lab root key. Workers that verify capabilities need only this."""
-    env = os.environ.get("AGENT_GATEWAY_HMAC_KEY", "agent-gateway-lab-hmac-key-32b!!")
-    return env.encode()
+def hmac_key(*, allow_default: bool = False) -> bytes:
+    """Shared lab root key. Workers that verify capabilities need only this.
+
+    Fails closed if ``AGENT_GATEWAY_HMAC_KEY`` is unset. Pass
+    ``allow_default=True`` only for pure local lab scripts that never leave
+    the machine.
+    """
+    env = os.environ.get("AGENT_GATEWAY_HMAC_KEY")
+    if env:
+        if len(env.encode()) < 32:
+            raise RuntimeError(
+                "AGENT_GATEWAY_HMAC_KEY must be at least 32 bytes. "
+                'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
+            )
+        return env.encode()
+    if allow_default:
+        # Explicit opt-in only. Never use this in any networked or shared process.
+        return b"agent-gateway-lab-hmac-key-32b!!"
+    raise RuntimeError(
+        "AGENT_GATEWAY_HMAC_KEY is not set. "
+        "Refusing to start. Set a strong random key in the environment "
+        "or pass allow_default=True only for isolated local tests."
+    )
 
 
 def _eq(a: bytes, b: bytes) -> bool:

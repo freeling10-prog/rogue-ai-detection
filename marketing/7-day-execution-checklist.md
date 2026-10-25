@@ -1,6 +1,6 @@
 # 7-day execution checklist
 
-Zero budget. No ads, no new domain, no scheduling product, no paid list. The only call to action is [audit-offer.md](audit-offer.md) and `mailto:fleckalec@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit`.
+Zero budget. No ads, no new domain, no scheduling product, no paid list. The only call to action is [audit-offer.md](audit-offer.md) and `mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit`.
 
 Do not post to Hacker News or Reddit from this checklist until you have confirmed the GitHub repository is public. Do not email anyone who is not in [la-targets.md](la-targets.md) unless you can point at a public page the way that file does. Do not send the unfilled template in [ciso-outreach.md](ciso-outreach.md). Use [outreach-sequence.md](outreach-sequence.md).
 
@@ -9,7 +9,7 @@ Copy you are not allowed to add, on any day: a wild honeypot deployment, a freez
 ## Day 0 — read the offer out loud
 
 - Read [audit-offer.md](audit-offer.md) once, including the out-of-scope list.
-- Send yourself the mailto link. Confirm the subject decodes to `Book 48-Hour Agentic Tool-Boundary Audit` and that the message arrives at fleckalec@gmail.com.
+- Send yourself the mailto link. Confirm the subject decodes to `Book 48-Hour Agentic Tool-Boundary Audit` and that the message arrives at alecagentboundary@gmail.com.
 - Open https://github.com/freeling10-prog/rogue-ai-detection in a private window. If GitHub still says the repository is private, do not post Show HN or Reddit. Visibility is changed outside this repo. Selling by email can start either way, because the offer page is also a file you can paste.
 - Skim the first five rows of [la-targets.md](la-targets.md): Reva.AI, Opensteer, Paximal, MindFort, Voker. Open each public URL and copy one clause into `{{public_detail}}`. If the page no longer says what the row says, drop the row. Do not replace it with a company you cannot cite.
 
@@ -22,7 +22,7 @@ Copy you are not allowed to add, on any day: a wild honeypot deployment, a freez
 
 ## Day 2 — send the first five emails
 
-- Send the five Day 1 drafts from fleckalec@gmail.com.
+- Send the five Day 1 drafts from alecagentboundary@gmail.com.
 - Log company, address you used, and the sentence you used for `{{public_detail}}`. A note in Gmail is enough.
 - If a first name is not printed on the page you opened, do not guess. Use the role.
 

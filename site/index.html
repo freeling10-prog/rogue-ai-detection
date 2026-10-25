@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgentGate — Agentic Tool-Boundary Audit</title>
+<meta name="description" content="After your AI agent reads untrusted input, which tools can it still call — and who has to agree first? AgentGate is an open-source lab gateway and a 48-hour tool-boundary audit.">
+<meta name="color-scheme" content="dark">
+<meta property="og:title" content="AgentGate — Agentic Tool-Boundary Audit">
+<meta property="og:description" content="Taint-and-freeze policy gateway for AI agents. Open-source core, 161+ gateway tests, approximate MITRE ATLAS mappings.">
+<meta property="og:type" content="website">
+<link rel="icon" href="favicon.svg">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="vis-hidden" href="#main">Skip to content</a>
+
+<header class="topbar">
+  <div class="wrap">
+    <span class="brand">agent<span class="dot">·</span>gate</span>
+    <nav>
+      <a href="#architecture">Architecture</a>
+      <a href="#simulator">Simulator</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#guardrails">Guardrails</a>
+      <a href="https://github.com/freeling10-prog/rogue-ai-detection">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- HERO -->
+<section class="hero">
+  <div class="wrap">
+    <div class="badge" id="metrics-badge">
+      <span><b>Open-Source Core</b></span><span class="sep">•</span>
+      <span><b>240</b> Gateway Tests &amp; Hypothesis Fuzzing</span><span class="sep">•</span>
+      <span><b>762</b> Total Tests Passing</span><span class="sep">•</span>
+      <span>Approximate MITRE ATLAS Mappings</span>
+    </div>
+    <h1>After your AI agent reads untrusted input, which tools can it still call&mdash;and who has to agree first?</h1>
+    <p class="lede">AgentGate is a loopback policy-enforcement proxy for internal AI agents. It taints a session on untrusted ingest, attenuates a chained-HMAC <code>agw1.</code> capability so egress closes, and holds the next write, send, or credential call for a person. The core is Apache-2.0 and public. The paid service is a written tool-boundary note for your security reviewer.</p>
+    <div class="cta-row">
+      <a class="btn primary" href="mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit">Book a 48-Hour Audit →</a>
+      <a class="btn ghost" href="https://github.com/freeling10-prog/rogue-ai-detection">View the source</a>
+      <a class="btn ghost" href="https://github.com/freeling10-prog/rogue-ai-detection/blob/main/marketing/audit-offer.md">Read the offer</a>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><div class="n ok">240</div><div class="l">agent-gateway tests + Hypothesis state machines</div></div>
+      <div class="kpi"><div class="n ok">512+2</div><div class="l">agent-watch tests (passed + skipped)</div></div>
+      <div class="kpi"><div class="n ok">10</div><div class="l">agentwatch-analyzer tests</div></div>
+      <div class="kpi"><div class="n ok">762</div><div class="l">total tests passing across all three packages</div></div>
+      <div class="kpi"><div class="n">7/7</div><div class="l">ATLAS falsification regression suite</div></div>
+      <div class="kpi"><div class="n">2 of 13</div><div class="l">real-model loopback archive (qwen2.5:3b, same author, one machine — not a benchmark)</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ARCHITECTURE -->
+<section id="architecture">
+  <div class="wrap">
+    <p class="eyebrow">What runs on <code>main</code> today</p>
+    <h2>The gateway, layer by layer</h2>
+    <p class="lead">One loopback policy-enforcement point (<code>pep.py</code>) wraps every <code>tools/call</code>. Untrusted ingest taints the session and attenuates a chained-HMAC <code>agw1.</code> capability; each later write, send, or credential call is held for a person. <strong>240</strong> gateway tests (unit plus Hypothesis state machines), <strong>512+2</strong> agent-watch and <strong>10</strong> analyzer tests &mdash; <strong>762</strong> passing in all.</p>
+    <div class="kpis" style="margin-top:22px">
+      <div class="kpi"><div class="l"><code>mcp_proxy.py</code></div>MCP JSON-RPC proxy: <code>tools/list</code> SHA-256 pinning, rug-pull detection, sampling guard.</div>
+      <div class="kpi"><div class="l"><code>deobfuscate.py</code></div>Rolling salted n-gram digests catch split-chunk and encoded exfil across steps.</div>
+      <div class="kpi"><div class="l"><code>toxic_combinations.py</code></div>Static 2-hop / 3-hop toxic-flow reachability over a tool inventory.</div>
+      <div class="kpi"><div class="l"><code>tool_output_scanner.py</code> · <code>egress_uri_guard.py</code> · <code>side_channel_guard.py</code></div>Invisible-Unicode &amp; delimiter smuggling, canonical SSRF / metadata blocking, post-taint oracle &amp; timing guards.</div>
+      <div class="kpi"><div class="l"><code>delegation_guard.py</code> <span class="tag ok">v10</span></div>Lattice-meet capability hand-offs: taint can&rsquo;t launder through a clean peer or orchestrator (confused-deputy).</div>
+      <div class="kpi"><div class="l"><code>arg_ast_guard.py</code> <span class="tag ok">v10</span></div>Lexical firewall: path-traversal, command / header injection, read-only query enforcement.</div>
+      <div class="kpi"><div class="l"><code>canary_watermark.py</code> <span class="tag ok">v10</span></div>Zero-width HMAC watermark &amp; credential tracker with exact leak provenance.</div>
+      <div class="kpi"><div class="l"><code>sarif_export.py</code> <span class="tag ok">v10</span></div>OASIS SARIF 2.1.0 export for native GitHub code scanning.</div>
+      <div class="kpi"><div class="l"><code>audit_chain.py</code></div>SHA-256 hash-chained decision log &amp; tamper-evident <code>audit_manifest.json</code> + <code>verify</code>.</div>
+    </div>
+  </div>
+</section>
+
+<!-- SIMULATOR -->
+<section id="simulator">
+  <div class="wrap">
+    <p class="eyebrow">Live, in your browser — nothing leaves this page</p>
+    <h2>Taint-and-Freeze Simulator</h2>
+    <p class="lead">Four canned walkthroughs of the real gateway modules. Everything runs in vanilla JavaScript on this page: no network calls, no sign-in, no backend. Colors follow the engine&rsquo;s own states &mdash; <span style="color:var(--emerald)">verified / pinned</span>, <span style="color:var(--amber)">tainted / held</span>, <span style="color:var(--crimson)">denied / frozen</span>.</p>
+
+    <div class="tabs" role="tablist" aria-label="Simulator scenarios">
+      <button class="tab-btn" role="tab" id="tab-1" aria-controls="panel-1" aria-selected="true" data-tab="1">1 · MCP Rug-Pull &amp; Output Smuggling</button>
+      <button class="tab-btn" role="tab" id="tab-2" aria-controls="panel-2" aria-selected="false" data-tab="2">2 · Split-Chunk &amp; Encoded Exfil</button>
+      <button class="tab-btn" role="tab" id="tab-3" aria-controls="panel-3" aria-selected="false" data-tab="3">3 · Static Toxic-Flow Graph</button>
+      <button class="tab-btn" role="tab" id="tab-4" aria-controls="panel-4" aria-selected="false" data-tab="4">4 · OOB Approval &amp; Hash-Chain Verify</button>
+    </div>
+
+    <!-- TAB 1 -->
+    <div class="sim" id="panel-1" role="tabpanel" aria-labelledby="tab-1">
+      <div class="sim-head">
+        <h3><code>mcp_proxy.py</code> + <code>tool_output_scanner.py</code></h3>
+        <span class="atlas">≈ AML.T0051 (approximate)</span>
+      </div>
+      <p class="sim-desc">The wire proxy pins <code>sha256(name, description, inputSchema)</code> on the first <code>tools/list</code>. A later listing that mutates a pinned tool is a rug pull; hidden Unicode tag characters (<code>U+E0000</code>) and cross-tool name shadowing in tool output are flagged; the session <code>agw1.</code> capability is attenuated to <code>allow_egress=false</code> and later calls wait for a person.</p>
+      <div class="sim-controls">
+        <button class="btn" data-run="1">▶ Run scenario</button>
+        <button class="btn ghost" data-reset="1">Reset</button>
+      </div>
+      <div class="console" id="out-1" aria-live="polite"></div>
+    </div>
+
+    <!-- TAB 2 -->
+    <div class="sim" id="panel-2" role="tabpanel" aria-labelledby="tab-2" hidden>
+      <div class="sim-head">
+        <h3><code>deobfuscate.py</code></h3>
+        <span class="atlas">≈ AML.T0086 (approximate)</span>
+      </div>
+      <p class="sim-desc">After a <code>SENSITIVE_READ</code>, the gateway keeps salted rolling n-gram digests of the secret and its Base64 / hex / URL / whitespace-stripped forms. Outbound tool arguments are concatenated across steps, so a secret leaked 4&ndash;6 characters per call &mdash; raw or encoded &mdash; is still caught. On a match the call is denied and the registered lab key is frozen for 15 minutes.</p>
+      <div class="sim-controls">
+        <button class="btn" data-run="2">▶ Run scenario</button>
+        <button class="btn ghost" data-reset="2">Reset</button>
+      </div>
+      <div class="console" id="out-2" aria-live="polite"></div>
+    </div>
+
+    <!-- TAB 3 -->
+    <div class="sim" id="panel-3" role="tabpanel" aria-labelledby="tab-3" hidden>
+      <div class="sim-head">
+        <h3><code>toxic_combinations.py</code></h3>
+        <span class="atlas">≈ AML.T0086 (approximate) · static reachability</span>
+      </div>
+      <p class="sim-desc"><code>python -m agent_gateway audit --tool-inventory tools.json</code> enumerates every 2-hop and 3-hop path where an <code>external_read</code> can reach a <code>send</code> / <code>write</code> / <code>credential_use</code> sink. Toggle a hard <code>agw1.</code> boundary on a sink to watch its paths flip from toxic to protected. This is static analysis of a declared tool list &mdash; not a penetration test.</p>
+      <div class="toggle-row" id="boundary-toggles" aria-label="agw1 capability boundaries"></div>
+      <div class="graph-wrap">
+        <svg class="graph-svg" id="flow-svg" viewBox="0 0 440 300" role="img" aria-label="Tool reachability graph"></svg>
+        <div>
+          <table class="flow-table" id="flow-table"><thead><tr><th>Path</th><th>Hops</th><th>Status</th></tr></thead><tbody></tbody></table>
+          <p class="sim-desc" id="flow-count" style="margin-top:10px"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4 -->
+    <div class="sim" id="panel-4" role="tabpanel" aria-labelledby="tab-4" hidden>
+      <div class="sim-head">
+        <h3><code>audit_chain.py</code> + OOB approval</h3>
+        <span class="atlas">tamper-evident receipts</span>
+      </div>
+      <p class="sim-desc">A held call is formatted in-process as a scrubbed Slack Block Kit payload: capability state, taint source, approximate ATLAS id, and one-time callback MACs shown only as SHA-256 fingerprints. Every decision-log line is SHA-256 hash-chained, and <code>python -m agent_gateway verify &lt;audit_dir&gt;</code> recomputes the chain and the <code>audit_manifest.json</code> digests.</p>
+      <div class="sim-controls">
+        <button class="btn" data-run="4">▶ Build payload &amp; verify</button>
+        <button class="btn ghost" data-reset="4">Reset</button>
+      </div>
+      <div class="console" id="out-4" aria-live="polite"></div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section id="pricing">
+  <div class="wrap">
+    <p class="eyebrow">Fixed price · 48-hour turnaround from tool-inventory receipt</p>
+    <h2>Two ways to book</h2>
+    <p class="lead">A written note for a security reviewer, produced from a tool list you send. Paying does not change the license: the open-source lab stays Apache-2.0 and the free GitHub Action stays free.</p>
+    <div class="price-grid">
+      <div class="price-card">
+        <div class="price">$4,500</div>
+        <h3>Fixed Tool-List Boundary Note</h3>
+        <div class="turnaround">48h clock starts when the tool list arrives</div>
+        <ul>
+          <li>Each tool classified by egress</li>
+          <li>Taint-path map (ingest → held call)</li>
+          <li>Which calls the lab gateway would hold</li>
+          <li>Approximate ATLAS ids on the note</li>
+          <li>Written note for the security reviewer</li>
+          <li class="no">No lab instrumentation</li>
+          <li class="no">No offline log pass</li>
+        </ul>
+        <a class="btn" href="mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit&amp;body=Tier%3A%20%244%2C500%20fixed">Book the $4,500 note</a>
+      </div>
+      <div class="price-card feature">
+        <div class="price">$6,500</div>
+        <h3>Boundary Note + Lab Instrumentation &amp; Offline Log Pass</h3>
+        <div class="turnaround">48h clock starts when the tool list arrives</div>
+        <ul>
+          <li>Everything in the $4,500 note</li>
+          <li>Lab gateway pass on <code>127.0.0.1</code> (simulated tool backends)</li>
+          <li>Offline analyzer pass on an authorized log you supply</li>
+          <li>Explicit list of rules a normal access log cannot support</li>
+          <li>Approximate ATLAS ids on the note</li>
+        </ul>
+        <a class="btn primary" href="mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit&amp;body=Tier%3A%20%246%2C500%20with%20instrumentation">Book the $6,500 pass</a>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:22px; padding:20px">
+      <h3 style="font-size:1rem">Start the clock in one click</h3>
+      <p class="sim-desc">Copy the starter tool-inventory table, fill it in (no secrets, no customer payloads), and send it in the booking thread. The 48-hour clock starts when a usable list arrives.</p>
+      <div class="tmpl" id="email-template">Tool Name | Argument Shapes | Where Untrusted Text Enters | Tier: $4,500 or $6,500
+--------- | --------------- | --------------------------- | ------------------------
+example.fetch | {url: string} | the fetched page body | $6,500
+example.send_email | {to: string, body: string} | — | $6,500</div>
+      <button class="btn primary" id="copy-template">⧉ Copy Tool-Inventory Email Template</button>
+    </div>
+  </div>
+</section>
+
+<!-- GUARDRAILS -->
+<section id="guardrails">
+  <div class="wrap">
+    <p class="eyebrow">Standing lab limits — stated in the note</p>
+    <h2>Guardrails that never change</h2>
+    <ul class="rails">
+      <li><span class="k">127.0.0.1 only</span>Default bind is loopback. This engagement ships no public honeypot.</li>
+      <li><span class="k">No wild honeypot</span>The honeypot is never deployed on your network or a public address.</li>
+      <li><span class="k">Human-review only</span>Honeypot output is leads for a person. It never auto-blocks a visitor.</li>
+      <li><span class="k">15-minute freeze, lab keys only</span>Freeze applies only to keys in the lab registry. An unregistered key is never frozen.</li>
+      <li><span class="k">2 of 13</span>The only real-model number is our loopback archive (qwen2.5:3b, same author, one machine). Not a benchmark.</li>
+      <li><span class="k">Approximate ATLAS</span>Every MITRE ATLAS id is labeled approximate. It is not a certification.</li>
+    </ul>
+    <div class="disclaimer">
+      <strong>This is not a penetration test, not a red team, and not a certification.</strong>
+      It makes no claim that your product &ldquo;passes&rdquo; MITRE ATLAS, OWASP, NIST, SOC&nbsp;2, or ISO. It is a written tool-boundary note produced from a tool list, plus an optional offline lab pass on material you are authorized to share. It is not legal advice.
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap legal">
+    <p><span class="brand">agent<span class="dot">·</span>gate</span> &mdash; open-source agentic tool-boundary gateway and audit. Core licensed Apache-2.0.</p>
+    <p>
+      <a href="https://github.com/freeling10-prog/rogue-ai-detection">github.com/freeling10-prog/rogue-ai-detection</a> ·
+      <a href="https://github.com/freeling10-prog/rogue-ai-detection/blob/main/marketing/audit-offer.md">Audit offer</a> ·
+      <a href="mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit">alecagentboundary@gmail.com</a>
+    </p>
+    <p class="muted">Public marketing and demo page. No login, no tracking, no cookies, no analytics. Everything on this page runs locally in your browser.</p>
+  </div>
+</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="app.js"></script>
+</body>
+</html>

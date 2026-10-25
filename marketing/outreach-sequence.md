@@ -1,6 +1,8 @@
 # LA outreach sequence
 
-Three email touches and three LinkedIn touches for companies in [la-targets.md](la-targets.md). The scope and the words you are allowed to use come from [ciso-outreach.md](ciso-outreach.md) and [audit-offer.md](audit-offer.md). Send from `fleckalec@gmail.com`. Sign as Jordan. Do not invent a title, a domain, or a scheduling link.
+Three email touches and three LinkedIn touches for companies in [la-targets.md](la-targets.md). The scope and the words you are allowed to use come from [ciso-outreach.md](ciso-outreach.md) and [audit-offer.md](audit-offer.md). Send from `alecagentboundary@gmail.com`. Sign as Jordan. Do not invent a title, a domain, or a scheduling link.
+
+**Live interactive demo (public, no login):** <https://freeling10-prog.github.io/rogue-ai-detection/> · Source: [github.com/freeling10-prog/rogue-ai-detection](https://github.com/freeling10-prog/rogue-ai-detection) · Book: [alecagentboundary@gmail.com](mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit). This is a real, working GitHub Pages link — you may include it in a touch once the repository is public.
 
 Do not send [ciso-outreach.md](ciso-outreach.md) as-is. That file is the scope source. This file is the sequence, with the live call to action filled in.
 
@@ -17,7 +19,7 @@ Call to action, in every touch that asks for a reply:
 
 - Offer page in the repo: `marketing/audit-offer.md`
 - Public repo: `https://github.com/freeling10-prog/rogue-ai-detection`
-- Mailto: `mailto:fleckalec@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit`
+- Mailto: `mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit`
 
 They can reply with a tool inventory (names and argument shapes, no secrets, no customer payloads).
 
@@ -54,7 +56,7 @@ The one-page scope is `marketing/audit-offer.md` in https://github.com/freeling1
 If this is the wrong person, a pointer to the right one is enough.
 
 Jordan
-fleckalec@gmail.com
+alecagentboundary@gmail.com
 
 ### Touch 2 — what the note will and will not say
 
@@ -72,10 +74,10 @@ In the 48 hours after the tool list arrives, the note:
 
 The $6,500 tier adds a lab gateway pass on the tool list and, if you supply an authorized access log, an offline analyzer pass. Beacon, tool-hijack, and timing rules are not available from a normal access log. The note says which rules the log cannot support.
 
-I do not deploy a honeypot on your network. The copy and the price are on `marketing/audit-offer.md`. Reply to this thread, or use mailto:fleckalec@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit. A tool inventory in the reply is enough to start the clock once you say which tier you want.
+I do not deploy a honeypot on your network. The copy and the price are on `marketing/audit-offer.md`. Reply to this thread, or use mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit. A tool inventory in the reply is enough to start the clock once you say which tier you want.
 
 Jordan
-fleckalec@gmail.com
+alecagentboundary@gmail.com
 
 ### Touch 3 — close the loop
 
@@ -90,7 +92,7 @@ If you do, reply with the tool names and argument shapes (no secrets), where unt
 If the timing is wrong, no reply needed.
 
 Jordan
-fleckalec@gmail.com
+alecagentboundary@gmail.com
 
 ## LinkedIn
 
@@ -112,7 +114,7 @@ The offer is a written note, not a pen-test and not a certification. $4,500 on a
 
 Page: `marketing/audit-offer.md` in https://github.com/freeling10-prog/rogue-ai-detection
 
-Or email fleckalec@gmail.com with the subject "Book 48-Hour Agentic Tool-Boundary Audit". You can reply with the tool inventory.
+Or email alecagentboundary@gmail.com with the subject "Book 48-Hour Agentic Tool-Boundary Audit". You can reply with the tool inventory.
 
 Jordan
 

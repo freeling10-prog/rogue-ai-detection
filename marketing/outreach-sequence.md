@@ -1,6 +1,6 @@
 # LA outreach sequence
 
-Three email touches and three LinkedIn touches for companies in [la-targets.md](la-targets.md). The scope and the words you are allowed to use come from [ciso-outreach.md](ciso-outreach.md) and [audit-offer.md](audit-offer.md). Send from `alecagentboundary@gmail.com`. Sign as Jordan. Do not invent a title, a domain, or a scheduling link.
+Three email touches and three LinkedIn touches for companies in [la-targets.md](la-targets.md). The scope and the words you are allowed to use come from [ciso-outreach.md](ciso-outreach.md) and [audit-offer.md](audit-offer.md). Send from `alecagentboundary@gmail.com`. Sign as Alec. Do not invent a title, a domain, or a scheduling link.
 
 **Live interactive demo (public, no login):** <https://freeling10-prog.github.io/rogue-ai-detection/> · Source: [github.com/freeling10-prog/rogue-ai-detection](https://github.com/freeling10-prog/rogue-ai-detection) · Book: [alecagentboundary@gmail.com](mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit). This is a real, working GitHub Pages link — you may include it in a touch once the repository is public.
 
@@ -55,7 +55,7 @@ The one-page scope is `marketing/audit-offer.md` in https://github.com/freeling1
 
 If this is the wrong person, a pointer to the right one is enough.
 
-Jordan
+Alec
 alecagentboundary@gmail.com
 
 ### Touch 2 — what the note will and will not say
@@ -76,7 +76,7 @@ The $6,500 tier adds a lab gateway pass on the tool list and, if you supply an a
 
 I do not deploy a honeypot on your network. The copy and the price are on `marketing/audit-offer.md`. Reply to this thread, or use mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit. A tool inventory in the reply is enough to start the clock once you say which tier you want.
 
-Jordan
+Alec
 alecagentboundary@gmail.com
 
 ### Touch 3 — close the loop
@@ -91,7 +91,7 @@ If you do, reply with the tool names and argument shapes (no secrets), where unt
 
 If the timing is wrong, no reply needed.
 
-Jordan
+Alec
 alecagentboundary@gmail.com
 
 ## LinkedIn
@@ -102,7 +102,7 @@ Connect only where you have a real public page for {{company}}. Keep the connect
 
 Keep `{{public_detail}}` to a few words here. A full clause will break the 200-character cap.
 
-{{first_name}}, I read {{company}}'s public note on {{public_detail}}. I write a 48-hour agent tool-boundary note for security reviewers. One-page scope if useful. — Jordan
+{{first_name}}, I read {{company}}'s public note on {{public_detail}}. I write a 48-hour agent tool-boundary note for security reviewers. One-page scope if useful. — Alec
 
 ### Touch 2 — after they accept
 
@@ -116,7 +116,7 @@ Page: `marketing/audit-offer.md` in https://github.com/freeling10-prog/rogue-ai-
 
 Or email alecagentboundary@gmail.com with the subject "Book 48-Hour Agentic Tool-Boundary Audit". You can reply with the tool inventory.
 
-Jordan
+Alec
 
 ### Touch 3 — one follow-up, then stop
 
@@ -124,4 +124,4 @@ Hello {{first_name}},
 
 One follow-up, then I will leave it. If a security reviewer at {{company}} is asking which tools remain callable after untrusted text, the scope is the offer page above and the same mailto. If that review is not happening, ignore this.
 
-Jordan
+Alec

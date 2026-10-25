@@ -52,6 +52,23 @@
     this.el.scrollTop = this.el.scrollHeight;
   };
 
+  /* ---------- mobile menu ---------- */
+  var menuBtn = $("#menu-btn"), siteNav = $("#site-nav");
+  if (menuBtn && siteNav) {
+    menuBtn.addEventListener("click", function () {
+      var open = siteNav.classList.toggle("open");
+      menuBtn.setAttribute("aria-expanded", String(open));
+      menuBtn.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+    });
+    $all("a", siteNav).forEach(function (a) {
+      a.addEventListener("click", function () {
+        siteNav.classList.remove("open");
+        menuBtn.setAttribute("aria-expanded", "false");
+        menuBtn.setAttribute("aria-label", "Open menu");
+      });
+    });
+  }
+
   /* ---------- tab switching ---------- */
   $all(".tab-btn").forEach(function (btn) {
     btn.addEventListener("click", function () {

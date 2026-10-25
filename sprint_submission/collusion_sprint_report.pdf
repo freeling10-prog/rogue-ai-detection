@@ -28,7 +28,7 @@ T*
 T*
 () Tj
 T*
-(Generated 2026-10-25T08:58:15Z by python -m agent_gateway evaluate-collusion --report.) Tj
+(Generated 2026-10-25T09:08:56Z by python -m agent_gateway evaluate-collusion --report.) Tj
 T*
 (Same-author scripted synthetic lab scenarios; not a benchmark.) Tj
 T*
@@ -52,9 +52,9 @@ T*
 T*
 (canary watermarks for provenance. In this run the repository's defence tests for the three) Tj
 T*
-(carrier groups passed 57 of 57. Benign policy decisions took a p50 of 0.0711 ms and a p99) Tj
+(carrier groups passed 57 of 57. Benign policy decisions took a p50 of 0.1264 ms and a p99) Tj
 T*
-(of 0.6347 ms of CPU time \(reference target 2.0 ms\). The hash-chained decision log verified) Tj
+(of 0.9987 ms of CPU time \(reference target 2.0 ms\). The hash-chained decision log verified) Tj
 T*
 (clean over 750 entries.) Tj
 T*
@@ -120,7 +120,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 7 0 R /Resources << /Font << /F1 3 0 R >> >> >>
 endobj
 7 0 obj
-<< /Length 2469 >>
+<< /Length 2581 >>
 stream
 BT
 /F1 10 Tf
@@ -180,9 +180,33 @@ T*
 T*
 () Tj
 T*
-(pytest: 57 passed in 3.09s \(exit 0, 3.631 s\). The full per-test list is in) Tj
+(pytest: 57 passed in 3.05s \(exit 0, 3.64 s\). The full per-test list is in) Tj
 T*
 (collusion_benchmark_results.json under defense_suite.groups[].tests.) Tj
+T*
+() Tj
+T*
+(Whole gateway suite and stateful property fuzzing) Tj
+T*
+() Tj
+T*
+(python -m pytest --collect-only -q collects 262 tests in 20 files. The CI job runs all of) Tj
+T*
+(them. Stateful Hypothesis machines, with settings read from the test files:) Tj
+T*
+() Tj
+T*
+(State machine | File | max_examples | stateful_step_count) Tj
+T*
+(DelegationDagMachine | test_delegation_guard.py | 120 | 24) Tj
+T*
+(SideChannelMachine | test_side_channel_guard.py | 60 | 30) Tj
+T*
+(PepPolicyMachine | test_stateful_fuzz.py | 40 | 16) Tj
+T*
+(SmugglingMachine | test_stateful_fuzz.py | 60 | 24) Tj
+T*
+(GatewayScrubMachine | test_stateful_fuzz.py | 80 | 8) Tj
 T*
 () Tj
 T*
@@ -192,33 +216,9 @@ T*
 T*
 (Measure | p50 ms | p95 ms | p99 ms | mean ms | max ms) Tj
 T*
-(CPU | 0.0711 | 0.5584 | 0.6347 | 0.1234 | 2.459) Tj
+(CPU | 0.1264 | 0.892 | 0.9987 | 0.2073 | 3.8371) Tj
 T*
-(Wall | 0.0703 | 0.5574 | 0.6361 | 0.123 | 2.4574) Tj
-T*
-() Tj
-T*
-(750 decisions. Reference target 2.0 ms: p99 CPU within target. Timing includes decision-log) Tj
-T*
-(I/O.) Tj
-T*
-() Tj
-T*
-(Benign workflow | Steps | Denied | p50 CPU ms | p99 CPU ms) Tj
-T*
-(order_status_triage | 200 | 0 | 0.0568 | 0.145) Tj
-T*
-(status_report | 100 | 0 | 0.0681 | 0.121) Tj
-T*
-(clean_delegation | 150 | 0 | 0.0711 | 0.3578) Tj
-T*
-(scratchpad_handoff | 150 | 0 | 0.0804 | 0.1716) Tj
-T*
-(loopback_docs_fetch | 150 | 0 | 0.0731 | 0.7086) Tj
-T*
-() Tj
-T*
-(Benign denials: 0 of 750 decisions \(rate 0.0\).) Tj
+(Wall | 0.1246 | 0.888 | 1.0025 | 0.2098 | 4.2646) Tj
 T*
 () Tj
 ET
@@ -228,12 +228,36 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 9 0 R /Resources << /Font << /F1 3 0 R >> >> >>
 endobj
 9 0 obj
-<< /Length 2787 >>
+<< /Length 2708 >>
 stream
 BT
 /F1 10 Tf
 13 TL
 54 738 Td
+(750 decisions. Reference target 2.0 ms: p99 CPU within target. Timing includes decision-log) Tj
+T*
+(I/O.) Tj
+T*
+() Tj
+T*
+(Benign workflow | Steps | Denied | p50 CPU ms | p99 CPU ms) Tj
+T*
+(order_status_triage | 200 | 0 | 0.1027 | 0.2548) Tj
+T*
+(status_report | 100 | 0 | 0.117 | 0.1903) Tj
+T*
+(clean_delegation | 150 | 0 | 0.1198 | 0.647) Tj
+T*
+(scratchpad_handoff | 150 | 0 | 0.1317 | 0.3121) Tj
+T*
+(loopback_docs_fetch | 150 | 0 | 0.1534 | 1.0616) Tj
+T*
+() Tj
+T*
+(Benign denials: 0 of 750 decisions \(rate 0.0\).) Tj
+T*
+() Tj
+T*
 (Audit-chain verification) Tj
 T*
 () Tj
@@ -244,7 +268,7 @@ T*
 T*
 (Entries | 750) Tj
 T*
-(Head hash | c9cb383fc5cdc450...) Tj
+(Head hash | 462797efde1cc794...) Tj
 T*
 (Edited line in a copy detected | yes) Tj
 T*
@@ -305,7 +329,19 @@ T*
 (ms figure is a reference target, not a guarantee.) Tj
 T*
 (- The gateway binds 127.0.0.1 by default. Freeze actions apply for 15 minutes to registered) Tj
-T*
+ET
+endstream
+endobj
+10 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 11 0 R /Resources << /Font << /F1 3 0 R >> >> >>
+endobj
+11 0 obj
+<< /Length 981 >>
+stream
+BT
+/F1 10 Tf
+13 TL
+54 738 Td
 (lab keys only.) Tj
 T*
 (- ATLAS technique labels are approximate.) Tj
@@ -329,30 +365,18 @@ T*
 () Tj
 T*
 (pip install -e './agent-gateway[test]') Tj
-ET
-endstream
-endobj
-10 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 11 0 R /Resources << /Font << /F1 3 0 R >> >> >>
-endobj
-11 0 obj
-<< /Length 362 >>
-stream
-BT
-/F1 10 Tf
-13 TL
-54 738 Td
+T*
 (cd agent-gateway) Tj
 T*
 (export AGENT_GATEWAY_HMAC_KEY=$\(python -c 'import secrets; print\(secrets.token_hex\(32\)\)'\)) Tj
 T*
-(python -m agent_gateway evaluate-collusion --report ../docs/sprint) Tj
+(python -m agent_gateway evaluate-collusion --report ../sprint_submission) Tj
 T*
 () Tj
 T*
 (Environment: Python 3.13.17 on Linux-6.18.44-fc-v153-x86_64-with-glibc2.39. Total) Tj
 T*
-(evaluation time 3.9 s.) Tj
+(evaluation time 4.946 s.) Tj
 ET
 endstream
 endobj
@@ -366,12 +390,12 @@ xref
 0000000330 00000 n 
 0000003541 00000 n 
 0000003667 00000 n 
-0000006188 00000 n 
-0000006314 00000 n 
-0000009153 00000 n 
-0000009281 00000 n 
+0000006300 00000 n 
+0000006426 00000 n 
+0000009186 00000 n 
+0000009314 00000 n 
 trailer
 << /Size 12 /Root 1 0 R >>
 startxref
-9695
+10347
 %%EOF

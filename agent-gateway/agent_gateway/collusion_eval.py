@@ -28,6 +28,7 @@ No socket is opened. The PDF uses the pure-Python writer in ``audit_report``.
 """
 from __future__ import annotations
 
+import ast
 import json
 import math
 import platform
@@ -45,6 +46,8 @@ SCHEMA = "agent-gateway.collusion-eval/1"
 RESULTS_NAME = "collusion_benchmark_results.json"
 REPORT_MD_NAME = "collusion_sprint_report.md"
 REPORT_PDF_NAME = "collusion_sprint_report.pdf"
+SLIDES_PDF_NAME = "collusion_sprint_slides.pdf"
+CARD_PNG_NAME = "collusion_project_image.png"
 LATENCY_TARGET_MS = 2.0
 ARCHIVE_BASELINE = "2 of 13"
 
@@ -196,6 +199,64 @@ def _suite_totals(results: list[GroupResult]) -> dict[str, int]:
         for k, v in g.counts().items():
             tot[k] = tot.get(k, 0) + v
     return tot
+
+
+def collect_gateway_tests(tests_dir: Optional[Path] = None, timeout_s: float = 300.0) -> dict[str, Any]:
+    """``pytest --collect-only`` over the whole gateway suite (count only, nothing runs)."""
+    tests_dir = Path(tests_dir or TESTS_DIR)
+    proc = subprocess.run([sys.executable, "-m", "pytest", "--collect-only", "-q", "-p", "no:cacheprovider",
+                           str(tests_dir)], cwd=str(tests_dir.parent), capture_output=True, text=True,
+                          timeout=timeout_s)
+    ids = [ln for ln in (proc.stdout or "").splitlines() if "::" in ln]
+    return {"command": "python -m pytest --collect-only -q", "collected": len(ids),
+            "files": len({i.split("::", 1)[0] for i in ids}), "returncode": proc.returncode}
+
+
+def _stateful_kwargs(node: ast.AST) -> Optional[tuple[int, int]]:
+    if not (isinstance(node, ast.Call) and getattr(node.func, "id", "") == "settings"):
+        return None
+    kw = {k.arg: k.value for k in node.keywords if isinstance(k.value, ast.Constant)}
+    if "max_examples" in kw and "stateful_step_count" in kw:
+        return int(kw["max_examples"].value), int(kw["stateful_step_count"].value)
+    return None
+
+
+def scan_hypothesis_settings(tests_dir: Optional[Path] = None) -> list[dict[str, Any]]:
+    """Stateful Hypothesis settings per state machine, read from the test files with ``ast``."""
+    tests_dir = Path(tests_dir or TESTS_DIR)
+    out = []
+    for path in sorted(tests_dir.glob("test_*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        named: dict[str, tuple[int, int]] = {}  # PEP_SETTINGS = settings(...)
+        alias: dict[str, str] = {}  # TestX = Machine.TestCase
+        found: dict[str, tuple[int, int]] = {}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign) and len(node.targets) == 1:
+                tgt, val = node.targets[0], node.value
+                vals = _stateful_kwargs(val)
+                if isinstance(tgt, ast.Name) and vals:
+                    named[tgt.id] = vals
+                elif isinstance(tgt, ast.Name) and isinstance(val, ast.Attribute) and val.attr == "TestCase" \
+                        and isinstance(val.value, ast.Name):
+                    alias[tgt.id] = val.value.id
+                elif isinstance(tgt, ast.Attribute) and tgt.attr == "settings" and vals \
+                        and isinstance(tgt.value, ast.Name):
+                    found[tgt.value.id] = vals
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and getattr(node.func, "id", "") == "run_state_machine_as_test" \
+                    and node.args and isinstance(node.args[0], ast.Name):
+                for k in node.keywords:
+                    if k.arg != "settings":
+                        continue
+                    vals = _stateful_kwargs(k.value)
+                    if vals is None and isinstance(k.value, ast.Name):
+                        vals = named.get(k.value.id)
+                    if vals:
+                        found[node.args[0].id] = vals
+        for name, (ex, steps) in found.items():
+            out.append({"file": path.name, "machine": alias.get(name, name),
+                        "max_examples": ex, "stateful_step_count": steps})
+    return out
 
 
 # --- 2. Benign decision latency ----------------------------------------------------
@@ -365,10 +426,11 @@ def verify_decision_log(decision_log: Path) -> dict[str, Any]:
 # --- Orchestration and rendering ---------------------------------------------------
 
 def evaluate(iterations: int = 50, suite: Optional[dict[str, Any]] = None,
-             work_dir: Optional[Path] = None) -> dict[str, Any]:
-    """Run all three parts. ``suite`` may be passed in to reuse an earlier pytest run."""
+             work_dir: Optional[Path] = None, collection: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+    """Run all three parts. ``suite`` / ``collection`` may be passed in to reuse earlier pytest runs."""
     t0 = time.perf_counter()
     suite = suite if suite is not None else run_defense_suite()
+    collection = collection if collection is not None else collect_gateway_tests()
     latency = run_benign_latency(iterations=iterations, work_dir=work_dir)
     chain = verify_decision_log(latency.pop("decision_log"))
     return {
@@ -377,6 +439,7 @@ def evaluate(iterations: int = 50, suite: Optional[dict[str, Any]] = None,
         "environment": {"python": platform.python_version(), "platform": platform.platform(),
                         "machine": platform.machine()},
         "defense_suite": suite,
+        "gateway_suite": {**collection, "hypothesis_stateful": scan_hypothesis_settings()},
         "benign_latency": latency,
         "audit_chain": chain,
         "archive_baseline": {"value": ARCHIVE_BASELINE, "pooled": False,
@@ -478,6 +541,16 @@ def render_markdown(doc: dict[str, Any]) -> str:
         bad = [t for t in g["tests"] if t["outcome"] in ("failed", "error")]
         if bad:
             L.append(f"Failing in group {g['group']}: " + ", ".join(f"`{t['nodeid']}`" for t in bad))
+    gw = doc.get("gateway_suite")
+    if gw:
+        L += ["### Whole gateway suite and stateful property fuzzing", "",
+              f"`{gw['command']}` collects {gw['collected']} tests in {gw['files']} files. "
+              "The CI job runs all of them. Stateful Hypothesis machines, with settings read from the test files:",
+              ""]
+        L += _md_table(["State machine", "File", "max_examples", "stateful_step_count"],
+                       [[h["machine"], f"`{h['file']}`", h["max_examples"], h["stateful_step_count"]]
+                        for h in gw["hypothesis_stateful"]])
+        L.append("")
     L += ["### Benign decision latency (CPU time per `evaluate_call`)", ""]
     L += _md_table(
         ["Measure", "p50 ms", "p95 ms", "p99 ms", "mean ms", "max ms"],
@@ -541,7 +614,7 @@ def render_markdown(doc: dict[str, Any]) -> str:
         "pip install -e './agent-gateway[test]'",
         "cd agent-gateway",
         "export AGENT_GATEWAY_HMAC_KEY=$(python -c 'import secrets; print(secrets.token_hex(32))')",
-        "python -m agent_gateway evaluate-collusion --report ../docs/sprint",
+        "python -m agent_gateway evaluate-collusion --report ../sprint_submission",
         "```",
         "",
         f"Environment: Python {doc['environment']['python']} on {doc['environment']['platform']}. "
@@ -590,10 +663,15 @@ def write_report(out_dir: Path, doc: dict[str, Any]) -> dict[str, Path]:
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     md = render_markdown(doc)
-    paths = {"json": out_dir / RESULTS_NAME, "markdown": out_dir / REPORT_MD_NAME, "pdf": out_dir / REPORT_PDF_NAME}
+    from .sprint_artifacts import render_card_png, render_slides_pdf
+
+    paths = {"json": out_dir / RESULTS_NAME, "markdown": out_dir / REPORT_MD_NAME, "pdf": out_dir / REPORT_PDF_NAME,
+             "slides": out_dir / SLIDES_PDF_NAME, "image": out_dir / CARD_PNG_NAME}
     paths["json"].write_text(json.dumps(_json_safe(doc), indent=2) + "\n", encoding="utf-8")
     paths["markdown"].write_text(md, encoding="utf-8")
     paths["pdf"].write_bytes(render_pdf_bytes(md))
+    paths["slides"].write_bytes(render_slides_pdf(doc))
+    paths["image"].write_bytes(render_card_png(doc))
     return paths
 
 
@@ -607,6 +685,7 @@ def summary_line(doc: dict[str, Any]) -> dict[str, Any]:
         "target_ms": lat["target_ms"],
         "benign_denials": lat["benign_denials"],
         "audit_chain_ok": doc["audit_chain"]["chain_ok"],
+        "gateway_tests_collected": (doc.get("gateway_suite") or {}).get("collected"),
         "archive_baseline": f"{ARCHIVE_BASELINE} (separate, not pooled)",
     }
 

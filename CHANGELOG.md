@@ -13,7 +13,9 @@ Release.
   decisions (CPU p50 / p95 / p99 against a 2 ms reference), and verifies a
   hash-chained benign decision log including edit and drop detection. Writes
   `collusion_benchmark_results.json`, `collusion_sprint_report.md`, and
-  `collusion_sprint_report.pdf`. Generated set in `docs/sprint/`.
+  `collusion_sprint_report.pdf`, a 6-slide `collusion_sprint_slides.pdf`, and
+  a 1200x630 `collusion_project_image.png` (`sprint_artifacts.py`, standard
+  library only). Generated set in `sprint_submission/`.
   Same-author lab scenarios; not pooled with the 2 of 13 archive figure.
 
 ## [Unreleased] - fail-closed HMAC key

@@ -33,6 +33,9 @@ def _stub_suite(passed: int = 3, failed: int = 0) -> dict:
             "totals": dict(group["counts"])}
 
 
+_STUB_COLLECTION = {"command": "python -m pytest --collect-only -q", "collected": 3, "files": 1, "returncode": 0}
+
+
 def test_parse_junit_and_group(tmp_path):
     p = tmp_path / "j.xml"
     p.write_text(JUNIT, encoding="utf-8")
@@ -95,7 +98,7 @@ def test_benign_latency_and_chain(tmp_path):
 
 def test_render_and_write_report(tmp_path):
     lat = ce.run_benign_latency(iterations=1, work_dir=tmp_path / "w")
-    doc = ce.evaluate(iterations=1, suite=_stub_suite(), work_dir=tmp_path / "w2")
+    doc = ce.evaluate(iterations=1, suite=_stub_suite(), work_dir=tmp_path / "w2", collection=_STUB_COLLECTION)
     paths = ce.write_report(tmp_path / "out", doc)
     md = paths["markdown"].read_text(encoding="utf-8")
     for heading in ("## Abstract", "## Problem Statement", "## Methodology", "## Results",
@@ -117,7 +120,7 @@ def test_render_and_write_report(tmp_path):
 
 
 def test_ok_false_on_failed_group(tmp_path):
-    doc = ce.evaluate(iterations=1, suite=_stub_suite(failed=1), work_dir=tmp_path)
+    doc = ce.evaluate(iterations=1, suite=_stub_suite(failed=1), work_dir=tmp_path, collection=_STUB_COLLECTION)
     assert not ce.ok(doc)
     md = ce.render_markdown(doc)
     assert "Failing in group A" in md
@@ -132,8 +135,9 @@ def test_cli_end_to_end_under_ten_seconds(tmp_path, capsys):
     assert elapsed < 10.0, elapsed
     assert out["groups_all_passed"] == {"A": True, "B": True, "C": True}
     assert out["audit_chain_ok"] is True and out["benign_denials"] == 0
-    for name in (ce.RESULTS_NAME, ce.REPORT_MD_NAME, ce.REPORT_PDF_NAME):
+    for name in (ce.RESULTS_NAME, ce.REPORT_MD_NAME, ce.REPORT_PDF_NAME, ce.SLIDES_PDF_NAME, ce.CARD_PNG_NAME):
         assert (tmp_path / name).is_file()
+    assert out["gateway_tests_collected"] >= 250
     data = json.loads((tmp_path / ce.RESULTS_NAME).read_text(encoding="utf-8"))
     total = data["defense_suite"]["totals"]
     assert total["total"] > 0 and total["passed"] == total["total"]
@@ -141,3 +145,17 @@ def test_cli_end_to_end_under_ten_seconds(tmp_path, capsys):
 
 def test_cli_rejects_bad_iterations(capsys):
     assert main(["evaluate-collusion", "--iterations", "0"]) == 2
+
+
+def test_hypothesis_settings_scan_matches_machines():
+    found = {(h["file"], h["machine"]): (h["max_examples"], h["stateful_step_count"])
+             for h in ce.scan_hypothesis_settings()}
+    assert found[("test_delegation_guard.py", "DelegationDagMachine")] == (120, 24)
+    assert found[("test_side_channel_guard.py", "SideChannelMachine")] == (60, 30)
+    assert found[("test_stateful_fuzz.py", "SmugglingMachine")] == (60, 24)
+    assert all(m for _f, m in found)  # every entry is attributed to a named machine
+
+
+def test_collect_gateway_tests_counts_suite():
+    res = ce.collect_gateway_tests()
+    assert res["returncode"] == 0 and res["collected"] >= 250

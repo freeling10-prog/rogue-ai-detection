@@ -4,6 +4,24 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
+## [Unreleased] - docs, site, and offer sync (25 October 2026)
+
+- README: sprint-submission callout near the top (report, slides, JSON,
+  reproduction command, headline figures with the 3.84 ms max and the scope
+  note). Gateway count 240 -> **262** (244 before the sprint: 240 for v10
+  plus 4 HTTP resource-limit tests; then 11 `evaluate-collusion` and 7
+  sprint-artifact tests). agent-watch: 514 collected, 512 passed, 2 skipped.
+- Site (`site/`): metrics bar synced (262 gateway, 784 passing in all,
+  57/57, p50 0.126 ms / p99 0.999 ms, 0 of 750 benign denials), a "Verify in
+  30 seconds" box, deliverable-backed tier names, sample-deliverable links,
+  and two v10 simulator presets (confused-deputy delegation; obfuscated
+  canary exfiltration). Copies of the sprint report, slides, and JSON are in
+  `site/sprint/` so the Pages links resolve; `sprint_submission/` is
+  unchanged.
+- Whitepaper dated 25 October 2026 with a new section 6.1 on the v10
+  collusion carriers and the `evaluate-collusion` results; PDF regenerated
+  from the Word file.
+
 ## [Unreleased] - collusion sprint evaluation
 
 - `agent_gateway/collusion_eval.py` and `python -m agent_gateway

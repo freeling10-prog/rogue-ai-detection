@@ -4,6 +4,17 @@ AgentGate is the lab policy gate in this repository. It sits in the tool loop of
 
 **Live interactive demo (public, no login):** <https://freeling10-prog.github.io/rogue-ai-detection/> · Source: [github.com/freeling10-prog/rogue-ai-detection](https://github.com/freeling10-prog/rogue-ai-detection) · Book: [alecagentboundary@gmail.com](mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit)
 
+> **Apart Research collusion sprint — submission artifacts** (generated at commit `cefec0d`, 25 October 2026)
+>
+> - Report: [`sprint_submission/collusion_sprint_report.pdf`](sprint_submission/collusion_sprint_report.pdf) ([Markdown](sprint_submission/collusion_sprint_report.md)) · Slides: [`sprint_submission/collusion_sprint_slides.pdf`](sprint_submission/collusion_sprint_slides.pdf) · Raw data: [`sprint_submission/collusion_benchmark_results.json`](sprint_submission/collusion_benchmark_results.json)
+> - Reproduce (from `agent-gateway/`, with `AGENT_GATEWAY_HMAC_KEY` set): `python -m agent_gateway evaluate-collusion --report ../sprint_submission`
+> - **57/57** collusion defence tests passed: Group A side-channel / timing **8/8**, Group B delegation / confused-deputy **8/8**, Group C de-obfuscation / canary watermarking **41/41**.
+> - **5** stateful Hypothesis machines in the suite, including the delegation DAG machine (`max_examples=120`, `stateful_step_count=24`).
+> - **750** benign policy decisions (5 workflows × 50 runs): **0** false denials; **750/750** SHA-256 hash-chained decision-log entries verified (the audit manifest is HMAC-signed), and an edited or dropped line in a copy is detected.
+> - CPU time per decision: **p50 0.126 ms · p95 0.892 ms · p99 0.999 ms** against a 2 ms reference; the slowest single decision was **3.84 ms**.
+>
+> Scope: these are same-author, scripted lab checks of the guards against cases written for them. They are not a benchmark and not an estimate of recall against an unknown adversary. They are never pooled with the separate real-model loopback figure (**2 of 13** non-control runs, `qwen2.5:3b`, one machine).
+
 **What this is not.** Not a production WAF. Not an injection detector. Not an OS sandbox or network isolation. Not a penetration test, a benchmark, or a certification. It governs only tool calls that are routed through it. See [Known non-goals and bypasses wanted](#known-non-goals-and-bypasses-wanted).
 
 **Run the boundary replay** (in-process, simulated backends, no network, no port):
@@ -14,7 +25,7 @@ AGENT_GATEWAY_HMAC_KEY="$(python -c 'import secrets; print(secrets.token_hex(32)
 
 It starts a session, ingests untrusted content, then shows one denied call, two calls that stay allowed, and one known limit. The gateway refuses to start without an explicit key of at least 32 bytes. See [examples/replay_attenuation.py](examples/replay_attenuation.py).
 
-This page is the product front door. The research write-up is the whitepaper ([PDF](docs/rogue-ai-detection-whitepaper.pdf), [Word](docs/rogue-ai-detection-whitepaper.docx)), updated 24 October 2026. Read the [lab limits](#lab-limits) before treating any number below as a deployment result.
+This page is the product front door. The research write-up is the whitepaper ([PDF](docs/rogue-ai-detection-whitepaper.pdf), [Word](docs/rogue-ai-detection-whitepaper.docx)), updated 25 October 2026. Read the [lab limits](#lab-limits) before treating any number below as a deployment result.
 
 ## Choose a path
 
@@ -36,13 +47,13 @@ The paid offer is the [AgentGate — 48-Hour Agentic Tool-Boundary Audit](market
 
 | Tier | Price | What you get |
 | --- | --- | --- |
-| Tool Inventory Review | **$1,800** | One-page egress classification, top 3 taint paths, short remediation list. No full note, no lab pass |
-| Fixed Tool-Boundary Note | **$4,500** | Full written note: classification, taint-path map, held calls, approximate ATLAS ids, remediation sketch |
-| Note + Lab Instrumentation | **$6,500** | The $4,500 note plus a lab gateway pass on `127.0.0.1` (simulated backends) and an offline analyzer pass on an authorized log you supply |
+| Tier 1: MCP & Multi-Agent Exposure Diagnostic (Tool Inventory Review) | **$1,800** | Executive collusion and posture report (PDF), SARIF 2.1.0 bundle (`sarif_export.py`, approximate ATLAS ids), Sigma rules + STIX 2.1 bundle (`agentwatch-analyzer`). No lab pass |
+| Tier 2: Inline PEP Hardening & CI Gate Sprint (Fixed Tool-Boundary Note) | **$4,500** | Tier 1 and the full written note, plus a loopback `pep.py` / `mcp_proxy.py` policy set for your tool list, the 5 Hypothesis regression machines in a CI workflow, and hash-chained per-run logging (`audit_chain.py`). Delivered as a pull request your team merges |
+| Tier 3: Continuous Red-Team, Canary & Deception Retainer (Note + Lab Instrumentation) | **$6,500**, then $2,500 per quarter | Tier 2 plus a lab gateway pass on `127.0.0.1` (simulated backends), an offline analyzer pass on an authorized log, localhost tripwire / canary / de-obfuscation / side-channel guard configuration, and a quarterly `evaluate-collusion` re-run |
 
 Optional add-ons: Integration Blueprint (+$2,500, code or config sketches for the top held calls, nothing deployed on your hosts), Reviewer Briefing Call (+$750), Quarterly Refresh Retainer ($2,500 per quarter). All prices are fixed.
 
-Email [alecagentboundary@gmail.com](mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit) with the subject `Book 48-Hour Agentic Tool-Boundary Audit`. You can reply in that thread with a tool inventory (names and argument shapes, no secrets). The clock starts when a usable tool list arrives. This is not a penetration test and not a certification. The honeypot stays human-review only, freeze applies only to registered lab keys for 15 minutes, and ATLAS ids in the note are approximate. See an [example note](docs/examples/sample-boundary-note.md).
+Email [alecagentboundary@gmail.com](mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit) with the subject `Book 48-Hour Agentic Tool-Boundary Audit`. You can reply in that thread with a tool inventory (names and argument shapes, no secrets). The clock starts when a usable tool list arrives. This is not a penetration test and not a certification. The honeypot stays human-review only, freeze applies only to registered lab keys for 15 minutes, and ATLAS ids in the note are approximate. See an [example note](docs/examples/sample-boundary-note.md). Sample output from our own sprint run: [report PDF](sprint_submission/collusion_sprint_report.pdf), [briefing deck](sprint_submission/collusion_sprint_slides.pdf), [JSON](sprint_submission/collusion_benchmark_results.json).
 
 **[Book a 48-hour Agentic Tool-Boundary Audit](mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit)**
 
@@ -50,20 +61,22 @@ One-page offer: **[AgentGate — 48-Hour Agentic Tool-Boundary Audit](marketing/
 
 ## Compliance snapshot
 
-Labels for results **recorded in this lab tree on 24 October 2026**. They are not a certification, and they are not evidence of a wild deployment. The GitHub Action file is the thing you run; the shields only repeat the recorded counts.
+Labels for results **recorded in this lab tree on 25 October 2026**. They are not a certification, and they are not evidence of a wild deployment. The GitHub Action file is the thing you run; the shields only repeat the recorded counts.
 
 [![GitHub Action atlas-agent-audit.yml](https://img.shields.io/badge/GitHub_Action-atlas--agent--audit.yml-3b5bdb)](.github/workflows/atlas-agent-audit.yml)
-[![gateway tests 240 passed](https://img.shields.io/badge/gateway_tests-240_passed-2f6f4e)](agent-gateway/tests)
+[![gateway tests 262 passed](https://img.shields.io/badge/gateway_tests-262_passed-2f6f4e)](agent-gateway/tests)
 [![ATLAS 7/7 plus Hypothesis](https://img.shields.io/badge/ATLAS_falsification-7%2F7_%2B_Hypothesis-2f6f4e)](agent-gateway/tests/test_pep_falsification.py)
 [![STIX validator_ok true](https://img.shields.io/badge/STIX_2.1-validator__ok%3Dtrue-2f6f4e)](agentwatch-analyzer/scripts/ci_smoke.py)
 
 | Check | Where | Recorded result |
 | --- | --- | --- |
 | ATLAS agent audit | [`.github/workflows/atlas-agent-audit.yml`](.github/workflows/atlas-agent-audit.yml) | Four jobs: gateway, agent-watch, pipeline, offline analyzer smoke. The smoke job fails unless the STIX bundle parses and `validator_ok` is true. It then runs `python -m agent_gateway audit` and uploads the executive HTML and text PDF with the other artifacts. No honeypot process. |
-| Gateway tests | `agent-gateway` pytest | **240 passed** (`pytest -q` in `agent-gateway` on this branch). **79** of the 240 are the v10 additions: **8** delegation / confused-deputy tests (one Hypothesis DAG machine), **44** argument-firewall tests (two Hypothesis properties), **20** canary / credential tests (two Hypothesis properties), and **7** SARIF-exporter tests (one Hypothesis property). The v9 count before them is **161**. **72** of those 161 are the v9 additions: **44** SSRF URI-guard tests (two Hypothesis properties), **11** tool-output scanner tests (two Hypothesis properties), **9** toxic-combination tests (one Hypothesis property), and **8** side-channel tests (one Hypothesis state machine). The v8 count before them is **89**. **49** of those 89 are the v8 additions: **12** MCP wire-proxy tests, **21** de-obfuscation tests, **15** hash-chain audit tests, and **1** smuggling Hypothesis machine. The v1.0.0 count before them is **40**. **5** of those 40 are executive audit-report tests. **6** are approval-webhook tests. The count before those 5 audit tests is **35**. The pre-webhook floor is **29** (the count before those 6 existed; that is the "29" figure). Inside the 40: **7/7** ATLAS falsification in [`test_pep_falsification.py`](agent-gateway/tests/test_pep_falsification.py), plus Hypothesis stateful checks. |
+| Gateway tests | `agent-gateway` pytest | **262 passed** (`pytest -q` in `agent-gateway` at `cefec0d`, 20 files). **18** of the 262 are the collusion-sprint additions: **11** `evaluate-collusion` tests and **7** sprint-artifact tests. The tree before them collected **244**: the **240** recorded for v10 plus **4** HTTP resource-limit tests ([`test_resource_limits.py`](agent-gateway/tests/test_resource_limits.py)). **79** of the 240 are the v10 additions: **8** delegation / confused-deputy tests (one Hypothesis DAG machine), **44** argument-firewall tests (two Hypothesis properties), **20** canary / credential tests (two Hypothesis properties), and **7** SARIF-exporter tests (one Hypothesis property). The v9 count before them is **161**. **72** of those 161 are the v9 additions: **44** SSRF URI-guard tests (two Hypothesis properties), **11** tool-output scanner tests (two Hypothesis properties), **9** toxic-combination tests (one Hypothesis property), and **8** side-channel tests (one Hypothesis state machine). The v8 count before them is **89**. **49** of those 89 are the v8 additions: **12** MCP wire-proxy tests, **21** de-obfuscation tests, **15** hash-chain audit tests, and **1** smuggling Hypothesis machine. The v1.0.0 count before them is **40**. **5** of those 40 are executive audit-report tests. **6** are approval-webhook tests. The count before those 5 audit tests is **35**. The pre-webhook floor is **29** (the count before those 6 existed; that is the "29" figure). Inside the 40: **7/7** ATLAS falsification in [`test_pep_falsification.py`](agent-gateway/tests/test_pep_falsification.py), plus Hypothesis stateful checks. |
+| agent-watch tests | `agent-watch` pytest | **514** collected: **512** passed, **2** skipped. |
+| Collusion sprint check | `python -m agent_gateway evaluate-collusion` | **57/57** defence tests (A 8/8, B 8/8, C 41/41); 750 benign decisions, 0 denied; 750/750 chain entries verified; CPU p50 0.126 ms, p95 0.892 ms, p99 0.999 ms, max 3.84 ms. Same-author lab check, not a benchmark. Artifacts in [`sprint_submission/`](sprint_submission/). |
 | STIX 2.1 | [`agentwatch-analyzer/scripts/ci_smoke.py`](agentwatch-analyzer/scripts/ci_smoke.py) | Recorded smoke on the archived Tier-2 Playwright crawler log reported **`validator_ok=true`**. Known warnings on `x_` properties and approximate ATLAS tags can still appear. |
 
-Use **240** on this tree (v10 delegation guard, argument firewall, canary watermarking, and SARIF export on top of v9). Use **161** on the v9 tree (toxic-combination graph, tool-output scanner, SSRF guard, and side-channel guard on top of v8). Use **89** on the v8 tree (MCP wire proxy, de-obfuscation, and hash-chained audit receipts on top of v1.0.0). Use **40** on the v1.0.0 tree (approval webhook plus the executive audit report). Use **35** on a tree that contains [`approval_webhook.py`](agent-gateway/agent_gateway/approval_webhook.py) but not the audit-report tests. Use **29** only for the parent tree from before the webhook file.
+Use **262** on this tree (the `evaluate-collusion` aggregator and sprint artifacts on top of v10 and the HTTP resource limits). Use **240** on the v10 tree (delegation guard, argument firewall, canary watermarking, and SARIF export on top of v9). Use **161** on the v9 tree (toxic-combination graph, tool-output scanner, SSRF guard, and side-channel guard on top of v8). Use **89** on the v8 tree (MCP wire proxy, de-obfuscation, and hash-chained audit receipts on top of v1.0.0). Use **40** on the v1.0.0 tree (approval webhook plus the executive audit report). Use **35** on a tree that contains [`approval_webhook.py`](agent-gateway/agent_gateway/approval_webhook.py) but not the audit-report tests. Use **29** only for the parent tree from before the webhook file.
 
 ## What you are running
 
@@ -142,7 +155,7 @@ Bypasses wanted: a way to restore egress on a tainted `agw1.` capability, to rea
 
 ## Evidence
 
-Full narrative, methods, and the 24 October 2026 update for v6 and Phases 1 to 3: [docs/rogue-ai-detection-whitepaper.pdf](docs/rogue-ai-detection-whitepaper.pdf) ([Word](docs/rogue-ai-detection-whitepaper.docx)). Section 4 is the loopback sample and the analyzer. Section 6 is the gateway. Section 9 is related work. Search notes for that section: [docs/prior-art.md](docs/prior-art.md) (23 October 2026; not repeated for the later update). The capability comparison that used to lead this README lives in that note and in the paper. In that search, "not found in my search" means the pages that were read did not document the capability.
+Full narrative, methods, the 24 October 2026 update for v6 and Phases 1 to 3, and the 25 October 2026 v10 collusion-carrier section (6.1): [docs/rogue-ai-detection-whitepaper.pdf](docs/rogue-ai-detection-whitepaper.pdf) ([Word](docs/rogue-ai-detection-whitepaper.docx)). Section 4 is the loopback sample and the analyzer. Section 6 is the gateway. Section 9 is related work. Search notes for that section: [docs/prior-art.md](docs/prior-art.md) (23 October 2026; not repeated for the later update). The capability comparison that used to lead this README lives in that note and in the paper. In that search, "not found in my search" means the pages that were read did not document the capability.
 
 Earlier research map (bot and agent detection, ATLAS, NIST AI RMF, OWASP, STIX, collection limits): [research report](https://cursor.com/canvas/store-f783d059-8304-409e-8eee-8c518ae04f8b/91900c77-b85e-45f9-b706-3b5fa0315467). Legal content there is a research summary, not legal advice.
 

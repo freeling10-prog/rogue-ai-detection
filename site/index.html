@@ -7,7 +7,7 @@
 <meta name="description" content="After your AI agent reads untrusted input, which tools can it still call — and who has to agree first? AgentGate is an open-source lab gateway and a 48-hour tool-boundary audit.">
 <meta name="color-scheme" content="dark">
 <meta property="og:title" content="AgentGate — Agentic Tool-Boundary Audit">
-<meta property="og:description" content="Taint-and-freeze policy gateway for AI agents. Open-source core, 240 gateway tests (762 total), approximate MITRE ATLAS mappings.">
+<meta property="og:description" content="Taint-and-freeze policy gateway for AI agents. Open-source core, 262 gateway tests (784 passing in all), 57/57 collusion defence checks, approximate MITRE ATLAS mappings.">
 <meta property="og:type" content="website">
 <link rel="icon" href="favicon.svg">
 <link rel="stylesheet" href="styles.css?v=__BUILD__">
@@ -27,6 +27,7 @@
     <nav id="site-nav">
       <a href="#architecture">Architecture</a>
       <a href="#simulator">Simulator</a>
+      <a href="#verify">Verify</a>
       <a href="#pricing">Pricing</a>
       <a href="#guardrails">Guardrails</a>
       <a href="https://github.com/freeling10-prog/rogue-ai-detection">GitHub</a>
@@ -39,7 +40,7 @@
 <!-- HERO -->
 <section class="hero">
   <div class="wrap">
-    <div class="badge" id="metrics-badge">Open-Source Core • 240 Gateway Tests + Hypothesis Stateful Fuzzing • 762 Tests Passing • MITRE ATLAS Mapped (Approximate)</div>
+    <div class="badge" id="metrics-badge">Open-Source Core • 262 Gateway Tests + 5 Hypothesis State Machines • 784 Tests Passing • 57/57 Collusion Defence Checks • MITRE ATLAS Mapped (Approximate)</div>
     <h1>After your AI agent reads untrusted input, which tools can it still call&mdash;and who has to agree first?</h1>
     <p class="lede">AgentGate is a zero-compute Python Policy Enforcement Point (<code>pep.py</code>), MCP JSON-RPC 2.0 wire proxy, and offline log analyzer. It taints a session on untrusted input, closes egress on its <code>agw1.</code> capability, and holds the next write, send, or credential call for a person. We run a fixed-price 48-Hour Agentic Tool-Boundary Audit before your enterprise security review.</p>
     <div class="cta-row">
@@ -47,10 +48,13 @@
       <a class="btn ghost" href="https://github.com/freeling10-prog/rogue-ai-detection/blob/main/marketing/audit-offer.md">View Public Repo &amp; Offer Scope <span aria-hidden="true">↗</span></a>
     </div>
     <div class="kpis">
-      <div class="kpi"><div class="n ok">240</div><div class="l">agent-gateway tests + Hypothesis state machines</div></div>
-      <div class="kpi"><div class="n ok">512+2</div><div class="l">agent-watch tests (passed + skipped)</div></div>
-      <div class="kpi"><div class="n ok">10</div><div class="l">agentwatch-analyzer tests</div></div>
-      <div class="kpi"><div class="n ok">762</div><div class="l">total tests passing across all three packages</div></div>
+      <div class="kpi"><div class="n ok">262</div><div class="l">agent-gateway tests + 5 Hypothesis state machines</div></div>
+      <div class="kpi"><div class="n ok">512+2</div><div class="l">agent-watch tests (514 collected: passed + skipped)</div></div>
+      <div class="kpi"><div class="n ok">784</div><div class="l">tests passing across gateway, agent-watch, and the 10 analyzer tests</div></div>
+      <div class="kpi"><div class="n">22</div><div class="l">modules in <code>agent-gateway</code> behind <code>pep.py</code> (guards, audit chain, export)</div></div>
+      <div class="kpi"><div class="n ok">0.126 ms</div><div class="l">p50 CPU per decision &middot; p99 0.999 ms &middot; 750 benign decisions (2 ms reference)</div></div>
+      <div class="kpi"><div class="n ok">0 / 750</div><div class="l">benign false denials &middot; 750/750 hash-chained log entries verified</div></div>
+      <div class="kpi"><div class="n ok">57/57</div><div class="l">collusion defence tests (A 8/8 &middot; B 8/8 &middot; C 41/41)</div></div>
       <div class="kpi"><div class="n">7/7</div><div class="l">ATLAS falsification regression suite</div></div>
       <div class="kpi"><div class="n">2 of 13</div><div class="l">real-model loopback archive (qwen2.5:3b, same author, one machine — not a benchmark)</div></div>
     </div>
@@ -62,7 +66,8 @@
   <div class="wrap">
     <p class="eyebrow">What runs on <code>main</code> today</p>
     <h2>The gateway, layer by layer</h2>
-    <p class="lead">One loopback policy-enforcement point (<code>pep.py</code>) wraps every <code>tools/call</code>. Untrusted ingest taints the session and attenuates a chained-HMAC <code>agw1.</code> capability; each later write, send, or credential call is held for a person. <strong>240</strong> gateway tests (unit plus Hypothesis state machines), <strong>512+2</strong> agent-watch and <strong>10</strong> analyzer tests &mdash; <strong>762</strong> passing in all.</p>
+    <p class="lead">One loopback policy-enforcement point (<code>pep.py</code>) wraps every <code>tools/call</code>. Untrusted ingest taints the session and attenuates a chained-HMAC <code>agw1.</code> capability; each later write, send, or credential call is held for a person. <strong>262</strong> gateway tests (unit plus 5 Hypothesis state machines), <strong>512+2</strong> agent-watch and <strong>10</strong> analyzer tests &mdash; <strong>784</strong> passing in all.</p>
+    <p class="sim-desc">Collusion sprint run at commit <code>cefec0d</code>: 750 benign decisions, CPU p50 0.126 ms &middot; p95 0.892 ms &middot; p99 0.999 ms against a 2 ms reference; the slowest single decision was 3.84 ms. Same-author lab checks, one machine &mdash; not a benchmark, and never pooled with the separate 2 of 13 real-model loopback figure.</p>
     <div class="kpis" style="margin-top:22px">
       <div class="kpi"><div class="l"><code>mcp_proxy.py</code></div>MCP JSON-RPC proxy: <code>tools/list</code> SHA-256 pinning, rug-pull detection, sampling guard.</div>
       <div class="kpi"><div class="l"><code>deobfuscate.py</code></div>Rolling salted n-gram digests catch split-chunk and encoded exfil across steps.</div>
@@ -82,13 +87,15 @@
   <div class="wrap">
     <p class="eyebrow">Live, in your browser — nothing leaves this page</p>
     <h2>Taint-and-Freeze Simulator</h2>
-    <p class="lead">Four canned walkthroughs of the real gateway modules. Everything runs in vanilla JavaScript on this page: no network calls, no sign-in, no backend. Colors follow the engine&rsquo;s own states &mdash; <span style="color:var(--emerald)">verified / pinned</span>, <span style="color:var(--amber)">tainted / held</span>, <span style="color:var(--crimson)">denied / frozen</span>.</p>
+    <p class="lead">Six canned walkthroughs of the real gateway modules. Everything runs in vanilla JavaScript on this page: no network calls, no sign-in, no backend. Colors follow the engine&rsquo;s own states &mdash; <span style="color:var(--emerald)">verified / pinned</span>, <span style="color:var(--amber)">tainted / held</span>, <span style="color:var(--crimson)">denied / frozen</span>.</p>
 
     <div class="tabs" role="tablist" aria-label="Simulator scenarios">
       <button class="tab-btn" role="tab" id="tab-1" aria-controls="panel-1" aria-selected="true" data-tab="1">1 · MCP Rug-Pull &amp; Output Smuggling</button>
       <button class="tab-btn" role="tab" id="tab-2" aria-controls="panel-2" aria-selected="false" data-tab="2">2 · Split-Chunk &amp; Encoded Exfil</button>
       <button class="tab-btn" role="tab" id="tab-3" aria-controls="panel-3" aria-selected="false" data-tab="3">3 · Static Toxic-Flow Graph</button>
       <button class="tab-btn" role="tab" id="tab-4" aria-controls="panel-4" aria-selected="false" data-tab="4">4 · OOB Approval &amp; Hash-Chain Verify</button>
+      <button class="tab-btn" role="tab" id="tab-5" aria-controls="panel-5" aria-selected="false" data-tab="5">5 · Confused-Deputy Delegation <span class="tag ok">v10</span></button>
+      <button class="tab-btn" role="tab" id="tab-6" aria-controls="panel-6" aria-selected="false" data-tab="6">6 · Obfuscated Canary Exfiltration <span class="tag ok">v10</span></button>
     </div>
 
     <!-- TAB 1 -->
@@ -149,6 +156,55 @@
       </div>
       <div class="console" id="out-4" aria-live="polite"></div>
     </div>
+
+    <!-- TAB 5 -->
+    <div class="sim" id="panel-5" role="tabpanel" aria-labelledby="tab-5" hidden>
+      <div class="sim-head">
+        <h3><code>delegation_guard.py</code></h3>
+        <span class="atlas">≈ AML.T0051 / AML.T0086 (approximate)</span>
+      </div>
+      <p class="sim-desc">Agent A is tainted and has read a secret. It hands the task to a clean peer, Agent B, then B tries to hand it back (a cycle). Each hand-off is a lattice meet: the recipient keeps every restriction either side carried, as chained-HMAC caveats on its <code>agw1.</code> token. Egress from any session of a barred, delegated principal is denied as <code>confused_deputy_delegation_blocked</code>. A clean hand-off between two clean agents still sends. The decision outcomes below are the ones the real <code>PolicyEngine</code> returns for these calls; CPU times are the sprint run&rsquo;s figures.</p>
+      <div class="sim-controls">
+        <button class="btn" data-run="5">▶ Run scenario</button>
+        <button class="btn ghost" data-reset="5">Reset</button>
+      </div>
+      <div class="console" id="out-5" aria-live="polite"></div>
+    </div>
+
+    <!-- TAB 6 -->
+    <div class="sim" id="panel-6" role="tabpanel" aria-labelledby="tab-6" hidden>
+      <div class="sim-head">
+        <h3><code>deobfuscate.py</code> + <code>canary_watermark.py</code> + <code>egress_uri_guard.py</code></h3>
+        <span class="atlas">≈ AML.T0053 / AML.T0086 (approximate)</span>
+      </div>
+      <p class="sim-desc">A sensitive read returns a secret carrying a zero-width HMAC watermark bound to (session, step, tool). The agent first aims at a hex-spelled cloud-metadata address, which the URI guard canonicalizes and denies. It then sends the watermarked secret, Base64-encoded and URL-encoded, to a public paste URI. The URI guard allows public hosts; the payload check decodes the layers inline, matches the secret&rsquo;s n-gram digests, denies the call, taints the session, freezes the registered lab key and its child for 15 minutes, and writes a hash-chained entry to the decision log.</p>
+      <div class="sim-controls">
+        <button class="btn" data-run="6">▶ Run scenario</button>
+        <button class="btn ghost" data-reset="6">Reset</button>
+      </div>
+      <div class="console" id="out-6" aria-live="polite"></div>
+    </div>
+  </div>
+</section>
+
+<!-- VERIFY -->
+<section id="verify">
+  <div class="wrap">
+    <p class="eyebrow">Don&rsquo;t take our word for it</p>
+    <h2>Verify in 30 seconds</h2>
+    <p class="lead">The same command that produced our sprint report runs on your laptop. The evaluation itself takes about 5 seconds after install; it binds no port, makes no network call, and writes the JSON, Markdown, PDF report, and slide deck to the folder you name. Your latency figures will differ from ours by machine.</p>
+    <div class="panel" style="padding:20px">
+      <div class="tmpl" id="verify-snippet">git clone https://github.com/freeling10-prog/rogue-ai-detection
+cd rogue-ai-detection/agent-gateway
+python -m pip install -e '.[test]'
+export AGENT_GATEWAY_HMAC_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')"
+python -m agent_gateway evaluate-collusion --report ./audit_out</div>
+      <div class="cta-row">
+        <button class="btn" id="copy-verify">⧉ Copy commands</button>
+        <a class="btn primary" href="mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit&amp;body=Tier%3A%20%241%2C800%20MCP%20%26%20Multi-Agent%20Exposure%20Diagnostic">Book a Tier 1 diagnostic on your MCP servers &amp; agent workflows</a>
+      </div>
+      <p class="sim-desc">What it checks: the repository&rsquo;s own side-channel, delegation, and de-obfuscation / canary tests by group, 750 timed benign decisions, and a hash-chained log with edit and drop detection. Same-author scenarios &mdash; it shows the guards behave as their tests specify, not recall against an unknown adversary.</p>
+    </div>
   </div>
 </section>
 
@@ -157,49 +213,56 @@
   <div class="wrap">
     <p class="eyebrow">Fixed price · clock starts when a usable tool list arrives</p>
     <h2>Three ways to book</h2>
-    <p class="lead">A written note for a security reviewer, produced from a tool list you send: every untrusted-ingest to held-call path, the approximate ATLAS techniques involved, and the places a reviewer should ask for controls. Paying does not change the license: the open-source lab stays Apache-2.0 and the free GitHub Action stays free. Not a penetration test and not a certification.</p>
+    <p class="lead">Each tier names the artifacts you receive and the module in this repository that produces them. Every tier starts from a tool list you send: every untrusted-ingest to held-call path, the approximate ATLAS techniques involved, and the places a reviewer should ask for controls. Paying does not change the license: the open-source lab stays Apache-2.0 and the free GitHub Action stays free. Not a penetration test and not a certification.</p>
     <div class="price-grid">
       <div class="price-card">
         <div class="price">$1,800</div>
-        <h3>Tool Inventory Review</h3>
-        <div class="turnaround">24h clock starts when the tool list arrives</div>
+        <h3>MCP &amp; Multi-Agent Exposure Diagnostic</h3>
+        <div class="turnaround">Tier 1 &middot; Tool Inventory Review &middot; 24h clock starts when the tool list arrives</div>
         <ul>
-          <li>Each tool classified by egress (one page)</li>
-          <li>Top 3 taint paths</li>
-          <li>Short remediation list</li>
-          <li class="no">No full note</li>
-          <li class="no">No lab pass</li>
+          <li>Executive Collusion &amp; Posture Report (PDF): egress classification, top taint and delegation paths, short remediation list</li>
+          <li>GitHub Advanced Security SARIF 2.1.0 bundle (<code>sarif_export.py</code>), approximate MITRE ATLAS ids</li>
+          <li>Custom Sigma rules + STIX 2.1 bundle (<code>agentwatch-analyzer</code>) for the log format you name</li>
+          <li class="no">No lab gateway pass</li>
+          <li class="no">Nothing installed on your hosts</li>
         </ul>
-        <a class="btn" href="mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit&amp;body=Tier%3A%20%241%2C800%20inventory%20review">Book the $1,800 review</a>
+        <a class="btn" href="mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit&amp;body=Tier%3A%20%241%2C800%20MCP%20%26%20Multi-Agent%20Exposure%20Diagnostic">Book the $1,800 diagnostic</a>
       </div>
       <div class="price-card">
         <div class="price">$4,500</div>
-        <h3>Fixed Tool-Boundary Note</h3>
-        <div class="turnaround">48h clock starts when the tool list arrives</div>
+        <h3>Inline PEP Hardening &amp; CI Gate Sprint</h3>
+        <div class="turnaround">Tier 2 &middot; Fixed Tool-Boundary Note &middot; 48h clock starts when the tool list arrives</div>
         <ul>
-          <li>Each tool classified by egress</li>
-          <li>Taint-path map (ingest → held call)</li>
-          <li>Which calls the lab gateway would hold</li>
-          <li>Approximate ATLAS ids on the note</li>
-          <li>Remediation sketch: the first three controls</li>
-          <li>Written note for the security reviewer</li>
-          <li class="no">No lab instrumentation</li>
-          <li class="no">No offline log pass</li>
+          <li>Everything in Tier 1, plus the full written tool-boundary note</li>
+          <li>Configured loopback <code>pep.py</code> &amp; <code>mcp_proxy.py</code> policy set for your tool list: <code>delegation_guard.py</code>, <code>toxic_combinations.py</code>, <code>arg_ast_guard.py</code>, <code>egress_uri_guard.py</code></li>
+          <li>5 stateful Hypothesis regression machines wired into a CI workflow</li>
+          <li>Tamper-evident per-run logging (<code>audit_chain.py</code>): SHA-256 hash-chained decision log, HMAC-signed audit manifest, and <code>verify</code></li>
+          <li class="no">Delivered as config and a pull request your team merges &mdash; we do not deploy on your hosts</li>
         </ul>
-        <a class="btn" href="mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit&amp;body=Tier%3A%20%244%2C500%20fixed">Book the $4,500 note</a>
+        <a class="btn" href="mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit&amp;body=Tier%3A%20%244%2C500%20Inline%20PEP%20Hardening%20%26%20CI%20Gate%20Sprint">Book the $4,500 sprint</a>
       </div>
       <div class="price-card feature">
         <div class="price">$6,500</div>
-        <h3>Boundary Note + Lab Instrumentation &amp; Offline Log Pass</h3>
-        <div class="turnaround">48h clock starts when the tool list arrives</div>
+        <h3>Continuous Red-Team, Canary &amp; Deception Retainer</h3>
+        <div class="turnaround">Tier 3 &middot; Note + Lab Instrumentation &middot; 48h first pass, then $2,500 per quarter</div>
         <ul>
-          <li>Everything in the $4,500 note</li>
-          <li>Lab gateway pass on <code>127.0.0.1</code> (simulated tool backends)</li>
-          <li>Offline analyzer pass on an authorized log you supply</li>
-          <li>Explicit list of rules a normal access log cannot support</li>
-          <li>Approximate ATLAS ids on the note</li>
+          <li>Everything in Tier 2, plus a lab gateway pass on <code>127.0.0.1</code> and an offline analyzer pass on an authorized log you supply</li>
+          <li>Localhost honeypot tripwire config (<code>agent-watch</code>, <code>127.0.0.1</code>, human-review leads only)</li>
+          <li>Active canary watermark tracking (<code>canary_watermark.py</code>) with step-level provenance</li>
+          <li>Custom de-obfuscation and side-channel guards (<code>deobfuscate.py</code>, <code>side_channel_guard.py</code>)</li>
+          <li>Recurring <code>evaluate-collusion</code> latency &amp; posture verification each quarter (scripted lab scenarios, not a red team of your users)</li>
         </ul>
-        <a class="btn primary" href="mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit&amp;body=Tier%3A%20%246%2C500%20with%20instrumentation">Book the $6,500 pass</a>
+        <a class="btn primary" href="mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit&amp;body=Tier%3A%20%246%2C500%20Continuous%20Red-Team%2C%20Canary%20%26%20Deception%20Retainer">Book the $6,500 retainer</a>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:22px; padding:20px">
+      <h3 style="font-size:1rem">View sample deliverables</h3>
+      <p class="sim-desc">Real output from our own collusion-sprint run (commit <code>cefec0d</code>), unedited. Inspect the format before you book.</p>
+      <div class="cta-row">
+        <a class="btn" href="sprint/collusion_sprint_report.pdf">Sample Executive Audit Report PDF</a>
+        <a class="btn" href="sprint/collusion_sprint_slides.pdf">Sample Briefing Deck PDF</a>
+        <a class="btn" href="sprint/collusion_benchmark_results.json">Sample JSON Benchmark Artifact</a>
       </div>
     </div>
 
@@ -236,6 +299,7 @@ example.send_email | {to: string, body: string} | — | $6,500</div>
       <li><span class="k">Human-review only</span>Honeypot output is leads for a person. It never auto-blocks a visitor.</li>
       <li><span class="k">15-minute freeze, lab keys only</span>Freeze applies only to keys in the lab registry. An unregistered key is never frozen.</li>
       <li><span class="k">2 of 13</span>The only real-model number is our loopback archive (qwen2.5:3b, same author, one machine). Not a benchmark.</li>
+      <li><span class="k">Lab checks stay lab checks</span>57/57, 0 / 750, and the latency figures are same-author scripted checks. They are never pooled with the 2 of 13 archive and are not a detection rate for your product.</li>
       <li><span class="k">Approximate ATLAS</span>Every MITRE ATLAS id is labeled approximate. It is not a certification.</li>
     </ul>
     <div class="disclaimer">

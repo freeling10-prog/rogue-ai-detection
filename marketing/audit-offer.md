@@ -10,7 +10,7 @@ This is not a penetration test, not a red team, and not a certification. It is n
 
 ## Price
 
-| | Tool Inventory Review | Fixed Tool-Boundary Note | Note + Lab Instrumentation |
+| | Tier 1: MCP & Multi-Agent Exposure Diagnostic (Tool Inventory Review) | Tier 2: Inline PEP Hardening & CI Gate Sprint (Fixed Tool-Boundary Note) | Tier 3: Continuous Red-Team, Canary & Deception Retainer (Note + Lab Instrumentation) |
 | --- | --- | --- | --- |
 | Price | **$1,800** | **$4,500** | **$6,500** |
 | Tool list classified by egress | Yes | Yes | Yes |
@@ -20,6 +20,7 @@ This is not a penetration test, not a red team, and not a certification. It is n
 | Approximate ATLAS ids on the note | No | Yes | Yes |
 | Written note for the security reviewer | One-page boundary map | Full note | Full note |
 | Instrumentation | No | No | Yes |
+| Named artifacts | Posture report PDF, SARIF bundle, Sigma + STIX 2.1 | Tier 1 plus policy set, CI regression machines, hash-chained logging | Tier 2 plus tripwire, canary, and guard configuration and quarterly re-verification |
 
 **Optional add-ons**, attached to any tier. All prices are fixed; there is no hourly billing.
 
@@ -37,6 +38,16 @@ The **Tool Inventory Review** is the lowest-friction entry. It is a one-page egr
 2. An **analyzer pass**: if you supply an authorized access log (nginx, Caddy, Cloudflare, or JSON), we run it through the offline analyzer. The analyzer does not connect to your network. We will say which rules that log cannot support. Beacon, tool-hijack, and timing rules are not available from a normal access log.
 
 A log is not required for the $4,500 tier, and we do not run the log or the lab gateway pass unless you take the $6,500 tier. The Inventory Review includes neither. The scrubber is a backstop. Strip live tokens before you send a log.
+
+## Artifacts by tier
+
+Each artifact is produced by a module in this repository, so you can read the code that makes it before you book. Sample output from our own collusion-sprint run (commit `cefec0d`, unedited): [report PDF](../sprint_submission/collusion_sprint_report.pdf), [briefing deck PDF](../sprint_submission/collusion_sprint_slides.pdf), [JSON benchmark artifact](../sprint_submission/collusion_benchmark_results.json). The same files are linked from the [live site](https://freeling10-prog.github.io/rogue-ai-detection/#pricing).
+
+- **Tier 1, MCP & Multi-Agent Exposure Diagnostic ($1,800).** An executive collusion and posture report (PDF) from `python -m agent_gateway audit`; a SARIF 2.1.0 bundle for GitHub code scanning (`sarif_export.py`) with approximate MITRE ATLAS ids; Sigma rules and a STIX 2.1 bundle from `agentwatch-analyzer`, chosen for the log format you name.
+- **Tier 2, Inline PEP Hardening & CI Gate Sprint ($4,500).** Tier 1 and the full written note, plus a loopback `pep.py` and `mcp_proxy.py` policy set configured for your tool list (`delegation_guard.py`, `toxic_combinations.py`, `arg_ast_guard.py`, `egress_uri_guard.py`); the 5 stateful Hypothesis regression machines wired into a CI workflow; and per-run tamper-evident logging (`audit_chain.py`: SHA-256 hash-chained decision log, HMAC-signed manifest, `verify`). Delivered as files and a pull request your team reviews and merges. We do not deploy on your hosts. Wiring the gateway into your own agent harness remains the Integration Blueprint add-on.
+- **Tier 3, Continuous Red-Team, Canary & Deception Retainer ($6,500, then the $2,500 quarterly refresh).** Tier 2 and the lab instrumentation pass, plus configuration for localhost honeypot tripwires (`agent-watch`, `127.0.0.1`, human-review leads only), canary watermark tracking (`canary_watermark.py`), de-obfuscation and side-channel guards (`deobfuscate.py`, `side_channel_guard.py`), and a quarterly `evaluate-collusion` latency and posture re-run. "Red-team" here means scripted adversarial regression scenarios run in our lab against your tool list. It is not a red team of your users or customers.
+
+`evaluate-collusion` figures are same-author lab checks. They show the guards behave as their tests specify; they are not a detection rate for your product and are never pooled with the 2 of 13 archive figure.
 
 ## Clock
 
@@ -99,7 +110,7 @@ Attach or paste:
 
 - Tool names and argument shapes. No secrets and no customer payloads.
 - Where each tool's input can come from untrusted content (a web page, a ticket, an MCP tool description, or something else you name).
-- Which tier you want: $1,800 Tool Inventory Review, $4,500 Fixed Note, or $6,500 Note + Lab Instrumentation. Name any add-ons.
+- Which tier you want: $1,800 Tier 1 (Exposure Diagnostic / Tool Inventory Review), $4,500 Tier 2 (PEP Hardening & CI Gate Sprint / Fixed Note), or $6,500 Tier 3 (Retainer / Note + Lab Instrumentation). Name any add-ons.
 - For the $6,500 tier, an authorized access log if you have one you are allowed to share. Already stripped is better.
 - The reviewer's role, if you want the note addressed to a function. A name is optional.
 

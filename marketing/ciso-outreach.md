@@ -39,7 +39,7 @@ What we need from you, by reply:
 
 Reply to this message. You can also use the mailto below. There is no separate booking site. A tool inventory in the reply is enough to talk about starting the clock.
 
-Jordan
+Alec
 alecagentboundary@gmail.com
 Offer: [audit-offer.md](audit-offer.md)
 Mailto: [alecagentboundary@gmail.com](mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit)

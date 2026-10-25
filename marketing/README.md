@@ -8,7 +8,7 @@ Nothing in this folder has been posted or emailed by adding it to the tree. Show
 | --- | --- | --- |
 | Paid offer | Security reviewer at a B2B agent or MCP team | [audit-offer.md](audit-offer.md) |
 | Email and LinkedIn sequence | LA companies in [la-targets.md](la-targets.md) | [outreach-sequence.md](outreach-sequence.md) |
-| First 10 LA targets | Jordan, before anyone is emailed | [la-targets.md](la-targets.md) |
+| First 10 LA targets | Alec, before anyone is emailed | [la-targets.md](la-targets.md) |
 | Day 0–7 checklist | Zero-budget week | [7-day-execution-checklist.md](7-day-execution-checklist.md) |
 | Show HN title and post | Hacker News, optional, after the repo is public | [show-hn.md](show-hn.md) |
 | Technical write-up | Reddit, r/LocalLLaMA, optional, after the repo is public | [reddit-localllama.md](reddit-localllama.md) |

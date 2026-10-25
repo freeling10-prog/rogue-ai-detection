@@ -17,8 +17,14 @@
 
 <header class="topbar">
   <div class="wrap">
-    <span class="brand">agent<span class="dot">·</span>gate</span>
-    <nav>
+    <a class="brand" href="#main" aria-label="AgentGate home">
+      <span class="mark">AG</span>
+      <span class="brand-text"><span class="brand-name">AgentGate</span><span class="brand-sub">runtime pep · 127.0.0.1</span></span>
+    </a>
+    <button class="menu-btn" id="menu-btn" aria-label="Open menu" aria-expanded="false" aria-controls="site-nav">
+      <span></span><span></span><span></span>
+    </button>
+    <nav id="site-nav">
       <a href="#architecture">Architecture</a>
       <a href="#simulator">Simulator</a>
       <a href="#pricing">Pricing</a>
@@ -33,18 +39,12 @@
 <!-- HERO -->
 <section class="hero">
   <div class="wrap">
-    <div class="badge" id="metrics-badge">
-      <span><b>Open-Source Core</b></span><span class="sep">•</span>
-      <span><b>240</b> Gateway Tests &amp; Hypothesis Fuzzing</span><span class="sep">•</span>
-      <span><b>762</b> Total Tests Passing</span><span class="sep">•</span>
-      <span>Approximate MITRE ATLAS Mappings</span>
-    </div>
+    <div class="badge" id="metrics-badge">Open-Source Core • 240 Gateway Tests + Hypothesis Stateful Fuzzing • 762 Tests Passing • MITRE ATLAS Mapped (Approximate)</div>
     <h1>After your AI agent reads untrusted input, which tools can it still call&mdash;and who has to agree first?</h1>
-    <p class="lede">AgentGate is a loopback policy-enforcement proxy for internal AI agents. It taints a session on untrusted ingest, attenuates a chained-HMAC <code>agw1.</code> capability so egress closes, and holds the next write, send, or credential call for a person. The core is Apache-2.0 and public. The paid service is a written tool-boundary note for your security reviewer.</p>
+    <p class="lede">AgentGate is a zero-compute Python Policy Enforcement Point (<code>pep.py</code>), MCP JSON-RPC 2.0 wire proxy, and offline log analyzer. It taints a session on untrusted input, closes egress on its <code>agw1.</code> capability, and holds the next write, send, or credential call for a person. We run a fixed-price 48-Hour Agentic Tool-Boundary Audit before your enterprise security review.</p>
     <div class="cta-row">
-      <a class="btn primary" href="mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit">Book a 48-Hour Audit →</a>
-      <a class="btn ghost" href="https://github.com/freeling10-prog/rogue-ai-detection">View the source</a>
-      <a class="btn ghost" href="https://github.com/freeling10-prog/rogue-ai-detection/blob/main/marketing/audit-offer.md">Read the offer</a>
+      <a class="btn primary" href="mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit">Book 48-Hour Audit ($4,500 / $6,500)</a>
+      <a class="btn ghost" href="https://github.com/freeling10-prog/rogue-ai-detection/blob/main/marketing/audit-offer.md">View Public Repo &amp; Offer Scope <span aria-hidden="true">↗</span></a>
     </div>
     <div class="kpis">
       <div class="kpi"><div class="n ok">240</div><div class="l">agent-gateway tests + Hypothesis state machines</div></div>

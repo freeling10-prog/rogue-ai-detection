@@ -40,10 +40,10 @@ jobs:
               sys.stderr.write(out)
               sys.exit("could not count agent-gateway tests")
           n = int(match.group(1))
-          # Phase 2 baseline is 29 (7 basic + 7/7 ATLAS + attenuation + Hypothesis).
-          # Webhook tests and the executive audit-report tests sit on top of that floor.
-          if n < 29:
-              sys.exit(f"expected at least 29 agent-gateway tests, collected {n}")
+          # Floor against silently losing tests (the suite collects about 244).
+          # Raise it when the suite grows; pytest below still fails the job on any failure.
+          if n < 230:
+              sys.exit(f"expected at least 230 agent-gateway tests, collected {n}")
           print(f"collected {n} agent-gateway tests")
           PY
           python -m pytest -q --tb=short
@@ -118,6 +118,8 @@ jobs:
       - name: Executive audit report
         run: |
           . .venv/bin/activate
+          # The gateway refuses to run without an explicit key (at least 32 bytes). Per-run random key.
+          export AGENT_GATEWAY_HMAC_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')"
           python -m agent_gateway audit analyzer-smoke --out-dir analyzer-smoke/audit-report --sarif findings.sarif
           test -s analyzer-smoke/audit-report/audit-report.html
           test -s analyzer-smoke/audit-report/audit-report.pdf

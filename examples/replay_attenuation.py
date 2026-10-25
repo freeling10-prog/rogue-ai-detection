@@ -44,6 +44,7 @@ def show(step: str, expect: str, out: dict) -> None:
 
 
 def main() -> int:
+    global failures
     try:
         capability.hmac_key()
     except RuntimeError as exc:
@@ -90,14 +91,26 @@ def main() -> int:
         fcap = capability.verify(forged)
         reenabled = bool(fcap and fcap.allows_egress)
         print(f"[{'ok' if not reenabled else 'MISMATCH'}] 5. append allow_egress=true: egress re-enabled={reenabled}")
-        failures_add = 1 if reenabled else 0
-        globals()["failures"] += failures_add
+        failures += int(reenabled)
 
-    # 6. KNOWN LIMIT: a tool call that never goes through the gateway is not
-    #    seen at all. The gateway only governs calls routed to it.
-    print("[limit] 6. direct call bypassing the gateway: not observed, not blocked.")
-    print("      An agent or host that can reach send_email without routing through")
-    print("      the gateway is outside this boundary. The gateway is not an OS sandbox")
+    # 6. KNOWN LIMIT: a call that never goes through the gateway is not seen
+    #    at all. The simulated backend below is owned by this script, so the
+    #    limit can be asserted: the direct call is delivered, and the engine's
+    #    session history has no record of it.
+    delivered: list[dict] = []
+
+    def simulated_send_email(message: dict) -> None:  # stands in for a real backend
+        delivered.append(message)
+
+    seen_before = len(engine.get_session(SESSION, AGENT).history)
+    simulated_send_email({"to": "x@example.test", "body": "sent without the gateway"})
+    seen_after = len(engine.get_session(SESSION, AGENT).history)
+    bypassed = len(delivered) == 1 and seen_before == seen_after
+    print(f"[{'ok' if bypassed else 'MISMATCH'}] 6. direct call bypassing the gateway: "
+          f"delivered={len(delivered)}, gateway saw {seen_after - seen_before} new call(s) (limit)")
+    if not bypassed:
+        failures += 1
+    print("      The gateway only governs calls routed to it. It is not an OS sandbox")
     print("      and not network isolation.")
 
     print(f"\n{'PASS' if not failures else 'FAIL'}: {failures} mismatch(es). "

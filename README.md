@@ -118,10 +118,13 @@ These are outside what the lab gateway does. Some are open design questions, and
 - **Answer-only injections.** If untrusted text only changes what the model says and triggers no gated tool call, there is nothing for the gateway to hold. Taint gates tool egress. It does not judge the answer.
 - **Unlabeled or unrouted sources.** Taint starts only when a tool is classified as an untrusted ingest or the session is marked. A tool that is not in the classification table is treated as a write and held after taint, but an untrusted source that is never routed or labeled never taints the session. Direct calls that do not go through the gateway are not seen at all.
 - **No injection detection.** The gateway does not decide whether content is malicious. Any external read taints the session, whether or not the content is an attack. Pattern checks on arguments and tool output are lexical and best-effort.
+- **Key rotation.** Not supported or covered. There is no rotation, revocation list, or dual-key verification window. Changing `AGENT_GATEWAY_HMAC_KEY` invalidates every outstanding `agw1.` token and approval token, and the audit manifest HMAC of earlier audit directories will no longer verify under the new key.
 - **Host or key compromise.** Anyone holding `AGENT_GATEWAY_HMAC_KEY` can mint and extend capabilities. A compromised gateway host, state directory, or registered agent key defeats the boundary. There is no key rotation or hardware-backed storage here.
 - **Malicious tools at first pin.** Tool-schema pinning detects a change after the first pin (rug-pull). It cannot tell that the schema or behavior pinned the first time was already hostile.
 - **No OS sandboxing or network isolation.** The gateway is a policy check in the tool loop. It does not confine processes, files, or sockets. A tool backend with its own network path can still reach out unless the host prevents it.
 - **Tool backends in the lab pass are simulated echoes.** Nothing here shows how a real backend behaves.
+
+Tool classification, including how unknown tools fail closed, is in [docs/tool-classification.md](docs/tool-classification.md).
 
 Bypasses wanted: a way to restore egress on a tainted `agw1.` capability, to reach a gated tool without a hold, or to pass a free-text sink through the constrained status allowlist. Open an issue with the steps. ATLAS ids remain approximate.
 

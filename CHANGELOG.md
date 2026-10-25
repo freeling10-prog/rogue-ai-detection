@@ -13,6 +13,10 @@ Release.
 - `examples/replay_attenuation.py`: in-process replay against the real
   `PolicyEngine` with simulated backends (one denied call, allowed calls, a
   failed re-enable of egress, and the direct-call limit).
+- `docs/tool-classification.md`: egress classes, and that unknown tools fail
+  closed as writes once tainted. Quickstart examples now generate a random
+  32-byte key. The replay asserts the direct-bypass limit. README notes that
+  key rotation is not supported.
 - README: "What this is not" box, boundary replay command, and a "Known
   non-goals and bypasses wanted" section.
 

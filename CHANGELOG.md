@@ -4,6 +4,13 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
+## [Unreleased] - fail-closed HMAC key
+
+- `capability.hmac_key()` now raises if `AGENT_GATEWAY_HMAC_KEY` is unset or
+  shorter than 32 bytes. The built-in lab key is used only with an explicit
+  `allow_default=True`. The CLI exits with code 2 and a clear message at
+  startup. The test suite sets its own key.
+
 ## [Unreleased] - v10 delegation guard, argument firewall, canary watermarking, SARIF
 
 All four are zero-compute (standard library; no model calls). ATLAS ids
@@ -174,5 +181,5 @@ created by this change.
   the policy decision.
 - Tool backends inside the gateway are simulated echoes. There is no Web
   Bot Auth in this tree.
-- The GitHub repository is still private. `LICENSE` does not make it
-  public.
+- The repository is public under Apache 2.0. The paid audit is a separate
+  written service and does not change the license.

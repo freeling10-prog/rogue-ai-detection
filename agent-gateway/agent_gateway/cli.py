@@ -94,6 +94,14 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("health-check", help="Print local health path reminder")
 
     args = p.parse_args(argv)
+    if args.cmd in ("serve", "approve", "audit", "verify"):
+        from .capability import hmac_key
+
+        try:
+            hmac_key()
+        except RuntimeError as exc:
+            print(f"agent-gateway: {exc}", file=sys.stderr)
+            return 2
     if args.cmd == "serve":
         from .pep import PepConfig, run_server
 

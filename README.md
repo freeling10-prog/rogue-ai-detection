@@ -140,6 +140,7 @@ The advisory offline R14 on the crawler is not the live R14 false positive. Resc
 - [rogue-ai-pipeline/README.md](rogue-ai-pipeline/README.md) — v6 pipeline.
 - [prototype-v1/README.md](prototype-v1/README.md) — first prototype (synthetic only).
 - [docs/examples/sample-replay.html](docs/examples/sample-replay.html) — static replay example. It makes no network requests.
+- [docs/examples/sample-boundary-note.md](docs/examples/sample-boundary-note.md) — anonymized example of the written tool-boundary note, built from a synthetic tool list.
 
 ## License
 

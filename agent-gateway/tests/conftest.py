@@ -17,6 +17,12 @@ KEY_B = "agk_demo_registered_0002"
 CHILD_KEY = "agk_demo_child_0001"
 
 
+@pytest.fixture(autouse=True)
+def _hmac_key_env(monkeypatch):
+    # hmac_key() fails closed without an explicit key.
+    monkeypatch.setenv("AGENT_GATEWAY_HMAC_KEY", "test-hmac-key-agent-gateway-lab!!")
+
+
 @pytest.fixture()
 def state_dir(tmp_path, monkeypatch):
     d = tmp_path / "gw-state"

@@ -1,4 +1,4 @@
-"""CLI: python -m agent_gateway serve|approve|audit|verify|health-check
+"""CLI: python -m agent_gateway serve|approve|audit|verify|evaluate-collusion|health-check
 
 ``audit`` reads an agentwatch-analyzer output directory and writes an executive
 HTML report plus a pure-Python text PDF, a scrubbed ``findings.json``, an
@@ -7,6 +7,11 @@ import the PEP, bind a port, start a honeypot, or open a socket.
 
 ``verify`` recomputes the manifest digests, the manifest HMAC, and the
 decision-log hash chain. It is offline too.
+
+``evaluate-collusion`` runs the existing defence tests per carrier group,
+times benign policy decisions, verifies a hash-chained benign decision log,
+and with ``--report <dir>`` writes the sprint JSON, Markdown, and PDF. It
+does not bind a port.
 """
 from __future__ import annotations
 
@@ -91,10 +96,19 @@ def main(argv: list[str] | None = None) -> int:
     )
     verify.add_argument("audit_dir", type=Path, help="Directory written by `audit`")
 
+    ev = sub.add_parser(
+        "evaluate-collusion",
+        help="Aggregate defence tests by carrier group, time benign decisions, write the sprint report",
+    )
+    ev.add_argument("--report", type=Path, nargs="?", const=Path("."), default=None, metavar="OUT_DIR",
+                    help="Write collusion_benchmark_results.json, collusion_sprint_report.md and "
+                         "collusion_sprint_report.pdf to OUT_DIR (default: current directory)")
+    ev.add_argument("--iterations", type=int, default=50, help="Benign workflow repetitions for latency")
+
     sub.add_parser("health-check", help="Print local health path reminder")
 
     args = p.parse_args(argv)
-    if args.cmd in ("serve", "approve", "audit", "verify"):
+    if args.cmd in ("serve", "approve", "audit", "verify", "evaluate-collusion"):
         from .capability import hmac_key
 
         try:
@@ -152,6 +166,19 @@ def main(argv: list[str] | None = None) -> int:
         res = verify_audit_dir(args.audit_dir)
         print(json.dumps(res, indent=2))
         return 0 if res["ok"] else 1
+    if args.cmd == "evaluate-collusion":
+        from . import collusion_eval
+
+        if args.iterations < 1:
+            print("error: --iterations must be at least 1", file=sys.stderr)
+            return 2
+        doc = collusion_eval.evaluate(iterations=args.iterations)
+        out = collusion_eval.summary_line(doc)
+        if args.report is not None:
+            paths = collusion_eval.write_report(args.report, doc)
+            out["written"] = {k: str(v) for k, v in paths.items()}
+        print(json.dumps(out, indent=2))
+        return 0 if collusion_eval.ok(doc) else 1
     if args.cmd == "health-check":
         print("GET http://127.0.0.1:9100/health")
         return 0

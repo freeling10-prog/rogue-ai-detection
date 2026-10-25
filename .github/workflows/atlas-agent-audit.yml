@@ -42,8 +42,8 @@ jobs:
           n = int(match.group(1))
           # Floor against silently losing tests (the suite collects about 244).
           # Raise it when the suite grows; pytest below still fails the job on any failure.
-          if n < 230:
-              sys.exit(f"expected at least 230 agent-gateway tests, collected {n}")
+          if n < 250:
+              sys.exit(f"expected at least 250 agent-gateway tests, collected {n}")
           print(f"collected {n} agent-gateway tests")
           PY
           python -m pytest -q --tb=short

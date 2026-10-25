@@ -4,6 +4,18 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
+## [Unreleased] - collusion sprint evaluation
+
+- `agent_gateway/collusion_eval.py` and `python -m agent_gateway
+  evaluate-collusion [--report OUT_DIR] [--iterations N]`: aggregates the
+  existing side-channel (A), delegation (B), and de-obfuscation / canary (C)
+  defence tests by group from pytest JUnit XML, times benign `evaluate_call`
+  decisions (CPU p50 / p95 / p99 against a 2 ms reference), and verifies a
+  hash-chained benign decision log including edit and drop detection. Writes
+  `collusion_benchmark_results.json`, `collusion_sprint_report.md`, and
+  `collusion_sprint_report.pdf`. Generated set in `docs/sprint/`.
+  Same-author lab scenarios; not pooled with the 2 of 13 archive figure.
+
 ## [Unreleased] - fail-closed HMAC key
 
 - `capability.hmac_key()` now raises if `AGENT_GATEWAY_HMAC_KEY` is unset or

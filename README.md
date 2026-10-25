@@ -4,6 +4,16 @@ AgentGate is the lab policy gate in this repository. It sits in the tool loop of
 
 **Live interactive demo (public, no login):** <https://freeling10-prog.github.io/rogue-ai-detection/> · Source: [github.com/freeling10-prog/rogue-ai-detection](https://github.com/freeling10-prog/rogue-ai-detection) · Book: [alecagentboundary@gmail.com](mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit)
 
+**What this is not.** Not a production WAF. Not an injection detector. Not an OS sandbox or network isolation. Not a penetration test, a benchmark, or a certification. It governs only tool calls that are routed through it. See [Known non-goals and bypasses wanted](#known-non-goals-and-bypasses-wanted).
+
+**Run the boundary replay** (in-process, simulated backends, no network, no port):
+
+```bash
+AGENT_GATEWAY_HMAC_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')" python examples/replay_attenuation.py
+```
+
+It starts a session, ingests untrusted content, then shows one denied call, two calls that stay allowed, and one known limit. The gateway refuses to start without an explicit key of at least 32 bytes. See [examples/replay_attenuation.py](examples/replay_attenuation.py).
+
 This page is the product front door. The research write-up is the whitepaper ([PDF](docs/rogue-ai-detection-whitepaper.pdf), [Word](docs/rogue-ai-detection-whitepaper.docx)), updated 24 October 2026. Read the [lab limits](#lab-limits) before treating any number below as a deployment result.
 
 ## Choose a path
@@ -100,6 +110,20 @@ That command does not deliver webhooks. Add `--webhook-url` and `--webhook-deliv
 - **No wild deployment is claimed.** Loopback Tier-2 is one machine, one `qwen2.5:3b`, 14 archived runs. Quote **2 of 13** non-control catches. The scripted human control is the fourteenth archive and is not in that denominator. Same author, small n. Not a benchmark. Do not pool it with synthetic recall.
 - **Synthetic tables are same-author regression checks.** The person who wrote the detectors wrote the simulated clients. A second, larger local model was not run (about 5 GiB free RAM and no swap). There is no mid-size multimodel result to cite.
 - **Not a production WAF.** Gateway tests check the gates against cases written for them.
+
+## Known non-goals and bypasses wanted
+
+These are outside what the lab gateway does. Some are open design questions, and a report that breaks a stated claim below is welcome as an issue.
+
+- **Answer-only injections.** If untrusted text only changes what the model says and triggers no gated tool call, there is nothing for the gateway to hold. Taint gates tool egress. It does not judge the answer.
+- **Unlabeled or unrouted sources.** Taint starts only when a tool is classified as an untrusted ingest or the session is marked. A tool that is not in the classification table is treated as a write and held after taint, but an untrusted source that is never routed or labeled never taints the session. Direct calls that do not go through the gateway are not seen at all.
+- **No injection detection.** The gateway does not decide whether content is malicious. Any external read taints the session, whether or not the content is an attack. Pattern checks on arguments and tool output are lexical and best-effort.
+- **Host or key compromise.** Anyone holding `AGENT_GATEWAY_HMAC_KEY` can mint and extend capabilities. A compromised gateway host, state directory, or registered agent key defeats the boundary. There is no key rotation or hardware-backed storage here.
+- **Malicious tools at first pin.** Tool-schema pinning detects a change after the first pin (rug-pull). It cannot tell that the schema or behavior pinned the first time was already hostile.
+- **No OS sandboxing or network isolation.** The gateway is a policy check in the tool loop. It does not confine processes, files, or sockets. A tool backend with its own network path can still reach out unless the host prevents it.
+- **Tool backends in the lab pass are simulated echoes.** Nothing here shows how a real backend behaves.
+
+Bypasses wanted: a way to restore egress on a tainted `agw1.` capability, to reach a gated tool without a hold, or to pass a free-text sink through the constrained status allowlist. Open an issue with the steps. ATLAS ids remain approximate.
 
 ## Evidence
 

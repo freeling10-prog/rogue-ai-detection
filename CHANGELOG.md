@@ -10,6 +10,11 @@ Release.
   shorter than 32 bytes. The built-in lab key is used only with an explicit
   `allow_default=True`. The CLI exits with code 2 and a clear message at
   startup. The test suite sets its own key.
+- `examples/replay_attenuation.py`: in-process replay against the real
+  `PolicyEngine` with simulated backends (one denied call, allowed calls, a
+  failed re-enable of egress, and the direct-call limit).
+- README: "What this is not" box, boundary replay command, and a "Known
+  non-goals and bypasses wanted" section.
 
 ## [Unreleased] - v10 delegation guard, argument firewall, canary watermarking, SARIF
 

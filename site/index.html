@@ -19,6 +19,7 @@
   <div class="wrap">
     <span class="brand">agent<span class="dot">·</span>gate</span>
     <nav>
+      <a href="#architecture">Architecture</a>
       <a href="#simulator">Simulator</a>
       <a href="#pricing">Pricing</a>
       <a href="#guardrails">Guardrails</a>
@@ -34,22 +35,44 @@
   <div class="wrap">
     <div class="badge" id="metrics-badge">
       <span><b>Open-Source Core</b></span><span class="sep">•</span>
-      <span><b>161+</b> Gateway Tests &amp; Hypothesis Fuzzing</span><span class="sep">•</span>
-      <span><b>512+2</b> Agent-Watch Tests</span><span class="sep">•</span>
+      <span><b>240</b> Gateway Tests &amp; Hypothesis Fuzzing</span><span class="sep">•</span>
+      <span><b>762</b> Total Tests Passing</span><span class="sep">•</span>
       <span>Approximate MITRE ATLAS Mappings</span>
     </div>
     <h1>After your AI agent reads untrusted input, which tools can it still call&mdash;and who has to agree first?</h1>
     <p class="lede">AgentGate is a loopback policy-enforcement proxy for internal AI agents. It taints a session on untrusted ingest, attenuates a chained-HMAC <code>agw1.</code> capability so egress closes, and holds the next write, send, or credential call for a person. The core is Apache-2.0 and public. The paid service is a written tool-boundary note for your security reviewer.</p>
     <div class="cta-row">
-      <a class="btn primary" href="mailto:fleckalec@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit">Book a 48-Hour Audit →</a>
+      <a class="btn primary" href="mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit">Book a 48-Hour Audit →</a>
       <a class="btn ghost" href="https://github.com/freeling10-prog/rogue-ai-detection">View the source</a>
       <a class="btn ghost" href="https://github.com/freeling10-prog/rogue-ai-detection/blob/main/marketing/audit-offer.md">Read the offer</a>
     </div>
     <div class="kpis">
-      <div class="kpi"><div class="n ok">161+</div><div class="l">agent-gateway tests + Hypothesis state machines</div></div>
+      <div class="kpi"><div class="n ok">240</div><div class="l">agent-gateway tests + Hypothesis state machines</div></div>
       <div class="kpi"><div class="n ok">512+2</div><div class="l">agent-watch tests (passed + skipped)</div></div>
+      <div class="kpi"><div class="n ok">10</div><div class="l">agentwatch-analyzer tests</div></div>
+      <div class="kpi"><div class="n ok">762</div><div class="l">total tests passing across all three packages</div></div>
       <div class="kpi"><div class="n">7/7</div><div class="l">ATLAS falsification regression suite</div></div>
       <div class="kpi"><div class="n">2 of 13</div><div class="l">real-model loopback archive (qwen2.5:3b, same author, one machine — not a benchmark)</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ARCHITECTURE -->
+<section id="architecture">
+  <div class="wrap">
+    <p class="eyebrow">What runs on <code>main</code> today</p>
+    <h2>The gateway, layer by layer</h2>
+    <p class="lead">One loopback policy-enforcement point (<code>pep.py</code>) wraps every <code>tools/call</code>. Untrusted ingest taints the session and attenuates a chained-HMAC <code>agw1.</code> capability; each later write, send, or credential call is held for a person. <strong>240</strong> gateway tests (unit plus Hypothesis state machines), <strong>512+2</strong> agent-watch and <strong>10</strong> analyzer tests &mdash; <strong>762</strong> passing in all.</p>
+    <div class="kpis" style="margin-top:22px">
+      <div class="kpi"><div class="l"><code>mcp_proxy.py</code></div>MCP JSON-RPC proxy: <code>tools/list</code> SHA-256 pinning, rug-pull detection, sampling guard.</div>
+      <div class="kpi"><div class="l"><code>deobfuscate.py</code></div>Rolling salted n-gram digests catch split-chunk and encoded exfil across steps.</div>
+      <div class="kpi"><div class="l"><code>toxic_combinations.py</code></div>Static 2-hop / 3-hop toxic-flow reachability over a tool inventory.</div>
+      <div class="kpi"><div class="l"><code>tool_output_scanner.py</code> · <code>egress_uri_guard.py</code> · <code>side_channel_guard.py</code></div>Invisible-Unicode &amp; delimiter smuggling, canonical SSRF / metadata blocking, post-taint oracle &amp; timing guards.</div>
+      <div class="kpi"><div class="l"><code>delegation_guard.py</code> <span class="tag ok">v10</span></div>Lattice-meet capability hand-offs: taint can&rsquo;t launder through a clean peer or orchestrator (confused-deputy).</div>
+      <div class="kpi"><div class="l"><code>arg_ast_guard.py</code> <span class="tag ok">v10</span></div>Lexical firewall: path-traversal, command / header injection, read-only query enforcement.</div>
+      <div class="kpi"><div class="l"><code>canary_watermark.py</code> <span class="tag ok">v10</span></div>Zero-width HMAC watermark &amp; credential tracker with exact leak provenance.</div>
+      <div class="kpi"><div class="l"><code>sarif_export.py</code> <span class="tag ok">v10</span></div>OASIS SARIF 2.1.0 export for native GitHub code scanning.</div>
+      <div class="kpi"><div class="l"><code>audit_chain.py</code></div>SHA-256 hash-chained decision log &amp; tamper-evident <code>audit_manifest.json</code> + <code>verify</code>.</div>
     </div>
   </div>
 </section>
@@ -149,7 +172,7 @@
           <li class="no">No lab instrumentation</li>
           <li class="no">No offline log pass</li>
         </ul>
-        <a class="btn" href="mailto:fleckalec@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit&amp;body=Tier%3A%20%244%2C500%20fixed">Book the $4,500 note</a>
+        <a class="btn" href="mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit&amp;body=Tier%3A%20%244%2C500%20fixed">Book the $4,500 note</a>
       </div>
       <div class="price-card feature">
         <div class="price">$6,500</div>
@@ -162,7 +185,7 @@
           <li>Explicit list of rules a normal access log cannot support</li>
           <li>Approximate ATLAS ids on the note</li>
         </ul>
-        <a class="btn primary" href="mailto:fleckalec@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit&amp;body=Tier%3A%20%246%2C500%20with%20instrumentation">Book the $6,500 pass</a>
+        <a class="btn primary" href="mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit&amp;body=Tier%3A%20%246%2C500%20with%20instrumentation">Book the $6,500 pass</a>
       </div>
     </div>
 
@@ -206,7 +229,7 @@ example.send_email | {to: string, body: string} | — | $6,500</div>
     <p>
       <a href="https://github.com/freeling10-prog/rogue-ai-detection">github.com/freeling10-prog/rogue-ai-detection</a> ·
       <a href="https://github.com/freeling10-prog/rogue-ai-detection/blob/main/marketing/audit-offer.md">Audit offer</a> ·
-      <a href="mailto:fleckalec@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit">fleckalec@gmail.com</a>
+      <a href="mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit">alecagentboundary@gmail.com</a>
     </p>
     <p class="muted">Public marketing and demo page. No login, no tracking, no cookies, no analytics. Everything on this page runs locally in your browser.</p>
   </div>

@@ -2,6 +2,8 @@
 
 Status: **ready to post after the repository is public.** [LICENSE](../LICENSE) is Apache 2.0 and [NOTICE](../NOTICE) is in the tree. Do not submit this post while the GitHub repository is still private. This file has not been posted. Visibility is changed outside this repository.
 
+**Live interactive demo (public, no login):** <https://freeling10-prog.github.io/rogue-ai-detection/> · Source: [github.com/freeling10-prog/rogue-ai-detection](https://github.com/freeling10-prog/rogue-ai-detection) · Book: [alecagentboundary@gmail.com](mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit)
+
 ## Title
 
 Show HN: ATLAS agent guard — a 3B model quit within 3 steps (2/13)

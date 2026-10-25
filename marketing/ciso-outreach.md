@@ -40,9 +40,9 @@ What we need from you, by reply:
 Reply to this message. You can also use the mailto below. There is no separate booking site. A tool inventory in the reply is enough to talk about starting the clock.
 
 Jordan
-fleckalec@gmail.com
+alecagentboundary@gmail.com
 Offer: [audit-offer.md](audit-offer.md)
-Mailto: [fleckalec@gmail.com](mailto:fleckalec@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit)
+Mailto: [alecagentboundary@gmail.com](mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit)
 
 ## Scope card (keep next to the sent mail, do not paste the whole card unless they ask)
 

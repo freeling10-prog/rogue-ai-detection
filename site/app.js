@@ -4,7 +4,7 @@
   "use strict";
 
   var ZWT_START = 0xe0000; // Unicode tag block used for invisible smuggling
-  var EMAIL = "mailto:fleckalec@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit";
+  var EMAIL = "mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit";
 
   /* ---------- tiny helpers ---------- */
   function $(sel, root) { return (root || document).querySelector(sel); }

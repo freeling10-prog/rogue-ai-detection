@@ -2,6 +2,8 @@
 
 A written note for a security reviewer, produced from a tool list you send. For B2B teams that ship AI agents, MCP tools, or an agent product and are in an enterprise security review that asks which tools the model can still call after it reads something it did not write.
 
+**Live interactive demo (public, no login):** <https://freeling10-prog.github.io/rogue-ai-detection/> · Source: [github.com/freeling10-prog/rogue-ai-detection](https://github.com/freeling10-prog/rogue-ai-detection) · Book: [alecagentboundary@gmail.com](mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit)
+
 The open-source lab in this repository stays Apache 2.0. This page is a paid service: a person's time and the note. Paying does not buy a different license to the code, and there is no proprietary module in the tree. The free GitHub Action remains free.
 
 This is not a penetration test, not a red team, and not a certification. It is not legal advice.
@@ -70,7 +72,7 @@ If you ask what was caught in the wild: this repository has no wild deployment. 
 
 ## How to book
 
-Email [fleckalec@gmail.com](mailto:fleckalec@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit) with the subject **Book 48-Hour Agentic Tool-Boundary Audit**. You can book in that message, and you can reply in the same thread with the tool inventory. There is no separate scheduling site.
+Email [alecagentboundary@gmail.com](mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit) with the subject **Book 48-Hour Agentic Tool-Boundary Audit**. You can book in that message, and you can reply in the same thread with the tool inventory. There is no separate scheduling site.
 
 Attach or paste:
 

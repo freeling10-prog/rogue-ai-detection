@@ -2,6 +2,8 @@
 
 AgentGate is the lab policy gate in this repository. It sits in the tool loop of a **registered internal** agent, taints the session when untrusted content arrives, and attenuates an `agw1.` capability so that capability cannot turn egress back on. A held call is formatted for a person as Slack Block Kit and as a generic webhook document. Freeze applies only to keys listed in the lab registry, for 15 minutes. The web honeypot stays a lead for human review.
 
+**Live interactive demo (public, no login):** <https://freeling10-prog.github.io/rogue-ai-detection/> · Source: [github.com/freeling10-prog/rogue-ai-detection](https://github.com/freeling10-prog/rogue-ai-detection) · Book: [alecagentboundary@gmail.com](mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit)
+
 This page is the product front door. The research write-up is the whitepaper ([PDF](docs/rogue-ai-detection-whitepaper.pdf), [Word](docs/rogue-ai-detection-whitepaper.docx)), updated 24 October 2026. Read the [lab limits](#lab-limits) before treating any number below as a deployment result.
 
 ## Choose a path
@@ -18,9 +20,9 @@ The workflow above is the free lab audit of this tree. It is not the paid review
 
 ### How to book
 
-The paid offer is the [AgentGate — 48-Hour Agentic Tool-Boundary Audit](marketing/audit-offer.md). **$4,500** fixed, or **$6,500** with instrumentation: a lab gateway pass on `127.0.0.1` and an offline analyzer pass on an authorized log you supply. Email [fleckalec@gmail.com](mailto:fleckalec@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit) with the subject `Book 48-Hour Agentic Tool-Boundary Audit`. You can reply in that thread with a tool inventory (names and argument shapes, no secrets). The clock starts when the tool list arrives. This is not a penetration test and not a certification. The honeypot stays human-review only, freeze applies only to registered lab keys for 15 minutes, and ATLAS ids in the note are approximate.
+The paid offer is the [AgentGate — 48-Hour Agentic Tool-Boundary Audit](marketing/audit-offer.md). **$4,500** fixed, or **$6,500** with instrumentation: a lab gateway pass on `127.0.0.1` and an offline analyzer pass on an authorized log you supply. Email [alecagentboundary@gmail.com](mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit) with the subject `Book 48-Hour Agentic Tool-Boundary Audit`. You can reply in that thread with a tool inventory (names and argument shapes, no secrets). The clock starts when the tool list arrives. This is not a penetration test and not a certification. The honeypot stays human-review only, freeze applies only to registered lab keys for 15 minutes, and ATLAS ids in the note are approximate.
 
-**[Book a 48-hour Agentic Tool-Boundary Audit](mailto:fleckalec@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit)**
+**[Book a 48-hour Agentic Tool-Boundary Audit](mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit)**
 
 One-page offer: **[AgentGate — 48-Hour Agentic Tool-Boundary Audit](marketing/audit-offer.md)**
 
@@ -157,6 +159,6 @@ Add [`.github/workflows/atlas-agent-audit.yml`](.github/workflows/atlas-agent-au
 
 ### Book a 48-hour Agentic Tool-Boundary Audit
 
-**[Book a 48-hour Agentic Tool-Boundary Audit](mailto:fleckalec@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit)**
+**[Book a 48-hour Agentic Tool-Boundary Audit](mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit)**
 
 One-page offer, price, and out-of-scope list: **[AgentGate — 48-Hour Agentic Tool-Boundary Audit](marketing/audit-offer.md)**. Reply to that email with a tool inventory if you already have one. $4,500 fixed, or $6,500 with instrumentation. Not a penetration test and not a certification.

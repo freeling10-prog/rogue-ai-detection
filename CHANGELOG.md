@@ -17,6 +17,10 @@ Release.
   closed as writes once tainted. Quickstart examples now generate a random
   32-byte key. The replay asserts the direct-bypass limit. README notes that
   key rotation is not supported.
+- HTTP resource limits (`max_body_bytes`, `max_arg_bytes`, `max_sessions`,
+  `max_id_len`) with tests. `docs/integration-contract.md` and
+  `examples/gated_dispatch.py` state the caller's side of the boundary. Two
+  more synthetic boundary notes under `docs/examples/`.
 - README: "What this is not" box, boundary replay command, and a "Known
   non-goals and bypasses wanted" section.
 

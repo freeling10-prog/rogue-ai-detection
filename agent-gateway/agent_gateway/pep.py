@@ -42,6 +42,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from flask import Flask, Response, jsonify, request
+from werkzeug.exceptions import RequestEntityTooLarge
 
 from . import approve, capability
 from .approval_webhook import build_approval_payload, consume_approve_once, deliver_webhook
@@ -118,6 +119,11 @@ class PepConfig:
     side_channel: SideChannelPolicy = field(default_factory=SideChannelPolicy)
     # Lab-only: simulated result body for a tool name (tests feed untrusted output here).
     lab_fixture_outputs: dict = field(default_factory=dict)
+    # Resource limits on the HTTP path. In-process callers of PolicyEngine are not limited.
+    max_body_bytes: int = 262_144  # whole request body
+    max_arg_bytes: int = 65_536  # serialized tools/call arguments
+    max_sessions: int = 1000  # live sessions held in memory
+    max_id_len: int = 128  # session_id length
 
 
 def shannon_entropy(s: str) -> float:
@@ -935,6 +941,24 @@ def create_app(cfg: Optional[PepConfig] = None, engine: Optional[PolicyEngine] =
 
     app = Flask("agent_gateway")
     app.config["POLICY_ENGINE"] = eng
+    app.config["MAX_CONTENT_LENGTH"] = cfg.max_body_bytes
+
+    def _limit_error(code: int, reason: str):
+        return jsonify({"jsonrpc": "2.0", "id": None, "error": {"code": -32001, "message": reason}}), code
+
+    def _check_limits(session_id: str, arguments: Any):
+        """Return an error response when a request exceeds a configured limit, else None."""
+        if len(session_id) > cfg.max_id_len:
+            return _limit_error(400, "session_id too long")
+        if session_id not in eng.sessions and len(eng.sessions) >= cfg.max_sessions:
+            return _limit_error(429, "session limit reached")
+        if arguments is not None and len(json.dumps(arguments, default=str)) > cfg.max_arg_bytes:
+            return _limit_error(413, "arguments too large")
+        return None
+
+    @app.errorhandler(413)
+    def _too_large(_exc):
+        return _limit_error(413, "request body too large")
 
     @app.before_request
     def _loopback_only():
@@ -962,6 +986,8 @@ def create_app(cfg: Optional[PepConfig] = None, engine: Optional[PolicyEngine] =
     def mcp_rpc():
         try:
             body = request.get_json(force=True, silent=False)
+        except RequestEntityTooLarge:
+            raise
         except Exception:
             return jsonify({"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "parse error"}}), 400
         if not isinstance(body, dict):
@@ -971,6 +997,10 @@ def create_app(cfg: Optional[PepConfig] = None, engine: Optional[PolicyEngine] =
         params = body.get("params") or {}
         agent_key = _agent_key_from_request(body)
         session_id = str(params.get("session_id") or request.headers.get("X-Session-Id") or "sess-default")
+
+        bad = _check_limits(session_id, params.get("arguments") if method == "tools/call" else None)
+        if bad is not None:
+            return bad
 
         cap_tok = params.get("capability_token") or request.headers.get("X-Capability-Token") or None
         if method == "tools/list":
@@ -1016,6 +1046,9 @@ def create_app(cfg: Optional[PepConfig] = None, engine: Optional[PolicyEngine] =
         agent_key = _agent_key_from_request(body) or str(body.get("agent_key") or "")
         bound = body.get("bound_step_index")
         cap_tok = body.get("capability_token") or request.headers.get("X-Capability-Token") or None
+        bad = _check_limits(str(body.get("session_id") or "sess"), body.get("arguments"))
+        if bad is not None:
+            return bad
         out = eng.evaluate_call(
             agent_key,
             str(body.get("session_id") or "sess"),

@@ -1,0 +1,501 @@
+{
+  "schema": "agent-gateway.collusion-eval/1",
+  "generated_at": "2026-10-25T09:08:56Z",
+  "environment": {
+    "python": "3.13.17",
+    "platform": "Linux-6.18.44-fc-v153-x86_64-with-glibc2.39",
+    "machine": "x86_64"
+  },
+  "defense_suite": {
+    "command": "python -m pytest -q tests/test_side_channel_guard.py tests/test_delegation_guard.py tests/test_deobfuscate.py tests/test_canary_watermark.py",
+    "returncode": 0,
+    "seconds": 3.64,
+    "pytest_summary": "57 passed in 3.05s",
+    "missing_files": [],
+    "groups": [
+      {
+        "group": "A",
+        "title": "Side-channel and timing guard",
+        "module": "side_channel_guard.py",
+        "files": [
+          "test_side_channel_guard.py"
+        ],
+        "counts": {
+          "total": 8,
+          "passed": 8,
+          "failed": 0,
+          "error": 0,
+          "skipped": 0
+        },
+        "all_passed": true,
+        "tests": [
+          {
+            "nodeid": "tests/test_side_channel_guard.py::test_interval_stats",
+            "outcome": "passed",
+            "seconds": 0.001
+          },
+          {
+            "nodeid": "tests/test_side_channel_guard.py::test_branching_oracle_held_and_frozen",
+            "outcome": "passed",
+            "seconds": 0.011
+          },
+          {
+            "nodeid": "tests/test_side_channel_guard.py::test_two_symbol_oracle_bounded_by_cardinality",
+            "outcome": "passed",
+            "seconds": 0.019
+          },
+          {
+            "nodeid": "tests/test_side_channel_guard.py::test_timing_beacon_held",
+            "outcome": "passed",
+            "seconds": 0.007
+          },
+          {
+            "nodeid": "tests/test_side_channel_guard.py::test_machine_speed_burst_is_not_a_beacon",
+            "outcome": "passed",
+            "seconds": 0.001
+          },
+          {
+            "nodeid": "tests/test_side_channel_guard.py::test_benign_workflows_pass",
+            "outcome": "passed",
+            "seconds": 0.018
+          },
+          {
+            "nodeid": "tests/test_side_channel_guard.py::test_oob_approved_calls_not_counted",
+            "outcome": "passed",
+            "seconds": 0.018
+          },
+          {
+            "nodeid": "tests/test_side_channel_guard.py::test_side_channel_state_machine",
+            "outcome": "passed",
+            "seconds": 1.329
+          }
+        ]
+      },
+      {
+        "group": "B",
+        "title": "Multi-agent delegation and confused-deputy guard",
+        "module": "delegation_guard.py",
+        "files": [
+          "test_delegation_guard.py"
+        ],
+        "counts": {
+          "total": 8,
+          "passed": 8,
+          "failed": 0,
+          "error": 0,
+          "skipped": 0
+        },
+        "all_passed": true,
+        "tests": [
+          {
+            "nodeid": "tests/test_delegation_guard.py::test_meet_is_monotonic",
+            "outcome": "passed",
+            "seconds": 0.001
+          },
+          {
+            "nodeid": "tests/test_delegation_guard.py::test_profile_from_token_reads_caveats",
+            "outcome": "passed",
+            "seconds": 0.001
+          },
+          {
+            "nodeid": "tests/test_delegation_guard.py::test_attenuate_for_handoff_cannot_be_laundered",
+            "outcome": "passed",
+            "seconds": 0.001
+          },
+          {
+            "nodeid": "tests/test_delegation_guard.py::test_ledger_delegation_blocks_confused_deputy",
+            "outcome": "passed",
+            "seconds": 0.001
+          },
+          {
+            "nodeid": "tests/test_delegation_guard.py::test_engine_delegate_task_laundering_blocked",
+            "outcome": "passed",
+            "seconds": 0.007
+          },
+          {
+            "nodeid": "tests/test_delegation_guard.py::test_engine_clean_delegation_still_allows_egress",
+            "outcome": "passed",
+            "seconds": 0.002
+          },
+          {
+            "nodeid": "tests/test_delegation_guard.py::test_engine_independent_sessions_not_conflated",
+            "outcome": "passed",
+            "seconds": 0.002
+          },
+          {
+            "nodeid": "tests/test_delegation_guard.py::TestDelegationDag::runTest",
+            "outcome": "passed",
+            "seconds": 1.046
+          }
+        ]
+      },
+      {
+        "group": "C",
+        "title": "De-obfuscation and canary provenance guard",
+        "module": "deobfuscate.py, canary_watermark.py",
+        "files": [
+          "test_deobfuscate.py",
+          "test_canary_watermark.py"
+        ],
+        "counts": {
+          "total": 41,
+          "passed": 41,
+          "failed": 0,
+          "error": 0,
+          "skipped": 0
+        },
+        "all_passed": true,
+        "tests": [
+          {
+            "nodeid": "tests/test_deobfuscate.py::test_guard_keeps_only_digests",
+            "outcome": "passed",
+            "seconds": 0.001
+          },
+          {
+            "nodeid": "tests/test_deobfuscate.py::test_whole_encoded_secret_caught[raw]",
+            "outcome": "passed",
+            "seconds": 0.001
+          },
+          {
+            "nodeid": "tests/test_deobfuscate.py::test_whole_encoded_secret_caught[b64]",
+            "outcome": "passed",
+            "seconds": 0.001
+          },
+          {
+            "nodeid": "tests/test_deobfuscate.py::test_whole_encoded_secret_caught[b64url]",
+            "outcome": "passed",
+            "seconds": 0.001
+          },
+          {
+            "nodeid": "tests/test_deobfuscate.py::test_whole_encoded_secret_caught[hex]",
+            "outcome": "passed",
+            "seconds": 0.001
+          },
+          {
+            "nodeid": "tests/test_deobfuscate.py::test_whole_encoded_secret_caught[HEX]",
+            "outcome": "passed",
+            "seconds": 0.001
+          },
+          {
+            "nodeid": "tests/test_deobfuscate.py::test_whole_encoded_secret_caught[url]",
+            "outcome": "passed",
+            "seconds": 0.0
+          },
+          {
+            "nodeid": "tests/test_deobfuscate.py::test_whole_encoded_secret_caught[spaced]",
+            "outcome": "passed",
+            "seconds": 0.001
+          },
+          {
+            "nodeid": "tests/test_deobfuscate.py::test_split_raw_chunks_caught[4]",
+            "outcome": "passed",
+            "seconds": 0.001
+          },
+          {
+            "nodeid": "tests/test_deobfuscate.py::test_split_raw_chunks_caught[5]",
+            "outcome": "passed",
+            "seconds": 0.001
+          },
+          {
+            "nodeid": "tests/test_deobfuscate.py::test_split_raw_chunks_caught[6]",
+            "outcome": "passed",
+            "seconds": 0.001
+          },
+          {
+            "nodeid": "tests/test_deobfuscate.py::test_encode_then_split_caught",
+            "outcome": "passed",
+            "seconds": 0.0
+          },
+          {
+            "nodeid": "tests/test_deobfuscate.py::test_split_then_encode_each_chunk_caught[b64]",
+            "outcome": "passed",
+            "seconds": 0.001
+          },
+          {
+            "nodeid": "tests/test_deobfuscate.py::test_split_then_encode_each_chunk_caught[hex]",
+            "outcome": "passed",
+            "seconds": 0.0
+          },
+          {
+            "nodeid": "tests/test_deobfuscate.py::test_split_then_encode_each_chunk_caught[url]",
+            "outcome": "passed",
+            "seconds": 0.001
+          },
+          {
+            "nodeid": "tests/test_deobfuscate.py::test_interleaved_fields_use_per_key_stream",
+            "outcome": "passed",
+            "seconds": 0.001
+          },
+          {
+            "nodeid": "tests/test_deobfuscate.py::test_benign_traffic_and_other_sessions_not_flagged",
+            "outcome": "passed",
+            "seconds": 0.002
+          },
+          {
+            "nodeid": "tests/test_deobfuscate.py::test_short_values_ignored_and_free_text_tokenized",
+            "outcome": "passed",
+            "seconds": 0.0
+          },
+          {
+            "nodeid": "tests/test_deobfuscate.py::test_engine_split_exfil_freezes_registered_root",
+            "outcome": "passed",
+            "seconds": 0.003
+          },
+          {
+            "nodeid": "tests/test_deobfuscate.py::test_engine_denied_calls_do_not_fill_the_window",
+            "outcome": "passed",
+            "seconds": 0.008
+          },
+          {
+            "nodeid": "tests/test_deobfuscate.py::test_engine_canary_registration",
+            "outcome": "passed",
+            "seconds": 0.002
+          },
+          {
+            "nodeid": "tests/test_canary_watermark.py::test_credential_patterns_detected[aws_access_key-AKIAIOSFODNN7EXAMPLE]",
+            "outcome": "passed",
+            "seconds": 0.001
+          },
+          {
+            "nodeid": "tests/test_canary_watermark.py::test_credential_patterns_detected[aws_access_key-ASIAZ7XMPLE4Q2EXAMPL]",
+            "outcome": "passed",
+            "seconds": 0.0
+          },
+          {
+            "nodeid": "tests/test_canary_watermark.py::test_credential_patterns_detected[github_token-ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa]",
+            "outcome": "passed",
+            "seconds": 0.0
+          },
+          {
+            "nodeid": "tests/test_canary_watermark.py::test_credential_patterns_detected[github_token-github_pat_BBBBBBBBBBBBBBBBBBBBBB]",
+            "outcome": "passed",
+            "seconds": 0.0
+          },
+          {
+            "nodeid": "tests/test_canary_watermark.py::test_credential_patterns_detected[anthropic_key-sk-ant-api03-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]",
+            "outcome": "passed",
+            "seconds": 0.0
+          },
+          {
+            "nodeid": "tests/test_canary_watermark.py::test_credential_patterns_detected[openai_key-sk-proj-yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy]",
+            "outcome": "passed",
+            "seconds": 0.0
+          },
+          {
+            "nodeid": "tests/test_canary_watermark.py::test_credential_patterns_detected[google_api_key-AIzabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb]",
+            "outcome": "passed",
+            "seconds": 0.0
+          },
+          {
+            "nodeid": "tests/test_canary_watermark.py::test_credential_patterns_detected[slack_token-xoxb-EXAMPLEONLY-NOTAREALTOKEN]",
+            "outcome": "passed",
+            "seconds": 0.001
+          },
+          {
+            "nodeid": "tests/test_canary_watermark.py::test_credential_patterns_detected[jwt-eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpM]",
+            "outcome": "passed",
+            "seconds": 0.0
+          },
+          {
+            "nodeid": "tests/test_canary_watermark.py::test_credential_patterns_detected[pem_private_key------BEGIN RSA PRIVATE KEY-----\\nMIIE...\\n-----END RSA PRIVATE KEY-----]",
+            "outcome": "passed",
+            "seconds": 0.0
+          },
+          {
+            "nodeid": "tests/test_canary_watermark.py::test_benign_text_has_no_credentials",
+            "outcome": "passed",
+            "seconds": 0.0
+          },
+          {
+            "nodeid": "tests/test_canary_watermark.py::test_watermark_invisible_and_traced",
+            "outcome": "passed",
+            "seconds": 0.0
+          },
+          {
+            "nodeid": "tests/test_canary_watermark.py::test_watermark_survives_prefix_copy",
+            "outcome": "passed",
+            "seconds": 0.0
+          },
+          {
+            "nodeid": "tests/test_canary_watermark.py::test_credential_retyped_without_watermark_still_caught",
+            "outcome": "passed",
+            "seconds": 0.001
+          },
+          {
+            "nodeid": "tests/test_canary_watermark.py::test_sessions_isolated_and_benign_clean",
+            "outcome": "passed",
+            "seconds": 0.0
+          },
+          {
+            "nodeid": "tests/test_canary_watermark.py::test_canary_tag_is_deterministic_and_bound",
+            "outcome": "passed",
+            "seconds": 0.0
+          },
+          {
+            "nodeid": "tests/test_canary_watermark.py::test_engine_watermark_exfil_denied_and_frozen",
+            "outcome": "passed",
+            "seconds": 0.002
+          },
+          {
+            "nodeid": "tests/test_canary_watermark.py::test_engine_credential_fixture_exfil",
+            "outcome": "passed",
+            "seconds": 0.002
+          },
+          {
+            "nodeid": "tests/test_canary_watermark.py::test_property_watermark_roundtrips",
+            "outcome": "passed",
+            "seconds": 0.172
+          },
+          {
+            "nodeid": "tests/test_canary_watermark.py::test_property_tracked_credential_always_flagged",
+            "outcome": "passed",
+            "seconds": 0.154
+          }
+        ]
+      }
+    ],
+    "totals": {
+      "total": 57,
+      "passed": 57,
+      "failed": 0,
+      "error": 0,
+      "skipped": 0
+    }
+  },
+  "gateway_suite": {
+    "command": "python -m pytest --collect-only -q",
+    "collected": 262,
+    "files": 20,
+    "returncode": 0,
+    "hypothesis_stateful": [
+      {
+        "file": "test_delegation_guard.py",
+        "machine": "DelegationDagMachine",
+        "max_examples": 120,
+        "stateful_step_count": 24
+      },
+      {
+        "file": "test_side_channel_guard.py",
+        "machine": "SideChannelMachine",
+        "max_examples": 60,
+        "stateful_step_count": 30
+      },
+      {
+        "file": "test_stateful_fuzz.py",
+        "machine": "PepPolicyMachine",
+        "max_examples": 40,
+        "stateful_step_count": 16
+      },
+      {
+        "file": "test_stateful_fuzz.py",
+        "machine": "SmugglingMachine",
+        "max_examples": 60,
+        "stateful_step_count": 24
+      },
+      {
+        "file": "test_stateful_fuzz.py",
+        "machine": "GatewayScrubMachine",
+        "max_examples": 80,
+        "stateful_step_count": 8
+      }
+    ]
+  },
+  "benign_latency": {
+    "iterations": 50,
+    "decisions": 750,
+    "workflows": {
+      "order_status_triage": {
+        "steps": 200,
+        "denied": 0,
+        "p50_ms": 0.1027,
+        "p95_ms": 0.1919,
+        "p99_ms": 0.2548,
+        "mean_ms": 0.1193,
+        "max_ms": 0.4981
+      },
+      "status_report": {
+        "steps": 100,
+        "denied": 0,
+        "p50_ms": 0.117,
+        "p95_ms": 0.1757,
+        "p99_ms": 0.1903,
+        "mean_ms": 0.1255,
+        "max_ms": 0.1984
+      },
+      "clean_delegation": {
+        "steps": 150,
+        "denied": 0,
+        "p50_ms": 0.1198,
+        "p95_ms": 0.5409,
+        "p99_ms": 0.647,
+        "mean_ms": 0.2283,
+        "max_ms": 0.7938
+      },
+      "scratchpad_handoff": {
+        "steps": 150,
+        "denied": 0,
+        "p50_ms": 0.1317,
+        "p95_ms": 0.21,
+        "p99_ms": 0.3121,
+        "mean_ms": 0.1412,
+        "max_ms": 0.4546
+      },
+      "loopback_docs_fetch": {
+        "steps": 150,
+        "denied": 0,
+        "p50_ms": 0.1534,
+        "p95_ms": 0.9987,
+        "p99_ms": 1.0616,
+        "mean_ms": 0.4244,
+        "max_ms": 3.8371
+      }
+    },
+    "cpu": {
+      "p50_ms": 0.1264,
+      "p95_ms": 0.892,
+      "p99_ms": 0.9987,
+      "mean_ms": 0.2073,
+      "max_ms": 3.8371
+    },
+    "wall": {
+      "p50_ms": 0.1246,
+      "p95_ms": 0.888,
+      "p99_ms": 1.0025,
+      "mean_ms": 0.2098,
+      "max_ms": 4.2646
+    },
+    "target_ms": 2.0,
+    "p99_cpu_within_target": true,
+    "benign_denials": 0,
+    "benign_denial_rate": 0.0,
+    "benign_denial_examples": [],
+    "llm_calls": 0,
+    "clock": "time.thread_time_ns (CPU) and time.perf_counter_ns (wall), in-process, includes decision-log I/O"
+  },
+  "audit_chain": {
+    "file": "benign-decision-log.jsonl",
+    "chain_ok": true,
+    "entries": 750,
+    "head_hash": "462797efde1cc79423b01626470ad653c82a8e8810beb7ef9fddf687d65f62d5",
+    "errors": [],
+    "tamper_checks": {
+      "edited_line": true,
+      "dropped_line": true
+    }
+  },
+  "archive_baseline": {
+    "value": "2 of 13",
+    "pooled": false,
+    "note": "Real-model loopback archive, non-control runs. Separate measurement."
+  },
+  "scope_notes": [
+    "Same-author scripted synthetic lab scenarios. Not a benchmark and not a measure of any product in the wild.",
+    "Group results are the outcome of the repository's own defence tests; each count traces to a named pytest node id.",
+    "The real-model loopback archive figure (2 of 13 non-control runs) is a separate measurement and is never pooled with these results.",
+    "Latency is measured CPU time per in-process evaluate_call decision on one machine. The 2 ms figure is a reference target, not a guarantee.",
+    "The gateway binds 127.0.0.1 by default. Freeze actions apply for 15 minutes to registered lab keys only.",
+    "ATLAS technique labels are approximate.",
+    "A passing audit-chain verify means the log is internally consistent. It is not a certification and not a penetration test."
+  ],
+  "seconds": 4.946
+}

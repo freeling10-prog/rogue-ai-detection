@@ -86,6 +86,16 @@ The HTML report (`audit-report.html`) includes:
 
 Capability signatures are omitted. Tool arguments pass through the gateway scrubber before they are written. The command does not bind, does not deliver webhooks, and does not start the honeypot.
 
+## Collusion sprint evaluation
+
+`python -m agent_gateway evaluate-collusion --report <out_dir>` is offline and binds no port. It does three things:
+
+1. Runs the existing defence tests in a pytest subprocess and counts pass / fail per carrier group, keyed by node id. Group A is `test_side_channel_guard.py`, Group B is `test_delegation_guard.py`, and Group C is `test_deobfuscate.py` plus `test_canary_watermark.py`.
+2. Times `evaluate_call` on five benign multi-agent workflows (thread CPU time, p50 / p95 / p99) against a 2 ms reference.
+3. Writes each benign decision to a hash-chained log, verifies it, and checks that an edited or dropped line in a copy is detected.
+
+It writes `collusion_benchmark_results.json`, `collusion_sprint_report.md`, `collusion_sprint_report.pdf`, a 6-slide `collusion_sprint_slides.pdf`, and a 1200x630 `collusion_project_image.png`, all with the standard library. The last generated set is in [`sprint_submission/`](../sprint_submission/). The scenarios are same-author scripted lab workflows, not a benchmark. The real-model loopback archive figure (2 of 13) is a separate measurement and is never pooled with them. The command generates no attack traffic of its own.
+
 ## Tool API (JSON-RPC 2.0 over HTTP POST `/mcp`)
 
 ```json

@@ -20,13 +20,28 @@ html { scroll-behavior: smooth; }
 body {
   margin: 0;
   background-color: var(--obsidian);
-  background-image:
-    linear-gradient(rgba(30, 41, 59, .45) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(30, 41, 59, .45) 1px, transparent 1px);
-  background-size: 48px 48px;
+  position: relative;
   color: var(--ink);
   font: 16px/1.6 var(--sans);
   -webkit-font-smoothing: antialiased;
+}
+/* Engineering grid: fixed behind everything, brightest at the top, fading out lower down. */
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: -2; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(71, 85, 105, .38) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(71, 85, 105, .38) 1px, transparent 1px);
+  background-size: 40px 40px;
+  background-position: -1px -1px;
+  -webkit-mask-image: radial-gradient(ellipse 140% 90% at 50% 0%, #000 35%, rgba(0,0,0,.35) 75%, transparent 100%);
+          mask-image: radial-gradient(ellipse 140% 90% at 50% 0%, #000 35%, rgba(0,0,0,.35) 75%, transparent 100%);
+}
+/* Soft emerald glow behind the hero. */
+body::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 900px; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(600px 380px at 15% 120px, rgba(16, 185, 129, .16), transparent 70%),
+    radial-gradient(520px 340px at 95% 40px, rgba(56, 189, 248, .08), transparent 70%);
 }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }

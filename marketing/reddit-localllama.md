@@ -72,7 +72,7 @@ Policy around the token, still lab-only:
 - Logged tool arguments are scrubbed. The approval-webhook formatter can render Slack Block Kit and a generic JSON body for a held call (principal, session, `agw1.` token, taint source, ATLAS id, scrubbed tool and args, one-time Approve Once / Deny & Freeze callbacks). It does not POST unless the process is started with `--webhook-deliver`. A failed POST does not change the policy decision.
 - Tool backends inside this prototype are simulated echoes. Default bind `127.0.0.1`.
 
-Recorded `agent-gateway` pytest on this tree: **35 passed** (7 basic, 7/7 ATLAS falsification, 10 attenuation, 5 stateful, 6 approval-webhook). Those cases were written for these gates. That is a regression suite, not a production evaluation. ATLAS ids are approximate.
+Recorded `agent-gateway` pytest on this tree: **262 passed** at commit `cefec0d` (7/7 ATLAS falsification included; **784** passing across agent-gateway, agent-watch, and the analyzer). The first Phase 2 floor was 35 (7 basic, 7/7 ATLAS falsification, 10 attenuation, 5 stateful, 6 approval-webhook). Those cases were written for these gates. That is a regression suite, not a production evaluation. ATLAS ids are approximate.
 
 ### Hypothesis fuzz
 

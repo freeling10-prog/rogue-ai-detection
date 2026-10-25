@@ -36,7 +36,7 @@ These are the limits already recorded in the root README, [docs/phase1-tier2-rep
 - **No wild-deployment result** is recorded. Do not add one.
 - **ATLAS mappings are approximate** (AML.M0030, T0051, T0053, T0080, T0086, T0118). They are not a certification. OWASP ASI notes on the Sigma rules are orientation, not a compliance claim.
 - **`agw1.` is macaroon-style chained HMAC attenuation**, not a full macaroon library (no third-party caveats, no discharges). A worker that holds `AGENT_GATEWAY_HMAC_KEY` can mint a fresh allowing token. A holder who does not have that key cannot strip `allow_egress=false`.
-- **Recorded tests, not re-run for these drafts.** [docs/phase2-gateway.md](../docs/phase2-gateway.md) records `agent-gateway` **35 passed** (7 basic, 7/7 ATLAS falsification, 10 attenuation, 5 stateful Hypothesis, 6 approval-webhook) and `agent-watch` **512 passed, 2 skipped**. [docs/phase3-analyzer.md](../docs/phase3-analyzer.md) records `agentwatch-analyzer` **10 passed**. The root README records **40 passed** on this tree after five executive audit-report tests were added on top of that 35. Hypothesis pin in those tests is `hypothesis==6.170.9`.
+- **Recorded tests (re-run 25 October 2026 at commit `cefec0d`).** `agent-gateway` **262 passed** (7/7 ATLAS falsification and 5 stateful Hypothesis machines inside), `agent-watch` **512 passed, 2 skipped** (514 collected), `agentwatch-analyzer` **10 passed**: **784** passing across the workspace. Breakdown by file: [docs/phase2-gateway.md](../docs/phase2-gateway.md) and the root README. Earlier floors (35, then 40, then 240 on the v10 tree) are history; quote 262 for this tree. Hypothesis pin in those tests is `hypothesis==6.170.9`.
 
 ## Before anyone posts or sends
 

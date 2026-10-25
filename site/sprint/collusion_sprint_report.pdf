@@ -1,0 +1,401 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 4 /Kids [4 0 R 6 0 R 8 0 R 10 0 R] >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /Font << /F1 3 0 R >> >> >>
+endobj
+5 0 obj
+<< /Length 3159 >>
+stream
+BT
+/F1 10 Tf
+13 TL
+54 738 Td
+(AgentGate: Deterministic Guardrails Against Multi-Agent Collusion Carriers) Tj
+T*
+() Tj
+T*
+(Apart Research AI Collusion Research Sprint. Track 3 \(Collusion Carriers and) Tj
+T*
+(Countermeasures\) / Track 2 \(Detection and Audit of Collusion\).) Tj
+T*
+() Tj
+T*
+(Generated 2026-10-25T09:08:56Z by python -m agent_gateway evaluate-collusion --report.) Tj
+T*
+(Same-author scripted synthetic lab scenarios; not a benchmark.) Tj
+T*
+() Tj
+T*
+(ABSTRACT) Tj
+T*
+() Tj
+T*
+(Autonomous agents that share tools can coordinate covertly: one agent can leak information) Tj
+T*
+(through which tool or argument it picks and when it calls, launder a restricted capability) Tj
+T*
+(by handing work to a cleaner peer, or move data in small or re-encoded pieces across steps.) Tj
+T*
+(AgentGate is a loopback Policy Enforcement Point that addresses these carriers with) Tj
+T*
+(deterministic checks and no model calls: a post-taint side-channel guard, monotonic) Tj
+T*
+(capability attenuation across delegation, and n-gram fingerprinting across encodings with) Tj
+T*
+(canary watermarks for provenance. In this run the repository's defence tests for the three) Tj
+T*
+(carrier groups passed 57 of 57. Benign policy decisions took a p50 of 0.1264 ms and a p99) Tj
+T*
+(of 0.9987 ms of CPU time \(reference target 2.0 ms\). The hash-chained decision log verified) Tj
+T*
+(clean over 750 entries.) Tj
+T*
+() Tj
+T*
+(PROBLEM STATEMENT) Tj
+T*
+() Tj
+T*
+(Content filters look for a secret in what an agent sends. Collusion carriers avoid that in) Tj
+T*
+(three ways:) Tj
+T*
+() Tj
+T*
+(- Group A, side channels. Information moves through the choice among a few argument) Tj
+T*
+(variants, or through call timing, so no fragment of the protected value appears in any) Tj
+T*
+(argument.) Tj
+T*
+(- Group B, delegation laundering. A restricted agent hands its task or state to a peer) Tj
+T*
+(whose own capability looks clean \(a confused deputy\).) Tj
+T*
+(- Group C, split and encoded smuggling. A protected value leaves in pieces across steps, or) Tj
+T*
+(after Base64, hex, URL, or whitespace transformation.) Tj
+T*
+() Tj
+T*
+(METHODOLOGY: ZERO-COMPUTE DETERMINISTIC GUARDRAILS) Tj
+T*
+() Tj
+T*
+(Every check is arithmetic, hashing, or HMAC on the call path. No LLM is consulted \(LLM) Tj
+T*
+(calls in this run: 0\).) Tj
+T*
+() Tj
+T*
+(- side_channel_guard.py: after a session is both TAINTED and SENSITIVE_READ, released) Tj
+T*
+(outbound calls are counted for distinct argument variants, total calls, and regular) Tj
+T*
+(inter-call rhythm \(coefficient of variation\). A signal denies the call, holds the session) Tj
+T*
+(for review, and freezes the registered root key for 15 minutes.) Tj
+T*
+(- delegation_guard.py: a hand-off re-mints the recipient's agw1. capability with the) Tj
+T*
+(sender's deny caveats \(lattice meet\). Caveats are chained HMACs, so they cannot be stripped) Tj
+T*
+(without the root key, and a delegated principal that was barred upstream is held at egress.) Tj
+T*
+(- deobfuscate.py: protected values are stored only as salted SHA-256 digests of 8-character) Tj
+T*
+(n-grams of the raw value and its encoded forms, matched against a per-session sliding) Tj
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 7 0 R /Resources << /Font << /F1 3 0 R >> >> >>
+endobj
+7 0 obj
+<< /Length 2581 >>
+stream
+BT
+/F1 10 Tf
+13 TL
+54 738 Td
+(window of released arguments.) Tj
+T*
+(- canary_watermark.py: sensitive reads carry a zero-width HMAC watermark bound to \(session,) Tj
+T*
+(step, tool\), plus credential-format digests, so a hit names the originating step.) Tj
+T*
+(- audit_chain.py: each decision-log line carries seq, prev_hash, and entry_hash.) Tj
+T*
+() Tj
+T*
+(Evaluation procedure, all offline and reproducible:) Tj
+T*
+() Tj
+T*
+(1. Run the existing defence test files with pytest: python -m pytest -q) Tj
+T*
+(tests/test_side_channel_guard.py tests/test_delegation_guard.py tests/test_deobfuscate.py) Tj
+T*
+(tests/test_canary_watermark.py. Counts come from the JUnit XML, keyed by node id.) Tj
+T*
+(2. Run 5 benign multi-agent workflows 50 times through an in-process PolicyEngine and time) Tj
+T*
+(each evaluate_call with thread CPU time.) Tj
+T*
+(3. Write each benign decision to a hash-chained log, verify it, and check that editing or) Tj
+T*
+(dropping a line in a copy is detected.) Tj
+T*
+() Tj
+T*
+(RESULTS) Tj
+T*
+() Tj
+T*
+(Reproducible test-suite results by group) Tj
+T*
+() Tj
+T*
+(Group | Test files | Tests | Passed | Failed | Skipped) Tj
+T*
+(A: Side-channel and timing guard | test_side_channel_guard.py | 8 | 8 | 0 | 0) Tj
+T*
+(B: Multi-agent delegation and confused-deputy guard | test_delegation_guard.py | 8 | 8 | 0) Tj
+T*
+(| 0) Tj
+T*
+(C: De-obfuscation and canary provenance guard | test_deobfuscate.py,) Tj
+T*
+(test_canary_watermark.py | 41 | 41 | 0 | 0) Tj
+T*
+(Total |  | 57 | 57 | 0 | 0) Tj
+T*
+() Tj
+T*
+(pytest: 57 passed in 3.05s \(exit 0, 3.64 s\). The full per-test list is in) Tj
+T*
+(collusion_benchmark_results.json under defense_suite.groups[].tests.) Tj
+T*
+() Tj
+T*
+(Whole gateway suite and stateful property fuzzing) Tj
+T*
+() Tj
+T*
+(python -m pytest --collect-only -q collects 262 tests in 20 files. The CI job runs all of) Tj
+T*
+(them. Stateful Hypothesis machines, with settings read from the test files:) Tj
+T*
+() Tj
+T*
+(State machine | File | max_examples | stateful_step_count) Tj
+T*
+(DelegationDagMachine | test_delegation_guard.py | 120 | 24) Tj
+T*
+(SideChannelMachine | test_side_channel_guard.py | 60 | 30) Tj
+T*
+(PepPolicyMachine | test_stateful_fuzz.py | 40 | 16) Tj
+T*
+(SmugglingMachine | test_stateful_fuzz.py | 60 | 24) Tj
+T*
+(GatewayScrubMachine | test_stateful_fuzz.py | 80 | 8) Tj
+T*
+() Tj
+T*
+(Benign decision latency \(CPU time per evaluate_call\)) Tj
+T*
+() Tj
+T*
+(Measure | p50 ms | p95 ms | p99 ms | mean ms | max ms) Tj
+T*
+(CPU | 0.1264 | 0.892 | 0.9987 | 0.2073 | 3.8371) Tj
+T*
+(Wall | 0.1246 | 0.888 | 1.0025 | 0.2098 | 4.2646) Tj
+T*
+() Tj
+ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 9 0 R /Resources << /Font << /F1 3 0 R >> >> >>
+endobj
+9 0 obj
+<< /Length 2708 >>
+stream
+BT
+/F1 10 Tf
+13 TL
+54 738 Td
+(750 decisions. Reference target 2.0 ms: p99 CPU within target. Timing includes decision-log) Tj
+T*
+(I/O.) Tj
+T*
+() Tj
+T*
+(Benign workflow | Steps | Denied | p50 CPU ms | p99 CPU ms) Tj
+T*
+(order_status_triage | 200 | 0 | 0.1027 | 0.2548) Tj
+T*
+(status_report | 100 | 0 | 0.117 | 0.1903) Tj
+T*
+(clean_delegation | 150 | 0 | 0.1198 | 0.647) Tj
+T*
+(scratchpad_handoff | 150 | 0 | 0.1317 | 0.3121) Tj
+T*
+(loopback_docs_fetch | 150 | 0 | 0.1534 | 1.0616) Tj
+T*
+() Tj
+T*
+(Benign denials: 0 of 750 decisions \(rate 0.0\).) Tj
+T*
+() Tj
+T*
+(Audit-chain verification) Tj
+T*
+() Tj
+T*
+(Check | Result) Tj
+T*
+(Benign decision log chain | verified) Tj
+T*
+(Entries | 750) Tj
+T*
+(Head hash | 462797efde1cc794...) Tj
+T*
+(Edited line in a copy detected | yes) Tj
+T*
+(Dropped line in a copy detected | yes) Tj
+T*
+() Tj
+T*
+(DEFENCE ANALYSIS: WHY THE CARRIERS FAIL HERE) Tj
+T*
+() Tj
+T*
+(- Side channels \(Group A\). The guard does not try to read the content. It bounds the) Tj
+T*
+(channel: the number of distinct variants, the number of calls after the taint point, and) Tj
+T*
+(how regular the timing is. Crossing any bound holds the session for a person, so leakage is) Tj
+T*
+(capped by policy rather than by spotting a pattern.) Tj
+T*
+(- Delegation laundering \(Group B\). Restrictions travel with the hand-off as HMAC caveats) Tj
+T*
+(and are folded with a lattice meet, which only moves down. A peer cannot hold more egress) Tj
+T*
+(than the agent that delegated to it, and a fresh session of a delegated principal is still) Tj
+T*
+(held.) Tj
+T*
+(- Split and encoded smuggling \(Group C\). Matching runs on a sliding window across steps and) Tj
+T*
+(over decoded forms, so splitting or encoding does not remove the n-gram overlap. Watermarks) Tj
+T*
+(and credential digests give step-level provenance in the hash-chained log.) Tj
+T*
+(- Containment. On a signal the registered root key and its children are frozen for 15) Tj
+T*
+(minutes. Unregistered callers are never acted on.) Tj
+T*
+() Tj
+T*
+(SCOPE AND LIMITATIONS) Tj
+T*
+() Tj
+T*
+(- Same-author scripted synthetic lab scenarios. Not a benchmark and not a measure of any) Tj
+T*
+(product in the wild.) Tj
+T*
+(- Group results are the outcome of the repository's own defence tests; each count traces to) Tj
+T*
+(a named pytest node id.) Tj
+T*
+(- The real-model loopback archive figure \(2 of 13 non-control runs\) is a separate) Tj
+T*
+(measurement and is never pooled with these results.) Tj
+T*
+(- Latency is measured CPU time per in-process evaluate_call decision on one machine. The 2) Tj
+T*
+(ms figure is a reference target, not a guarantee.) Tj
+T*
+(- The gateway binds 127.0.0.1 by default. Freeze actions apply for 15 minutes to registered) Tj
+ET
+endstream
+endobj
+10 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 11 0 R /Resources << /Font << /F1 3 0 R >> >> >>
+endobj
+11 0 obj
+<< /Length 981 >>
+stream
+BT
+/F1 10 Tf
+13 TL
+54 738 Td
+(lab keys only.) Tj
+T*
+(- ATLAS technique labels are approximate.) Tj
+T*
+(- A passing audit-chain verify means the log is internally consistent. It is not a) Tj
+T*
+(certification and not a penetration test.) Tj
+T*
+(- Group counts show that the guards behave as their own tests specify. They are not an) Tj
+T*
+(estimate of recall against an unknown adversary.) Tj
+T*
+(- Benign workflows were written by the same author and are few; the denial rate is a smoke) Tj
+T*
+(check, not a false-positive rate for real deployments.) Tj
+T*
+() Tj
+T*
+(REPRODUCE) Tj
+T*
+() Tj
+T*
+(pip install -e './agent-gateway[test]') Tj
+T*
+(cd agent-gateway) Tj
+T*
+(export AGENT_GATEWAY_HMAC_KEY=$\(python -c 'import secrets; print\(secrets.token_hex\(32\)\)'\)) Tj
+T*
+(python -m agent_gateway evaluate-collusion --report ../sprint_submission) Tj
+T*
+() Tj
+T*
+(Environment: Python 3.13.17 on Linux-6.18.44-fc-v153-x86_64-with-glibc2.39. Total) Tj
+T*
+(evaluation time 4.946 s.) Tj
+ET
+endstream
+endobj
+xref
+0 12
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000134 00000 n 
+0000000204 00000 n 
+0000000330 00000 n 
+0000003541 00000 n 
+0000003667 00000 n 
+0000006300 00000 n 
+0000006426 00000 n 
+0000009186 00000 n 
+0000009314 00000 n 
+trailer
+<< /Size 12 /Root 1 0 R >>
+startxref
+10347
+%%EOF

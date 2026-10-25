@@ -47,6 +47,7 @@ a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 h1, h2, h3 { line-height: 1.2; margin: 0 0 .5em; }
 code, pre, .mono { font-family: var(--mono); }
+code { overflow-wrap: anywhere; }
 
 .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
 section { padding: 56px 0; border-top: 1px solid var(--border); }

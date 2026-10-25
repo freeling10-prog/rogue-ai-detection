@@ -4,6 +4,22 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
+## [Unreleased] - report-style site and per-target outreach (25 October 2026)
+
+- `site/` rebuilt as a technical report: archival palette, hairline grid,
+  self-hosted Newsreader and IBM Plex (SIL OFL 1.1, `site/fonts/`), no
+  gradients, shadows, or blur. Sections: empirical summary with a latency
+  scale that shows the 3.84 ms maximum, architecture schematic, trace
+  inspector, reproduce, scope and non-goals, and a schedule of deliverables
+  with hashed sample artifacts.
+- `examples/record_site_traces.py` records the six inspector traces against
+  the real `PolicyEngine`, `McpWireProxy`, `toxic_combinations.analyze`, and
+  `audit_chain` (median CPU of 30 fresh runs per step); `site/app.js` embeds
+  its output. The trace-03 graph now counts `web.fetch` as a URL sink, so its
+  totals match `analyze()` (12 paths).
+- `marketing/outreach-sequence.md`: ten per-target Touch 2 payloads, each tied
+  to one carrier and the matching trace.
+
 ## [Unreleased] - docs, site, and offer sync (25 October 2026)
 
 - README: sprint-submission callout near the top (report, slides, JSON,

@@ -31,7 +31,7 @@ Standing rules for every touch. If a sentence conflicts with these, delete the s
 - The only real-model catch rate you may quote is **2 of 13**, labeled as our loopback archive. Do not put it in a subject line. Do not turn it into a percentage.
 - ATLAS mappings are approximate. Not a certification.
 - Not a penetration test, not a red team of their customers, and not a statement that they pass ATLAS, OWASP, NIST, SOC 2, or ISO.
-- No scare copy and no deadline copy. Price is $4,500 fixed or $6,500 with instrumentation. Instrumentation is a lab gateway pass plus an offline analyzer pass on an authorized log they supply.
+- No scare copy and no deadline copy. Price is $1,800 for a Tool Inventory Review, $4,500 for the fixed note, or $6,500 with instrumentation. Add-ons are on `marketing/audit-offer.md`; do not lead with them. Instrumentation is a lab gateway pass plus an offline analyzer pass on an authorized log they supply.
 
 ## Email
 
@@ -49,7 +49,7 @@ Enterprise reviews of agent products ask a concrete question: after the model re
 
 I saw {{public_detail}} at {{company}}. {{role_hook}}
 
-I run a 48-hour Agentic Tool-Boundary Audit for that review. The clock starts when I have the tool list, not when this email arrives. You get a short written note a security reviewer can read. The price is $4,500 fixed, or $6,500 if you also want a lab gateway pass and an offline pass on an authorized log you supply. The lab gateway stays on 127.0.0.1. I do not install anything on your network, and I do not take production credentials.
+I run a 48-hour Agentic Tool-Boundary Audit for that review. The clock starts when I have the tool list, not when this email arrives. You get a short written note a security reviewer can read. The price is $1,800 for a one-page inventory review, $4,500 for the full note, or $6,500 if you also want a lab gateway pass and an offline pass on an authorized log you supply. The lab gateway stays on 127.0.0.1. I do not install anything on your network, and I do not take production credentials.
 
 The one-page scope is `marketing/audit-offer.md` in https://github.com/freeling10-prog/rogue-ai-detection. It lists what is out of scope, including penetration tests and any "pass" claim.
 
@@ -87,7 +87,7 @@ Hello {{first_name}},
 
 I will stop after this note unless you want the audit.
 
-If you do, reply with the tool names and argument shapes (no secrets), where untrusted text can enter, and whether you want the $4,500 list-only note or the $6,500 note with instrumentation. Scope and the out-of-scope list: `marketing/audit-offer.md` in https://github.com/freeling10-prog/rogue-ai-detection.
+If you do, reply with the tool names and argument shapes (no secrets), where untrusted text can enter, and whether you want the $1,800 inventory review, the $4,500 list-only note, or the $6,500 note with instrumentation. Scope and the out-of-scope list: `marketing/audit-offer.md` in https://github.com/freeling10-prog/rogue-ai-detection.
 
 If the timing is wrong, no reply needed.
 
@@ -110,7 +110,7 @@ Hello {{first_name}},
 
 Thanks for connecting. {{role_hook}}
 
-The offer is a written note, not a pen-test and not a certification. $4,500 on a tool list, or $6,500 if you also want the lab gateway and an offline pass on a log you are allowed to share. The lab stays on 127.0.0.1.
+The offer is a written note, not a pen-test and not a certification. $1,800 for a one-page inventory review, $4,500 for the full note on a tool list, or $6,500 if you also want the lab gateway and an offline pass on a log you are allowed to share. The lab stays on 127.0.0.1.
 
 Page: `marketing/audit-offer.md` in https://github.com/freeling10-prog/rogue-ai-detection
 

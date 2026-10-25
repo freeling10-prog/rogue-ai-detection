@@ -23,7 +23,10 @@ Release.
   more synthetic boundary notes under `docs/examples/`.
 - Offer page, README, and site pricing now show the Tool Inventory Review
   ($1,800), Fixed Note ($4,500), Note + Lab Instrumentation ($6,500), and
-  the add-ons. Other marketing drafts still quote the two-tier prices.
+  the add-ons. The marketing drafts (`outreach-sequence.md`, `ciso-outreach.md`,
+  `marketing/README.md`, `la-targets.md`) were aligned to the same tiers.
+  `show-hn.md`, `reddit-localllama.md`, and the checklist quote no prices
+  and are unchanged.
 - README: "What this is not" box, boundary replay command, and a "Known
   non-goals and bypasses wanted" section.
 

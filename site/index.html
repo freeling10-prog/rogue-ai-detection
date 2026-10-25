@@ -155,19 +155,33 @@
 <!-- PRICING -->
 <section id="pricing">
   <div class="wrap">
-    <p class="eyebrow">Fixed price · 48-hour turnaround from tool-inventory receipt</p>
-    <h2>Two ways to book</h2>
-    <p class="lead">A written note for a security reviewer, produced from a tool list you send. Paying does not change the license: the open-source lab stays Apache-2.0 and the free GitHub Action stays free.</p>
+    <p class="eyebrow">Fixed price · clock starts when a usable tool list arrives</p>
+    <h2>Three ways to book</h2>
+    <p class="lead">A written note for a security reviewer, produced from a tool list you send: every untrusted-ingest to held-call path, the approximate ATLAS techniques involved, and the places a reviewer should ask for controls. Paying does not change the license: the open-source lab stays Apache-2.0 and the free GitHub Action stays free. Not a penetration test and not a certification.</p>
     <div class="price-grid">
       <div class="price-card">
+        <div class="price">$1,800</div>
+        <h3>Tool Inventory Review</h3>
+        <div class="turnaround">24h clock starts when the tool list arrives</div>
+        <ul>
+          <li>Each tool classified by egress (one page)</li>
+          <li>Top 3 taint paths</li>
+          <li>Short remediation list</li>
+          <li class="no">No full note</li>
+          <li class="no">No lab pass</li>
+        </ul>
+        <a class="btn" href="mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit&amp;body=Tier%3A%20%241%2C800%20inventory%20review">Book the $1,800 review</a>
+      </div>
+      <div class="price-card">
         <div class="price">$4,500</div>
-        <h3>Fixed Tool-List Boundary Note</h3>
+        <h3>Fixed Tool-Boundary Note</h3>
         <div class="turnaround">48h clock starts when the tool list arrives</div>
         <ul>
           <li>Each tool classified by egress</li>
           <li>Taint-path map (ingest → held call)</li>
           <li>Which calls the lab gateway would hold</li>
           <li>Approximate ATLAS ids on the note</li>
+          <li>Remediation sketch: the first three controls</li>
           <li>Written note for the security reviewer</li>
           <li class="no">No lab instrumentation</li>
           <li class="no">No offline log pass</li>
@@ -190,9 +204,19 @@
     </div>
 
     <div class="panel" style="margin-top:22px; padding:20px">
+      <h3 style="font-size:1rem">Optional add-ons</h3>
+      <ul>
+        <li><strong>Integration Blueprint, +$2,500.</strong> Code or config sketches for the top held calls. Nothing is deployed on your hosts.</li>
+        <li><strong>Reviewer Briefing Call, +$750.</strong> A 30-minute walkthrough of the note with your security reviewer.</li>
+        <li><strong>Quarterly Refresh Retainer, $2,500 per quarter.</strong> The note re-run against an updated tool list.</li>
+      </ul>
+      <p class="sim-desc">All prices are fixed. Free alternative: the Apache-2.0 GitHub Action runs the offline analyzer on your own logs. It does not write the reviewer note. Full terms and out-of-scope list: <a href="https://github.com/freeling10-prog/rogue-ai-detection/blob/main/marketing/audit-offer.md">offer page</a>.</p>
+    </div>
+
+    <div class="panel" style="margin-top:22px; padding:20px">
       <h3 style="font-size:1rem">Start the clock in one click</h3>
-      <p class="sim-desc">Copy the starter tool-inventory table, fill it in (no secrets, no customer payloads), and send it in the booking thread. The 48-hour clock starts when a usable list arrives.</p>
-      <div class="tmpl" id="email-template">Tool Name | Argument Shapes | Where Untrusted Text Enters | Tier: $4,500 or $6,500
+      <p class="sim-desc">Copy the starter tool-inventory table, fill it in (no secrets, no customer payloads), and send it in the booking thread. The clock starts when a usable list arrives.</p>
+      <div class="tmpl" id="email-template">Tool Name | Argument Shapes | Where Untrusted Text Enters | Tier: $1,800, $4,500 or $6,500
 --------- | --------------- | --------------------------- | ------------------------
 example.fetch | {url: string} | the fetched page body | $6,500
 example.send_email | {to: string, body: string} | — | $6,500</div>

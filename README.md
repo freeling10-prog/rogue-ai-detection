@@ -30,7 +30,19 @@ The workflow above is the free lab audit of this tree. It is not the paid review
 
 ### How to book
 
-The paid offer is the [AgentGate — 48-Hour Agentic Tool-Boundary Audit](marketing/audit-offer.md). **$4,500** fixed, or **$6,500** with instrumentation: a lab gateway pass on `127.0.0.1` and an offline analyzer pass on an authorized log you supply. Email [alecagentboundary@gmail.com](mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit) with the subject `Book 48-Hour Agentic Tool-Boundary Audit`. You can reply in that thread with a tool inventory (names and argument shapes, no secrets). The clock starts when the tool list arrives. This is not a penetration test and not a certification. The honeypot stays human-review only, freeze applies only to registered lab keys for 15 minutes, and ATLAS ids in the note are approximate.
+The free path comes first: the GitHub Action and the offline analyzer above are free, Apache 2.0, and run on your own logs.
+
+The paid offer is the [AgentGate — 48-Hour Agentic Tool-Boundary Audit](marketing/audit-offer.md), a written document and a person's time. It does not change the license or add a proprietary module.
+
+| Tier | Price | What you get |
+| --- | --- | --- |
+| Tool Inventory Review | **$1,800** | One-page egress classification, top 3 taint paths, short remediation list. No full note, no lab pass |
+| Fixed Tool-Boundary Note | **$4,500** | Full written note: classification, taint-path map, held calls, approximate ATLAS ids, remediation sketch |
+| Note + Lab Instrumentation | **$6,500** | The $4,500 note plus a lab gateway pass on `127.0.0.1` (simulated backends) and an offline analyzer pass on an authorized log you supply |
+
+Optional add-ons: Integration Blueprint (+$2,500, code or config sketches for the top held calls, nothing deployed on your hosts), Reviewer Briefing Call (+$750), Quarterly Refresh Retainer ($2,500 per quarter). All prices are fixed.
+
+Email [alecagentboundary@gmail.com](mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit) with the subject `Book 48-Hour Agentic Tool-Boundary Audit`. You can reply in that thread with a tool inventory (names and argument shapes, no secrets). The clock starts when a usable tool list arrives. This is not a penetration test and not a certification. The honeypot stays human-review only, freeze applies only to registered lab keys for 15 minutes, and ATLAS ids in the note are approximate. See an [example note](docs/examples/sample-boundary-note.md).
 
 **[Book a 48-hour Agentic Tool-Boundary Audit](mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit)**
 
@@ -190,4 +202,4 @@ Add [`.github/workflows/atlas-agent-audit.yml`](.github/workflows/atlas-agent-au
 
 **[Book a 48-hour Agentic Tool-Boundary Audit](mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit)**
 
-One-page offer, price, and out-of-scope list: **[AgentGate — 48-Hour Agentic Tool-Boundary Audit](marketing/audit-offer.md)**. Reply to that email with a tool inventory if you already have one. $4,500 fixed, or $6,500 with instrumentation. Not a penetration test and not a certification.
+One-page offer, price, and out-of-scope list: **[AgentGate — 48-Hour Agentic Tool-Boundary Audit](marketing/audit-offer.md)**. Reply to that email with a tool inventory if you already have one. $1,800 Tool Inventory Review, $4,500 fixed note, or $6,500 with instrumentation, plus optional add-ons listed on the offer page. Not a penetration test and not a certification. The GitHub Action above is the free alternative.

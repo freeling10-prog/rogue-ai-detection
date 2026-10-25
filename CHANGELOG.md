@@ -21,6 +21,9 @@ Release.
   `max_id_len`) with tests. `docs/integration-contract.md` and
   `examples/gated_dispatch.py` state the caller's side of the boundary. Two
   more synthetic boundary notes under `docs/examples/`.
+- Offer page, README, and site pricing now show the Tool Inventory Review
+  ($1,800), Fixed Note ($4,500), Note + Lab Instrumentation ($6,500), and
+  the add-ons. Other marketing drafts still quote the two-tier prices.
 - README: "What this is not" box, boundary replay command, and a "Known
   non-goals and bypasses wanted" section.
 

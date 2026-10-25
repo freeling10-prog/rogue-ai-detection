@@ -10,34 +10,54 @@ This is not a penetration test, not a red team, and not a certification. It is n
 
 ## Price
 
-| | Fixed | With instrumentation |
+| | Tool Inventory Review | Fixed Tool-Boundary Note | Note + Lab Instrumentation |
+| --- | --- | --- | --- |
+| Price | **$1,800** | **$4,500** | **$6,500** |
+| Tool list classified by egress | Yes | Yes | Yes |
+| Top 3 taint paths | Yes | Full taint-path map | Full taint-path map |
+| Short remediation list | Yes (one page) | Remediation sketch (first three controls) | Remediation sketch (first three controls) |
+| Which calls the lab gateway would hold | No | Yes | Yes |
+| Approximate ATLAS ids on the note | No | Yes | Yes |
+| Written note for the security reviewer | One-page boundary map | Full note | Full note |
+| Instrumentation | No | No | Yes |
+
+**Optional add-ons**, attached to any tier. All prices are fixed; there is no hourly billing.
+
+| Add-on | Price | What it is |
 | --- | --- | --- |
-| Price | **$4,500** | **$6,500** |
-| Tool list classified by egress | Yes | Yes |
-| Taint-path map | Yes | Yes |
-| Which calls the lab gateway would hold | Yes | Yes |
-| Approximate ATLAS ids on the note | Yes | Yes |
-| Written note for the security reviewer | Yes | Yes |
-| Instrumentation | No | Yes |
+| Integration Blueprint | +$2,500 | Code or config sketches for the top held calls: how to route them through the gateway or an equivalent check in your harness. Sketches only. Nothing is deployed on your hosts. |
+| Reviewer Briefing Call | +$750 | A 30-minute walkthrough of the note with your security reviewer. |
+| Quarterly Refresh Retainer | $2,500 per quarter | The note re-run against an updated tool list, for teams that add tools often. |
+
+The **Tool Inventory Review** is the lowest-friction entry. It is a one-page egress classification, the top three taint paths, and a short remediation list. It is not the full note and it has no lab pass. It is a fair start if you only need the classification step or want to see how the work reads before you commit to a full note.
 
 **Instrumentation** means an optional pass in our lab, on material you are allowed to share. It is two things, and only those two:
 
 1. A **lab gateway pass**: we run your tool list through the lab policy proxy on `127.0.0.1`. Tool backends in that proxy are simulated echoes. We do not install the gateway on your hosts.
 2. An **analyzer pass**: if you supply an authorized access log (nginx, Caddy, Cloudflare, or JSON), we run it through the offline analyzer. The analyzer does not connect to your network. We will say which rules that log cannot support. Beacon, tool-hijack, and timing rules are not available from a normal access log.
 
-A log is not required for the $4,500 tier, and we do not run the log or the lab gateway pass unless you take the $6,500 tier. The scrubber is a backstop. Strip live tokens before you send a log.
+A log is not required for the $4,500 tier, and we do not run the log or the lab gateway pass unless you take the $6,500 tier. The Inventory Review includes neither. The scrubber is a backstop. Strip live tokens before you send a log.
 
 ## Clock
 
-The **48-hour clock starts when we have the tool list**: tool names, argument shapes, and where untrusted text can enter. It does not start at the first email. If the list is incomplete, we say so and the clock starts when a usable list arrives.
+The clock starts when we have a usable tool list: tool names, argument shapes, and where untrusted text can enter. It does not start at the first email. If the list is incomplete, we say so and the clock starts when a usable list arrives.
+
+- Tool Inventory Review: 24 hours from a usable list.
+- Fixed Tool-Boundary Note: 48 hours from a usable list.
+- Note + Lab Instrumentation: 48 hours from a usable list. The log is optional.
+
+Add-ons are scheduled with you after the note is delivered.
 
 ## What you receive
+
+One sentence version: you receive a written tool-boundary note that lists every untrusted-ingest to held-call path, the approximate ATLAS techniques involved, and the exact places a reviewer should ask for controls. The Inventory Review is the one-page version of that: classification, the top three taint paths, and a short remediation list.
 
 - Each listed tool classed as external read, internal read, write, send, or credential use, and where untrusted text can reach a send, a write, or a credential tool.
 - A taint-path map: untrusted ingest, then a held write, send, or credential call unless a person approves that exact call (session, step, tool, canonical args).
 - Which of those calls the lab gateway would hold for a person, and which registered internal key it would freeze for 15 minutes. Unregistered keys are not frozen. The note says that in those words.
 - On the instrumentation tier, the offline log pass when you supply a log the CLI accepts, including the rules that log cannot support (R11, R12, R13 offline).
 - Approximate MITRE ATLAS ids used in the lab (mitigation AML.M0030, techniques T0051, T0053, T0080, T0086, T0118). Every mapping is labeled approximate.
+- A remediation sketch: the first three controls worth asking for (for example, which calls to gate or attenuate first, and the pattern of change). On the Inventory Review this is a short list. Code or config sketches for the held calls are the Integration Blueprint add-on. Nothing is deployed on your hosts.
 - A short written note a security reviewer can read. No logo. No detection-rate claim about your product.
 
 Delegation limits in the note are lab policy, not your current production settings: depth 1, at most 3 child agents, taint following an internal handoff.
@@ -50,11 +70,12 @@ A loopback demo is available if you want to reproduce a held `send` after a tain
 - The taint path described above, as lab policy.
 - The delegation limits above, described as lab policy.
 - An offline log pass on the instrumentation tier, when you supply a log the CLI accepts.
+- A short remediation list or sketch, and, if you buy the Integration Blueprint, configuration sketches for the top held calls.
 - A written note with approximate ATLAS ids and, when a log was run, an explicit list of rules the log could not support.
 
 ## Out of scope
 
-- Deploying `agent-watch` or `agent-gateway` on your hosts or on a public address.
+- Deploying `agent-watch` or `agent-gateway` on your hosts or on a public address. The Integration Blueprint is sketches, not a deployment.
 - Blocking your users, freezing a key outside the lab registry, or turning on `--webhook-deliver` toward your Slack.
 - A penetration test, a red team of your customers, or a jailbreak campaign against a third-party model.
 - Any statement that you "pass" ATLAS, OWASP, NIST, or a customer's questionnaire. Sigma notes that mention OWASP ASI are orientation in the rule pack, not a finding that your product complies.
@@ -78,10 +99,10 @@ Attach or paste:
 
 - Tool names and argument shapes. No secrets and no customer payloads.
 - Where each tool's input can come from untrusted content (a web page, a ticket, an MCP tool description, or something else you name).
-- Which tier you want: $4,500 fixed, or $6,500 with instrumentation.
+- Which tier you want: $1,800 Tool Inventory Review, $4,500 Fixed Note, or $6,500 Note + Lab Instrumentation. Name any add-ons.
 - For the $6,500 tier, an authorized access log if you have one you are allowed to share. Already stripped is better.
 - The reviewer's role, if you want the note addressed to a function. A name is optional.
 
 We do not take production credentials. We do not install anything in your production environment. Reply first. The clock starts when the tool list arrives, not when the email does.
 
-Free alternative, if you only want the lab to run on logs you already have: the Apache 2.0 GitHub Action [`.github/workflows/atlas-agent-audit.yml`](../.github/workflows/atlas-agent-audit.yml) in [this repository](https://github.com/freeling10-prog/rogue-ai-detection). That action does not bind a port and does not write the reviewer note described above.
+**Free alternative**, if you only want the lab to run on logs you already have: the Apache 2.0 GitHub Action [`.github/workflows/atlas-agent-audit.yml`](../.github/workflows/atlas-agent-audit.yml) in [this repository](https://github.com/freeling10-prog/rogue-ai-detection). That action does not bind a port and does not write the reviewer note or the one-page inventory described above. The paid work is the written document and a person's time; the code stays free either way.

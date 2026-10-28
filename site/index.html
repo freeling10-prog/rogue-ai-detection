@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AgentGate — Technical Report &amp; Reference Implementation</title>
-<meta name="description" content="A loopback policy enforcement point for AI agent tool calls. Deterministic inline checks against three multi-agent collusion carriers, with no model calls on the decision path. 57/57 carrier checks and 262 gateway tests at the sprint snapshot; 389 gateway tests on main; same-author lab results stated with their limits.">
+<meta name="description" content="A loopback policy enforcement point for AI agent tool calls. Deterministic inline checks against three multi-agent collusion carriers, with no model calls on the decision path. 57/57 carrier checks and 262 gateway tests at the sprint snapshot; 457 gateway tests on main; same-author lab results stated with their limits.">
 <meta name="color-scheme" content="light">
 <meta property="og:title" content="AgentGate — Deterministic Guardrails Against Multi-Agent Collusion Carriers">
-<meta property="og:description" content="Technical report and reference implementation. 262 gateway tests at the sprint snapshot (784 across the workspace; 389 / 911 on main), 57/57 collusion carrier checks, CPU p50 0.126 ms / p99 0.999 ms per decision (max 3.84 ms). Same-author lab checks, not a benchmark.">
+<meta property="og:description" content="Technical report and reference implementation. 262 gateway tests at the sprint snapshot (784 across the workspace; 457 / 979 on main), 57/57 collusion carrier checks, CPU p50 0.126 ms / p99 0.999 ms per decision (max 3.84 ms). Same-author lab checks, not a benchmark.">
 <meta property="og:type" content="article">
 <link rel="icon" href="favicon.svg">
 <link rel="preload" href="fonts/newsreader-var.woff2" as="font" type="font/woff2" crossorigin>
@@ -116,11 +116,11 @@
       <table class="tbl" id="post-sprint-table">
         <thead><tr><th>Measure, <code>main</code></th><th class="num">Value</th><th>Note</th></tr></thead>
         <tbody>
-          <tr><td>Gateway tests passing</td><td class="num">389</td><td>262 at the snapshot, plus 127 v11 tests.</td></tr>
+          <tr><td>Gateway tests passing</td><td class="num">457</td><td>262 at the snapshot, plus 127 v11 and 68 v11.1 tests (Claude Code hook, MCP blueprint).</td></tr>
           <tr><td>Group D, v11 guards</td><td class="num">124&#8239;/&#8239;124</td><td>Six test files; reported separately from A&nbsp;/&nbsp;B&nbsp;/&nbsp;C.</td></tr>
           <tr><td>Stateful Hypothesis machines</td><td class="num">7</td><td>Adds the memory-provenance and temporal-accumulator machines.</td></tr>
-          <tr><td>Modules behind <code>pep.py</code></td><td class="num">26</td><td>22 at the snapshot.</td></tr>
-          <tr><td>Tests passing, workspace</td><td class="num">911</td><td>389 <code>agent-gateway</code> · 512 <code>agent-watch</code> (514 collected, 2 skipped) · 10 <code>agentwatch-analyzer</code>.</td></tr>
+          <tr><td>Modules behind <code>pep.py</code></td><td class="num">28</td><td>22 at the snapshot; 26 after v11.</td></tr>
+          <tr><td>Tests passing, workspace</td><td class="num">979</td><td>457 <code>agent-gateway</code> · 512 <code>agent-watch</code> (514 collected, 2 skipped) · 10 <code>agentwatch-analyzer</code>.</td></tr>
         </tbody>
       </table>
       </div>
@@ -167,11 +167,13 @@
           <tr><td class="k">gui_action_guard.py</td><td>Pointer coordinates against reserved rectangles and the viewport; modifier-normalized shortcut deny-list and raw control characters.</td><td><span class="mono">gui_region_denied</span> / <span class="mono">gui_keychord_denied</span></td><td class="num">63</td></tr>
           <tr><td class="k">memory_provenance_guard.py</td><td>HMAC-signed cross-session resource lineage; readers inherit the highest writer taint and the intersected capability mask.</td><td><span class="mono">provenance_tamper_denied</span> on an edited record; readers inherit writer taint</td><td class="num">4</td></tr>
           <tr><td class="k">temporal_accumulator_guard.py</td><td>Bounded per-(session, destination) window over salted digests of registered tokens (no plaintext held) and zero-width watermark counts; U+200D not counted.</td><td><span class="mono">sharded_exfil_denied</span></td><td class="num">9</td></tr>
+          <tr><td class="k">claude_code_hook.py</td><td>Claude Code <span class="mono">PreToolUse</span> adapter: credential paths, shell command policy, link-local metadata and <span class="mono">file://</span> targets; idempotent <span class="mono">--install</span>.</td><td><span class="mono">CREDENTIAL_PATH_DENIED</span> / <span class="mono">SHELL_POLICY_DENIED</span> / <span class="mono">METADATA_URI_DENIED</span></td><td class="num">48</td></tr>
+          <tr><td class="k">mcp_blueprint.py</td><td>Client MCP delivery harness behind the PEP: read-only parameterized queries capped at 100 rows, field redaction, confirmation tokens on writes.</td><td><span class="mono">MUTATION_VERB_DENIED</span> / <span class="mono">ROW_LIMIT_EXCEEDED</span> / <span class="mono">CONFIRMATION_REQUIRED</span></td><td class="num">20</td></tr>
           <tr><td class="k">audit_chain.py</td><td><span class="mono">seq</span> / <span class="mono">prev_hash</span> / <span class="mono">entry_hash</span> per line; manifest HMAC with the root key.</td><td>tamper evidence, not prevention</td><td class="num">15</td></tr>
         </tbody>
       </table>
       </div>
-      <p class="note">26 modules sit behind <code>pep.py</code> in <code>agent-gateway</code> on <code>main</code> (22 at the sprint snapshot), including the four v11 guards (post-sprint, Group D; 31 further tests cover their PEP, MCP-proxy, and SARIF wiring), the guards above, the MCP proxy, the toxic-flow analyzer, the SARIF exporter, and the CLI.</p>
+      <p class="note">28 modules sit behind <code>pep.py</code> in <code>agent-gateway</code> on <code>main</code> (22 at the sprint snapshot, 26 after v11), including the four v11 guards (post-sprint, Group D; 31 further tests cover their PEP, MCP-proxy, and SARIF wiring), the v11.1 Claude Code hook and MCP delivery blueprint, the guards above, the MCP proxy, the toxic-flow analyzer, the SARIF exporter, and the CLI.</p>
     </div>
   </div>
 </section>
@@ -254,6 +256,9 @@ python -m agent_gateway evaluate-collusion --report ./audit_out</pre>
         <a class="btn solid" href="mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit&amp;body=Tier%3A%20%241%2C800%20MCP%20%26%20Multi-Agent%20Exposure%20Diagnostic">Request a Tier 1 diagnostic on your MCP servers</a>
       </div>
       <p class="note">To re-record the §3 traces: <code>python ../examples/record_site_traces.py</code> from the same directory with the same key exported.</p>
+      <h3 style="font-size:20px;margin:30px 0 6px" id="claude-code-hook">Claude Code <code>PreToolUse</code> hook, one command</h3>
+<pre class="block" id="hook-snippet">python -m agent_gateway.claude_code_hook --install</pre>
+      <p class="note">Adds one <code>PreToolUse</code> command hook to <code>~/.claude/settings.json</code> (running it again adds nothing). Before each tool call it denies credential paths (<code>.env</code> but not <code>.env.example</code>, <code>~/.ssh</code>, <code>~/.aws</code>, <code>.npmrc</code>, <code>.pypirc</code>), recursive home or root deletion, force pushes to <code>main</code>, download-to-shell pipes, and link-local metadata or <code>file://</code> targets, and appends a SHA-256 hash-chained entry to <code>~/.claude/agentgate_audit.jsonl</code>. <code>--self-test</code> runs four validation checks and prints CPU time per decision. Lexical configuration checks, not a sandbox.</p>
     </div>
   </div>
 </section>
@@ -295,6 +300,18 @@ python -m agent_gateway evaluate-collusion --report ./audit_out</pre>
       <table class="tbl sched">
         <thead><tr><th>Tier</th><th>Engagement</th><th>Artifacts delivered (producing module)</th><th>Clock</th><th class="num">Fee</th></tr></thead>
         <tbody>
+          <tr>
+            <td class="tier">B</td>
+            <td><span class="title">48-Hour Hardened MCP Server Build</span><span class="sub">Fixed-Scope Implementation</span></td>
+            <td><ul>
+              <li>Custom MCP server for one system (Postgres, Stripe, HubSpot, Slack, or an internal REST API) on <code>mcp_blueprint.py</code></li>
+              <li>Wrapped in <code>pep.py</code> allow / deny rules: read-only allowlist, 100-row cap, confirmation tokens on writes, unapproved mutation verbs denied</li>
+              <li>Sensitive-field redaction and a SHA-256 hash-chained audit log (<code>audit_chain.py</code>)</li>
+              <li>A <code>pytest</code> acceptance suite; delivered as a mergeable PR. Nothing is deployed on your hosts by us.</li>
+            </ul></td>
+            <td class="mono">48 h</td>
+            <td class="num"><span class="fee">$750</span><span class="sub">$350 kickoff · $400 on passing acceptance tests</span><a href="mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Hardened%20MCP%20Server%20Build&amp;body=Package%3A%20%24750%2048-Hour%20Hardened%20MCP%20Server%20Build%0ASystem%3A%20">book build</a></td>
+          </tr>
           <tr>
             <td class="tier">T1</td>
             <td><span class="title">MCP &amp; Multi-Agent Exposure Diagnostic</span><span class="sub">Tool Inventory Review</span></td>

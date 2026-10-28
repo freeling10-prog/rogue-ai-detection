@@ -1,14 +1,31 @@
-"""Bounded sliding-window stream validator for multi-call token and watermark checks."""
+"""Bounded sliding-window stream validator for multi-call token and watermark checks.
+
+Protected tokens are never held in plaintext. Registration keeps only salted
+SHA-256 digests (salt drawn per instance) of each token, its Base64 and hex
+spellings, and its ``ngram_size``-character n-grams. A token is registered
+for every session or for one ``session_id``. A window is persisted
+only when the call is allowed (``STREAM_CLEAN``), so a denied call does not
+leave its fragment behind to poison later benign calls in the same window.
+"""
 
 from __future__ import annotations
 
 import base64
 import binascii
 import hashlib
-from dataclasses import dataclass
+import secrets
+from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
-ZERO_WIDTH_CHARS: Set[str] = {"​", "‌", "‍", "⁠", "﻿"}
+# U+200D (zero-width joiner) is left out: it joins compound emoji, so counting it
+# would let ordinary text trip the watermark threshold.
+ZERO_WIDTH_CHARS: Set[str] = {"​", "‌", "⁠", "﻿"}
+
+_DIRECT = "DIRECT_STREAM_MATCH"
+_BASE64 = "BASE64_STREAM_MATCH"
+_HEX = "HEX_STREAM_MATCH"
+_NGRAM = "NGRAM_STREAM_MATCH"
+_MIN_NGRAM_HITS = 2
 
 
 def _count_watermarks(text: str) -> int:
@@ -46,6 +63,22 @@ class AccumulatorDecision:
     window_length: int = 0
 
 
+@dataclass
+class _Scope:
+    """Salted digests for one registration scope (all sessions, or one session)."""
+    digests: Dict[str, Set[str]] = field(default_factory=lambda: {_DIRECT: set(), _BASE64: set(), _HEX: set()})
+    lengths: Dict[str, Set[int]] = field(default_factory=lambda: {_DIRECT: set(), _BASE64: set(), _HEX: set()})
+    ngrams: Set[str] = field(default_factory=set)
+
+
+@dataclass
+class _Window:
+    raw: str = ""
+    norm: str = ""
+    total: int = 0  # normalized characters ever appended to this window
+    grams: Dict[str, int] = field(default_factory=dict)  # matched n-gram digest -> absolute start
+
+
 class TemporalAccumulatorGuard:
     """Per-(session, destination) rolling window validator for split tokens and watermarks."""
 
@@ -61,59 +94,85 @@ class TemporalAccumulatorGuard:
         self._max_window = max_window_chars
         self._ngram_size = max(4, ngram_size)
         self._watermark_threshold = max(1, watermark_threshold)
-        self._raw_windows: Dict[Tuple[str, str], str] = {}
-        self._norm_windows: Dict[Tuple[str, str], str] = {}
-        self._protected: List[str] = []
-        self._ngram_hashes: Set[str] = set()
+        self._salt = secrets.token_bytes(16)
+        self._windows: Dict[Tuple[str, str], _Window] = {}
+        self._scopes: Dict[Optional[str], _Scope] = {None: _Scope()}
         for tok in protected_tokens or ():
             self.register_protected_token(tok)
 
-    def register_protected_token(self, token: str) -> None:
+    def _digest(self, text: str) -> str:
+        return hashlib.sha256(self._salt + text.encode("utf-8")).hexdigest()
+
+    def register_protected_token(self, token: str, session_id: Optional[str] = None) -> None:
+        """Protect ``token`` in every session, or only in ``session_id``."""
         if not isinstance(token, str) or not token:
             return
-        self._protected.append(token)
-        if len(token) >= self._ngram_size:
-            for i in range(len(token) - self._ngram_size + 1):
-                gram = token[i : i + self._ngram_size].encode("utf-8")
-                self._ngram_hashes.add(hashlib.sha256(gram).hexdigest()[:16])
+        scope = self._scopes.setdefault(None if session_id is None else str(session_id), _Scope())
+        raw = token.encode("utf-8")
+        for rule, form in ((_DIRECT, token),
+                           (_BASE64, base64.b64encode(raw).decode("ascii").rstrip("=")),
+                           (_HEX, binascii.hexlify(raw).decode("ascii"))):
+            scope.digests[rule].add(self._digest(form))
+            scope.lengths[rule].add(len(form))
+        n = self._ngram_size
+        for i in range(len(token) - n + 1):
+            scope.ngrams.add(self._digest(token[i : i + n]))
+
+    def protected_count(self, session_id: Optional[str] = None) -> int:
+        """Distinct protected tokens that apply to ``session_id`` (global ones only when None)."""
+        return sum(len(s.digests[_DIRECT]) for s in self._applicable(session_id))
+
+    def _applicable(self, session_id: Optional[str]) -> List[_Scope]:
+        scopes = [self._scopes[None]]
+        if session_id is not None and str(session_id) in self._scopes:
+            scopes.append(self._scopes[str(session_id)])
+        return scopes
 
     def reset_session(self, session_id: str) -> None:
-        for key in [k for k in self._raw_windows if k[0] == session_id]:
-            self._raw_windows.pop(key, None)
-            self._norm_windows.pop(key, None)
+        for key in [k for k in self._windows if k[0] == session_id]:
+            self._windows.pop(key, None)
 
-    def _match_stream(self, window: str) -> Optional[str]:
-        for tok in self._protected:
-            if tok in window:
-                return "DIRECT_STREAM_MATCH"
-            b64 = base64.b64encode(tok.encode("utf-8")).decode("ascii").rstrip("=")
-            if b64 and b64 in window:
-                return "BASE64_STREAM_MATCH"
-            hx = binascii.hexlify(tok.encode("utf-8")).decode("ascii")
-            if hx and hx.lower() in window.lower():
-                return "HEX_STREAM_MATCH"
-        if self._ngram_hashes and len(window) >= self._ngram_size:
-            hits = sum(
-                1
-                for i in range(len(window) - self._ngram_size + 1)
-                if hashlib.sha256(window[i : i + self._ngram_size].encode("utf-8")).hexdigest()[:16]
-                in self._ngram_hashes
-            )
-            if hits >= 2:
-                return "NGRAM_STREAM_MATCH"
+    def _match_stream(
+        self, scopes: List[_Scope], window: str, new_start: int, win_start: int, grams: Dict[str, int],
+    ) -> Optional[str]:
+        """Check every substring that ends inside the newly appended text.
+
+        Substrings wholly inside the persisted part were checked when it was
+        allowed, so they cannot match now. ``grams`` is updated in place.
+        """
+        for rule in (_DIRECT, _BASE64, _HEX):
+            digests = set().union(*(s.digests[rule] for s in scopes))
+            for length in set().union(*(s.lengths[rule] for s in scopes)):
+                for i in range(max(0, new_start - length + 1), len(window) - length + 1):
+                    sub = window[i : i + length]
+                    if self._digest(sub.lower() if rule == _HEX else sub) in digests:
+                        return rule
+        ngrams = set().union(*(s.ngrams for s in scopes))
+        if ngrams:
+            n = self._ngram_size
+            for i in range(max(0, new_start - n + 1), len(window) - n + 1):
+                d = self._digest(window[i : i + n])
+                if d in ngrams:
+                    grams[d] = win_start + i
+            if len(grams) >= _MIN_NGRAM_HITS:
+                return _NGRAM
         return None
 
     def evaluate_call(self, session_id: str, destination_class: str, tool_args: Any) -> AccumulatorDecision:
         key = (str(session_id), str(destination_class))
+        prev = self._windows.get(key) or _Window()
         raw_frag, norm_frag = _extract_fragments(tool_args)
-        raw_win = (self._raw_windows.get(key, "") + raw_frag)[-self._max_window :]
-        norm_win = (self._norm_windows.get(key, "") + norm_frag)[-self._max_window :]
-        self._raw_windows[key] = raw_win
-        self._norm_windows[key] = norm_win
+        raw_win = (prev.raw + raw_frag)[-self._max_window :]
+        norm_win = (prev.norm + norm_frag)[-self._max_window :]
+        total = prev.total + len(norm_frag)
+        win_start = total - len(norm_win)
+        new_start = max(0, len(norm_win) - len(norm_frag))
+        grams = {d: pos for d, pos in prev.grams.items() if pos >= win_start}
 
         if _count_watermarks(raw_win) >= self._watermark_threshold:
             return AccumulatorDecision(False, "SHARDED_EXFIL_DENIED", "CUMULATIVE_WATERMARK_THRESHOLD", len(norm_win))
-        matched = self._match_stream(norm_win)
+        matched = self._match_stream(self._applicable(session_id), norm_win, new_start, win_start, grams)
         if matched is not None:
             return AccumulatorDecision(False, "SHARDED_EXFIL_DENIED", matched, len(norm_win))
+        self._windows[key] = _Window(raw_win, norm_win, total, grams)
         return AccumulatorDecision(True, "STREAM_CLEAN", None, len(norm_win))

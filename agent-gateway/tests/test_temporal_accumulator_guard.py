@@ -71,3 +71,43 @@ class TemporalAccumulatorStateMachine(RuleBasedStateMachine):
 
 TestTemporalAccumulatorMachine = TemporalAccumulatorStateMachine.TestCase
 TestTemporalAccumulatorMachine.settings = settings(max_examples=40, stateful_step_count=12)
+
+
+def test_zero_width_joiner_in_compound_emoji_is_not_a_watermark() -> None:
+    guard = TemporalAccumulatorGuard(watermark_threshold=2)
+    family = "\U0001F468‍\U0001F469‍\U0001F467‍\U0001F466"
+    for _ in range(5):
+        assert guard.evaluate_call("s1", "chat", {"text": f"team photo {family}"}).allowed is True
+
+
+def test_no_plaintext_token_is_held() -> None:
+    token = "PLAINTEXT_CANARY_5531"
+    guard = TemporalAccumulatorGuard(protected_tokens=[token])
+    held = repr(vars(guard))
+    for form in (token, "UExBSU5URVhUX0NBTkFSWV81NTMx", token.encode().hex(), token[:8]):
+        assert form not in held
+    other = TemporalAccumulatorGuard(protected_tokens=[token])
+    assert other._scopes[None].digests != guard._scopes[None].digests  # salted per instance
+
+
+def test_session_scoped_token_applies_only_to_that_session() -> None:
+    guard = TemporalAccumulatorGuard()
+    guard.register_protected_token("SCOPED_SECRET_4410", session_id="s1")
+    assert guard.protected_count("s1") == 1 and guard.protected_count("s2") == 0
+    assert guard.evaluate_call("s2", "out", {"b": "SCOPED_SECRET_4410"}).allowed is True
+    assert guard.evaluate_call("s1", "out", {"b": "SCOPED_SECRET_4410"}).allowed is False
+
+
+def test_single_ngram_is_not_enough() -> None:
+    guard = TemporalAccumulatorGuard(protected_tokens=["PROTECTED_CANARY_882190"], ngram_size=8)
+    assert guard.evaluate_call("s1", "out", {"x": "PROTECTE"}).allowed is True  # one 8-gram
+    res = guard.evaluate_call("s1", "out", {"x": "D"})  # second distinct 8-gram
+    assert res.allowed is False and res.matched_rule == "NGRAM_STREAM_MATCH"
+
+
+def test_denied_call_does_not_poison_the_window() -> None:
+    guard = TemporalAccumulatorGuard(protected_tokens=["ALPHA_KEY_42"], watermark_threshold=3)
+    assert guard.evaluate_call("s1", "net", {"p": "ALPHA_KEY_42"}).allowed is False
+    assert guard.evaluate_call("s1", "net", {"p": "status ok"}).allowed is True
+    assert guard.evaluate_call("s1", "net", {"w": "​​‌"}).allowed is False
+    assert guard.evaluate_call("s1", "net", {"w": "fine​"}).allowed is True

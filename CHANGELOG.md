@@ -4,6 +4,27 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
+## [Unreleased] - PHP Defense Guard (28 October 2026)
+
+- `php_defense_guard.php`: fixed a parse error (an unescaped quote in the
+  tautology pattern) that stopped the file from loading. Patterns now run on
+  each decoded key and value of `$_GET` / `$_POST` / `$_COOKIE` (and once
+  more after `rawurldecode`) instead of the `json_encode()` output, where
+  JSON escaping (`\/`, `\"`) kept the path-traversal and deserialization
+  rules from ever matching. Rule codes are `PHP_SQLI_UNION`,
+  `PHP_SQLI_TAUTOLOGY`, `PHP_PATH_TRAVERSAL`, `PHP_DESERIALIZE_DENIED`,
+  `PHP_RCE_EVAL`; the violation log is now SHA-256 hash-chained in the
+  `audit_chain.py` format and stores a hash of the value, not the payload.
+- `php_defense_guard.py`: Python mirror of the same rules for request
+  dictionaries, with a hash-chained violation log.
+- `tests/test_php_defense.py` (35): every rule, encoded / nested / key
+  variants, benign input, log chain and tamper detection, and Python / PHP
+  parity on shared fixtures plus a 403 end-to-end run of
+  `inspectAndEnforce()` (skipped without a `php` binary).
+- Gateway tests 457 -> **492** (29 files); modules behind `pep.py` 28 ->
+  **29**; workspace **1014**. `sprint_submission/` and `site/sprint/`
+  unchanged.
+
 ## [Unreleased] - v11.1 developer and delivery additions (28 October 2026)
 
 - `claude_code_hook.py`: Claude Code `PreToolUse` policy adapter, standard

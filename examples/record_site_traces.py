@@ -10,11 +10,12 @@ No network, no port. The site embeds the printed JSON.
     AGENT_GATEWAY_HMAC_KEY=$(python -c 'import secrets; print(secrets.token_hex(32))') \\
         python ../examples/record_site_traces.py > /tmp/traces.json
 
-Pass scenario ids to record only those (``... record_site_traces.py 8``).
+Pass scenario ids to record only those (``... record_site_traces.py 7 8``).
 """
 from __future__ import annotations
 
 import base64
+import dataclasses
 import json
 import platform
 import statistics
@@ -28,6 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "agent-gateway"))
 
 from agent_gateway.audit_chain import verify_chain_file  # noqa: E402
 from agent_gateway.mcp_proxy import CLIENT_TO_SERVER, SERVER_TO_CLIENT, McpWireProxy  # noqa: E402
+from agent_gateway.memory_provenance_guard import canonical_resource_id  # noqa: E402
 from agent_gateway.pep import PepConfig, PolicyEngine  # noqa: E402
 from agent_gateway.registry import Registry  # noqa: E402
 from agent_gateway.taint import SharedState  # noqa: E402
@@ -183,6 +185,36 @@ def s6_canary():
     return steps, extra
 
 
+def s7_lineage_and_shards():
+    e = engine()
+    steps = []
+    for label, key, sid, tool, args in [
+        ("A read_external_url", KEY_A, "s7-a", "read_external_url", {"url": "http://127.0.0.1/p"}),
+        ("A save_session_note", KEY_A, "s7-a", "save_session_note", {"note_id": "handoff", "text": "summary"}),
+        ("B read_session_note (clean session)", KEY_B, "s7-b", "read_session_note", {"note_id": "handoff"}),
+        ("B send_email", KEY_B, "s7-b", "send_email", {"to": "x@lab.local", "body": "hi"}),
+    ]:
+        out, ms = timed(lambda: e.evaluate_call(key, sid, tool, args))
+        v = verdict(out)
+        if out.get("ok") and tool == "read_session_note" and out.get("tainted"):
+            v = "taint_inherited"
+        steps.append((label, json.dumps(args), v, ms))
+    rec = e.provenance._ledger[canonical_resource_id("scratchpad:handoff")]
+    e.provenance._ledger[rec.resource_hash] = dataclasses.replace(rec, taint_level=0)
+    out, ms = timed(lambda: e.evaluate_call(KEY_B, "s7-c", "read_session_note", {"note_id": "handoff"}))
+    steps.append(("C read_session_note (ledger record lowered to 0)", '{"note_id": "handoff"}', verdict(out), ms))
+    for i, body in enumerate(["ok\u200b", "ok\u200b", "ok\u200c", "done\u200b"]):
+        args = {"to": "x@lab.local", "body": body}
+        out, ms = timed(lambda: e.evaluate_call(KEY_A, "s7-d", "send_email", args))
+        steps.append((f"D send_email #{i + 1}", json.dumps(args), verdict(out), ms))
+    family = "\U0001F468\u200d\U0001F469\u200d\U0001F467"
+    for i in range(4):
+        args = {"to": "x@lab.local", "body": f"photo {family}"}
+        out, ms = timed(lambda: e.evaluate_call(KEY_A, "s7-e", "send_email", args))
+    steps.append(("control: E send_email x4, emoji with U+200D", json.dumps(args, ensure_ascii=False), verdict(out), ms))
+    return steps, chain(e)
+
+
 def s8_schema_drift():
     e = engine()
     steps = []
@@ -214,7 +246,7 @@ def s8_schema_drift():
 
 
 SCENARIOS = {"1": s1_rug_pull, "2": s2_split_chunk, "3": s3_toxic, "4": s4_hold_verify,
-             "5": s5_delegation, "6": s6_canary, "8": s8_schema_drift}
+             "5": s5_delegation, "6": s6_canary, "7": s7_lineage_and_shards, "8": s8_schema_drift}
 
 
 def main() -> None:

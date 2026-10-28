@@ -62,6 +62,10 @@ RULES: dict[str, tuple[str, str, tuple[str, ...], str]] = {
                           "A pointer action landed in a reserved screen region or outside the viewport."),
     "gui_keychord_denied": ("error", "GUI denied shortcut", ("AML.T0053",),
                             "A keyboard action used a denied system shortcut or a raw control character."),
+    "provenance_tamper_denied": ("error", "Resource lineage record tampered", ("AML.T0080.000",),
+                                 "A shared resource's HMAC-signed lineage record failed verification on read."),
+    "sharded_exfil_denied": ("error", "Sharded exfiltration across calls", ("AML.T0086",),
+                             "A protected value or watermark accumulated across released calls to one destination."),
     "analyzer_match": ("warning", "Offline analyzer match", (),
                        "A match reported by the offline agentwatch-analyzer."),
 }
@@ -71,12 +75,15 @@ OWASP_ASI: dict[str, tuple[str, ...]] = {
     "tool_shadowing_denied": ("ASI04",),
     "gui_region_denied": ("ASI02",),
     "gui_keychord_denied": ("ASI02",),
+    "provenance_tamper_denied": ("ASI06",),
+    "sharded_exfil_denied": ("ASI02",),
 }
 # decision-log kinds that map straight onto a rule id
 _LOG_KIND_RULES = frozenset({
     "tool_output_injection", "ssrf_boundary_violation", "covert_side_channel_suspected",
     "deobfuscated_exfil_detected", "mcp_rug_pull_detected",
     "schema_drift_denied", "tool_shadowing_denied", "gui_region_denied", "gui_keychord_denied",
+    "provenance_tamper_denied", "sharded_exfil_denied",
 })
 
 

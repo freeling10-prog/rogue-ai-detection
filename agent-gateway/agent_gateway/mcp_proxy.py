@@ -24,9 +24,16 @@ Intercepted methods:
   as ``{tool name: HMAC}``.
 - ``tools/call`` (client request): evaluated by ``PolicyEngine.evaluate_call``.
   A denied call is answered with a JSON-RPC error and never reaches the
-  server. Results of sensitive reads are fingerprinted for de-obfuscation.
+  server. Results of sensitive reads are fingerprinted for de-obfuscation and
+  registered with the engine's ``temporal_accumulator_guard``, whose window
+  for released arguments is kept per (session, ``mcp:<server>``), so a value
+  split across calls to one server is denied (``SHARDED_EXFIL_DENIED``).
 - ``resources/read`` and ``prompts/get`` (client request, server response):
-  gated by the PEP; content from a non-core server taints the session.
+  gated by the PEP; content from a non-core server taints the session. A
+  ``resources/read`` URI is looked up in the engine's
+  ``memory_provenance_guard`` ledger: the session inherits the taint of the
+  session that wrote it, and a record whose HMAC fails is denied
+  (``PROVENANCE_TAMPER_DENIED``) before the request reaches the server.
 - Every ``tools/call``, ``resources/read``, and ``prompts/get`` result is
   scanned by ``tool_output_scanner.py`` before it reaches the client. A
   finding taints the session, attenuates the ``agw1.`` token, and the result
@@ -134,6 +141,11 @@ class McpWireProxy:
         self._server_pending: dict[str, str] = {}
 
     # --- helpers --------------------------------------------------------------
+
+    @property
+    def destination(self) -> str:
+        """Accumulator window key for calls through this proxy."""
+        return f"mcp:{self.server_name}"
 
     @property
     def is_core_server(self) -> bool:
@@ -259,6 +271,7 @@ class McpWireProxy:
             approval_token=meta.get(META_APPROVAL),
             bound_step_index=int(bound) if bound is not None else None,
             capability_token=self._cap(params),
+            destination=self.destination,
         )
         self._track(out)
         if not out.get("ok"):

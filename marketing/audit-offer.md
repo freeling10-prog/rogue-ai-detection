@@ -10,6 +10,14 @@ This is not a penetration test, not a red team, and not a certification. It is n
 
 ## Price
 
+**Fast-turnaround implementation package.** The build sits above Tier 1 and can be booked on its own.
+
+| Package | Fee | Deliverables |
+| --- | --- | --- |
+| **48-Hour Hardened MCP Server Build** (Fixed-Scope Implementation) | **$750 flat** ($350 kickoff / $400 on passing acceptance tests) | Custom MCP server (Postgres, Stripe, HubSpot, Slack, or internal REST API) built on `mcp_blueprint.py` and wrapped in `pep.py` allow / deny rules, sensitive-field redaction, SHA-256 hash-chained audit logging, and a `pytest` acceptance suite, delivered as a mergeable PR in 48 hours. Nothing is deployed on your hosts by us. |
+
+The build covers one system and its read-only queries (parameterized, at most 100 rows per call), scoped lookups, and up to a few confirmed write or task-creation tools. Mutation verbs such as `delete`, `refund`, `cancel`, `drop`, `truncate`, and `bulk_export` stay denied unless you approve them in writing, and an approved one still needs a per-call confirmation token. The $400 balance is due when the acceptance suite passes on your side. The 48-hour clock starts when access to a test or staging instance (never production credentials) and the list of tools you want are in hand.
+
 | | Tier 1: MCP & Multi-Agent Exposure Diagnostic (Tool Inventory Review) | Tier 2: Inline PEP Hardening & CI Gate Sprint (Fixed Tool-Boundary Note) | Tier 3: Continuous Red-Team, Canary & Deception Retainer (Note + Lab Instrumentation) |
 | --- | --- | --- | --- |
 | Price | **$1,800** | **$4,500** | **$6,500** |
@@ -110,7 +118,7 @@ Attach or paste:
 
 - Tool names and argument shapes. No secrets and no customer payloads.
 - Where each tool's input can come from untrusted content (a web page, a ticket, an MCP tool description, or something else you name).
-- Which tier you want: $1,800 Tier 1 (Exposure Diagnostic / Tool Inventory Review), $4,500 Tier 2 (PEP Hardening & CI Gate Sprint / Fixed Note), or $6,500 Tier 3 (Retainer / Note + Lab Instrumentation). Name any add-ons.
+- Which tier you want: the $750 48-Hour Hardened MCP Server Build (name the system), $1,800 Tier 1 (Exposure Diagnostic / Tool Inventory Review), $4,500 Tier 2 (PEP Hardening & CI Gate Sprint / Fixed Note), or $6,500 Tier 3 (Retainer / Note + Lab Instrumentation). Name any add-ons.
 - For the $6,500 tier, an authorized access log if you have one you are allowed to share. Already stripped is better.
 - The reviewer's role, if you want the note addressed to a function. A name is optional.
 

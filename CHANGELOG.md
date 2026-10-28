@@ -4,6 +4,37 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
+## [Unreleased] - v11.1 developer and delivery additions (28 October 2026)
+
+- `claude_code_hook.py`: Claude Code `PreToolUse` policy adapter, standard
+  library only. `--install` adds one command hook to
+  `~/.claude/settings.json` (or `--settings`), idempotently; `--self-test`
+  runs four validation checks with CPU time per decision. Rules:
+  `CREDENTIAL_PATH_DENIED` (`.env` except `.env.example` / `.sample` /
+  `.template`, `.ssh/`, `.aws/`, `.npmrc`, `.pypirc`), `SHELL_POLICY_DENIED`
+  (recursive root / home deletion, force push to `main` / `master`, download
+  piped to a shell), `METADATA_URI_DENIED` (`169.254.169.254` in several
+  spellings, `metadata.google.internal`, `file://`). Malformed input is
+  denied (`HOOK_INPUT_INVALID`). Every decision is appended to a SHA-256
+  hash-chained `~/.claude/agentgate_audit.jsonl` (`audit_chain.link`,
+  `flock`-serialized); a deny writes the Claude Code block response.
+- `mcp_blueprint.py`: `HardenedMcpBlueprint`, a reference harness for client
+  MCP builds behind `PolicyEngine`: read-only parameterized SQL templates
+  validated at registration, a 100-row cap, lookups scanned as untrusted
+  output, configurable field redaction, unapproved mutation verbs denied,
+  one-time HMAC confirmation tokens bound to session, tool, and arguments
+  for writes, a chained audit log of every call, and an MCP
+  `tools/list` / `tools/call` surface.
+- Tests: `test_claude_code_hook.py` (48, mostly parametrized policy cases)
+  and `test_mcp_blueprint.py` (20). Gateway tests 389 -> **457** (28
+  files); CI floor 385 -> 450; modules behind `pep.py` 26 -> **28**;
+  workspace **979**. Group D (124), Groups A / B / C (57/57), and the 7
+  Hypothesis state machines are unchanged.
+- Site, README, `marketing/audit-offer.md`: the $750 48-Hour Hardened MCP
+  Server Build above Tier 1, and the one-command hook install.
+  `marketing/mobile-quick-copy.md`: phone-ready outreach blocks.
+  `sprint_submission/` and `site/sprint/` unchanged.
+
 ## [Unreleased] - v11 provenance and accumulator wiring (28 October 2026)
 
 - `temporal_accumulator_guard.py`: U+200D (zero-width joiner) removed from

@@ -34,10 +34,19 @@ Safety:
 - Computer-use pointer and keyboard actions are checked against reserved
   screen regions and a shortcut deny-list (``gui_action_guard.py``,
   approximate AML.T0053).
+- Resource writes and reads are recorded in an HMAC-signed lineage ledger
+  shared across sessions; a reader inherits the writer's taint and a
+  modified record is denied (``memory_provenance_guard.py``, approximate
+  AML.T0080.000).
+- Released outbound arguments accumulate in a per-(session, destination)
+  window that is checked for protected values split across calls and for
+  cumulative invisible watermark characters (``temporal_accumulator_guard.py``,
+  approximate AML.T0086).
 """
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import logging
 import math
@@ -53,7 +62,7 @@ from werkzeug.exceptions import RequestEntityTooLarge
 from . import approve, capability
 from .approval_webhook import build_approval_payload, consume_approve_once, deliver_webhook
 from .audit_chain import ChainWriter
-from .deobfuscate import DeobfuscationGuard
+from .deobfuscate import DeobfuscationGuard, iter_strings, secret_candidates
 from .egress_uri_guard import DEFAULT_LAB_ALLOW, inspect_arguments
 from .side_channel_guard import SideChannelGuard, SideChannelPolicy
 from . import tool_output_scanner, toxic_combinations
@@ -61,7 +70,9 @@ from .arg_ast_guard import inspect_call as inspect_arg_call
 from .canary_watermark import CanaryRegistry
 from .delegation_guard import DelegationLedger, attenuate_for_handoff, profile_from_token
 from .gui_action_guard import KEY_ACTIONS, POINTER_ACTIONS, TEXT_ACTIONS, GuiActionGuard
+from .memory_provenance_guard import ALL_CAPABILITIES_MASK, MemoryProvenanceGuard
 from .schema_integrity_guard import SchemaIntegrityGuard
+from .temporal_accumulator_guard import TemporalAccumulatorGuard
 from .paths import default_registry_path
 from .registry import Registry
 from .scrub import scrub_obj
@@ -110,6 +121,11 @@ _COMPUTER_ACTIONS = {
     "triple_click": "click", "mouse_move": "mouse_move", "left_click_drag": "drag",
     "key": "key_combo", "type": "type_text",
 }
+# Lineage ledger encoding of a session: taint level 1 = tainted; capability bit 0 = may egress.
+_PROV_TAINTED = 1
+_PROV_CAP_EGRESS = 1
+_PROV_KEY_LABEL = b"agent-gateway.memory-provenance/1"
+_RESOURCE_ARGS = ("uri", "resource_uri", "resource", "path")
 _DEFAULT_SINK_TOOLS = tuple(sorted(
     name for name, ec in TOOL_EGRESS.items() if ec in (EGRESS_WRITE, EGRESS_SEND, EGRESS_CREDS)
     and name not in SENSITIVE_READ_TOOLS
@@ -211,6 +227,18 @@ def _gui_action(tool_name: str, args: dict) -> Optional[tuple[str, dict]]:
     return action, out
 
 
+def _resource_uri(tool_name: str, args: dict) -> Optional[str]:
+    """Ledger key for a tool call that reads or writes a named resource, else None."""
+    if tool_name in ("save_session_note", "read_session_note"):
+        note_id = str(args.get("note_id") or "")
+        return f"scratchpad:{note_id}" if note_id else None
+    for key in _RESOURCE_ARGS:
+        val = args.get(key)
+        if isinstance(val, str) and val.strip():
+            return val
+    return None
+
+
 def _has_free_text_sink(arguments: dict) -> bool:
     if not isinstance(arguments, dict):
         return True
@@ -261,6 +289,8 @@ class PolicyEngine:
         self.canary = CanaryRegistry()
         self.schema_guard = SchemaIntegrityGuard()
         self.gui_guard = GuiActionGuard(regions=self.cfg.gui_regions, viewport=self.cfg.gui_viewport)
+        self.accumulator = TemporalAccumulatorGuard()
+        self._provenance: Optional[MemoryProvenanceGuard] = None
         self.inventories: dict[str, dict[str, dict]] = {}
         self.toxic: dict[str, dict] = {}
         self.findings: list[dict] = []
@@ -268,6 +298,14 @@ class PolicyEngine:
 
     def now(self) -> float:
         return self._clock()
+
+    @property
+    def provenance(self) -> MemoryProvenanceGuard:
+        """Lineage ledger, keyed from the gateway HMAC key on first use (fails closed without one)."""
+        if self._provenance is None:
+            key = hmac.new(capability.hmac_key(), _PROV_KEY_LABEL, hashlib.sha256).digest()
+            self._provenance = MemoryProvenanceGuard(hmac_key=key)
+        return self._provenance
 
     def get_session(self, session_id: str, agent_key: str) -> SessionState:
         s = self.sessions.get(session_id)
@@ -421,12 +459,19 @@ class PolicyEngine:
         parent_key: Optional[str] = None,
         bound_step_index: Optional[int] = None,
         capability_token: Optional[str] = None,
+        destination: Optional[str] = None,
     ) -> dict:
+        """Evaluate one tools/call.
+
+        ``destination`` names the outbound channel for the temporal
+        accumulator window (the MCP proxy passes ``mcp:<server>``); it
+        defaults to the tool's egress class.
+        """
         out = self._evaluate_call(
             agent_key, session_id, tool_name, arguments,
             approval_token=approval_token, delegation_depth=delegation_depth,
             parent_key=parent_key, bound_step_index=bound_step_index,
-            capability_token=capability_token,
+            capability_token=capability_token, destination=destination,
         )
         return self._attach_capability(session_id, out)
 
@@ -441,6 +486,7 @@ class PolicyEngine:
         parent_key: Optional[str] = None,
         bound_step_index: Optional[int] = None,
         capability_token: Optional[str] = None,
+        destination: Optional[str] = None,
     ) -> dict:
         self.registry.lift_expired(self.now())
         rec = self.registry.get(agent_key)
@@ -536,6 +582,14 @@ class PolicyEngine:
                 out["uri"] = uri.as_dict()
                 return out
 
+        # --- Cross-session resource lineage on reads (approximate AML.T0080.000) ---
+        if eclass in (EGRESS_INTERNAL_READ, EGRESS_EXTERNAL_READ) and tool_name != "read_session_note":
+            uri = _resource_uri(tool_name, args)
+            if uri is not None:
+                denied = self._provenance_read(sess, step, tool_name, args, uri)
+                if denied is not None:
+                    return denied
+
         # --- Multi-agent delegation hand-off (monotonic attenuation) ---
         if tool_name == "delegate_task":
             child_key = str(args.get("child_api_key") or args.get("to_agent_key") or "")
@@ -616,6 +670,7 @@ class PolicyEngine:
                 source_session=session_id, created_at=self.now(),
             )
             self.shared.scratchpad[note_id] = entry
+            self._provenance_write(sess, f"scratchpad:{note_id}")
             return {"ok": True, "allowed": True, "tool": tool_name, "egress_class": eclass,
                     "result": {"note_id": note_id, "taint_inherited": entry.taint_inherited},
                     "scrubbed_args": scrub_obj(args)}
@@ -627,6 +682,10 @@ class PolicyEngine:
                 # default: most recent from any session if note_id empty
                 if not note_id and self.shared.scratchpad:
                     entry = list(self.shared.scratchpad.values())[-1]
+            if entry is not None:
+                denied = self._provenance_read(sess, step, tool_name, args, f"scratchpad:{entry.note_id}")
+                if denied is not None:
+                    return denied
             if entry and entry.taint_inherited:
                 self._taint(sess, "scratchpad_taint_inherited", source_id=f"scratchpad:{entry.note_id}")
             return {"ok": True, "allowed": True, "tool": tool_name, "egress_class": eclass,
@@ -657,7 +716,7 @@ class PolicyEngine:
         # --- Allowlisted constrained sink (falsification test 7 / usability DoS fix) ---
         if egress_closed and tool_name == "update_ticket_status" and _is_constrained_ticket_status(args) and not _has_free_text_sink(args):
             return self._release(sess, step, tool_name, args, eclass, constrained=True,
-                                 approved=oob_memo.get("ok", False))
+                                 approved=oob_memo.get("ok", False), destination=destination)
 
         # --- Confused-deputy: a clean-looking session whose principal was barred upstream ---
         if not egress_closed and eclass in BLOCKED_EGRESS_WHILE_TAINTED:
@@ -686,10 +745,11 @@ class PolicyEngine:
         if tool_name == "credentials.pass_through":
             return self._deny(sess, step, tool_name, args, "credentials_pass_through_refused", -32012)
 
-        return self._release(sess, step, tool_name, args, eclass, approved=oob_memo.get("ok", False))
+        return self._release(sess, step, tool_name, args, eclass, approved=oob_memo.get("ok", False),
+                             destination=destination)
 
     def _release(self, sess: SessionState, step: int, tool_name: str, args: dict, eclass: str,
-                 constrained: bool = False, approved: bool = False) -> dict:
+                 constrained: bool = False, approved: bool = False, destination: Optional[str] = None) -> dict:
         """Last gate before an allowed call leaves: cross-step / encoded exfil (approximate AML.T0086).
 
         Arguments are appended to the session window only when the call is
@@ -724,6 +784,19 @@ class PolicyEngine:
                 out["frozen_agents"] = frozen
                 return out
             self.deob.commit(sess.session_id, tool_name, args)
+        if outbound:
+            acc = self.accumulator.evaluate_call(sess.session_id, destination or eclass, args)
+            if not acc.allowed:
+                detail = {"rule": acc.matched_rule, "destination": destination or eclass,
+                          "window_length": acc.window_length}
+                finding = {"kind": "sharded_exfil_denied", "session_id": sess.session_id, "step": step,
+                           "tool": tool_name, "atlas": "AML.T0086", "atlas_approximate": True, **detail}
+                self.findings.append(finding)
+                self._alert("sharded_exfil_denied", finding)
+                self._taint(sess, "sharded_exfil", source_id=f"accumulator:{acc.matched_rule}")
+                out = self._deny(sess, step, tool_name, args, "sharded_exfil_denied", -32043, atlas="AML.T0086")
+                out["accumulator"] = detail
+                return out
         # A call a person released with a bound OOB token is not oracle traffic.
         if outbound and sess.tainted and sess.sensitive_read and not approved:
             now = self.now()
@@ -826,6 +899,7 @@ class PolicyEngine:
 
     def register_canary(self, value: str, label: str = "canary", session_id: Optional[str] = None) -> bool:
         """Fingerprint a canary secret. ``session_id=None`` watches every session."""
+        self.accumulator.register_protected_token(value, session_id=session_id)
         return self.deob.register(value, label=label, session_id=session_id)
 
     def ingest_tool_result(self, agent_key: str, session_id: str, tool_name: str, result: Any) -> int:
@@ -834,6 +908,9 @@ class PolicyEngine:
             return 0
         sess = self.get_session(session_id, agent_key)
         sess.mark_sensitive()
+        for _key, value in iter_strings(result):
+            for candidate in secret_candidates(value):
+                self.accumulator.register_protected_token(candidate, session_id=session_id)
         return self.deob.register_output(result, label=tool_name, session_id=session_id)
 
     def mark_untrusted_ingest(self, agent_key: str, session_id: str, source: str) -> None:
@@ -857,6 +934,54 @@ class PolicyEngine:
         self.findings.append(finding)
         self._alert("mcp_rug_pull_detected", finding)
         return finding
+
+    # --- Cross-session resource lineage (memory_provenance_guard.py) -------------
+
+    def _lineage(self, sess: SessionState) -> tuple[int, int]:
+        closed = bool(sess.tainted or not sess.allow_egress)
+        mask = ALL_CAPABILITIES_MASK & ~_PROV_CAP_EGRESS if closed else ALL_CAPABILITIES_MASK
+        return (_PROV_TAINTED if sess.tainted else 0), mask
+
+    def _provenance_write(self, sess: SessionState, uri: str) -> None:
+        taint, mask = self._lineage(sess)
+        try:
+            self.provenance.record_write(uri, sess.session_id, taint, mask)
+        except ValueError:
+            # The stored record failed its HMAC; the next read of this resource is denied.
+            self._alert("provenance_tamper_on_write", {"session_id": sess.session_id,
+                                                       "atlas": "AML.T0080.000", "atlas_approximate": True})
+
+    def _provenance_read(self, sess: SessionState, step: int, tool_name: str, args: dict,
+                         uri: str) -> Optional[dict]:
+        """Deny a read of a tampered record, else carry the writer's taint into ``sess``."""
+        res = self.provenance.evaluate_read(uri, *self._lineage(sess))
+        detail = {"verdict": res.verdict_code, "resource_hash": (res.resource_hash or "")[:16],
+                  "writer_session_id": res.writer_session_id}
+        if not res.allowed:
+            finding = {"kind": "provenance_tamper_denied", "session_id": sess.session_id, "step": step,
+                       "tool": tool_name, "atlas": "AML.T0080.000", "atlas_approximate": True, **detail}
+            self.findings.append(finding)
+            self._alert("provenance_tamper_denied", finding)
+            self._taint(sess, "provenance_tamper", source_id=f"provenance:{detail['resource_hash']}")
+            out = self._deny(sess, step, tool_name, args, "provenance_tamper_denied", -32042,
+                             atlas="AML.T0080.000")
+            out["provenance"] = detail
+            return out
+        if res.effective_taint > 0 or not res.effective_capability_mask & _PROV_CAP_EGRESS:
+            if not sess.tainted:
+                self._alert("provenance_taint_inherited", {"session_id": sess.session_id, "step": step,
+                                                           "tool": tool_name, **detail})
+            self._taint(sess, "provenance_taint_inherited",
+                        source_id=f"provenance:{res.writer_session_id or detail['resource_hash']}")
+        return None
+
+    def export_provenance_ledger(self) -> dict:
+        """HMAC-tagged lineage ledger, for persisting across gateway restarts."""
+        return self.provenance.export_ledger()
+
+    def load_provenance_ledger(self, data: dict) -> None:
+        """Replace the lineage ledger; any record that fails its HMAC refuses the whole load."""
+        self.provenance.load_ledger(data)
 
     def register_tool_schemas(
         self, agent_key: str, session_id: str, server_name: str, tools: list[dict],
@@ -1005,6 +1130,7 @@ class PolicyEngine:
             result["secret"] = "secret_value_123"
             sess.mark_sensitive()
             self.deob.register(result["secret"], label=tool_name, session_id=sess.session_id)
+            self.accumulator.register_protected_token(result["secret"], session_id=sess.session_id)
             # Forensic watermark + credential tracking on the returned secret (approximate AML.T0086).
             result["secret"] = self.canary.watermark_output(sess.session_id, step, tool_name, result["secret"])
         if tool_name in ("read_external_url", "web.fetch", "fetch_url"):
@@ -1013,6 +1139,10 @@ class PolicyEngine:
             result["body"] = self.cfg.lab_fixture_outputs[tool_name]
             if tool_name in SENSITIVE_READ_TOOLS or eclass == EGRESS_CREDS:
                 result["body"] = self.canary.watermark_output(sess.session_id, step, tool_name, result["body"])
+        if eclass == EGRESS_WRITE:
+            uri = _resource_uri(tool_name, args)
+            if uri is not None:
+                self._provenance_write(sess, uri)
         if tool_name == "lookup_order_status":
             result["order_id"] = args.get("order_id", 123)
             result["status"] = "shipped"

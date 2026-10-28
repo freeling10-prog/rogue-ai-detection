@@ -56,7 +56,7 @@ class CallbackVerdict:
 def atlas_for(*, taint_source_id: str, taint_reasons: Optional[list[str]], gate_atlas: str) -> str:
     """Map the triggering taint to AML.T0051, AML.T0080, or AML.T0086."""
     source = (taint_source_id or "").lower()
-    if "scratchpad" in source:
+    if "scratchpad" in source or source.startswith("provenance:"):
         return ATLAS_T0080
     if "tools.list" in source or "tools/list" in source or "untrusted_tools_list" in source:
         return ATLAS_T0051

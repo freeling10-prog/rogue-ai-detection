@@ -71,6 +71,8 @@ GATEWAY_FINDING_KINDS = (
     "tool_shadowing_denied",
     "gui_region_denied",
     "gui_keychord_denied",
+    "provenance_tamper_denied",
+    "sharded_exfil_denied",
 )
 _EXFIL_EGRESS = frozenset({"external_read", "send", "write", "creds"})
 _ATLAS_RE = re.compile(r"AML\.T\d{4}(?:\.\d{3})?")
@@ -776,7 +778,8 @@ def summarize_decision_log(path: Path, limit: int = 40) -> dict[str, Any]:
         elif kind == "toxic_combinations":
             detail = f"toxic paths: {(entry.get('totals') or {}).get('toxic')}"
         else:
-            detail = entry.get("reason") or ", ".join(map(str, entry.get("reasons") or [])) or entry.get("form") or ""
+            detail = (entry.get("reason") or ", ".join(map(str, entry.get("reasons") or [])) or entry.get("form")
+                      or entry.get("rule") or entry.get("verdict") or "")
         rows.append({"kind": kind, "tool": _public(entry.get("tool"), 80), "session": _public(entry.get("session_id"), 80),
                      "atlas": _public(entry.get("atlas"), 20), "detail": _public(detail, 200)})
     return {"counts": counts, "rows": rows, "atlas_approximate": True}

@@ -81,7 +81,8 @@ POST_SPRINT_GROUPS: dict[str, dict[str, Any]] = {
         "module": "schema_integrity_guard.py, gui_action_guard.py, memory_provenance_guard.py, "
                   "temporal_accumulator_guard.py",
         "files": ["test_schema_integrity_guard.py", "test_gui_action_guard.py", "test_v11_guard_wiring.py",
-                  "test_memory_provenance_guard.py", "test_temporal_accumulator_guard.py"],
+                  "test_memory_provenance_guard.py", "test_temporal_accumulator_guard.py",
+                  "test_v11_provenance_accumulator_wiring.py"],
     },
 }
 

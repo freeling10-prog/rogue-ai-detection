@@ -72,6 +72,19 @@ DEFENSE_GROUPS: dict[str, dict[str, Any]] = {
     },
 }
 
+# Post-sprint guards, reported apart from A / B / C. ``evaluate`` never folds this group into the
+# 57/57 sprint figure; run it with ``run_post_sprint_suite``. Files not yet in the tree are listed
+# under ``missing_files`` instead of failing.
+POST_SPRINT_GROUPS: dict[str, dict[str, Any]] = {
+    "D": {
+        "title": "v11 extended carrier & runtime guards (post-sprint)",
+        "module": "schema_integrity_guard.py, gui_action_guard.py, memory_provenance_guard.py, "
+                  "temporal_accumulator_guard.py",
+        "files": ["test_schema_integrity_guard.py", "test_gui_action_guard.py", "test_v11_guard_wiring.py",
+                  "test_memory_provenance_guard.py", "test_temporal_accumulator_guard.py"],
+    },
+}
+
 SCOPE_NOTES = (
     "Same-author scripted synthetic lab scenarios. Not a benchmark and not a measure of any product in the wild.",
     "Group results are the outcome of the repository's own defence tests; each count traces to a named pytest node id.",
@@ -172,6 +185,12 @@ def run_defense_suite(
     tests_dir = Path(tests_dir or TESTS_DIR)
     files = [str(tests_dir / f) for spec in groups.values() for f in spec["files"]]
     missing = [f for f in files if not Path(f).is_file()]
+    if len(missing) == len(files):
+        # No paths at all would make pytest fall back to the whole suite.
+        results = group_results([], groups)
+        return {"command": "", "returncode": 5, "seconds": 0.0, "pytest_summary": "no group files present",
+                "missing_files": [Path(f).name for f in missing], "groups": [g.as_dict() for g in results],
+                "totals": _suite_totals(results)}
     with tempfile.TemporaryDirectory(prefix="agw-collusion-") as tmp:
         xml_path = Path(tmp) / "junit.xml"
         cmd = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider",
@@ -191,6 +210,11 @@ def run_defense_suite(
         "groups": [g.as_dict() for g in results],
         "totals": _suite_totals(results),
     }
+
+
+def run_post_sprint_suite(tests_dir: Optional[Path] = None, timeout_s: float = 600.0) -> dict[str, Any]:
+    """Group D only. Separate from ``run_defense_suite`` so the sprint A / B / C totals never move."""
+    return run_defense_suite(groups=POST_SPRINT_GROUPS, tests_dir=tests_dir, timeout_s=timeout_s)
 
 
 def _suite_totals(results: list[GroupResult]) -> dict[str, int]:

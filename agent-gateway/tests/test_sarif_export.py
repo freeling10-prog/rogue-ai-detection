@@ -158,3 +158,15 @@ def test_property_generated_reports_always_validate(rows, toxic):
     assert validate_sarif(doc) == []
     declared = {r["id"] for r in doc["runs"][0]["tool"]["driver"]["rules"]}
     assert all(r["ruleId"] in declared for r in doc["runs"][0]["results"])
+
+
+def test_v11_rules_carry_atlas_and_owasp_agentic_tags():
+    rows = [{"kind": k, "tool": "t", "session": "s", "atlas": "AML.T0051", "detail": "d"}
+            for k in ("schema_drift_denied", "tool_shadowing_denied", "gui_region_denied", "gui_keychord_denied")]
+    doc = build_sarif({"gateway_findings": {"counts": {}, "rows": rows}})
+    assert validate_sarif(doc) == []
+    rules = {r["id"]: r for r in doc["runs"][0]["tool"]["driver"]["rules"]}
+    assert {r["ruleId"] for r in doc["runs"][0]["results"]} == set(rules)
+    assert "OWASP-Agentic/ASI04 (approximate)" in rules["schema_drift_denied"]["properties"]["tags"]
+    assert "OWASP-Agentic/ASI02 (approximate)" in rules["gui_keychord_denied"]["properties"]["tags"]
+    assert "ATLAS/AML.T0053 (approximate)" in rules["gui_region_denied"]["properties"]["tags"]

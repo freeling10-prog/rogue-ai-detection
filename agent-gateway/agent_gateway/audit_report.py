@@ -67,6 +67,10 @@ GATEWAY_FINDING_KINDS = (
     "confused_deputy_delegation_blocked",
     "arg_firewall_violation",
     "canary_watermark_exfil",
+    "schema_drift_denied",
+    "tool_shadowing_denied",
+    "gui_region_denied",
+    "gui_keychord_denied",
 )
 _EXFIL_EGRESS = frozenset({"external_read", "send", "write", "creds"})
 _ATLAS_RE = re.compile(r"AML\.T\d{4}(?:\.\d{3})?")

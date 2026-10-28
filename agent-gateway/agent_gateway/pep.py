@@ -28,6 +28,12 @@ Safety:
   cannot egress what its parent was barred from (``delegation_guard.py``).
 - Sensitive reads are watermarked and credential-tracked; a watermark or
   credential in an outbound call is denied and frozen (``canary_watermark.py``).
+- MCP tool schemas are digest-pinned per server; drift without a signed
+  manifest and cross-server tool-name collisions are denied
+  (``schema_integrity_guard.py``, approximate AML.T0051).
+- Computer-use pointer and keyboard actions are checked against reserved
+  screen regions and a shortcut deny-list (``gui_action_guard.py``,
+  approximate AML.T0053).
 """
 from __future__ import annotations
 
@@ -54,6 +60,8 @@ from . import tool_output_scanner, toxic_combinations
 from .arg_ast_guard import inspect_call as inspect_arg_call
 from .canary_watermark import CanaryRegistry
 from .delegation_guard import DelegationLedger, attenuate_for_handoff, profile_from_token
+from .gui_action_guard import KEY_ACTIONS, POINTER_ACTIONS, TEXT_ACTIONS, GuiActionGuard
+from .schema_integrity_guard import SchemaIntegrityGuard
 from .paths import default_registry_path
 from .registry import Registry
 from .scrub import scrub_obj
@@ -95,6 +103,13 @@ _AWAITING_APPROVAL = frozenset({
     "ssrf_internal_target_hold",
 })
 # Default sink names for cross-tool shadowing when a session has no tools/list.
+_GUI_ACTIONS = POINTER_ACTIONS | KEY_ACTIONS | TEXT_ACTIONS
+# Computer-use tool action names -> gui_action_guard action names.
+_COMPUTER_ACTIONS = {
+    "left_click": "click", "right_click": "right_click", "middle_click": "click", "double_click": "double_click",
+    "triple_click": "click", "mouse_move": "mouse_move", "left_click_drag": "drag",
+    "key": "key_combo", "type": "type_text",
+}
 _DEFAULT_SINK_TOOLS = tuple(sorted(
     name for name, ec in TOOL_EGRESS.items() if ec in (EGRESS_WRITE, EGRESS_SEND, EGRESS_CREDS)
     and name not in SENSITIVE_READ_TOOLS
@@ -124,6 +139,9 @@ class PepConfig:
     max_arg_bytes: int = 65_536  # serialized tools/call arguments
     max_sessions: int = 1000  # live sessions held in memory
     max_id_len: int = 128  # session_id length
+    # Computer-use viewport and reserved rectangles [x_min, y_min, x_max, y_max, label]. None = defaults.
+    gui_viewport: tuple = (1440, 900)
+    gui_regions: Optional[list] = None
 
 
 def shannon_entropy(s: str) -> float:
@@ -160,6 +178,37 @@ def _is_constrained_ticket_status(arguments: dict) -> bool:
         if isinstance(v, str) and shannon_entropy(v) >= HIGH_ENTROPY_THRESHOLD and len(v) > 16:
             return False
     return "status" in arguments
+
+
+def _gui_action(tool_name: str, args: dict) -> Optional[tuple[str, dict]]:
+    """``(action, args)`` for gui_action_guard when ``tool_name`` is a GUI action, else None.
+
+    Accepts bare action names (``click``), ``computer.<action>``, and a
+    ``computer`` tool whose ``action`` / ``coordinate`` / ``text`` arguments
+    follow the common computer-use shape.
+    """
+    if tool_name in _GUI_ACTIONS:
+        return tool_name, args
+    if tool_name.startswith("computer.") and tool_name[len("computer."):] in _GUI_ACTIONS:
+        return tool_name[len("computer."):], args
+    if tool_name not in ("computer", "computer_use"):
+        return None
+    action = _COMPUTER_ACTIONS.get(str(args.get("action") or ""))
+    if action is None:
+        return None
+    out = dict(args)
+    coord = args.get("coordinate")
+    if isinstance(coord, (list, tuple)) and len(coord) == 2:
+        if action == "drag":
+            start = args.get("start_coordinate")
+            if isinstance(start, (list, tuple)) and len(start) == 2:
+                out["start_x"], out["start_y"] = start
+            out["end_x"], out["end_y"] = coord
+        else:
+            out["x"], out["y"] = coord
+    if action == "key_combo":
+        out["keys"] = args.get("text", args.get("keys"))
+    return action, out
 
 
 def _has_free_text_sink(arguments: dict) -> bool:
@@ -210,6 +259,8 @@ class PolicyEngine:
         self.side_channel = SideChannelGuard(self.cfg.side_channel)
         self.delegation = DelegationLedger()
         self.canary = CanaryRegistry()
+        self.schema_guard = SchemaIntegrityGuard()
+        self.gui_guard = GuiActionGuard(regions=self.cfg.gui_regions, viewport=self.cfg.gui_viewport)
         self.inventories: dict[str, dict[str, dict]] = {}
         self.toxic: dict[str, dict] = {}
         self.findings: list[dict] = []
@@ -445,6 +496,21 @@ class PolicyEngine:
                              atlas=arg_hit.get("atlas", "AML.T0051"))
             out["arg_violation"] = arg_hit
             return out
+
+        # --- Computer-use reserved regions and shortcut deny-list (approximate AML.T0053) ---
+        gui = _gui_action(tool_name, args)
+        if gui is not None:
+            verdict = self.gui_guard.check(*gui)
+            if not verdict.ok:
+                kind = verdict.code.lower()
+                finding = {"kind": kind, "session_id": sess.session_id, "step": step, "tool": tool_name,
+                           "atlas": "AML.T0053", "atlas_approximate": True, "gui": verdict.as_dict()}
+                self.findings.append(finding)
+                self._alert(kind, finding)
+                code = -32038 if kind == "gui_region_denied" else -32039
+                out = self._deny(sess, step, tool_name, args, kind, code, atlas="AML.T0053")
+                out["gui"] = verdict.as_dict()
+                return out
 
         # --- Review hold (MCP rug pull, side channel): every call waits for a person ---
         if sess.review_hold and not oob():
@@ -791,6 +857,40 @@ class PolicyEngine:
         self.findings.append(finding)
         self._alert("mcp_rug_pull_detected", finding)
         return finding
+
+    def register_tool_schemas(
+        self, agent_key: str, session_id: str, server_name: str, tools: list[dict],
+        manifest: Optional[dict] = None,
+    ) -> list[dict]:
+        """Pin tool schema digests for ``server_name`` (approximate AML.T0051).
+
+        Returns one verdict dict per tool. Drift and cross-server name
+        collisions are recorded as findings and decision-log entries.
+        """
+        verdicts = [v.as_dict() for v in self.schema_guard.register_listing(server_name, tools, manifest)]
+        for v in verdicts:
+            if v["ok"]:
+                continue
+            kind = v["code"].lower()
+            finding = {"kind": kind, "session_id": session_id, "server": server_name, "tool": v.get("tool"),
+                       **{k: val for k, val in v.items() if k not in ("ok", "tool")}}
+            self.findings.append(finding)
+            self._alert(kind, finding)
+        return verdicts
+
+    def check_schema_call(
+        self, agent_key: str, session_id: str, server_name: str, tool_name: str, arguments: Optional[dict] = None,
+    ) -> Optional[dict]:
+        """Deny a call to a tool whose pinned schema drifted, or return None to continue."""
+        verdict = self.schema_guard.check_call(server_name, tool_name)
+        if verdict.ok or not self.registry.get(agent_key):
+            return None
+        sess = self.get_session(session_id, agent_key)
+        sess.step_index += 1
+        out = self._deny(sess, sess.step_index, tool_name, dict(arguments or {}), "schema_drift_denied", -32041,
+                         atlas="AML.T0051")
+        out["schema"] = verdict.as_dict()
+        return self._attach_capability(session_id, out)
 
     def evaluate_sampling(
         self, agent_key: str, session_id: str, params: Optional[dict] = None,

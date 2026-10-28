@@ -54,13 +54,29 @@ RULES: dict[str, tuple[str, str, tuple[str, ...], str]] = {
                                "A watermarked sensitive read or tracked credential surfaced in an outbound call."),
     "arg_firewall_violation": ("error", "Argument firewall", ("AML.T0051", "AML.T0053"),
                                "A tool argument attempted path, command, header, or query escalation."),
+    "schema_drift_denied": ("error", "MCP schema digest drift", ("AML.T0051",),
+                            "A pinned tool schema's SHA-256 digest changed without a signed manifest update."),
+    "tool_shadowing_denied": ("error", "MCP tool-name collision", ("AML.T0051",),
+                              "A second server registered a tool name within one edit of a pinned tool."),
+    "gui_region_denied": ("error", "GUI reserved-region action", ("AML.T0053",),
+                          "A pointer action landed in a reserved screen region or outside the viewport."),
+    "gui_keychord_denied": ("error", "GUI denied shortcut", ("AML.T0053",),
+                            "A keyboard action used a denied system shortcut or a raw control character."),
     "analyzer_match": ("warning", "Offline analyzer match", (),
                        "A match reported by the offline agentwatch-analyzer."),
+}
+# Rule id -> approximate OWASP Top 10 for Agentic Applications category (v11 rules only).
+OWASP_ASI: dict[str, tuple[str, ...]] = {
+    "schema_drift_denied": ("ASI04",),
+    "tool_shadowing_denied": ("ASI04",),
+    "gui_region_denied": ("ASI02",),
+    "gui_keychord_denied": ("ASI02",),
 }
 # decision-log kinds that map straight onto a rule id
 _LOG_KIND_RULES = frozenset({
     "tool_output_injection", "ssrf_boundary_violation", "covert_side_channel_suspected",
     "deobfuscated_exfil_detected", "mcp_rug_pull_detected",
+    "schema_drift_denied", "tool_shadowing_denied", "gui_region_denied", "gui_keychord_denied",
 })
 
 
@@ -94,6 +110,7 @@ def _driver_rules(used: set[str]) -> list[dict]:
     for rid in sorted(used):
         level, name, atlas, help_text = RULES.get(rid, ("warning", rid, (), ""))
         tags = ["security", "agentgate"] + [f"ATLAS/{a} (approximate)" for a in atlas]
+        tags += [f"OWASP-Agentic/{a} (approximate)" for a in OWASP_ASI.get(rid, ())]
         rules.append({
             "id": rid,
             "name": "".join(w.capitalize() for w in rid.split("_")),

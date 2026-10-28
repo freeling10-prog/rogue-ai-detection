@@ -4,6 +4,36 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
+## [Unreleased] - v11 post-sprint guards (28 October 2026)
+
+- `schema_integrity_guard.py`: RFC 8785-style canonical JSON, SHA-256 pin per
+  `(server_id, tool_name)` across sessions. `SCHEMA_DRIFT_DENIED` without a
+  manifest entry signed with the gateway HMAC key; `TOOL_SHADOWING_DENIED`
+  for a normalized name within one edit of a tool pinned on another server.
+  Wired into `McpWireProxy` (drifted or colliding tools are not served;
+  calls to a drifted tool get `schema_drift_denied`, -32041).
+- `gui_action_guard.py`: reserved screen rectangles and viewport bounds
+  (`gui_region_denied`, -32038), modifier-normalized shortcut deny-list and
+  raw control characters (`gui_keychord_denied`, -32039). Wired into
+  `PolicyEngine.evaluate_call` for bare action names, `computer.<action>`,
+  and a `computer` tool with `action` / `coordinate` / `text`.
+- `memory_provenance_guard.py`: HMAC-signed cross-session resource lineage
+  ledger; the taint-origin writer is kept; strict int checks;
+  `MAX_TAINT_LEVEL`; `export_ledger` / `load_ledger` verify every record.
+- `temporal_accumulator_guard.py`: bounded per-(session, destination) window
+  validator for registered tokens and zero-width watermark counts.
+- SARIF rules with approximate ATLAS ids and OWASP Agentic ASI tags for the
+  four schema / GUI codes; the decision-log summary counts them.
+- `collusion_eval.POST_SPRINT_GROUPS["D"]` and `run_post_sprint_suite()`.
+  Groups A / B / C (57/57) and `evaluate-collusion` output are unchanged;
+  `sprint_submission/` and `site/sprint/` are untouched.
+- Gateway tests 262 -> **369** (Group D: 104); Hypothesis state machines
+  5 -> **7**; modules behind `pep.py` 22 -> **26**; CI floor 250 -> 345.
+  Workspace: **891** passing (agent-watch 512 passed, 2 skipped; analyzer 10).
+- Site: trace 08 (schema drift across sessions and a cross-server name
+  collision), recorded in-process by `examples/record_site_traces.py 8`;
+  post-sprint figures and v11 scope notes added beside the sprint figures.
+
 ## [Unreleased] - report-style site and per-target outreach (25 October 2026)
 
 - `site/` rebuilt as a technical report: archival palette, hairline grid,

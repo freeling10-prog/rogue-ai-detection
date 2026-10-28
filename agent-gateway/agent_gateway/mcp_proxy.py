@@ -15,7 +15,13 @@ Intercepted methods:
   proxy records ``mcp_rug_pull_detected`` (approximate AML.T0051), the PEP
   appends ``allow_egress=false`` to the session ``agw1.`` capability, every later
   ``tools/call`` is held for a bound one-time OOB approval, and the client
-  keeps seeing the pinned definitions.
+  keeps seeing the pinned definitions. Every listing is also registered with
+  the engine's ``schema_integrity_guard``: digests are pinned per server
+  across sessions, so drift seen by a fresh session is denied too
+  (``SCHEMA_DRIFT_DENIED``), and a tool whose name collides with one pinned
+  on another server (``TOOL_SHADOWING_DENIED``) is not served. A signed
+  manifest update travels in ``result._meta["agentgate/schema_manifest"]``
+  as ``{tool name: HMAC}``.
 - ``tools/call`` (client request): evaluated by ``PolicyEngine.evaluate_call``.
   A denied call is answered with a JSON-RPC error and never reaches the
   server. Results of sensitive reads are fingerprinted for de-obfuscation.
@@ -52,6 +58,7 @@ META_PREFIX = "agentgate/"
 META_APPROVAL = "agentgate/approval_token"
 META_BOUND_STEP = "agentgate/bound_step_index"
 META_CAPABILITY = "agentgate/capability_token"
+META_SCHEMA_MANIFEST = "agentgate/schema_manifest"
 ERR_PARSE = -32700
 ERR_INVALID = -32600
 
@@ -241,6 +248,12 @@ class McpWireProxy:
             if isinstance(params.get("arguments"), dict):
                 arguments["arguments"] = params["arguments"]
         bound = meta.get(META_BOUND_STEP)
+        if method == "tools/call":
+            drift = self.engine.check_schema_call(self.agent_key, self.session_id, self.server_name, tool, arguments)
+            if drift is not None:
+                self._track(drift)
+                reply = error_response(rid, drift["code"], drift["message"], self._deny_data(drift))
+                return FilterResult("deny", reply=[reply] if rid is not None else [], detail=drift)
         out = self.engine.evaluate_call(
             self.agent_key, self.session_id, tool, arguments,
             approval_token=meta.get(META_APPROVAL),
@@ -318,6 +331,7 @@ class McpWireProxy:
 
         changes: list[dict] = []
         served: list[dict] = []
+        pinned_before = set(self.pins)
         for tool in tools:
             name = str(tool.get("name") or "")
             digest = tool_digest(tool)
@@ -336,9 +350,22 @@ class McpWireProxy:
         if not result.get("nextCursor"):
             self._pin_complete = True
 
-        if not changes:
+        meta = result.get("_meta") if isinstance(result.get("_meta"), dict) else {}
+        manifest = meta.get(META_SCHEMA_MANIFEST) if isinstance(meta.get(META_SCHEMA_MANIFEST), dict) else None
+        verdicts = self.engine.register_tool_schemas(self.agent_key, self.session_id, self.server_name, tools,
+                                                     manifest)
+        refused = {v["tool"]: v for v in verdicts if not v["ok"]}
+        # Drop refused tools. Drift on a tool this proxy pinned earlier keeps serving that pinned definition.
+        kept = [t for t in served if (n := str(t.get("name") or "")) not in refused
+                or (refused[n]["code"] == "SCHEMA_DRIFT_DENIED" and n in pinned_before)]
+
+        if not changes and not refused:
             return FilterResult("pinned", forward=[msg], detail={"pins": len(self.pins)})
+        safe = {**msg, "result": {**result, "tools": kept}}
+        if not changes:
+            return FilterResult("schema_denied", forward=[safe], detail={"schema": list(refused.values())})
         finding = self.engine.flag_rug_pull(self.agent_key, self.session_id, self.server_name, changes)
         self.capability_token = self.engine.sessions[self.session_id].capability_token
-        safe = {**msg, "result": {**result, "tools": served}}
+        if refused:
+            finding = {**finding, "schema": list(refused.values())}
         return FilterResult("rug_pull", forward=[safe], detail=finding)

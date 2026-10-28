@@ -159,3 +159,18 @@ def test_hypothesis_settings_scan_matches_machines():
 def test_collect_gateway_tests_counts_suite():
     res = ce.collect_gateway_tests()
     assert res["returncode"] == 0 and res["collected"] >= 250
+
+
+def test_post_sprint_group_d_is_separate_from_sprint_groups():
+    assert set(ce.DEFENSE_GROUPS) == {"A", "B", "C"}
+    assert set(ce.POST_SPRINT_GROUPS) == {"D"}
+    sprint_files = {f for g in ce.DEFENSE_GROUPS.values() for f in g["files"]}
+    assert sprint_files == {"test_side_channel_guard.py", "test_delegation_guard.py",
+                            "test_deobfuscate.py", "test_canary_watermark.py"}
+    assert not sprint_files & set(ce.POST_SPRINT_GROUPS["D"]["files"])
+
+
+def test_run_defense_suite_with_no_present_files_does_not_run_whole_suite(tmp_path):
+    out = ce.run_defense_suite(groups={"Z": {"title": "z", "files": ["test_absent.py"]}}, tests_dir=tmp_path)
+    assert out["returncode"] == 5 and out["totals"]["total"] == 0
+    assert out["missing_files"] == ["test_absent.py"]

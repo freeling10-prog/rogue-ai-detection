@@ -4,6 +4,41 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
+## [Unreleased] - v11 provenance and accumulator wiring (28 October 2026)
+
+- `temporal_accumulator_guard.py`: U+200D (zero-width joiner) removed from
+  `ZERO_WIDTH_CHARS`, so compound emoji no longer count as watermarks.
+  Protected tokens are held only as per-instance salted SHA-256 digests of
+  the token, its Base64 and hex spellings, and its 8-character n-grams (no
+  plaintext); an n-gram match needs **2** distinct digests. The window is
+  persisted only for `STREAM_CLEAN` calls, so a denied call does not poison
+  later benign calls. Tokens can be scoped to one session.
+- `pep.py`: `memory_provenance_guard` records scratchpad notes and
+  resource-addressed writes in an HMAC-signed lineage ledger (key derived
+  from `AGENT_GATEWAY_HMAC_KEY`); reads of a note, a `uri` / `path`
+  resource, or an MCP `resources/read` inherit the writer's taint, and a
+  record that fails its HMAC is denied (`provenance_tamper_denied`, -32042).
+  `export_provenance_ledger()` / `load_provenance_ledger()` persist it.
+  `temporal_accumulator_guard` runs on every released outbound call
+  (`sharded_exfil_denied`, -32043); sensitive reads and canaries register
+  their values with it, scoped like the de-obfuscation fingerprints.
+- `mcp_proxy.py`: accumulator windows keyed `mcp:<server>`; resources/read
+  goes through the lineage check before it reaches the server.
+- `sarif_export.py` / `audit_report.py`: `provenance_tamper_denied`
+  (AML.T0080.000, ASI06) and `sharded_exfil_denied` (AML.T0086, ASI02).
+- Tests: 3 provenance unit tests (taint inheritance with the origin
+  `writer_session_id` kept, `TypeError` on bool inputs, tamper deny and
+  `export_ledger` / `load_ledger`), 5 accumulator tests, and
+  `test_v11_provenance_accumulator_wiring.py` (12), added to Group D.
+- Gateway tests 369 -> **389** (Group D 104 -> **124**, six files); CI floor
+  345 -> 385. Hypothesis state machines stay at **7** and modules behind
+  `pep.py` at **26**. Workspace **911** (agent-watch 512, analyzer 10).
+  Groups A / B / C unchanged (57/57); 750 benign decisions, 0 denials.
+- Site: trace 07 (cross-session lineage, a tampered record, sharded
+  watermarks) and a re-recorded trace 08, both in-process against
+  `PolicyEngine` (`examples/record_site_traces.py 7 8`); traces 01-06 and
+  `sprint_submission/` / `site/sprint/` unchanged.
+
 ## [Unreleased] - v11 post-sprint guards (28 October 2026)
 
 - `schema_integrity_guard.py`: RFC 8785-style canonical JSON, SHA-256 pin per

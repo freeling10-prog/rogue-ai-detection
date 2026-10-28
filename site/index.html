@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AgentGate — Technical Report &amp; Reference Implementation</title>
-<meta name="description" content="A loopback policy enforcement point for AI agent tool calls. Deterministic inline checks against three multi-agent collusion carriers, with no model calls on the decision path. 262 gateway tests; 57/57 carrier checks; same-author lab results stated with their limits.">
+<meta name="description" content="A loopback policy enforcement point for AI agent tool calls. Deterministic inline checks against three multi-agent collusion carriers, with no model calls on the decision path. 57/57 carrier checks and 262 gateway tests at the sprint snapshot; 369 gateway tests on main; same-author lab results stated with their limits.">
 <meta name="color-scheme" content="light">
 <meta property="og:title" content="AgentGate — Deterministic Guardrails Against Multi-Agent Collusion Carriers">
-<meta property="og:description" content="Technical report and reference implementation. 262 gateway tests (784 passing across the workspace), 57/57 collusion carrier checks, CPU p50 0.126 ms / p99 0.999 ms per decision (max 3.84 ms). Same-author lab checks, not a benchmark.">
+<meta property="og:description" content="Technical report and reference implementation. 262 gateway tests at the sprint snapshot (784 across the workspace; 369 / 891 on main), 57/57 collusion carrier checks, CPU p50 0.126 ms / p99 0.999 ms per decision (max 3.84 ms). Same-author lab checks, not a benchmark.">
 <meta property="og:type" content="article">
 <link rel="icon" href="favicon.svg">
 <link rel="preload" href="fonts/newsreader-var.woff2" as="font" type="font/woff2" crossorigin>
@@ -109,6 +109,21 @@
         <ul class="lat-legend" aria-hidden="true"><li>p50 0.126</li><li>p95 0.892</li><li>p99 0.999</li><li>reference 2.000</li><li class="ink-deny">max 3.84</li><li>ms CPU / decision</li></ul>
         <figcaption id="lat-cap"><b>Figure 1.</b> Per-decision CPU time, 750 benign decisions, linear scale. The shaded band is the 2 ms reference. The single slowest decision lies outside it and is shown rather than trimmed.</figcaption>
       </figure>
+
+      <h3 style="font-size:20px;margin:30px 0 6px" id="post-sprint">Post-sprint: <code>main</code> after v11</h3>
+      <p class="note">The rows above, the sample artifacts [S1]&ndash;[S3], and <code>sprint_submission/</code> are the frozen 25 October Apart Research sprint snapshot at <code>cefec0d</code>. They are not re-run or changed. <code>main</code> now also carries four v11 guards. Their tests form a separate Group D and are never added to 57/57.</p>
+      <div class="tbl-scroll">
+      <table class="tbl" id="post-sprint-table">
+        <thead><tr><th>Measure, <code>main</code></th><th class="num">Value</th><th>Note</th></tr></thead>
+        <tbody>
+          <tr><td>Gateway tests passing</td><td class="num">369</td><td>262 at the snapshot, plus 107 v11 tests.</td></tr>
+          <tr><td>Group D, v11 guards</td><td class="num">104&#8239;/&#8239;104</td><td>Five test files; reported separately from A&nbsp;/&nbsp;B&nbsp;/&nbsp;C.</td></tr>
+          <tr><td>Stateful Hypothesis machines</td><td class="num">7</td><td>Adds the memory-provenance and temporal-accumulator machines.</td></tr>
+          <tr><td>Modules behind <code>pep.py</code></td><td class="num">26</td><td>22 at the snapshot.</td></tr>
+          <tr><td>Tests passing, workspace</td><td class="num">891</td><td>369 <code>agent-gateway</code> · 512 <code>agent-watch</code> (514 collected, 2 skipped) · 10 <code>agentwatch-analyzer</code>.</td></tr>
+        </tbody>
+      </table>
+      </div>
     </div>
   </div>
 </section>
@@ -148,11 +163,15 @@
           <tr><td class="k">canary_watermark.py</td><td>Zero-width HMAC watermark bound to (session, step, tool), plus credential digests.</td><td><span class="mono">canary_watermark_exfil</span> with origin step</td><td class="num">20</td></tr>
           <tr><td class="k">egress_uri_guard.py</td><td>Canonicalizes every URI or host argument; no DNS lookup.</td><td><span class="mono">ssrf_boundary_violation</span> / hold</td><td class="num">44</td></tr>
           <tr><td class="k">arg_ast_guard.py</td><td>Lexical argument firewall: traversal, command and header injection, read-only queries.</td><td><span class="mono">arg_firewall_violation</span></td><td class="num">44</td></tr>
+          <tr><td class="k">schema_integrity_guard.py</td><td>SHA-256 of canonical tool schemas pinned per (server, tool) across sessions; normalized names compared across servers by edit distance.</td><td><span class="mono">schema_drift_denied</span> / <span class="mono">tool_shadowing_denied</span></td><td class="num">17</td></tr>
+          <tr><td class="k">gui_action_guard.py</td><td>Pointer coordinates against reserved rectangles and the viewport; modifier-normalized shortcut deny-list and raw control characters.</td><td><span class="mono">gui_region_denied</span> / <span class="mono">gui_keychord_denied</span></td><td class="num">63</td></tr>
+          <tr><td class="k">memory_provenance_guard.py</td><td>HMAC-signed cross-session resource lineage; readers inherit the highest writer taint and the intersected capability mask.</td><td><span class="mono">PROVENANCE_TAMPER_DENIED</span> on an edited record</td><td class="num">1</td></tr>
+          <tr><td class="k">temporal_accumulator_guard.py</td><td>Bounded per-(session, destination) window over registered tokens and zero-width watermark counts.</td><td><span class="mono">SHARDED_EXFIL_DENIED</span></td><td class="num">4</td></tr>
           <tr><td class="k">audit_chain.py</td><td><span class="mono">seq</span> / <span class="mono">prev_hash</span> / <span class="mono">entry_hash</span> per line; manifest HMAC with the root key.</td><td>tamper evidence, not prevention</td><td class="num">15</td></tr>
         </tbody>
       </table>
       </div>
-      <p class="note">22 modules sit behind <code>pep.py</code> in <code>agent-gateway</code>, including the guards above, the MCP proxy, the toxic-flow analyzer, the SARIF exporter, and the CLI.</p>
+      <p class="note">26 modules sit behind <code>pep.py</code> in <code>agent-gateway</code> on <code>main</code> (22 at the sprint snapshot), including the four v11 guards (post-sprint, Group D; 19 further tests cover their PEP and MCP-proxy wiring), the guards above, the MCP proxy, the toxic-flow analyzer, the SARIF exporter, and the CLI.</p>
     </div>
   </div>
 </section>
@@ -173,6 +192,7 @@
         <button class="tab-btn" role="tab" id="tab-4" aria-controls="panel" aria-selected="false" data-tab="4"><b>04</b>hold &amp; chain verify</button>
         <button class="tab-btn" role="tab" id="tab-5" aria-controls="panel" aria-selected="false" data-tab="5"><b>05</b>confused deputy</button>
         <button class="tab-btn" role="tab" id="tab-6" aria-controls="panel" aria-selected="false" data-tab="6"><b>06</b>encoded canary exfil</button>
+        <button class="tab-btn" role="tab" id="tab-8" aria-controls="panel" aria-selected="false" data-tab="8"><b>08</b>schema drift &amp; collision</button>
       </div>
       <div class="panel" id="panel" role="tabpanel" aria-labelledby="tab-1">
         <h3 id="tr-title"></h3>
@@ -254,6 +274,7 @@ python -m agent_gateway evaluate-collusion --report ./audit_out</pre>
         <div><dt>Approximate ATLAS</dt><dd>MITRE ATLAS ids are the project&rsquo;s approximate mappings. Not a certification, and not a statement that anything passes ATLAS, OWASP, NIST, SOC&nbsp;2, or ISO.</dd></div>
         <div><dt>Routed calls only</dt><dd>Calls that bypass the gateway are not seen. An untrusted source that is never labeled never taints a session. Answer-only injections that trigger no gated call are out of scope.</dd></div>
         <div><dt>Not a sandbox</dt><dd>No OS sandboxing or network isolation. Anyone holding <code>AGENT_GATEWAY_HMAC_KEY</code> can mint capabilities; key rotation is not implemented. Tool backends in the lab are simulated echoes.</dd></div>
+        <div><dt>v11 guard limits</dt><dd><code>schema_integrity_guard.py</code> compares digests and normalized names, not what a description means. <code>gui_action_guard.py</code> checks coordinates and key names against configured rectangles and a deny-list; it does not look at the screen. <code>temporal_accumulator_guard.py</code> matches registered tokens and watermark characters within a bounded sliding window; it does not catch a paraphrased value. <code>memory_provenance_guard.py</code> tracks only resources written through routed tool calls.</dd></div>
         <div><dt>Not a pen test</dt><dd>Not a penetration test, not a red team of anyone&rsquo;s users, and not legal advice.</dd></div>
       </dl>
     </div>
@@ -290,7 +311,7 @@ python -m agent_gateway evaluate-collusion --report ./audit_out</pre>
             <td><ul>
               <li>T1, plus the full written tool-boundary note</li>
               <li>Loopback <code>pep.py</code> / <code>mcp_proxy.py</code> policy set for your tool list (<code>delegation_guard.py</code>, <code>toxic_combinations.py</code>, <code>arg_ast_guard.py</code>, <code>egress_uri_guard.py</code>)</li>
-              <li>5 stateful Hypothesis regression machines wired into a CI workflow</li>
+              <li>7 stateful Hypothesis regression machines wired into a CI workflow</li>
               <li>Per-run tamper evidence (<code>audit_chain.py</code>): hash-chained log, HMAC-signed manifest, <code>verify</code></li>
             </ul></td>
             <td class="mono">48 h</td>

@@ -17,6 +17,13 @@
  * agent_gateway.audit_chain.verify_chain_file checks the chain, and
  * agent_gateway/php_defense_guard.py applies the same RULES.
  *
+ * Optional: $excludedKeys lists parameter names left uninspected (e.g. a
+ * search box, 's' or 'q'; a name covers everything nested under it), and
+ * $logOnly records the finding (verdict LOG_ONLY) and returns it instead of
+ * answering 403:
+ *
+ *     $hit = (new \AgentGate\PhpDefenseGuard($log, ['s'], true))->inspectAndEnforce();
+ *
  * These are lexical input checks. Keep parameterized queries,
  * unserialize(..., ['allowed_classes' => false]) and disable_functions.
  */
@@ -36,9 +43,14 @@ class PhpDefenseGuard {
     private const GENESIS = '0000000000000000000000000000000000000000000000000000000000000000';
 
     private string $auditLogPath;
+    /** @var string[] */
+    private array $excludedKeys;
+    private bool $logOnly;
 
-    public function __construct(string $auditLogPath = '') {
+    public function __construct(string $auditLogPath = '', array $excludedKeys = [], bool $logOnly = false) {
         $this->auditLogPath = $auditLogPath !== '' ? $auditLogPath : sys_get_temp_dir() . '/agentgate_php_audit.jsonl';
+        $this->excludedKeys = array_map('strval', array_values($excludedKeys));
+        $this->logOnly = $logOnly;
     }
 
     /** Rule code for one input string, or null. */
@@ -62,17 +74,21 @@ class PhpDefenseGuard {
     /**
      * Check parameters (keys and string values, nested). Returns
      * ['rule_code' => ..., 'field' => ..., 'value_sha256' => ...] for the first match, or null.
+     * Fields named in $excludedKeys ('s', or 'filter[q]' for a nested one) are skipped with everything under them.
      */
-    public static function inspect(array $params, string $prefix = ''): ?array {
+    public static function inspect(array $params, string $prefix = '', array $excludedKeys = []): ?array {
         foreach ($params as $key => $value) {
             $key = (string) $key;
             $field = $prefix === '' ? $key : $prefix . '[' . $key . ']';
+            if (in_array($field, $excludedKeys, true)) {
+                continue;
+            }
             $code = self::matchValue($key);
             if ($code !== null) {
                 return ['rule_code' => $code, 'field' => $field, 'value_sha256' => hash('sha256', $key)];
             }
             if (is_array($value)) {
-                $hit = self::inspect($value, $field);
+                $hit = self::inspect($value, $field, $excludedKeys);
                 if ($hit !== null) {
                     return $hit;
                 }
@@ -87,12 +103,19 @@ class PhpDefenseGuard {
         return null;
     }
 
-    /** Inspect $_GET, $_POST and $_COOKIE; answer 403 and stop on the first match. */
-    public function inspectAndEnforce(): void {
-        foreach ([$_GET, $_POST, $_COOKIE] as $section) {
-            $hit = self::inspect(is_array($section) ? $section : []);
+    /**
+     * Inspect $_GET, $_POST and $_COOKIE. On the first match, log it, then answer 403 and stop;
+     * in log-only mode return the finding (with 'enforced' => false) and let the request continue.
+     * Returns null when nothing matched.
+     */
+    public function inspectAndEnforce(): ?array {
+        foreach ([$_GET ?? [], $_POST ?? [], $_COOKIE ?? []] as $section) {
+            $hit = self::inspect(is_array($section) ? $section : [], '', $this->excludedKeys);
             if ($hit !== null) {
                 $this->logViolation($hit);
+                if ($this->logOnly) {
+                    return $hit + ['enforced' => false];
+                }
                 if (!headers_sent()) {
                     http_response_code(403);
                     header('Content-Type: application/json');
@@ -105,6 +128,7 @@ class PhpDefenseGuard {
                 exit(1);
             }
         }
+        return null;
     }
 
     /** Canonical JSON, byte-identical to agent_gateway.audit_chain.canonical for these fields. */
@@ -139,7 +163,7 @@ class PhpDefenseGuard {
             'uri' => (string) ($_SERVER['REQUEST_URI'] ?? ''),
             'method' => (string) ($_SERVER['REQUEST_METHOD'] ?? ''),
             'client_ip' => (string) ($_SERVER['REMOTE_ADDR'] ?? ''),
-            'verdict' => 'DENY',
+            'verdict' => $this->logOnly ? 'LOG_ONLY' : 'DENY',
             'rule_code' => $hit['rule_code'],
             'field' => $hit['field'],
             'value_sha256' => $hit['value_sha256'],

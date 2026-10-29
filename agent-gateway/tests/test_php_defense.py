@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -9,7 +10,8 @@ from pathlib import Path
 import pytest
 
 from agent_gateway.audit_chain import verify_chain_file
-from agent_gateway.php_defense_guard import RULE_CODES, PhpDefenseGuard, inspect_params, match_value
+from agent_gateway.php_defense_guard import RULE_CODES, PhpDefenseGuard, inspect_params, match_value, sarif_report
+from agent_gateway.sarif_export import RULE_ALIASES, RULES, build_sarif, validate_sarif
 
 PHP_FILE = Path(__file__).resolve().parents[1] / "agent_gateway" / "php_defense_guard.php"
 PHP = shutil.which("php")
@@ -112,7 +114,30 @@ def test_log_allowed_option(tmp_path: Path):
 
 # --- parity with the PHP class ---------------------------------------------------
 
-needs_php = pytest.mark.skipif(PHP is None, reason="php binary not installed")
+def php_missing_action(env, php_path) -> str | None:
+    """``"fail"`` in CI, ``"skip"`` elsewhere, when no php binary is found; None when it is."""
+    if php_path:
+        return None
+    in_ci = env.get("CI") == "true" or env.get("GITHUB_ACTIONS") == "true"
+    return "fail" if in_ci else "skip"
+
+
+@pytest.fixture()
+def php():
+    """The php binary. In CI a missing binary fails loudly so the parity tests can never be skipped there."""
+    action = php_missing_action(os.environ, PHP)
+    if action == "fail":
+        pytest.fail("php binary not found in CI: the PHP / Python parity tests must run (setup-php 8.3)")
+    if action == "skip":
+        pytest.skip("php binary not installed (parity tests run in CI)")
+    return PHP
+
+
+def test_missing_php_fails_in_ci_and_skips_locally():
+    assert php_missing_action({"CI": "true"}, None) == "fail"
+    assert php_missing_action({"GITHUB_ACTIONS": "true"}, None) == "fail"
+    assert php_missing_action({}, None) == "skip"
+    assert php_missing_action({"CI": "true"}, "/usr/bin/php") is None
 
 
 def _php(script: str, stdin: str = "", env_extra: dict | None = None) -> subprocess.CompletedProcess:
@@ -120,14 +145,12 @@ def _php(script: str, stdin: str = "", env_extra: dict | None = None) -> subproc
                           capture_output=True, text=True, timeout=60)
 
 
-@needs_php
-def test_php_file_parses():
+def test_php_file_parses(php):
     res = subprocess.run([PHP, "-l", str(PHP_FILE)], capture_output=True, text=True, timeout=60)
     assert res.returncode == 0, res.stdout + res.stderr
 
 
-@needs_php
-def test_php_and_python_agree_on_every_case(tmp_path: Path):
+def test_php_and_python_agree_on_every_case(php, tmp_path: Path):
     log = tmp_path / "php_written.jsonl"
     script = f"""
         require {json.dumps(str(PHP_FILE))};
@@ -154,8 +177,7 @@ def test_php_and_python_agree_on_every_case(tmp_path: Path):
     assert report.entries == sum(1 for _, e in CASES if e)
 
 
-@needs_php
-def test_php_enforce_answers_403_with_rule_code(tmp_path: Path):
+def test_php_enforce_answers_403_with_rule_code(php, tmp_path: Path):
     log = tmp_path / "enforce.jsonl"
     script = f"""
         require {json.dumps(str(PHP_FILE))};
@@ -183,3 +205,151 @@ def test_php_enforce_answers_403_with_rule_code(tmp_path: Path):
         echo "reached";
     """)
     assert clean.returncode == 0 and clean.stdout == "reached"
+
+
+# --- excluded keys and log-only mode (both languages) -------------------------------
+
+# (params, excluded keys, expected rule code or None)
+EXCLUDE_CASES: list[tuple[dict, list[str], str | None]] = [
+    ({"s": "how to use system() safely"}, ["s"], None),
+    ({"s": "how to use system() safely", "id": "1 UNION SELECT 1"}, ["s"], "PHP_SQLI_UNION"),
+    ({"q": "1' OR '1'='1"}, ["s"], "PHP_SQLI_TAUTOLOGY"),  # only the named key is excluded
+    ({"filter": {"q": "eval(x)", "path": "../../etc/passwd"}}, ["filter[q]"], "PHP_PATH_TRAVERSAL"),
+    ({"filter": {"q": "eval(x)", "path": "../../etc/passwd"}}, ["filter"], None),  # covers nested fields
+    ({"S": "system('id')"}, ["s"], "PHP_RCE_EVAL"),  # names are case-sensitive, as in PHP
+    ({"tags": ["ok", 'O:3:"Foo":0:{}']}, ["tags[1]"], None),
+]
+
+
+@pytest.mark.parametrize("params,excluded,expected", EXCLUDE_CASES)
+def test_excluded_keys(params, excluded, expected):
+    d = inspect_params(params, excluded)
+    assert d.rule_code == (expected or "COMPLIANT"), (params, excluded, d)
+    # Default behaviour is unchanged: without exclusions the excluded value still matches.
+    assert inspect_params(params).allowed is False
+
+
+def test_log_only_records_without_enforcing(tmp_path: Path):
+    log = tmp_path / "log_only.jsonl"
+    guard = PhpDefenseGuard(log, log_only=True, excluded_keys=["s"])
+    d = guard.inspect({"get": {"s": "system()", "page": "../../wp-config.php"}, "uri": "/?s=x"})
+    assert d.allowed is False and d.enforced is False and d.verdict == "LOG_ONLY"
+    assert d.rule_code == "PHP_PATH_TRAVERSAL" and d.field == "page"
+    assert guard.inspect({"get": {"s": "system()"}}).allowed is True
+    entries = [json.loads(ln) for ln in log.read_text().splitlines()]
+    assert [e["verdict"] for e in entries] == ["LOG_ONLY"]
+    assert verify_chain_file(log).ok
+    # Enforcing remains the default.
+    assert PhpDefenseGuard(tmp_path / "d.jsonl").inspect({"q": "eval(1)"}).verdict == "DENY"
+
+
+def test_php_and_python_agree_on_excluded_keys(php):
+    script = """
+        require %s;
+        $out = [];
+        foreach (json_decode(stream_get_contents(STDIN), true) as $c) {
+            $out[] = \\AgentGate\\PhpDefenseGuard::inspect($c[0], '', $c[1]);
+        }
+        echo json_encode($out);
+    """ % json.dumps(str(PHP_FILE))
+    res = _php(script, json.dumps([[p, e] for p, e, _ in EXCLUDE_CASES]))
+    assert res.returncode == 0, res.stderr
+    for (params, excluded, expected), hit in zip(EXCLUDE_CASES, json.loads(res.stdout)):
+        py = inspect_params(params, excluded)
+        assert (hit["rule_code"] if hit else None) == expected, (params, excluded, hit)
+        if hit:
+            assert (hit["field"], hit["value_sha256"]) == (py.field, py.value_sha256)
+
+
+def test_php_and_python_agree_on_log_only(php, tmp_path: Path):
+    php_log, py_log = tmp_path / "php.jsonl", tmp_path / "py.jsonl"
+    request = {"get": {"s": "system('id')", "p": "home"}, "post": {"file": "../../../etc/passwd"},
+               "cookie": {"sess": "ok"}}
+    script = f"""
+        require {json.dumps(str(PHP_FILE))};
+        $r = json_decode(stream_get_contents(STDIN), true);
+        $_GET = $r['get']; $_POST = $r['post']; $_COOKIE = $r['cookie'];
+        $hit = (new \\AgentGate\\PhpDefenseGuard({json.dumps(str(php_log))}, ['s'], true))->inspectAndEnforce();
+        echo json_encode($hit), "|reached";
+    """
+    res = _php(script, json.dumps(request))
+    assert res.returncode == 0, res.stderr
+    body, _, tail = res.stdout.partition("|")
+    assert tail == "reached"  # no 403, no exit
+    hit = json.loads(body)
+    assert hit["rule_code"] == "PHP_PATH_TRAVERSAL" and hit["field"] == "file" and hit["enforced"] is False
+
+    py = PhpDefenseGuard(py_log, excluded_keys=["s"], log_only=True).inspect(request)
+    assert (py.rule_code, py.field, py.value_sha256, py.enforced) == \
+        (hit["rule_code"], hit["field"], hit["value_sha256"], hit["enforced"])
+    php_entry, py_entry = (json.loads(f.read_text()) for f in (php_log, py_log))
+    keys = ("kind", "verdict", "rule_code", "field", "value_sha256", "seq", "prev_hash")
+    assert {k: php_entry[k] for k in keys} == {k: py_entry[k] for k in keys}
+    assert php_entry["verdict"] == "LOG_ONLY"
+    assert verify_chain_file(php_log).ok and verify_chain_file(py_log).ok
+
+
+# --- SARIF export ------------------------------------------------------------------
+
+PHP_RULE_META = {
+    "PHP_PATH_TRAVERSAL": ("cwe-22", "A01:2021"),
+    "PHP_DESERIALIZE_DENIED": ("cwe-502", "A08:2021"),
+    "PHP_RCE_EVAL": ("cwe-94", "A03:2021"),
+    "PHP_SQLI_UNION": ("cwe-89", "A03:2021"),
+    "PHP_SQLI_TAUTOLOGY": ("cwe-89", "A03:2021"),
+}
+
+
+def test_findings_export_to_valid_sarif(tmp_path: Path):
+    log = tmp_path / "php.jsonl"
+    guard = PhpDefenseGuard(log)
+    for params in ({"f": "../../etc/passwd"}, {"d": 'O:8:"stdClass":0:{}'}, {"c": "eval($x)"},
+                   {"q": "1 UNION SELECT 1"}, {"id": "1 OR 1=1"}, {"ok": "fine"}):
+        guard.inspect({"get": params, "uri": "/index.php", "method": "GET", "client_ip": "198.51.100.7"})
+    PhpDefenseGuard(log, log_only=True).inspect({"get": {"c": "system('id')"}})
+
+    doc = build_sarif(sarif_report(log))
+    assert validate_sarif(doc) == []
+    run = doc["runs"][0]
+    results = run["results"]
+    assert [r["ruleId"] for r in results] == ["PHP_PATH_TRAVERSAL", "PHP_DESERIALIZE_DENIED", "PHP_RCE_EVAL",
+                                              "PHP_SQLI_UNION", "PHP_SQLI_TAUTOLOGY", "PHP_RCE_EVAL"]
+    assert all(r["level"] == "error" for r in results)
+    assert "verdict=LOG_ONLY" in results[-1]["message"]["text"]
+    assert results[0]["locations"][0]["logicalLocations"][0]["fullyQualifiedName"] == "f"
+    rules = {r["id"]: r for r in run["tool"]["driver"]["rules"]}
+    assert set(rules) == set(PHP_RULE_META)
+    for rid, (cwe, owasp) in PHP_RULE_META.items():
+        rule = rules[rid]
+        assert rule["defaultConfiguration"]["level"] == "error"
+        assert rule["shortDescription"]["text"] and rule["fullDescription"]["text"]
+        assert f"external/cwe/{cwe}" in rule["properties"]["tags"]
+        assert f"OWASP-Top10/{owasp}" in rule["properties"]["tags"]
+    assert rules["PHP_DESERIALIZE_DENIED"]["shortDescription"]["text"] == "PHP object injection"
+    assert rules["PHP_RCE_EVAL"]["shortDescription"]["text"] == "PHP code execution"
+    assert set(RULE_CODES) <= set(RULES)
+
+
+def test_alias_rule_names_map_to_emitted_codes():
+    rows = [{"kind": "PHP_OBJECT_INJECTION", "tool": "d"}, {"kind": "PHP_CODE_EXEC", "tool": "c"}]
+    doc = build_sarif({"gateway_findings": {"rows": rows}})
+    assert validate_sarif(doc) == []
+    assert [r["ruleId"] for r in doc["runs"][0]["results"]] == ["PHP_DESERIALIZE_DENIED", "PHP_RCE_EVAL"]
+    assert set(RULE_ALIASES.values()) <= set(RULE_CODES)
+
+
+def test_php_written_log_exports_to_sarif(php, tmp_path: Path):
+    log = tmp_path / "php.jsonl"
+    script = f"""
+        require {json.dumps(str(PHP_FILE))};
+        $g = new \\AgentGate\\PhpDefenseGuard({json.dumps(str(log))});
+        foreach ([['a' => '../../x'], ['b' => 'O:3:"Foo":0:{{}}'], ['c' => 'passthru("id")']] as $p) {{
+            $g->logViolation(\\AgentGate\\PhpDefenseGuard::inspect($p));
+        }}
+    """
+    res = _php(script)
+    assert res.returncode == 0, res.stderr
+    doc = build_sarif(sarif_report(log))
+    assert validate_sarif(doc) == []
+    assert [r["ruleId"] for r in doc["runs"][0]["results"]] == ["PHP_PATH_TRAVERSAL", "PHP_DESERIALIZE_DENIED",
+                                                                 "PHP_RCE_EVAL"]

@@ -66,6 +66,19 @@ RULES: dict[str, tuple[str, str, tuple[str, ...], str]] = {
                                  "A shared resource's HMAC-signed lineage record failed verification on read."),
     "sharded_exfil_denied": ("error", "Sharded exfiltration across calls", ("AML.T0086",),
                              "A protected value or watermark accumulated across released calls to one destination."),
+    # PHP Defense Guard (php_defense_guard.php / .py): request input checks on a PHP application.
+    "PHP_PATH_TRAVERSAL": ("error", "PHP path traversal", (),
+                           "A request parameter carried a directory traversal sequence (../ or ..\\)."),
+    "PHP_DESERIALIZE_DENIED": ("error", "PHP object injection", (),
+                               "A request parameter carried a serialized PHP object (O:<len>:\"...\" or "
+                               "C:<len>:\"...\") for unserialize()."),
+    "PHP_RCE_EVAL": ("error", "PHP code execution", (),
+                     "A request parameter called a PHP code or command execution primitive such as eval(), "
+                     "assert(), system(), passthru(), or shell_exec()."),
+    "PHP_SQLI_UNION": ("error", "SQL injection (UNION SELECT)", (),
+                       "A request parameter carried a UNION SELECT SQL injection payload."),
+    "PHP_SQLI_TAUTOLOGY": ("error", "SQL injection (tautology)", (),
+                           "A request parameter carried a boolean tautology SQL injection payload such as ' OR '1'='1."),
     "analyzer_match": ("warning", "Offline analyzer match", (),
                        "A match reported by the offline agentwatch-analyzer."),
 }
@@ -78,12 +91,33 @@ OWASP_ASI: dict[str, tuple[str, ...]] = {
     "provenance_tamper_denied": ("ASI06",),
     "sharded_exfil_denied": ("ASI02",),
 }
+# Rule id -> CWE ids and OWASP Top 10 (2021) category, for web-application rules.
+CWE: dict[str, tuple[str, ...]] = {
+    "PHP_PATH_TRAVERSAL": ("CWE-22",),
+    "PHP_DESERIALIZE_DENIED": ("CWE-502",),
+    "PHP_RCE_EVAL": ("CWE-94", "CWE-78"),
+    "PHP_SQLI_UNION": ("CWE-89",),
+    "PHP_SQLI_TAUTOLOGY": ("CWE-89",),
+}
+OWASP_WEB: dict[str, tuple[str, ...]] = {
+    "PHP_PATH_TRAVERSAL": ("A01:2021",),
+    "PHP_DESERIALIZE_DENIED": ("A08:2021",),
+    "PHP_RCE_EVAL": ("A03:2021",),
+    "PHP_SQLI_UNION": ("A03:2021",),
+    "PHP_SQLI_TAUTOLOGY": ("A03:2021",),
+}
+# Alternate names for the same findings -> the rule id the guards emit.
+RULE_ALIASES: dict[str, str] = {
+    "PHP_OBJECT_INJECTION": "PHP_DESERIALIZE_DENIED",
+    "PHP_CODE_EXEC": "PHP_RCE_EVAL",
+}
 # decision-log kinds that map straight onto a rule id
 _LOG_KIND_RULES = frozenset({
     "tool_output_injection", "ssrf_boundary_violation", "covert_side_channel_suspected",
     "deobfuscated_exfil_detected", "mcp_rug_pull_detected",
     "schema_drift_denied", "tool_shadowing_denied", "gui_region_denied", "gui_keychord_denied",
     "provenance_tamper_denied", "sharded_exfil_denied",
+    "PHP_PATH_TRAVERSAL", "PHP_DESERIALIZE_DENIED", "PHP_RCE_EVAL", "PHP_SQLI_UNION", "PHP_SQLI_TAUTOLOGY",
 })
 
 
@@ -118,9 +152,11 @@ def _driver_rules(used: set[str]) -> list[dict]:
         level, name, atlas, help_text = RULES.get(rid, ("warning", rid, (), ""))
         tags = ["security", "agentgate"] + [f"ATLAS/{a} (approximate)" for a in atlas]
         tags += [f"OWASP-Agentic/{a} (approximate)" for a in OWASP_ASI.get(rid, ())]
+        tags += [f"external/cwe/{c.lower()}" for c in CWE.get(rid, ())]
+        tags += [f"OWASP-Top10/{a}" for a in OWASP_WEB.get(rid, ())]
         rules.append({
             "id": rid,
-            "name": "".join(w.capitalize() for w in rid.split("_")),
+            "name": "".join(w.capitalize() for w in rid.lower().split("_")),
             "shortDescription": {"text": name},
             "fullDescription": {"text": help_text},
             "helpUri": DRIVER_URI,
@@ -155,7 +191,7 @@ def build_sarif(report: dict, *, source_log: str = "") -> dict:
     gateway = report.get("gateway_findings")
     if isinstance(gateway, dict):
         for row in gateway.get("rows", []):
-            kind = row.get("kind")
+            kind = RULE_ALIASES.get(row.get("kind"), row.get("kind"))
             rid = kind if kind in _LOG_KIND_RULES else "analyzer_match"
             if kind == "toxic_combinations":
                 continue  # already represented as per-path results

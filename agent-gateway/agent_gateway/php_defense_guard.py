@@ -22,6 +22,12 @@ input. Rules, first match wins:
   ``shell_exec``, ``passthru``, ``popen``, ``proc_open``, or
   ``create_function``.
 
+``excluded_keys`` names parameters that are not inspected at all (for
+example a site search box, ``s`` or ``q``); a name also covers everything
+nested under it (``s`` covers ``s[...]``). ``log_only`` records the finding
+(verdict ``LOG_ONLY``) without enforcing it: the PHP class returns the
+finding instead of answering 403. Both default to off.
+
 Denied requests are appended to a SHA-256 hash-chained JSONL log
 (``audit_chain.py`` format: ``seq``, ``prev_hash``, ``entry_hash``) holding
 the rule code, the parameter name, and a SHA-256 of the offending value,
@@ -36,6 +42,7 @@ does not know and can deny unusual benign input.
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 import time
 import urllib.parse
@@ -67,23 +74,38 @@ class PhpDefenseDecision:
     rule_code: str
     field: str = ""
     value_sha256: str = ""
+    enforced: bool = True  # False when a guard in log_only mode recorded the finding
+
+    @property
+    def verdict(self) -> str:
+        if self.allowed:
+            return "ALLOW"
+        return "DENY" if self.enforced else "LOG_ONLY"
 
     def as_dict(self) -> dict:
         return {"allowed": self.allowed, "rule_code": self.rule_code, "field": self.field,
-                "value_sha256": self.value_sha256}
+                "value_sha256": self.value_sha256, "enforced": self.enforced, "verdict": self.verdict}
 
 
-def _leaves(obj: Any, prefix: str = "") -> Iterable[tuple[str, str]]:
-    """``(field, text)`` for every key and string value, nested keys joined PHP-style (``a[b]``)."""
+def _leaves(obj: Any, prefix: str = "", excluded: frozenset = frozenset()) -> Iterable[tuple[str, str]]:
+    """``(field, text)`` for every key and string value, nested keys joined PHP-style (``a[b]``).
+
+    A field whose name is in ``excluded`` is skipped together with everything under it.
+    """
     if isinstance(obj, dict):
         for k, v in obj.items():
             key = str(k)
             name = f"{prefix}[{key}]" if prefix else key
+            if name in excluded:
+                continue
             yield name, key
-            yield from _leaves(v, name)
+            yield from _leaves(v, name, excluded)
     elif isinstance(obj, (list, tuple)):
         for i, v in enumerate(obj):
-            yield from _leaves(v, f"{prefix}[{i}]")
+            name = f"{prefix}[{i}]"
+            if name in excluded:
+                continue
+            yield from _leaves(v, name, excluded)
     elif isinstance(obj, (str, bytes)):
         text = obj.decode("utf-8", "replace") if isinstance(obj, bytes) else obj
         yield prefix, text
@@ -104,9 +126,12 @@ def match_value(text: str) -> Optional[str]:
     return None
 
 
-def inspect_params(params: Any) -> PhpDefenseDecision:
-    """Check request parameters (``$_GET`` + ``$_POST`` + ``$_COOKIE``) without logging."""
-    for field, text in _leaves(params):
+def inspect_params(params: Any, excluded_keys: Iterable[str] = ()) -> PhpDefenseDecision:
+    """Check request parameters (``$_GET`` + ``$_POST`` + ``$_COOKIE``) without logging.
+
+    ``excluded_keys``: parameter names (``s``, or ``filter[q]`` for a nested one) left uninspected.
+    """
+    for field, text in _leaves(params, "", frozenset(str(k) for k in excluded_keys)):
         code = match_value(text)
         if code is not None:
             digest = hashlib.sha256(text.encode("utf-8", "replace")).hexdigest()
@@ -117,9 +142,12 @@ def inspect_params(params: Any) -> PhpDefenseDecision:
 class PhpDefenseGuard:
     """Request validator with a hash-chained violation log, mirroring ``AgentGate\\PhpDefenseGuard``."""
 
-    def __init__(self, audit_log: Path, *, log_allowed: bool = False) -> None:
+    def __init__(self, audit_log: Path, *, log_allowed: bool = False, excluded_keys: Iterable[str] = (),
+                 log_only: bool = False) -> None:
         self.chain = ChainWriter(Path(audit_log))
         self.log_allowed = log_allowed
+        self.excluded_keys = tuple(str(k) for k in excluded_keys)
+        self.log_only = log_only
 
     def inspect(self, request: dict) -> PhpDefenseDecision:
         """Check a request dictionary and log a denial.
@@ -132,11 +160,14 @@ class PhpDefenseGuard:
         if any(k in request for k in sections):
             decision = PhpDefenseDecision(True, COMPLIANT)
             for section in sections:
-                decision = inspect_params(request.get(section) or {})
+                decision = inspect_params(request.get(section) or {}, self.excluded_keys)
                 if not decision.allowed:
                     break
         else:
-            decision = inspect_params(request)
+            decision = inspect_params(request, self.excluded_keys)
+        if not decision.allowed and self.log_only:
+            decision = PhpDefenseDecision(False, decision.rule_code, decision.field, decision.value_sha256,
+                                          enforced=False)
         if not decision.allowed or self.log_allowed:
             self.chain.append({
                 "ts": round(time.time(), 6),
@@ -144,9 +175,33 @@ class PhpDefenseGuard:
                 "uri": str(request.get("uri") or ""),
                 "method": str(request.get("method") or ""),
                 "client_ip": str(request.get("client_ip") or ""),
-                "verdict": "ALLOW" if decision.allowed else "DENY",
+                "verdict": decision.verdict,
                 "rule_code": decision.rule_code,
                 "field": decision.field,
                 "value_sha256": decision.value_sha256,
             })
         return decision
+
+
+def sarif_report(audit_log: Path) -> dict:
+    """Audit-report shape for ``sarif_export.build_sarif`` from a PHP Defense log (either language).
+
+    One ``gateway_findings`` row per logged finding; allowed entries are left out.
+    """
+    rows = []
+    for line in Path(audit_log).read_text(encoding="utf-8").splitlines():
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(entry, dict) or entry.get("kind") != "php_defense" or entry.get("verdict") == "ALLOW":
+            continue
+        rows.append({
+            "kind": entry.get("rule_code"),
+            "tool": entry.get("field") or "",
+            "session": entry.get("client_ip") or "",
+            "atlas": "",
+            "detail": f"{entry.get('method') or ''} {entry.get('uri') or ''} verdict={entry.get('verdict')} "
+                      f"value_sha256={str(entry.get('value_sha256') or '')[:16]}".strip(),
+        })
+    return {"gateway_findings": {"rows": rows}, "source_log": str(audit_log)}

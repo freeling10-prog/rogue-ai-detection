@@ -111,10 +111,37 @@ RULES: dict[str, tuple[str, str, tuple[str, ...], str]] = {
     "STEGO_SUBSEQUENCE_EXFIL": ("error", "Secret subsequence in an outbound identifier", ("AML.T0086",),
                                 "An outbound side-effect identifier contained a protected secret as a dense ordered "
                                 "subsequence."),
+    # v12.1 interpreter, first-listing capability, and cross-agent guards.
+    "INTERPRETER_PROTECTED_WRITE": ("error", "Inline interpreter write to a protected path", ("AML.T0053",),
+                                    "An inline interpreter payload (python -c, node -e, heredoc ...) wrote, deleted, "
+                                    "renamed, chmodded, or symlinked an agent config, hook, or credential path."),
+    "INTERPRETER_OBFUSCATED_PIPE": ("error", "Decoded payload executed by a shell or interpreter", ("AML.T0053",),
+                                    "Base64 / hex-decoded output was piped or substituted into a shell or interpreter, "
+                                    "or inline code executed a decoded payload."),
+    "INTERPRETER_DANGEROUS_PRIMITIVE": ("error", "Process / network primitive in inline code", ("AML.T0053",),
+                                        "An inline interpreter payload called a process, network, or dynamic-code "
+                                        "primitive (subprocess, os.system, child_process, sockets, eval)."),
+    "MCP_FIRST_SEEN_OVERPRIVILEGED": ("error", "MCP tool asks for ungranted credentials or execution", ("AML.T0051",),
+                                      "A tool schema, from the server's first listing on, requested credential or "
+                                      "shell-execution parameters its capability profile does not grant."),
+    "MCP_SCHEMA_PURPOSE_MISMATCH": ("error", "MCP tool schema contradicts its name", ("AML.T0051",),
+                                    "A tool named for a read / format / compute action declared destructive or "
+                                    "side-effecting parameters, or a wildcard schema on a privileged server."),
+    "MCP_TOOL_NAMESPACE_FLOOD": ("error", "MCP tool namespace flood", ("AML.T0051",),
+                                 "One server listed more tools than the per-server limit in a single listing."),
+    "COLLUSION_CROSS_AGENT_LAUNDERING": ("error", "Cross-agent taint laundering", ("AML.T0086",),
+                                         "An agent reached an external or privileged sink carrying untrusted or "
+                                         "secret taint that originated with another agent."),
+    "COLLUSION_SPLIT_TOXIC_CHAIN": ("error", "Toxic chain split across agents", ("AML.T0086",),
+                                    "Sensitive-read, untrusted-ingest, and sink stages of a toxic combination were "
+                                    "completed by different agents connected through shared artifacts or delegation."),
+    "COLLUSION_CYCLIC_AMPLIFICATION": ("error", "Cross-agent ping-pong on one artifact", ("AML.T0086",),
+                                       "Agents passed the same artifact back and forth more than the hand-off limit "
+                                       "without approval."),
     "analyzer_match": ("warning", "Offline analyzer match", (),
                        "A match reported by the offline agentwatch-analyzer."),
 }
-# Rule id -> approximate OWASP Top 10 for Agentic Applications category (v11 and v12 rules).
+# Rule id -> approximate OWASP Top 10 for Agentic Applications category (v11, v12, and v12.1 rules).
 OWASP_ASI: dict[str, tuple[str, ...]] = {
     "schema_drift_denied": ("ASI04",),
     "tool_shadowing_denied": ("ASI04",),
@@ -133,6 +160,15 @@ OWASP_ASI: dict[str, tuple[str, ...]] = {
     "CFI_UNENDORSED_TARGET": ("ASI02",),
     "STEGO_SECRET_SHINGLE_LEAK": ("ASI02",),
     "STEGO_SUBSEQUENCE_EXFIL": ("ASI02",),
+    "INTERPRETER_PROTECTED_WRITE": ("ASI05", "ASI06"),
+    "INTERPRETER_OBFUSCATED_PIPE": ("ASI05",),
+    "INTERPRETER_DANGEROUS_PRIMITIVE": ("ASI05", "ASI02"),
+    "MCP_FIRST_SEEN_OVERPRIVILEGED": ("ASI04", "ASI03"),
+    "MCP_SCHEMA_PURPOSE_MISMATCH": ("ASI04",),
+    "MCP_TOOL_NAMESPACE_FLOOD": ("ASI04", "ASI02"),
+    "COLLUSION_CROSS_AGENT_LAUNDERING": ("ASI07", "ASI03"),
+    "COLLUSION_SPLIT_TOXIC_CHAIN": ("ASI07", "ASI08"),
+    "COLLUSION_CYCLIC_AMPLIFICATION": ("ASI08",),
 }
 # Rule id -> approximate OWASP Top 10 for LLM Applications (2025) category.
 OWASP_LLM: dict[str, tuple[str, ...]] = {
@@ -147,6 +183,15 @@ OWASP_LLM: dict[str, tuple[str, ...]] = {
     "CFI_UNENDORSED_TARGET": ("LLM06:2025",),
     "STEGO_SECRET_SHINGLE_LEAK": ("LLM02:2025",),
     "STEGO_SUBSEQUENCE_EXFIL": ("LLM02:2025",),
+    "INTERPRETER_PROTECTED_WRITE": ("LLM06:2025",),
+    "INTERPRETER_OBFUSCATED_PIPE": ("LLM06:2025",),
+    "INTERPRETER_DANGEROUS_PRIMITIVE": ("LLM06:2025",),
+    "MCP_FIRST_SEEN_OVERPRIVILEGED": ("LLM03:2025", "LLM06:2025"),
+    "MCP_SCHEMA_PURPOSE_MISMATCH": ("LLM03:2025",),
+    "MCP_TOOL_NAMESPACE_FLOOD": ("LLM10:2025",),
+    "COLLUSION_CROSS_AGENT_LAUNDERING": ("LLM02:2025", "LLM06:2025"),
+    "COLLUSION_SPLIT_TOXIC_CHAIN": ("LLM06:2025",),
+    "COLLUSION_CYCLIC_AMPLIFICATION": ("LLM10:2025",),
 }
 # Rule id -> CWE ids and OWASP Top 10 (2021) category, for web-application rules.
 CWE: dict[str, tuple[str, ...]] = {
@@ -166,6 +211,15 @@ CWE: dict[str, tuple[str, ...]] = {
     "CFI_UNENDORSED_TARGET": ("CWE-807", "CWE-285"),
     "STEGO_SECRET_SHINGLE_LEAK": ("CWE-201",),
     "STEGO_SUBSEQUENCE_EXFIL": ("CWE-201", "CWE-514"),
+    "INTERPRETER_PROTECTED_WRITE": ("CWE-15", "CWE-73"),
+    "INTERPRETER_OBFUSCATED_PIPE": ("CWE-78", "CWE-506"),
+    "INTERPRETER_DANGEROUS_PRIMITIVE": ("CWE-78", "CWE-94"),
+    "MCP_FIRST_SEEN_OVERPRIVILEGED": ("CWE-250", "CWE-522"),
+    "MCP_SCHEMA_PURPOSE_MISMATCH": ("CWE-451",),
+    "MCP_TOOL_NAMESPACE_FLOOD": ("CWE-770",),
+    "COLLUSION_CROSS_AGENT_LAUNDERING": ("CWE-441", "CWE-201"),
+    "COLLUSION_SPLIT_TOXIC_CHAIN": ("CWE-441", "CWE-863"),
+    "COLLUSION_CYCLIC_AMPLIFICATION": ("CWE-834",),
 }
 OWASP_WEB: dict[str, tuple[str, ...]] = {
     "PHP_PATH_TRAVERSAL": ("A01:2021",),
@@ -189,6 +243,9 @@ _LOG_KIND_RULES = frozenset({
     "MCP_DEFINITION_DRIFT", "MCP_TOOL_SHADOWING", "MCP_DESCRIPTION_POISONING", "WORKSPACE_CONFIG_WRITE",
     "WORKSPACE_HOOK_TAMPER", "WORKSPACE_SYMLINK_ESCAPE", "WORKSPACE_HIDDEN_DIRECTIVE", "CFI_TAINTED_PRIVILEGED_SINK",
     "CFI_UNENDORSED_TARGET", "STEGO_SECRET_SHINGLE_LEAK", "STEGO_SUBSEQUENCE_EXFIL",
+    "INTERPRETER_PROTECTED_WRITE", "INTERPRETER_OBFUSCATED_PIPE", "INTERPRETER_DANGEROUS_PRIMITIVE",
+    "MCP_FIRST_SEEN_OVERPRIVILEGED", "MCP_SCHEMA_PURPOSE_MISMATCH", "MCP_TOOL_NAMESPACE_FLOOD",
+    "COLLUSION_CROSS_AGENT_LAUNDERING", "COLLUSION_SPLIT_TOXIC_CHAIN", "COLLUSION_CYCLIC_AMPLIFICATION",
 })
 
 

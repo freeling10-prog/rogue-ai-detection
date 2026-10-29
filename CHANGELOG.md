@@ -4,6 +4,42 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
+## [Unreleased] - PHP Defense Guard (28 October 2026)
+
+- `php_defense_guard.php`: fixed a parse error (an unescaped quote in the
+  tautology pattern) that stopped the file from loading. Patterns now run on
+  each decoded key and value of `$_GET` / `$_POST` / `$_COOKIE` (and once
+  more after `rawurldecode`) instead of the `json_encode()` output, where
+  JSON escaping (`\/`, `\"`) kept the path-traversal and deserialization
+  rules from ever matching. Rule codes are `PHP_SQLI_UNION`,
+  `PHP_SQLI_TAUTOLOGY`, `PHP_PATH_TRAVERSAL`, `PHP_DESERIALIZE_DENIED`,
+  `PHP_RCE_EVAL`; the violation log is now SHA-256 hash-chained in the
+  `audit_chain.py` format and stores a hash of the value, not the payload.
+- `php_defense_guard.py`: Python mirror of the same rules for request
+  dictionaries, with a hash-chained violation log.
+- Optional `excludedKeys` / `excluded_keys` (parameters left uninspected,
+  for example a search box; a name covers everything nested under it) and
+  `logOnly` / `log_only` (record the finding with verdict `LOG_ONLY` and
+  return it instead of answering 403). Both default off, and existing
+  constructor calls and `inspect()` calls are unchanged;
+  `inspectAndEnforce()` now returns the finding in log-only mode.
+- `sarif_export.py`: the five `PHP_*` codes are SARIF rules (level
+  `error`) with CWE (22, 502, 94/78, 89) and OWASP Top 10 2021 tags;
+  `PHP_OBJECT_INJECTION` and `PHP_CODE_EXEC` are accepted as aliases of
+  `PHP_DESERIALIZE_DENIED` and `PHP_RCE_EVAL`.
+  `php_defense_guard.sarif_report()` turns a PHP- or Python-written log
+  into SARIF input.
+- `tests/test_php_defense.py` (49): every rule, encoded / nested / key
+  variants, benign input, excluded keys and log-only mode, log chain and
+  tamper detection, SARIF export, and Python / PHP parity on shared
+  fixtures plus a 403 end-to-end run of `inspectAndEnforce()`.
+- CI: PHP 8.3 via `shivammathur/setup-php@v2`, `php -l` on the guard, and
+  the parity tests fail (rather than skip) when `php` is missing under
+  `CI=true` / `GITHUB_ACTIONS=true`. Gateway test floor 450 -> 500.
+- Gateway tests 457 -> **506** (29 files); modules behind `pep.py` 28 ->
+  **29**; workspace **1028**. `sprint_submission/` and `site/sprint/`
+  unchanged.
+
 ## [Unreleased] - v11.1 developer and delivery additions (28 October 2026)
 
 - `claude_code_hook.py`: Claude Code `PreToolUse` policy adapter, standard

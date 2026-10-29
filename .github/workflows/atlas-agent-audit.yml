@@ -29,6 +29,13 @@ jobs:
           . .venv/bin/activate
           python -m pip install --upgrade pip
           python -m pip install -e ".[test]"
+      - name: Set up PHP 8.3 for cross-language guard parity
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      - name: Lint PHP defense guard
+        run: php -l agent_gateway/php_defense_guard.php
       - name: Suite (ATLAS falsification + Hypothesis)
         run: |
           . .venv/bin/activate
@@ -40,10 +47,10 @@ jobs:
               sys.stderr.write(out)
               sys.exit("could not count agent-gateway tests")
           n = int(match.group(1))
-          # Floor against silently losing tests (the suite collects about 350).
+          # Floor against silently losing tests (the suite collects 506).
           # Raise it when the suite grows; pytest below still fails the job on any failure.
-          if n < 450:
-              sys.exit(f"expected at least 450 agent-gateway tests, collected {n}")
+          if n < 500:
+              sys.exit(f"expected at least 500 agent-gateway tests, collected {n}")
           print(f"collected {n} agent-gateway tests")
           PY
           python -m pytest -q --tb=short

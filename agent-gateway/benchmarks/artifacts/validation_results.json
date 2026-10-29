@@ -1,0 +1,25 @@
+{
+  "validation_date": "2026-10-29",
+  "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+  "test_command": "python3 -m pytest -q",
+  "test_result": "64 passed in 1.79s",
+  "state_machine_classes": [
+    "RegistryMachine",
+    "WorkspaceMachine",
+    "WorkflowMachine",
+    "SimilarityMachine"
+  ],
+  "development_dependencies_tested": {
+    "pytest": "9.2.0",
+    "hypothesis": "6.170.13"
+  },
+  "runtime_dependencies": "Python 3.12 standard library only",
+  "runtime_sha256": {
+    "common.py": "3bab1ed30a66dc6a37cf595cb082ef96c856a341a87d998652112cc1a6bf91d4",
+    "registry_pin_validator.py": "0dd9ac739864b5db6a0a06396f4712f1d91d6f934207b9bbd19e9855ac6cf3bc",
+    "workspace_path_validator.py": "7c6d769b65b1ba0c9996c07c334882750c9a4722530415d1f0a0e3e8faf73192",
+    "lattice_flow_validator.py": "d1b2bd218c82d5a7a2c978f246568147147a7bda2ddfe4558f4fc31cb625c401",
+    "shingle_similarity_validator.py": "f4770866537619dd18dfc07a79d6f8964669be1902ec1f7ccdaf10702b242ed0"
+  },
+  "limits": "Reference models, not an OS sandbox or durable dispatcher; microbenchmarks do not establish a deployment SLA."
+}

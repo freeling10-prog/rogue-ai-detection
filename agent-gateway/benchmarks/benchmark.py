@@ -1,0 +1,115 @@
+"""Reproducible bounded microbenchmarks, not an end-to-end SLA certificate."""
+from __future__ import annotations
+
+import gc
+from pathlib import Path
+import json
+import math
+import platform
+import random
+import sys
+import time
+import tracemalloc
+
+from agent_gateway.common import Denied
+from agent_gateway.registry_pin_validator import Registry
+from agent_gateway.workspace_path_validator import Node, Snapshot, analyze_shell
+from agent_gateway.lattice_flow_validator import Call, Gate, Label, MethodPolicy, Step
+from agent_gateway.shingle_similarity_validator import Matcher
+
+N = 5000
+
+
+def percentile(values, q):
+    return sorted(values)[math.ceil(len(values) * q) - 1] / 1e6
+
+
+def run(name, fn, prepare=None):
+    wall = []
+    cpu = []
+    for _ in range(200):
+        if prepare:
+            prepare()
+        fn()
+    for _ in range(N):
+        if prepare:
+            prepare()  # Explicitly excluded: control-plane setup.
+        c0 = time.process_time_ns()
+        w0 = time.perf_counter_ns()
+        fn()
+        wall.append(time.perf_counter_ns() - w0)
+        cpu.append(time.process_time_ns() - c0)
+    return {"name": name, "samples": N,
+            "wall_p50_ms": percentile(wall, .5),
+            "wall_p99_ms": percentile(wall, .99),
+            "wall_max_ms": max(wall) / 1e6,
+            "cpu_p99_ms": percentile(cpu, .99)}
+
+
+def main():
+    r = Registry()
+    for i in range(256):
+        r.register("provider", f"method{i}",
+                   '{"inputSchema":{"type":"object"},"description":"Return a record."}')
+    r.seal()
+    nodes = {"/ws": Node("dir"), "/ws/out": Node("dir")}
+    for i in range(64):
+        nodes[f"/ws/out/f{i}"] = Node("file", (1, i + 1))
+    snap = Snapshot(nodes)
+    shell = "echo x | tee -- " + " ".join(f"out/f{i}" for i in range(64))
+
+    def path_case():
+        snap.check_all(analyze_shell(shell))
+
+    holder = {}
+    step = Step("s", "p", "write", "pin", (("target", "/ws/out/*"),))
+    call = Call("k", "s", "p", "write", "pin", (("target", "/ws/out/f0"),), "args")
+
+    def fresh_gate():
+        holder["gate"] = Gate("job", (step,), {("p", "write"): MethodPolicy(True, False)})
+        holder["gate"].ingest(Label.EXTERNAL)
+
+    rng = random.Random(17)
+    protected = tuple("".join(rng.choices("abcdefghijklmnpqrstuvwxyz", k=256))
+                      for _ in range(16))
+    query = "".join(rng.choices("ABCDEFGHJKLMNPQRSTUVWXYZ0123", k=256))
+    tracemalloc.start()
+    matcher = Matcher(b"benchmark-only-key-material-32byte", protected)
+    matcher_retained, matcher_peak = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+    assert not matcher.check(query).blocked
+
+    results = [
+        run("registry: qualified lookup, 256 pins", lambda: r.lookup("method255", "provider")),
+        run("path: parse + snapshot validation, 64 writes", path_case),
+        run("flow: fresh EXTERNAL step admission", lambda: holder["gate"].begin(call), fresh_gate),
+        run("similarity: 16 x 256, 256-char miss, both modes", lambda: matcher.check(query)),
+    ]
+
+    def combined():
+        r.lookup("method255", "provider")
+        path_case()
+        holder["gate"].begin(call)
+        matcher.check(query)
+
+    results.append(run("combined: four bounded checks", combined, fresh_gate))
+    output = {
+        "python": sys.version, "platform": platform.platform(),
+        "gc_enabled": gc.isenabled(), "samples_per_case": N,
+        "matcher_tracemalloc_retained_bytes": matcher_retained,
+        "matcher_tracemalloc_peak_bytes": matcher_peak,
+        "methodology": (
+            "Sequential warm-process microbenchmark; deterministic synthetic inputs; "
+            "wall and process CPU clocks; setup excluded; GC left enabled. Path uses "
+            "a trusted in-memory model. No filesystem I/O, network, durable commit, "
+            "cross-process lock contention, or distributed failover is measured."),
+        "results": results}
+    out_path = Path(__file__).resolve().with_name("artifacts") / "benchmark_results.json"
+    with open(out_path, "w", encoding="utf-8") as stream:
+        json.dump(output, stream, indent=2)
+        stream.write("\n")
+    print(json.dumps(output, indent=2))
+
+
+if __name__ == "__main__":
+    main()

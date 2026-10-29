@@ -47,10 +47,10 @@ jobs:
               sys.stderr.write(out)
               sys.exit("could not count agent-gateway tests")
           n = int(match.group(1))
-          # Floor against silently losing tests (the suite collects 652).
+          # Floor against silently losing tests (the suite collects 729).
           # Raise it when the suite grows; pytest below still fails the job on any failure.
-          if n < 640:
-              sys.exit(f"expected at least 640 agent-gateway tests, collected {n}")
+          if n < 700:
+              sys.exit(f"expected at least 700 agent-gateway tests, collected {n}")
           print(f"collected {n} agent-gateway tests")
           PY
           python -m pytest -q --tb=short

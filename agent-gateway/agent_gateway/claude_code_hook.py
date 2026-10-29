@@ -66,6 +66,14 @@ from .workspace_config_guard import (
     is_instruction_file,
     scan_workspace_instruction_file,
 )
+# v12.2 reference validators: literal-shell effect analysis.
+from .workspace_path_validator import Denied as _PathDenied
+from .workspace_path_validator import analyze_shell as _analyze_shell
+
+# Reserved namespace entries (mirrors workspace_path_validator.protected()).
+_RESERVED_NAMES = frozenset({"AGENTS.md", "CLAUDE.md", ".mcp.json", ".cursorrules",
+                             ".clinerules", "copilot-instructions.md"})
+_RESERVED_DIRS = frozenset({".git", ".claude", ".cursor", ".vscode", ".idea", ".windsurf"})
 
 HOOK_MODULE = "agent_gateway.claude_code_hook"
 DEFAULT_SETTINGS = Path.home() / ".claude" / "settings.json"
@@ -207,6 +215,42 @@ def _force_push_protected(words: list[str]) -> bool:
     return (force and targets) or forced_ref
 
 
+def is_reserved_path(path: str) -> bool:
+    """Reserved namespace entry by lexical component match (no symlink awareness)."""
+    parts = [p for p in path.replace("\\", "/").split("/") if p]
+    if any(p in _RESERVED_NAMES for p in parts) or any(p in _RESERVED_DIRS for p in parts):
+        return True
+    return any(parts[i:i + 2] == [".github", "workflows"] for i in range(len(parts) - 1))
+
+
+def reference_shell_denial(command: str, cwd: str = "") -> Optional[HookDecision]:
+    """Deny a modelled shell effect on a reserved path (``workspace_path_validator``).
+
+    This hook has no trusted filesystem snapshot, so only the lexical half runs
+    here: parse into a conservative effect union, then refuse mutations of a
+    reserved namespace entry. Syntax outside the modelled subset returns None -
+    the pattern rules above still apply, and the hook never claims to have
+    verified an effect it could not compute. ``pep.py`` runs the full snapshot
+    check where the broker owns one.
+    """
+    try:
+        effects = _analyze_shell(command)
+    except _PathDenied:
+        return None
+    base = cwd or os.getcwd()
+    for intent in effects:
+        if intent.operation == "read":
+            continue
+        for raw in (intent.path, intent.source):
+            if not raw:
+                continue
+            resolved = raw if raw.startswith("/") else os.path.join(base, raw)
+            if is_reserved_path(resolved):
+                return HookDecision(False, "WORKSPACE_EFFECT_DENIED",
+                                    f"{intent.operation} effect on reserved path {raw[:120]}")
+    return None
+
+
 def shell_policy_violation(command: str) -> Optional[str]:
     """Short description of the first command-policy violation, or None."""
     if _SUBST_DOWNLOAD_RE.search(command):
@@ -237,6 +281,12 @@ def _workspace_checks(tool_name: str, tool_input: dict, allow: Iterable[str], cw
         ws = guard.inspect_tool_call(tool_name, tool_input)
         if not ws.allowed:
             return HookDecision(False, ws.rule_code, f"{tool_name} {ws.operation} on {ws.path}: {ws.detail}")
+    if tool_name == "Bash":
+        command = tool_input.get("command") or tool_input.get("cmd")
+        if isinstance(command, str) and command.strip():
+            denial = reference_shell_denial(command, cwd)
+            if denial is not None:
+                return denial
     if tool_name == "Read":
         path = tool_input.get("file_path") or tool_input.get("path")
         if isinstance(path, str) and is_instruction_file(path):

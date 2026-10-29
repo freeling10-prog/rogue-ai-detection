@@ -111,6 +111,22 @@ RULES: dict[str, tuple[str, str, tuple[str, ...], str]] = {
     "STEGO_SUBSEQUENCE_EXFIL": ("error", "Secret subsequence in an outbound identifier", ("AML.T0086",),
                                 "An outbound side-effect identifier contained a protected secret as a dense ordered "
                                 "subsequence."),
+    # v12.2 reference middleware validators.
+    "REGISTRY_PIN_DRIFT": ("error", "Descriptor pin revoked", ("AML.T0051",),
+                           "A pinned provider descriptor changed, failed metadata lint, or disappeared: the pin is "
+                           "revoked for the rest of the session and calls to it are refused."),
+    "REGISTRY_ALIAS_AMBIGUOUS": ("error", "Ambiguous tool alias", ("AML.T0051",),
+                                 "Two providers advertised the same bare tool name. The alias never resolves by "
+                                 "arrival order or last-writer-wins; qualified calls stay distinguishable."),
+    "WORKSPACE_EFFECT_DENIED": ("error", "Protected path in a modelled shell effect", ("AML.T0053",),
+                                "A literal-subset shell command had an effect on a reserved namespace entry or a "
+                                "shared inode, or used syntax outside the modelled subset (fail closed)."),
+    "FLOW_MANIFEST_DENIED": ("error", "Call outside the pinned workflow manifest", ("AML.T0051",),
+                             "A call did not match an unused precommitted manifest step on provider, method, pin, "
+                             "resource roles, path pattern, or argument digest."),
+    "SIMILARITY_LEAK_DENIED": ("error", "Protected string in an outbound identifier", ("AML.T0086",),
+                               "An outbound argument shared a rolling shingle or dense subsequence coverage with a "
+                               "protected string under the pinned normalization profile."),
     "analyzer_match": ("warning", "Offline analyzer match", (),
                        "A match reported by the offline agentwatch-analyzer."),
 }
@@ -133,6 +149,11 @@ OWASP_ASI: dict[str, tuple[str, ...]] = {
     "CFI_UNENDORSED_TARGET": ("ASI02",),
     "STEGO_SECRET_SHINGLE_LEAK": ("ASI02",),
     "STEGO_SUBSEQUENCE_EXFIL": ("ASI02",),
+    "REGISTRY_PIN_DRIFT": ("ASI04",),
+    "REGISTRY_ALIAS_AMBIGUOUS": ("ASI04",),
+    "WORKSPACE_EFFECT_DENIED": ("ASI05",),
+    "FLOW_MANIFEST_DENIED": ("ASI01",),
+    "SIMILARITY_LEAK_DENIED": ("ASI02",),
 }
 # Rule id -> approximate OWASP Top 10 for LLM Applications (2025) category.
 OWASP_LLM: dict[str, tuple[str, ...]] = {
@@ -147,6 +168,11 @@ OWASP_LLM: dict[str, tuple[str, ...]] = {
     "CFI_UNENDORSED_TARGET": ("LLM06:2025",),
     "STEGO_SECRET_SHINGLE_LEAK": ("LLM02:2025",),
     "STEGO_SUBSEQUENCE_EXFIL": ("LLM02:2025",),
+    "REGISTRY_PIN_DRIFT": ("LLM03:2025",),
+    "REGISTRY_ALIAS_AMBIGUOUS": ("LLM03:2025",),
+    "WORKSPACE_EFFECT_DENIED": ("LLM06:2025",),
+    "FLOW_MANIFEST_DENIED": ("LLM01:2025",),
+    "SIMILARITY_LEAK_DENIED": ("LLM02:2025",),
 }
 # Rule id -> CWE ids and OWASP Top 10 (2021) category, for web-application rules.
 CWE: dict[str, tuple[str, ...]] = {
@@ -166,6 +192,11 @@ CWE: dict[str, tuple[str, ...]] = {
     "CFI_UNENDORSED_TARGET": ("CWE-807", "CWE-285"),
     "STEGO_SECRET_SHINGLE_LEAK": ("CWE-201",),
     "STEGO_SUBSEQUENCE_EXFIL": ("CWE-201", "CWE-514"),
+    "REGISTRY_PIN_DRIFT": ("CWE-345", "CWE-494"),
+    "REGISTRY_ALIAS_AMBIGUOUS": ("CWE-706",),
+    "WORKSPACE_EFFECT_DENIED": ("CWE-59",),
+    "FLOW_MANIFEST_DENIED": ("CWE-807", "CWE-285"),
+    "SIMILARITY_LEAK_DENIED": ("CWE-201",),
 }
 OWASP_WEB: dict[str, tuple[str, ...]] = {
     "PHP_PATH_TRAVERSAL": ("A01:2021",),
@@ -189,6 +220,8 @@ _LOG_KIND_RULES = frozenset({
     "MCP_DEFINITION_DRIFT", "MCP_TOOL_SHADOWING", "MCP_DESCRIPTION_POISONING", "WORKSPACE_CONFIG_WRITE",
     "WORKSPACE_HOOK_TAMPER", "WORKSPACE_SYMLINK_ESCAPE", "WORKSPACE_HIDDEN_DIRECTIVE", "CFI_TAINTED_PRIVILEGED_SINK",
     "CFI_UNENDORSED_TARGET", "STEGO_SECRET_SHINGLE_LEAK", "STEGO_SUBSEQUENCE_EXFIL",
+    "REGISTRY_PIN_DRIFT", "REGISTRY_ALIAS_AMBIGUOUS", "WORKSPACE_EFFECT_DENIED",
+    "FLOW_MANIFEST_DENIED", "SIMILARITY_LEAK_DENIED",
 })
 
 

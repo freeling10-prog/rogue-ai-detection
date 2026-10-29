@@ -4,6 +4,52 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
+## [Unreleased] - v12.1 interpreter, first-listing, and collusion guards (29 October 2026)
+
+- `interpreter_exec_guard.py`: inline payloads of `python -c` (parsed with
+  `ast`; `os.path.join`, `Path(...) / ...`, f-strings, concatenation, and
+  simple assignments are constant-folded), `node -e`, `ruby -e`,
+  `perl -e`, `php -r`, `bash -c` / `sh -c`, heredocs (`python3 - <<EOF`,
+  `cat <<EOF | node`), and decode pipelines (`base64 -d`, `xxd -r`,
+  `openssl ... -d` into a shell or interpreter, `eval "$(... | base64 -d)"`,
+  `bash <(...)`). `INTERPRETER_PROTECTED_WRITE` (paths through
+  `workspace_config_guard.classify_path` plus credential and system
+  locations), `INTERPRETER_OBFUSCATED_PIPE`,
+  `INTERPRETER_DANGEROUS_PRIMITIVE`. Closes the v12 interpreter-write gap.
+- `mcp_capability_manifest_guard.py`: zero-trust check of every listing,
+  the first included, against a capability profile
+  (`PURE_TRANSFORM` ... `PRIVILEGED`). `MCP_FIRST_SEEN_OVERPRIVILEGED`
+  (credential parameters below `EXTERNAL_NETWORK`, execution parameters
+  below `PRIVILEGED`, neither for unverified servers; pagination tokens
+  and token limits are not credentials), `MCP_SCHEMA_PURPOSE_MISMATCH`,
+  `MCP_TOOL_NAMESPACE_FLOOD` (more than 32 tools in one listing). Closes
+  the v12 first-listing gap.
+- `cross_agent_collusion_guard.py`: provenance graph of agents and
+  `file:` / `mem:` / `msg:` artifacts with monotone taint origins and
+  toxic-chain stages. `COLLUSION_CROSS_AGENT_LAUNDERING`,
+  `COLLUSION_SPLIT_TOXIC_CHAIN`, `COLLUSION_CYCLIC_AMPLIFICATION`.
+- `pep.py`: interpreter guard before the argument firewall (-32055 /
+  -32056 / -32057); capability profiles on every proxied listing (-32058 /
+  -32059 / -32062; `PepConfig.mcp_server_profiles`,
+  `max_tools_per_server`; core servers are `PRIVILEGED`); collusion graph
+  on notes, the internal bus, files, delegation, and spawn, with sinks
+  checked after the other gates (-32063 / -32064 / -32065;
+  `max_handoff_depth`). -32060 / -32061 stay the sampling errors. A
+  secret read by one agent and passed to a peer through an untainted note
+  is now denied at the peer's send.
+- `claude_code_hook.py`: the interpreter guard on `Bash`, honouring
+  `--allow-workspace-writes` for config / hook paths (credential paths
+  never).
+- `sarif_export.py` / `audit_report.py`: the nine codes as error-level
+  rules with CWE, OWASP Agentic, and OWASP LLM tags, counted in the
+  decision-log summary.
+- `tests/test_v12_1_guards.py` (144, including the ninth Hypothesis state
+  machine for cross-agent provenance). Gateway tests 652 -> **796** (31
+  files); modules behind `pep.py` 33 -> **36**; Hypothesis state machines
+  8 -> **9**; workspace **1318**; CI floor 640 -> 780. 750 benign
+  decisions, 0 denials; A / B / C 57/57; Group D 124/124.
+  `sprint_submission/` and `site/sprint/` unchanged.
+
 ## [Unreleased] - v12 evasion guards (29 October 2026)
 
 - `mcp_rugpull_guard.py`: registry of SHA-256 fingerprints per

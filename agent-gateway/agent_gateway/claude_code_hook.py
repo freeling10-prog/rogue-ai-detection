@@ -27,6 +27,19 @@ Rules (first match wins):
 - ``SHELL_POLICY_DENIED``: a ``Bash`` command with a recursive ``rm`` of
   ``/`` or the home directory, a force push to ``main`` / ``master``, or a
   remote download piped straight into a shell or interpreter.
+- ``WORKSPACE_CONFIG_WRITE`` / ``WORKSPACE_HOOK_TAMPER`` /
+  ``WORKSPACE_SYMLINK_ESCAPE`` (``workspace_config_guard.py``): a
+  ``Write`` / ``Edit`` / ``MultiEdit`` / ``NotebookEdit`` on, or a ``Bash``
+  redirection, ``tee``, ``cp``, ``mv``, ``ln -s``, ``chmod``, ``sed -i``, or
+  ``git config`` touching, an agent instruction or configuration file
+  (``CLAUDE.md``, ``.claude/``, ``.mcp.json``, ``.cursor/`` ...) or an
+  execution hook (``.git/hooks/``, ``.git/config``, CI workflows, shell rc
+  files). ``--allow-workspace-writes config,hook`` (or the
+  ``AGENTGATE_ALLOW_WORKSPACE_WRITES`` environment variable) opts in;
+  symlink escapes are never allowed.
+- ``WORKSPACE_HIDDEN_DIRECTIVE``: a ``Read`` of an instruction file
+  (``CLAUDE.md``, ``AGENTS.md``, ``SKILL.md``, ``.cursor/rules/*``) whose
+  current content on disk has an HTML comment or invisible characters.
 
 Input that is not a JSON object is denied (``HOOK_INPUT_INVALID``): the
 adapter fails closed. The rules are lexical configuration checks, not a
@@ -48,6 +61,11 @@ from pathlib import Path
 from typing import Any, Iterable, Optional
 
 from .audit_chain import GENESIS, link, verify_chain_file
+from .workspace_config_guard import (
+    WorkspaceConfigGuard,
+    is_instruction_file,
+    scan_workspace_instruction_file,
+)
 
 HOOK_MODULE = "agent_gateway.claude_code_hook"
 DEFAULT_SETTINGS = Path.home() / ".claude" / "settings.json"
@@ -209,8 +227,39 @@ def shell_policy_violation(command: str) -> Optional[str]:
     return None
 
 
-def evaluate(tool_name: str, tool_input: Any) -> HookDecision:
-    """Evaluate one ``PreToolUse`` call against the workspace policy rules."""
+WORKSPACE_ENV = "AGENTGATE_ALLOW_WORKSPACE_WRITES"
+MAX_INSTRUCTION_BYTES = 262_144
+
+
+def _workspace_checks(tool_name: str, tool_input: dict, allow: Iterable[str], cwd: str) -> Optional[HookDecision]:
+    guard = WorkspaceConfigGuard(allow=allow)
+    if tool_name in PATH_TOOLS or tool_name == "Bash":
+        ws = guard.inspect_tool_call(tool_name, tool_input)
+        if not ws.allowed:
+            return HookDecision(False, ws.rule_code, f"{tool_name} {ws.operation} on {ws.path}: {ws.detail}")
+    if tool_name == "Read":
+        path = tool_input.get("file_path") or tool_input.get("path")
+        if isinstance(path, str) and is_instruction_file(path):
+            full = Path(path).expanduser()
+            if not full.is_absolute() and cwd:
+                full = Path(cwd) / full
+            try:
+                with full.open("rb") as f:
+                    content = f.read(MAX_INSTRUCTION_BYTES).decode("utf-8", "replace")
+            except OSError:
+                return None
+            hit = scan_workspace_instruction_file(path, content)
+            if hit is not None:
+                return HookDecision(False, hit.rule_code, f"Read of {path}: {hit.detail}")
+    return None
+
+
+def evaluate(tool_name: str, tool_input: Any, *, workspace_allow: Iterable[str] = (), cwd: str = "") -> HookDecision:
+    """Evaluate one ``PreToolUse`` call against the workspace policy rules.
+
+    ``workspace_allow`` opts in to ``"config"`` / ``"hook"`` writes; ``cwd``
+    resolves a relative ``Read`` path for the instruction-file scan.
+    """
     if not isinstance(tool_input, dict):
         tool_input = {"value": tool_input}
     for text in _strings(tool_input):
@@ -236,6 +285,9 @@ def evaluate(tool_name: str, tool_input: Any) -> HookDecision:
         violation = shell_policy_violation(command)
         if violation:
             return HookDecision(False, "SHELL_POLICY_DENIED", f"Bash command policy: {violation}")
+    ws = _workspace_checks(tool_name, tool_input, workspace_allow, cwd)
+    if ws is not None:
+        return ws
     return HookDecision(True, "POLICY_COMPLIANT", "no workspace policy rule matched")
 
 
@@ -315,7 +367,12 @@ def block_response(decision: HookDecision, entry_hash: str = "") -> dict:
     }
 
 
-def handle(raw: str, audit_log: Path) -> Optional[dict]:
+def workspace_allow_from(value: Optional[str]) -> frozenset:
+    """``"config,hook"`` -> ``{"config", "hook"}``; unknown words are ignored."""
+    return frozenset(w.strip().lower() for w in (value or "").split(",") if w.strip().lower() in ("config", "hook"))
+
+
+def handle(raw: str, audit_log: Path, workspace_allow: Iterable[str] = ()) -> Optional[dict]:
     """Evaluate one hook payload. Returns the block response, or None when allowed."""
     t0 = time.thread_time_ns()
     try:
@@ -328,7 +385,8 @@ def handle(raw: str, audit_log: Path) -> Optional[dict]:
     else:
         session_id = str(payload.get("session_id") or "unknown")
         tool_name = str(payload.get("tool_name") or "")
-        decision = evaluate(tool_name, payload.get("tool_input") or {})
+        decision = evaluate(tool_name, payload.get("tool_input") or {}, workspace_allow=workspace_allow,
+                            cwd=str(payload.get("cwd") or ""))
     elapsed_ms = (time.thread_time_ns() - t0) / 1e6
     entry_hash = ""
     try:
@@ -340,14 +398,17 @@ def handle(raw: str, audit_log: Path) -> Optional[dict]:
 
 # --- install / self-test ----------------------------------------------------------
 
-def hook_command(audit_log: Optional[Path] = None) -> str:
+def hook_command(audit_log: Optional[Path] = None, workspace_allow: Iterable[str] = ()) -> str:
     cmd = f"{shlex.quote(sys.executable)} -m {HOOK_MODULE}"
     if audit_log is not None:
         cmd += f" --audit-log {shlex.quote(str(audit_log))}"
+    allow = sorted(workspace_allow_from(",".join(workspace_allow)))
+    if allow:
+        cmd += f" --allow-workspace-writes {','.join(allow)}"
     return cmd
 
 
-def install(settings_path: Path, audit_log: Optional[Path] = None) -> bool:
+def install(settings_path: Path, audit_log: Optional[Path] = None, workspace_allow: Iterable[str] = ()) -> bool:
     """Add the PreToolUse hook to ``settings_path``. Returns False when it was already present."""
     settings_path = Path(settings_path).expanduser()
     data: dict = {}
@@ -363,7 +424,8 @@ def install(settings_path: Path, audit_log: Optional[Path] = None) -> bool:
         for h in (group.get("hooks") or []) if isinstance(group, dict) else []:
             if isinstance(h, dict) and HOOK_MODULE in str(h.get("command") or ""):
                 return False
-    pre.append({"matcher": "*", "hooks": [{"type": "command", "command": hook_command(audit_log)}]})
+    pre.append({"matcher": "*", "hooks": [{"type": "command",
+                                            "command": hook_command(audit_log, workspace_allow)}]})
     settings_path.parent.mkdir(parents=True, exist_ok=True)
     tmp = settings_path.with_name(settings_path.name + ".agentgate.tmp")
     tmp.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
@@ -399,14 +461,18 @@ def main(argv: Optional[list[str]] = None) -> int:
     ap.add_argument("--self-test", action="store_true", help="run the four validation checks")
     ap.add_argument("--settings", type=Path, default=DEFAULT_SETTINGS, help="settings.json path for --install")
     ap.add_argument("--audit-log", type=Path, default=None, help=f"audit log path (default {DEFAULT_AUDIT_LOG})")
+    ap.add_argument("--allow-workspace-writes", default=None, metavar="config,hook",
+                    help=f"opt in to agent config and / or execution-hook writes (or set {WORKSPACE_ENV})")
     args = ap.parse_args(argv)
+    allow = workspace_allow_from(args.allow_workspace_writes if args.allow_workspace_writes is not None
+                                 else os.environ.get(WORKSPACE_ENV))
     if args.install:
-        added = install(args.settings, args.audit_log)
+        added = install(args.settings, args.audit_log, allow)
         print(f"{'installed' if added else 'already installed'}: PreToolUse hook in {args.settings}")
         return 0
     if args.self_test:
         return self_test()
-    out = handle(sys.stdin.read(), args.audit_log or DEFAULT_AUDIT_LOG)
+    out = handle(sys.stdin.read(), args.audit_log or DEFAULT_AUDIT_LOG, allow)
     if out is not None:
         sys.stdout.write(json.dumps(out) + "\n")
     return 0

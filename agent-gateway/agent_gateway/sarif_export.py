@@ -79,10 +79,42 @@ RULES: dict[str, tuple[str, str, tuple[str, ...], str]] = {
                        "A request parameter carried a UNION SELECT SQL injection payload."),
     "PHP_SQLI_TAUTOLOGY": ("error", "SQL injection (tautology)", (),
                            "A request parameter carried a boolean tautology SQL injection payload such as ' OR '1'='1."),
+    # v12 evasion guards.
+    "MCP_DEFINITION_DRIFT": ("error", "MCP tool definition drift", ("AML.T0051",),
+                             "A pinned MCP tool's description or input schema changed mid-session without a "
+                             "re-approval token."),
+    "MCP_TOOL_SHADOWING": ("error", "MCP tool shadowing", ("AML.T0051",),
+                           "A server registered a tool name owned by another active server or a core built-in."),
+    "MCP_DESCRIPTION_POISONING": ("error", "MCP tool description poisoning", ("AML.T0051",),
+                                  "A tool or parameter description carried hidden instructions: an HTML comment, "
+                                  "an instruction tag, invisible characters, or a credential-file directive."),
+    "WORKSPACE_CONFIG_WRITE": ("error", "Agent instruction / config file write", ("AML.T0051",),
+                               "A tool call or shell command wrote, renamed, or deleted an agent instruction, skill, "
+                               "MCP, or IDE configuration file."),
+    "WORKSPACE_HOOK_TAMPER": ("error", "Execution hook tampering", ("AML.T0053",),
+                              "A tool call or shell command modified a git hook, git config, CI workflow, or shell "
+                              "start-up file, or changed its permissions."),
+    "WORKSPACE_SYMLINK_ESCAPE": ("error", "Symlink to a protected path", ("AML.T0053",),
+                                 "A symlink was created to or from a protected configuration or credential path."),
+    "WORKSPACE_HIDDEN_DIRECTIVE": ("error", "Hidden directive in an instruction file", ("AML.T0051",),
+                                   "An agent instruction file carried an HTML comment or invisible Unicode "
+                                   "characters before the agent read it."),
+    "CFI_TAINTED_PRIVILEGED_SINK": ("error", "Privileged sink after untrusted input", ("AML.T0051",),
+                                    "After reading untrusted data, the session called a privileged sink that the "
+                                    "pre-taint capability manifest does not grant."),
+    "CFI_UNENDORSED_TARGET": ("error", "Privileged call to an unendorsed target", ("AML.T0051",),
+                              "After reading untrusted data, a granted privileged sink targeted a resource outside "
+                              "the pre-taint capability manifest."),
+    "STEGO_SECRET_SHINGLE_LEAK": ("error", "Secret shingles in an outbound identifier", ("AML.T0086",),
+                                  "An outbound argument or side-effect identifier (branch, package, DNS label, URL "
+                                  "part) shared k-gram shingles with a protected secret."),
+    "STEGO_SUBSEQUENCE_EXFIL": ("error", "Secret subsequence in an outbound identifier", ("AML.T0086",),
+                                "An outbound side-effect identifier contained a protected secret as a dense ordered "
+                                "subsequence."),
     "analyzer_match": ("warning", "Offline analyzer match", (),
                        "A match reported by the offline agentwatch-analyzer."),
 }
-# Rule id -> approximate OWASP Top 10 for Agentic Applications category (v11 rules only).
+# Rule id -> approximate OWASP Top 10 for Agentic Applications category (v11 and v12 rules).
 OWASP_ASI: dict[str, tuple[str, ...]] = {
     "schema_drift_denied": ("ASI04",),
     "tool_shadowing_denied": ("ASI04",),
@@ -90,6 +122,31 @@ OWASP_ASI: dict[str, tuple[str, ...]] = {
     "gui_keychord_denied": ("ASI02",),
     "provenance_tamper_denied": ("ASI06",),
     "sharded_exfil_denied": ("ASI02",),
+    "MCP_DEFINITION_DRIFT": ("ASI04",),
+    "MCP_TOOL_SHADOWING": ("ASI04",),
+    "MCP_DESCRIPTION_POISONING": ("ASI01", "ASI04"),
+    "WORKSPACE_CONFIG_WRITE": ("ASI06",),
+    "WORKSPACE_HOOK_TAMPER": ("ASI05",),
+    "WORKSPACE_SYMLINK_ESCAPE": ("ASI02",),
+    "WORKSPACE_HIDDEN_DIRECTIVE": ("ASI01", "ASI06"),
+    "CFI_TAINTED_PRIVILEGED_SINK": ("ASI01", "ASI02"),
+    "CFI_UNENDORSED_TARGET": ("ASI02",),
+    "STEGO_SECRET_SHINGLE_LEAK": ("ASI02",),
+    "STEGO_SUBSEQUENCE_EXFIL": ("ASI02",),
+}
+# Rule id -> approximate OWASP Top 10 for LLM Applications (2025) category.
+OWASP_LLM: dict[str, tuple[str, ...]] = {
+    "MCP_DEFINITION_DRIFT": ("LLM03:2025",),
+    "MCP_TOOL_SHADOWING": ("LLM03:2025",),
+    "MCP_DESCRIPTION_POISONING": ("LLM01:2025",),
+    "WORKSPACE_CONFIG_WRITE": ("LLM06:2025",),
+    "WORKSPACE_HOOK_TAMPER": ("LLM06:2025",),
+    "WORKSPACE_SYMLINK_ESCAPE": ("LLM06:2025",),
+    "WORKSPACE_HIDDEN_DIRECTIVE": ("LLM01:2025",),
+    "CFI_TAINTED_PRIVILEGED_SINK": ("LLM01:2025", "LLM06:2025"),
+    "CFI_UNENDORSED_TARGET": ("LLM06:2025",),
+    "STEGO_SECRET_SHINGLE_LEAK": ("LLM02:2025",),
+    "STEGO_SUBSEQUENCE_EXFIL": ("LLM02:2025",),
 }
 # Rule id -> CWE ids and OWASP Top 10 (2021) category, for web-application rules.
 CWE: dict[str, tuple[str, ...]] = {
@@ -98,6 +155,17 @@ CWE: dict[str, tuple[str, ...]] = {
     "PHP_RCE_EVAL": ("CWE-94", "CWE-78"),
     "PHP_SQLI_UNION": ("CWE-89",),
     "PHP_SQLI_TAUTOLOGY": ("CWE-89",),
+    "MCP_DEFINITION_DRIFT": ("CWE-345", "CWE-494"),
+    "MCP_TOOL_SHADOWING": ("CWE-706",),
+    "MCP_DESCRIPTION_POISONING": ("CWE-1427",),
+    "WORKSPACE_CONFIG_WRITE": ("CWE-15",),
+    "WORKSPACE_HOOK_TAMPER": ("CWE-15", "CWE-829"),
+    "WORKSPACE_SYMLINK_ESCAPE": ("CWE-59",),
+    "WORKSPACE_HIDDEN_DIRECTIVE": ("CWE-1427",),
+    "CFI_TAINTED_PRIVILEGED_SINK": ("CWE-807", "CWE-1427"),
+    "CFI_UNENDORSED_TARGET": ("CWE-807", "CWE-285"),
+    "STEGO_SECRET_SHINGLE_LEAK": ("CWE-201",),
+    "STEGO_SUBSEQUENCE_EXFIL": ("CWE-201", "CWE-514"),
 }
 OWASP_WEB: dict[str, tuple[str, ...]] = {
     "PHP_PATH_TRAVERSAL": ("A01:2021",),
@@ -118,6 +186,9 @@ _LOG_KIND_RULES = frozenset({
     "schema_drift_denied", "tool_shadowing_denied", "gui_region_denied", "gui_keychord_denied",
     "provenance_tamper_denied", "sharded_exfil_denied",
     "PHP_PATH_TRAVERSAL", "PHP_DESERIALIZE_DENIED", "PHP_RCE_EVAL", "PHP_SQLI_UNION", "PHP_SQLI_TAUTOLOGY",
+    "MCP_DEFINITION_DRIFT", "MCP_TOOL_SHADOWING", "MCP_DESCRIPTION_POISONING", "WORKSPACE_CONFIG_WRITE",
+    "WORKSPACE_HOOK_TAMPER", "WORKSPACE_SYMLINK_ESCAPE", "WORKSPACE_HIDDEN_DIRECTIVE", "CFI_TAINTED_PRIVILEGED_SINK",
+    "CFI_UNENDORSED_TARGET", "STEGO_SECRET_SHINGLE_LEAK", "STEGO_SUBSEQUENCE_EXFIL",
 })
 
 
@@ -154,6 +225,7 @@ def _driver_rules(used: set[str]) -> list[dict]:
         tags += [f"OWASP-Agentic/{a} (approximate)" for a in OWASP_ASI.get(rid, ())]
         tags += [f"external/cwe/{c.lower()}" for c in CWE.get(rid, ())]
         tags += [f"OWASP-Top10/{a}" for a in OWASP_WEB.get(rid, ())]
+        tags += [f"OWASP-LLM/{a} (approximate)" for a in OWASP_LLM.get(rid, ())]
         rules.append({
             "id": rid,
             "name": "".join(w.capitalize() for w in rid.lower().split("_")),

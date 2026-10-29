@@ -42,6 +42,15 @@ Safety:
   window that is checked for protected values split across calls and for
   cumulative invisible watermark characters (``temporal_accumulator_guard.py``,
   approximate AML.T0086).
+- v12: tool definitions with hidden instruction markers are not served and
+  calls to them are denied (``mcp_rugpull_guard.py``); writes to agent
+  instruction, MCP / IDE configuration, and execution-hook files are denied
+  (``workspace_config_guard.py``); a session with a pinned
+  ``UserCapabilityManifest`` cannot reach an ungranted privileged sink or
+  target after an untrusted read (``control_flow_integrity_guard.py``); and
+  sensitive values reshaped into branch names, package names, DNS labels,
+  URL parts, or other identifier arguments are denied on outbound calls
+  (``stego_exfil_guard.py``; free-text bodies stay with ``deobfuscate.py``).
 """
 from __future__ import annotations
 
@@ -73,6 +82,10 @@ from .gui_action_guard import KEY_ACTIONS, POINTER_ACTIONS, TEXT_ACTIONS, GuiAct
 from .memory_provenance_guard import ALL_CAPABILITIES_MASK, MemoryProvenanceGuard
 from .schema_integrity_guard import SchemaIntegrityGuard
 from .temporal_accumulator_guard import TemporalAccumulatorGuard
+from .control_flow_integrity_guard import ControlFlowIntegrityGuard, UserCapabilityManifest
+from .mcp_rugpull_guard import POISONING, scan_definition
+from .stego_exfil_guard import StegoExfilGuard
+from .workspace_config_guard import WorkspaceConfigGuard
 from .paths import default_registry_path
 from .registry import Registry
 from .scrub import scrub_obj
@@ -126,6 +139,16 @@ _PROV_TAINTED = 1
 _PROV_CAP_EGRESS = 1
 _PROV_KEY_LABEL = b"agent-gateway.memory-provenance/1"
 _RESOURCE_ARGS = ("uri", "resource_uri", "resource", "path")
+# v12 rule code -> JSON-RPC error code.
+_V12_CODES = {
+    "WORKSPACE_CONFIG_WRITE": -32045, "WORKSPACE_HOOK_TAMPER": -32046, "WORKSPACE_SYMLINK_ESCAPE": -32047,
+    "CFI_TAINTED_PRIVILEGED_SINK": -32048, "CFI_UNENDORSED_TARGET": -32049,
+    "STEGO_SECRET_SHINGLE_LEAK": -32052, "STEGO_SUBSEQUENCE_EXFIL": -32053, POISONING: -32054,
+}
+_V12_ATLAS = {"WORKSPACE_CONFIG_WRITE": "AML.T0051", "WORKSPACE_HOOK_TAMPER": "AML.T0053",
+              "WORKSPACE_SYMLINK_ESCAPE": "AML.T0053", "CFI_TAINTED_PRIVILEGED_SINK": "AML.T0051",
+              "CFI_UNENDORSED_TARGET": "AML.T0051", "STEGO_SECRET_SHINGLE_LEAK": "AML.T0086",
+              "STEGO_SUBSEQUENCE_EXFIL": "AML.T0086", POISONING: "AML.T0051"}
 _DEFAULT_SINK_TOOLS = tuple(sorted(
     name for name, ec in TOOL_EGRESS.items() if ec in (EGRESS_WRITE, EGRESS_SEND, EGRESS_CREDS)
     and name not in SENSITIVE_READ_TOOLS
@@ -158,6 +181,8 @@ class PepConfig:
     # Computer-use viewport and reserved rectangles [x_min, y_min, x_max, y_max, label]. None = defaults.
     gui_viewport: tuple = (1440, 900)
     gui_regions: Optional[list] = None
+    # Opt in to agent config ("config") and / or execution-hook ("hook") writes. Symlink escapes stay denied.
+    workspace_allow: tuple = ()
 
 
 def shannon_entropy(s: str) -> float:
@@ -290,6 +315,10 @@ class PolicyEngine:
         self.schema_guard = SchemaIntegrityGuard()
         self.gui_guard = GuiActionGuard(regions=self.cfg.gui_regions, viewport=self.cfg.gui_viewport)
         self.accumulator = TemporalAccumulatorGuard()
+        self.workspace = WorkspaceConfigGuard(allow=self.cfg.workspace_allow)
+        self.cfi = ControlFlowIntegrityGuard()
+        self.stego = StegoExfilGuard()
+        self.poisoned_tools: dict[tuple[str, str], dict] = {}
         self._provenance: Optional[MemoryProvenanceGuard] = None
         self.inventories: dict[str, dict[str, dict]] = {}
         self.toxic: dict[str, dict] = {}
@@ -558,6 +587,20 @@ class PolicyEngine:
                 out["gui"] = verdict.as_dict()
                 return out
 
+        # --- Agent config, skill, and execution-hook persistence (v12) ---
+        ws = self.workspace.inspect_tool_call(tool_name, args, session_id=sess.session_id)
+        if not ws.allowed:
+            return self._v12_deny(sess, step, tool_name, args, ws.rule_code, {"workspace": ws.as_dict()})
+
+        # --- Control-flow integrity for sessions with a pinned capability manifest (v12) ---
+        label = self.cfi.sessions.get(sess.session_id)
+        if label is not None and label.manifest is not None:
+            if sess.tainted:
+                self.cfi.mark_untrusted(sess.session_id, sess.taint_source_id or "pep_taint")
+            cfi = self.cfi.evaluate(sess.session_id, tool_name, args)
+            if not cfi.allowed:
+                return self._v12_deny(sess, step, tool_name, args, cfi.rule_code, {"cfi": cfi.as_dict()})
+
         # --- Review hold (MCP rug pull, side channel): every call waits for a person ---
         if sess.review_hold and not oob():
             if sess.review_hold == "mcp_rug_pull_detected":
@@ -797,6 +840,11 @@ class PolicyEngine:
                 out = self._deny(sess, step, tool_name, args, "sharded_exfil_denied", -32043, atlas="AML.T0086")
                 out["accumulator"] = detail
                 return out
+        if outbound and self.stego.secret_count(sess.session_id):
+            sd = self.stego.inspect_outbound(tool_name, args, session_id=sess.session_id, identifiers_only=True)
+            if not sd.allowed:
+                self._taint(sess, "stego_exfil", source_id=f"stego:{sd.rule_code}")
+                return self._v12_deny(sess, step, tool_name, args, sd.rule_code, {"stego": sd.as_dict()})
         # A call a person released with a bound OOB token is not oracle traffic.
         if outbound and sess.tainted and sess.sensitive_read and not approved:
             now = self.now()
@@ -900,6 +948,7 @@ class PolicyEngine:
     def register_canary(self, value: str, label: str = "canary", session_id: Optional[str] = None) -> bool:
         """Fingerprint a canary secret. ``session_id=None`` watches every session."""
         self.accumulator.register_protected_token(value, session_id=session_id)
+        self.stego.register_secret(value, label=label, session_id=session_id)
         return self.deob.register(value, label=label, session_id=session_id)
 
     def ingest_tool_result(self, agent_key: str, session_id: str, tool_name: str, result: Any) -> int:
@@ -911,6 +960,7 @@ class PolicyEngine:
         for _key, value in iter_strings(result):
             for candidate in secret_candidates(value):
                 self.accumulator.register_protected_token(candidate, session_id=session_id)
+                self.stego.register_secret(candidate, label=tool_name, session_id=session_id)
         return self.deob.register_output(result, label=tool_name, session_id=session_id)
 
     def mark_untrusted_ingest(self, agent_key: str, session_id: str, source: str) -> None:
@@ -983,6 +1033,32 @@ class PolicyEngine:
         """Replace the lineage ledger; any record that fails its HMAC refuses the whole load."""
         self.provenance.load_ledger(data)
 
+    # --- v12 guards -----------------------------------------------------------------
+
+    def pin_capability_manifest(self, manifest: UserCapabilityManifest) -> None:
+        """Pin the user's pre-taint grants for a session (control_flow_integrity_guard.py).
+
+        Must happen before the session reads untrusted data. The manifest only
+        narrows: calls it allows still pass every other gate.
+        """
+        sess = self.sessions.get(manifest.session_id)
+        if sess is not None and sess.tainted:
+            raise ValueError("capability manifest must be pinned before the session reads untrusted data")
+        self.cfi.pin_manifest(manifest)
+
+    def _v12_deny(self, sess: SessionState, step: int, tool_name: str, args: dict, rule_code: str,
+                  extra: dict) -> dict:
+        atlas = _V12_ATLAS.get(rule_code, "")
+        finding = {"kind": rule_code, "session_id": sess.session_id, "step": step, "tool": tool_name,
+                   "atlas": atlas, "atlas_approximate": True,
+                   **{k: v for d in extra.values() for k, v in d.items() if k not in ("allowed", "kind")}}
+        self.findings.append(finding)
+        self._alert(rule_code, finding)
+        out = self._deny(sess, step, tool_name, args, rule_code.lower(), _V12_CODES[rule_code], atlas=atlas)
+        out.update(extra)
+        out["rule_code"] = rule_code
+        return out
+
     def register_tool_schemas(
         self, agent_key: str, session_id: str, server_name: str, tools: list[dict],
         manifest: Optional[dict] = None,
@@ -993,10 +1069,17 @@ class PolicyEngine:
         collisions are recorded as findings and decision-log entries.
         """
         verdicts = [v.as_dict() for v in self.schema_guard.register_listing(server_name, tools, manifest)]
+        for tool in tools:
+            hit = scan_definition(tool) if isinstance(tool, dict) and tool.get("name") else None
+            if hit is not None:
+                name = str(tool["name"])
+                self.poisoned_tools[(server_name, name)] = hit
+                verdicts.append({"ok": False, "code": POISONING, "tool": name, "server_id": server_name,
+                                 "marker": hit["marker"], "field": hit["field"]})
         for v in verdicts:
             if v["ok"]:
                 continue
-            kind = v["code"].lower()
+            kind = v["code"] if v["code"] == POISONING else v["code"].lower()
             finding = {"kind": kind, "session_id": session_id, "server": server_name, "tool": v.get("tool"),
                        **{k: val for k, val in v.items() if k not in ("ok", "tool")}}
             self.findings.append(finding)
@@ -1006,7 +1089,14 @@ class PolicyEngine:
     def check_schema_call(
         self, agent_key: str, session_id: str, server_name: str, tool_name: str, arguments: Optional[dict] = None,
     ) -> Optional[dict]:
-        """Deny a call to a tool whose pinned schema drifted, or return None to continue."""
+        """Deny a call to a tool whose pinned schema drifted or whose definition is poisoned, or return None."""
+        poison = self.poisoned_tools.get((server_name, tool_name))
+        if poison is not None and self.registry.get(agent_key):
+            sess = self.get_session(session_id, agent_key)
+            sess.step_index += 1
+            out = self._v12_deny(sess, sess.step_index, tool_name, dict(arguments or {}), POISONING,
+                                 {"mcp": {"server_id": server_name, **poison}})
+            return self._attach_capability(session_id, out)
         verdict = self.schema_guard.check_call(server_name, tool_name)
         if verdict.ok or not self.registry.get(agent_key):
             return None
@@ -1131,6 +1221,7 @@ class PolicyEngine:
             sess.mark_sensitive()
             self.deob.register(result["secret"], label=tool_name, session_id=sess.session_id)
             self.accumulator.register_protected_token(result["secret"], session_id=sess.session_id)
+            self.stego.register_secret(result["secret"], label=tool_name, session_id=sess.session_id)
             # Forensic watermark + credential tracking on the returned secret (approximate AML.T0086).
             result["secret"] = self.canary.watermark_output(sess.session_id, step, tool_name, result["secret"])
         if tool_name in ("read_external_url", "web.fetch", "fetch_url"):

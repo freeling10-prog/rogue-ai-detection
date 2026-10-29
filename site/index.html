@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AgentGate — Technical Report &amp; Reference Implementation</title>
-<meta name="description" content="A loopback policy enforcement point for AI agent tool calls. Deterministic inline checks against three multi-agent collusion carriers, with no model calls on the decision path. 57/57 carrier checks and 262 gateway tests at the sprint snapshot; 506 gateway tests on main; same-author lab results stated with their limits.">
+<meta name="description" content="A loopback policy enforcement point for AI agent tool calls. Deterministic inline checks against three multi-agent collusion carriers, with no model calls on the decision path. 57/57 carrier checks and 262 gateway tests at the sprint snapshot; 652 gateway tests on main; same-author lab results stated with their limits.">
 <meta name="color-scheme" content="light">
 <meta property="og:title" content="AgentGate — Deterministic Guardrails Against Multi-Agent Collusion Carriers">
-<meta property="og:description" content="Technical report and reference implementation. 262 gateway tests at the sprint snapshot (784 across the workspace; 506 / 1028 on main), 57/57 collusion carrier checks, CPU p50 0.126 ms / p99 0.999 ms per decision (max 3.84 ms). Same-author lab checks, not a benchmark.">
+<meta property="og:description" content="Technical report and reference implementation. 262 gateway tests at the sprint snapshot (784 across the workspace; 652 / 1174 on main), 57/57 collusion carrier checks, CPU p50 0.126 ms / p99 0.999 ms per decision (max 3.84 ms). Same-author lab checks, not a benchmark.">
 <meta property="og:type" content="article">
 <link rel="icon" href="favicon.svg">
 <link rel="preload" href="fonts/newsreader-var.woff2" as="font" type="font/woff2" crossorigin>
@@ -110,17 +110,17 @@
         <figcaption id="lat-cap"><b>Figure 1.</b> Per-decision CPU time, 750 benign decisions, linear scale. The shaded band is the 2 ms reference. The single slowest decision lies outside it and is shown rather than trimmed.</figcaption>
       </figure>
 
-      <h3 style="font-size:20px;margin:30px 0 6px" id="post-sprint">Post-sprint: <code>main</code> after v11</h3>
+      <h3 style="font-size:20px;margin:30px 0 6px" id="post-sprint">Post-sprint: <code>main</code> after v11 and v12</h3>
       <p class="note">The rows above, the sample artifacts [S1]&ndash;[S3], and <code>sprint_submission/</code> are the frozen 25 October Apart Research sprint snapshot at <code>cefec0d</code>. They are not re-run or changed. <code>main</code> now also carries four v11 guards. Their tests form a separate Group D and are never added to 57/57.</p>
       <div class="tbl-scroll">
       <table class="tbl" id="post-sprint-table">
         <thead><tr><th>Measure, <code>main</code></th><th class="num">Value</th><th>Note</th></tr></thead>
         <tbody>
-          <tr><td>Gateway tests passing</td><td class="num">506</td><td>262 at the snapshot, plus 127 v11, 68 v11.1 (Claude Code hook, MCP blueprint), and 49 PHP Defense Guard tests.</td></tr>
+          <tr><td>Gateway tests passing</td><td class="num">652</td><td>262 at the snapshot, plus 127 v11, 68 v11.1 (Claude Code hook, MCP blueprint), 49 PHP Defense Guard, and 146 v12 evasion-guard tests.</td></tr>
           <tr><td>Group D, v11 guards</td><td class="num">124&#8239;/&#8239;124</td><td>Six test files; reported separately from A&nbsp;/&nbsp;B&nbsp;/&nbsp;C.</td></tr>
-          <tr><td>Stateful Hypothesis machines</td><td class="num">7</td><td>Adds the memory-provenance and temporal-accumulator machines.</td></tr>
-          <tr><td>Modules behind <code>pep.py</code></td><td class="num">29</td><td>22 at the snapshot; 26 after v11; 28 after v11.1.</td></tr>
-          <tr><td>Tests passing, workspace</td><td class="num">1028</td><td>506 <code>agent-gateway</code> · 512 <code>agent-watch</code> (514 collected, 2 skipped) · 10 <code>agentwatch-analyzer</code>.</td></tr>
+          <tr><td>Stateful Hypothesis machines</td><td class="num">8</td><td>Adds the memory-provenance, temporal-accumulator, and v12 control-flow-integrity machines.</td></tr>
+          <tr><td>Modules behind <code>pep.py</code></td><td class="num">33</td><td>22 at the snapshot; 26 after v11; 29 with v11.1 and the PHP Defense Guard; 33 after v12.</td></tr>
+          <tr><td>Tests passing, workspace</td><td class="num">1174</td><td>652 <code>agent-gateway</code> · 512 <code>agent-watch</code> (514 collected, 2 skipped) · 10 <code>agentwatch-analyzer</code>.</td></tr>
         </tbody>
       </table>
       </div>
@@ -169,12 +169,16 @@
           <tr><td class="k">temporal_accumulator_guard.py</td><td>Bounded per-(session, destination) window over salted digests of registered tokens (no plaintext held) and zero-width watermark counts; U+200D not counted.</td><td><span class="mono">sharded_exfil_denied</span></td><td class="num">9</td></tr>
           <tr><td class="k">claude_code_hook.py</td><td>Claude Code <span class="mono">PreToolUse</span> adapter: credential paths, shell command policy, link-local metadata and <span class="mono">file://</span> targets; idempotent <span class="mono">--install</span>.</td><td><span class="mono">CREDENTIAL_PATH_DENIED</span> / <span class="mono">SHELL_POLICY_DENIED</span> / <span class="mono">METADATA_URI_DENIED</span></td><td class="num">48</td></tr>
           <tr><td class="k">mcp_blueprint.py</td><td>Client MCP delivery harness behind the PEP: read-only parameterized queries capped at 100 rows, field redaction, confirmation tokens on writes.</td><td><span class="mono">MUTATION_VERB_DENIED</span> / <span class="mono">ROW_LIMIT_EXCEEDED</span> / <span class="mono">CONFIRMATION_REQUIRED</span></td><td class="num">20</td></tr>
+          <tr><td class="k">mcp_rugpull_guard.py</td><td>v12: SHA-256 fingerprint per (server, tool) of normalized description and canonical schema; HMAC re-approval for drift; tool-name ownership against other servers and core built-ins; hidden instruction markers in descriptions and parameter schemas.</td><td><span class="mono">MCP_DEFINITION_DRIFT</span> / <span class="mono">MCP_TOOL_SHADOWING</span> / <span class="mono">MCP_DESCRIPTION_POISONING</span></td><td class="num">25</td></tr>
+          <tr><td class="k">workspace_config_guard.py</td><td>v12: file tools and shell commands (<span class="mono">&gt;</span>, <span class="mono">tee</span>, <span class="mono">cp</span>, <span class="mono">mv</span>, <span class="mono">ln -s</span>, <span class="mono">chmod</span>, <span class="mono">sed -i</span>, <span class="mono">git config</span>) against agent instruction, MCP / IDE config, and execution-hook paths; hidden directives in instruction files.</td><td><span class="mono">WORKSPACE_CONFIG_WRITE</span> / <span class="mono">WORKSPACE_HOOK_TAMPER</span> / <span class="mono">WORKSPACE_SYMLINK_ESCAPE</span> / <span class="mono">WORKSPACE_HIDDEN_DIRECTIVE</span></td><td class="num">65</td></tr>
+          <tr><td class="k">control_flow_integrity_guard.py</td><td>v12: per-session integrity label; after an untrusted read, privileged sinks need a grant and a matching target in a pre-taint <span class="mono">UserCapabilityManifest</span>.</td><td><span class="mono">CFI_TAINTED_PRIVILEGED_SINK</span> / <span class="mono">CFI_UNENDORSED_TARGET</span></td><td class="num">5</td></tr>
+          <tr><td class="k">stego_exfil_guard.py</td><td>v12: salted 6-gram shingles of secrets and their encodings against branch, tag, package, DNS, and URL identifiers; dense subsequence alignment by bit-parallel LCS.</td><td><span class="mono">STEGO_SECRET_SHINGLE_LEAK</span> / <span class="mono">STEGO_SUBSEQUENCE_EXFIL</span></td><td class="num">24</td></tr>
           <tr><td class="k">php_defense_guard.py</td><td>PHP Defense: drop-in runtime input checks for Laravel, WordPress, and plain PHP 7.4+ (<span class="mono">php_defense_guard.php</span>) with a Python mirror; keys and values of <span class="mono">$_GET</span> / <span class="mono">$_POST</span> / <span class="mono">$_COOKIE</span>, as received and URL-decoded; 403 plus a hash-chained log entry, or log-only; excluded keys for search boxes; SARIF rules with CWE tags. Lexical checks, not a WAF.</td><td><span class="mono">PHP_SQLI_UNION</span> / <span class="mono">PHP_SQLI_TAUTOLOGY</span> / <span class="mono">PHP_PATH_TRAVERSAL</span> / <span class="mono">PHP_DESERIALIZE_DENIED</span> / <span class="mono">PHP_RCE_EVAL</span></td><td class="num">49</td></tr>
           <tr><td class="k">audit_chain.py</td><td><span class="mono">seq</span> / <span class="mono">prev_hash</span> / <span class="mono">entry_hash</span> per line; manifest HMAC with the root key.</td><td>tamper evidence, not prevention</td><td class="num">15</td></tr>
         </tbody>
       </table>
       </div>
-      <p class="note">29 modules sit behind <code>pep.py</code> in <code>agent-gateway</code> on <code>main</code> (22 at the sprint snapshot, 26 after v11, 28 after v11.1), including the four v11 guards (post-sprint, Group D; 31 further tests cover their PEP, MCP-proxy, and SARIF wiring), the v11.1 Claude Code hook and MCP delivery blueprint, the PHP Defense Guard (Laravel / WordPress / plain PHP runtime input checks), the guards above, the MCP proxy, the toxic-flow analyzer, the SARIF exporter, and the CLI.</p>
+      <p class="note">33 modules sit behind <code>pep.py</code> in <code>agent-gateway</code> on <code>main</code> (22 at the sprint snapshot, 26 after v11, 29 with v11.1 and the PHP Defense Guard), including the four v12 evasion guards (27 further tests cover their PEP, MCP-proxy, Claude Code hook, SARIF, and latency checks), the four v11 guards (post-sprint, Group D; 31 further tests cover their PEP, MCP-proxy, and SARIF wiring), the v11.1 Claude Code hook and MCP delivery blueprint, the PHP Defense Guard (Laravel / WordPress / plain PHP runtime input checks), the guards above, the MCP proxy, the toxic-flow analyzer, the SARIF exporter, and the CLI.</p>
     </div>
   </div>
 </section>
@@ -281,6 +285,7 @@ python -m agent_gateway evaluate-collusion --report ./audit_out</pre>
         <div><dt>Approximate ATLAS</dt><dd>MITRE ATLAS ids are the project&rsquo;s approximate mappings. Not a certification, and not a statement that anything passes ATLAS, OWASP, NIST, SOC&nbsp;2, or ISO.</dd></div>
         <div><dt>Routed calls only</dt><dd>Calls that bypass the gateway are not seen. An untrusted source that is never labeled never taints a session. Answer-only injections that trigger no gated call are out of scope.</dd></div>
         <div><dt>Not a sandbox</dt><dd>No OS sandboxing or network isolation. Anyone holding <code>AGENT_GATEWAY_HMAC_KEY</code> can mint capabilities; key rotation is not implemented. Tool backends in the lab are simulated echoes.</dd></div>
+        <div><dt>v12 guard limits</dt><dd>Lexical and deterministic. <code>mcp_rugpull_guard.py</code> pins what it first sees, so a tool malicious from its first listing is pinned as it is, and a description can still mislead in plain words. <code>workspace_config_guard.py</code> reads paths and command words: a write through an interpreter (<code>python -c</code>) or a computed path is not seen. <code>control_flow_integrity_guard.py</code> classifies tools by name and argument keys; in the engine a manifest only narrows. <code>stego_exfil_guard.py</code> misses a paraphrased or encrypted secret and one leaked a character per identifier.</dd></div>
         <div><dt>v11 guard limits</dt><dd><code>schema_integrity_guard.py</code> compares digests and normalized names, not what a description means. <code>gui_action_guard.py</code> checks coordinates and key names against configured rectangles and a deny-list; it does not look at the screen. <code>temporal_accumulator_guard.py</code> matches registered tokens and watermark characters within a bounded sliding window per (session, destination); it does not catch a paraphrased value or pieces spread across destinations. <code>memory_provenance_guard.py</code> tracks only resources written through routed tool calls, and its ledger lives in memory unless exported with <code>export_provenance_ledger()</code>.</dd></div>
         <div><dt>Not a pen test</dt><dd>Not a penetration test, not a red team of anyone&rsquo;s users, and not legal advice.</dd></div>
       </dl>
@@ -330,7 +335,7 @@ python -m agent_gateway evaluate-collusion --report ./audit_out</pre>
             <td><ul>
               <li>T1, plus the full written tool-boundary note</li>
               <li>Loopback <code>pep.py</code> / <code>mcp_proxy.py</code> policy set for your tool list (<code>delegation_guard.py</code>, <code>toxic_combinations.py</code>, <code>arg_ast_guard.py</code>, <code>egress_uri_guard.py</code>)</li>
-              <li>7 stateful Hypothesis regression machines wired into a CI workflow</li>
+              <li>8 stateful Hypothesis regression machines wired into a CI workflow</li>
               <li>Per-run tamper evidence (<code>audit_chain.py</code>): hash-chained log, HMAC-signed manifest, <code>verify</code></li>
             </ul></td>
             <td class="mono">48 h</td>

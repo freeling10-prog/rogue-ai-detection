@@ -4,6 +4,56 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
+## [Unreleased] - v12 evasion guards (29 October 2026)
+
+- `mcp_rugpull_guard.py`: registry of SHA-256 fingerprints per
+  `(server, tool)` over the normalized description and canonical input
+  schema. `MCP_DEFINITION_DRIFT` (a pinned definition changed without an
+  HMAC re-approval token; the tool stays quarantined), `MCP_TOOL_SHADOWING`
+  (name owned by another active server or a core built-in, compared
+  case-folded without separators), `MCP_DESCRIPTION_POISONING` (HTML
+  comments, `<IMPORTANT>` / `<system>`-style tags, zero-width / bidi / tag
+  characters, credential-file and override directives, `sidenote`-style
+  parameters, in descriptions and parameter schemas).
+- `workspace_config_guard.py`: structured file tools and shell commands
+  (`>`, `>>`, `tee`, `cp`, `mv`, `ln -s`, `chmod`, `sed -i`, `rm`, `touch`,
+  `dd of=`, `git config`) against normalized, case-insensitive protected
+  paths. `WORKSPACE_CONFIG_WRITE`, `WORKSPACE_HOOK_TAMPER`,
+  `WORKSPACE_SYMLINK_ESCAPE`; `scan_workspace_instruction_file()` gives
+  `WORKSPACE_HIDDEN_DIRECTIVE` for HTML comments and invisible characters
+  (a leading BOM and emoji joiners are allowed).
+- `control_flow_integrity_guard.py`: per-session `TRUSTED` / `UNTRUSTED`
+  label with taint sources; an optionally HMAC-signed
+  `UserCapabilityManifest` pinned before any untrusted read grants sink
+  classes and target patterns. `CFI_TAINTED_PRIVILEGED_SINK`,
+  `CFI_UNENDORSED_TARGET`.
+- `stego_exfil_guard.py`: salted k-gram shingles (k=6) of secrets and their
+  hex / base32 / URL-safe base64 forms; side-effect identifiers from git,
+  package managers, DNS tools, and URLs. `STEGO_SECRET_SHINGLE_LEAK`,
+  `STEGO_SUBSEQUENCE_EXFIL` (bit-parallel LCS, coverage and density
+  thresholds).
+- `pep.py`: workspace guard on every call (-32045 / -32046 / -32047,
+  `PepConfig.workspace_allow` to opt in), CFI for sessions with a pinned
+  manifest (-32048 / -32049, `pin_capability_manifest()`; the manifest only
+  narrows), stego on outbound identifier arguments after a sensitive read
+  (-32052 / -32053), poisoned tool definitions dropped from proxied
+  listings and calls denied (-32054). MCP drift and shadowing on the proxy
+  path stay with `schema_integrity_guard.py`.
+- `claude_code_hook.py`: blocks writes and shell redirections to agent
+  instruction / config files and execution hooks unless
+  `--allow-workspace-writes config,hook` or
+  `AGENTGATE_ALLOW_WORKSPACE_WRITES` opts in; blocks a `Read` of an
+  instruction file whose content carries hidden directives.
+- `sarif_export.py` / `audit_report.py`: the eleven codes as error-level
+  rules with CWE, OWASP Agentic Top 10, and OWASP LLM Top 10 (2025) tags,
+  counted in the decision-log summary.
+- `tests/test_v12_guards.py` (146, including a control-flow-integrity
+  Hypothesis state machine and property tests). Gateway tests 506 ->
+  **652** (30 files); modules behind `pep.py` 29 -> **33**; Hypothesis
+  state machines 7 -> **8**; workspace **1174**; CI floor 500 -> 640.
+  750 benign decisions, 0 denials; A / B / C 57/57; Group D 124/124.
+  `sprint_submission/` and `site/sprint/` unchanged.
+
 ## [Unreleased] - PHP Defense Guard (28 October 2026)
 
 - `php_defense_guard.php`: fixed a parse error (an unescaped quote in the

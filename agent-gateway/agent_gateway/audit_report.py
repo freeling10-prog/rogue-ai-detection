@@ -73,6 +73,17 @@ GATEWAY_FINDING_KINDS = (
     "gui_keychord_denied",
     "provenance_tamper_denied",
     "sharded_exfil_denied",
+    "MCP_DEFINITION_DRIFT",
+    "MCP_TOOL_SHADOWING",
+    "MCP_DESCRIPTION_POISONING",
+    "WORKSPACE_CONFIG_WRITE",
+    "WORKSPACE_HOOK_TAMPER",
+    "WORKSPACE_SYMLINK_ESCAPE",
+    "WORKSPACE_HIDDEN_DIRECTIVE",
+    "CFI_TAINTED_PRIVILEGED_SINK",
+    "CFI_UNENDORSED_TARGET",
+    "STEGO_SECRET_SHINGLE_LEAK",
+    "STEGO_SUBSEQUENCE_EXFIL",
 )
 _EXFIL_EGRESS = frozenset({"external_read", "send", "write", "creds"})
 _ATLAS_RE = re.compile(r"AML\.T\d{4}(?:\.\d{3})?")

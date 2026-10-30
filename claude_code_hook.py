@@ -23,6 +23,20 @@ try:
 except Exception:
     TemporalAccumulatorGuard = None  # type: ignore
 
+# v12.2: reference literal-shell effect analysis. Optional so the hook still runs
+# from a bare copy of this file; absent module means the check is skipped.
+try:
+    from agent_gateway.workspace_path_validator import Denied as _PathDenied  # type: ignore
+    from agent_gateway.workspace_path_validator import analyze_shell as _analyze_shell  # type: ignore
+except Exception:
+    _PathDenied = None  # type: ignore
+    _analyze_shell = None  # type: ignore
+
+# Reserved namespace entries shared with workspace_path_validator.protected().
+_RESERVED_NAMES = frozenset({"AGENTS.md", "CLAUDE.md", ".mcp.json", ".cursorrules", ".clinerules",
+                             "copilot-instructions.md"})
+_RESERVED_DIRS = frozenset({".git", ".claude", ".cursor", ".vscode", ".idea", ".windsurf"})
+
 
 SENSITIVE_PATH_PATTERNS: Tuple[re.Pattern[str], ...] = (
     re.compile(r"(^|/)\.env(\.[a-zA-Z0-9_-]+)?$"),
@@ -58,6 +72,45 @@ def _extract_strings(obj: Any) -> List[str]:
         for item in obj:
             out.extend(_extract_strings(item))
     return out
+
+
+def _is_reserved_path(path: str) -> bool:
+    """Reserved namespace entry by lexical component match (no symlink awareness)."""
+    parts = [p for p in os.path.normpath(path).split("/") if p]
+    if any(p in _RESERVED_NAMES for p in parts):
+        return True
+    if any(p in _RESERVED_DIRS for p in parts):
+        return True
+    return any(parts[i:i + 2] == [".github", "workflows"] for i in range(len(parts) - 1))
+
+
+def shell_effect_denial(command: str, cwd: Optional[str] = None) -> Tuple[bool, str, str]:
+    """``(allowed, rule_code, reason)`` from the reference literal-shell subset.
+
+    The hook has no trusted filesystem snapshot, so this is the lexical half of
+    ``workspace_path_validator``: parse the command into a conservative effect
+    union and refuse any mutation of a reserved namespace entry. Syntax outside
+    the modelled subset is not silently allowed as *modelled* - it falls through
+    to the pattern rules above, and the hook never claims more than it checked.
+    """
+    if _analyze_shell is None or _PathDenied is None:
+        return True, "", ""
+    try:
+        effects = _analyze_shell(command)
+    except _PathDenied:
+        return True, "", ""
+    base = cwd or os.getcwd()
+    for intent in effects:
+        if intent.operation == "read":
+            continue
+        for raw in (intent.path, intent.source):
+            if not raw:
+                continue
+            resolved = raw if raw.startswith("/") else os.path.join(base, raw)
+            if _is_reserved_path(resolved):
+                return (False, "WORKSPACE_EFFECT_DENIED",
+                        f"AgentGate blocked a {intent.operation} effect on reserved path '{raw[:120]}'.")
+    return True, "", ""
 
 
 def evaluate_claude_tool_call(
@@ -96,6 +149,14 @@ def evaluate_claude_tool_call(
                     "BASH_CREDENTIAL_READ_DENIED",
                     "AgentGate blocked Bash command referencing a protected credential file.",
                 )
+        # v12.2: modelled shell effects (reserved namespace entries) from the
+        # reference literal-subset analyzer.
+        effect_cwd = tool_input.get("cwd")
+        effect_ok, effect_code, effect_reason = shell_effect_denial(
+            cmd, cwd=str(effect_cwd) if isinstance(effect_cwd, str) and effect_cwd else None,
+        )
+        if not effect_ok:
+            return (False, effect_code, effect_reason)
 
     # 3. SSRF & metadata URI guard across all tool arguments (WebFetch, MCP tools, Bash)
     for text in _extract_strings(tool_input):

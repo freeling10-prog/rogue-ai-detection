@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AgentGate — Technical Report &amp; Reference Implementation</title>
-<meta name="description" content="A loopback policy enforcement point for AI agent tool calls. Deterministic inline checks against three multi-agent collusion carriers, with no model calls on the decision path. 57/57 carrier checks and 262 gateway tests at the sprint snapshot; 796 gateway tests on main; same-author lab results stated with their limits.">
+<meta name="description" content="A loopback policy enforcement point for AI agent tool calls. Deterministic inline checks against three multi-agent collusion carriers, with no model calls on the decision path. 57/57 carrier checks and 262 gateway tests at the sprint snapshot; 874 gateway tests on main; same-author lab results stated with their limits.">
 <meta name="color-scheme" content="light">
 <meta property="og:title" content="AgentGate — Deterministic Guardrails Against Multi-Agent Collusion Carriers">
-<meta property="og:description" content="Technical report and reference implementation. 262 gateway tests at the sprint snapshot (784 across the workspace; 796 / 1318 on main), 57/57 collusion carrier checks, CPU p50 0.126 ms / p99 0.999 ms per decision (max 3.84 ms). Same-author lab checks, not a benchmark.">
+<meta property="og:description" content="Technical report and reference implementation. 262 gateway tests at the sprint snapshot (784 across the workspace; 874 / 1396 on main), 57/57 collusion carrier checks, CPU p50 0.126 ms / p99 0.999 ms per decision (max 3.84 ms). Same-author lab checks, not a benchmark.">
 <meta property="og:type" content="article">
 <link rel="icon" href="favicon.svg">
 <link rel="preload" href="fonts/newsreader-var.woff2" as="font" type="font/woff2" crossorigin>
@@ -116,11 +116,11 @@
       <table class="tbl" id="post-sprint-table">
         <thead><tr><th>Measure, <code>main</code></th><th class="num">Value</th><th>Note</th></tr></thead>
         <tbody>
-          <tr><td>Gateway tests passing</td><td class="num">796</td><td>262 at the snapshot, plus 127 v11, 68 v11.1 (Claude Code hook, MCP blueprint), 49 PHP Defense Guard, 146 v12 evasion-guard, and 144 v12.1 tests.</td></tr>
+          <tr><td>Gateway tests passing</td><td class="num">874</td><td>262 at the snapshot, plus 127 v11, 68 v11.1 (Claude Code hook, MCP blueprint), 49 PHP Defense Guard, 146 v12 evasion-guard, 144 v12.1, and 78 v12.2 reference-validator tests.</td></tr>
           <tr><td>Group D, v11 guards</td><td class="num">124&#8239;/&#8239;124</td><td>Six test files; reported separately from A&nbsp;/&nbsp;B&nbsp;/&nbsp;C.</td></tr>
           <tr><td>Stateful Hypothesis machines</td><td class="num">9</td><td>Adds the memory-provenance, temporal-accumulator, v12 control-flow-integrity, and v12.1 cross-agent collusion machines.</td></tr>
           <tr><td>Modules behind <code>pep.py</code></td><td class="num">36</td><td>22 at the snapshot; 26 after v11; 29 with v11.1 and the PHP Defense Guard; 33 after v12; 36 after v12.1.</td></tr>
-          <tr><td>Tests passing, workspace</td><td class="num">1318</td><td>796 <code>agent-gateway</code> · 512 <code>agent-watch</code> (514 collected, 2 skipped) · 10 <code>agentwatch-analyzer</code>.</td></tr>
+          <tr><td>Tests passing, workspace</td><td class="num">1396</td><td>874 <code>agent-gateway</code> · 512 <code>agent-watch</code> (514 collected, 2 skipped) · 10 <code>agentwatch-analyzer</code>.</td></tr>
         </tbody>
       </table>
       </div>
@@ -181,7 +181,7 @@
         </tbody>
       </table>
       </div>
-      <p class="note">36 modules sit behind <code>pep.py</code> in <code>agent-gateway</code> on <code>main</code> (22 at the sprint snapshot, 26 after v11, 29 with v11.1 and the PHP Defense Guard, 33 after v12), including the three v12.1 guards (19 further tests cover their PEP, MCP-proxy, hook, SARIF, benign-benchmark, and latency checks), the four v12 evasion guards (27 further tests cover their PEP, MCP-proxy, Claude Code hook, SARIF, and latency checks), the four v11 guards (post-sprint, Group D; 31 further tests cover their PEP, MCP-proxy, and SARIF wiring), the v11.1 Claude Code hook and MCP delivery blueprint, the PHP Defense Guard (Laravel / WordPress / plain PHP runtime input checks), the guards above, the MCP proxy, the toxic-flow analyzer, the SARIF exporter, and the CLI.</p>
+      <p class="note">41 modules sit behind <code>pep.py</code> in <code>agent-gateway</code> on <code>main</code> (22 at the sprint snapshot, 26 after v11, 29 with v11.1 and the PHP Defense Guard, 33 after v12, 36 after v12.1), including the five v12.2 reference validators, the three v12.1 guards (19 further tests cover their PEP, MCP-proxy, hook, SARIF, benign-benchmark, and latency checks), the four v12 evasion guards (27 further tests cover their PEP, MCP-proxy, Claude Code hook, SARIF, and latency checks), the four v11 guards (post-sprint, Group D; 31 further tests cover their PEP, MCP-proxy, and SARIF wiring), the v11.1 Claude Code hook and MCP delivery blueprint, the PHP Defense Guard (Laravel / WordPress / plain PHP runtime input checks), the guards above, the MCP proxy, the toxic-flow analyzer, the SARIF exporter, and the CLI.</p>
     </div>
   </div>
 </section>

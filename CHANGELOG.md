@@ -4,6 +4,58 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
+## [Unreleased] - v12.2 reference middleware validators (29 October 2026)
+
+- Four deterministic, standard-library validators land in `agent_gateway` as
+  supplied (byte-identical to the reference package apart from relative
+  imports): `common.py` (CJSON-DECIMAL-v1 canonicalizer, deliberately not
+  RFC 8785), `registry_pin_validator.py`, `workspace_path_validator.py`,
+  `lattice_flow_validator.py`, `shingle_similarity_validator.py`.
+- `registry_pin_validator.py`: per-provider descriptor pins over
+  inputSchema / outputSchema / description / title / annotations, one
+  `Registry` per server sealed after its first listing. Sticky revocation
+  (a changed, invalid or removed descriptor stays `REVOKED` for the session),
+  local-Pointer-only schema closure, a display-metadata linter, and abnormal
+  alias tracking that never resolves by arrival order. Rule codes
+  `REGISTRY_PIN_DRIFT` (-32066), `REGISTRY_ALIAS_AMBIGUOUS` (-32067).
+  These are the next free JSON-RPC codes: v12.1 already uses -32055 through
+  -32059 and -32062 through -32065, and -32060 / -32061 stay the sampling errors.
+- `workspace_path_validator.py`: bounded literal-shell analyzer and an
+  immutable filesystem model (symlink splicing before `..`, protected-name
+  and inode checks, work credits, `move`/`symlink` batches refused).
+  `PolicyEngine.attach_workspace_snapshot()` turns it on per session; an
+  unmodeled command, a protected path, a shared inode or a stale generation
+  is `WORKSPACE_EFFECT_DENIED` (-32068). Both Claude Code hooks run the
+  lexical half of the same analyzer, which covers reserved names the v12
+  workspace guard does not model (`.clinerules`, `.idea/`, `.windsurf/`).
+- `lattice_flow_validator.py`: two-level contamination lattice with
+  dispatch-time taint, a precommitted manifest of single-use steps, DAG
+  admission, path patterns and an idempotent request ledger.
+  `PolicyEngine.pin_workflow_manifest()` makes every call match an unused
+  step, else `FLOW_MANIFEST_DENIED` (-32069).
+- `shingle_similarity_validator.py`: rolling shingles plus bounded
+  bit-parallel LCS over two pinned normalization views, keyed audit
+  identifiers only. `PolicyEngine.configure_similarity_matcher()` scans
+  outbound string arguments, else `SIMILARITY_LEAK_DENIED` (-32070).
+- `sarif_export.py` / `audit_report.py`: the five codes as error-level
+  rules with ATLAS, CWE, OWASP Agentic and OWASP LLM tags, counted in the
+  decision-log summary, beside the nine v12.1 rules.
+- `tests/test_validators.py` (64, including four Hypothesis state machines)
+  imported with package-qualified imports and unchanged oracles;
+  `tests/test_v12_2_validator_wiring.py` (14, including the JSON-RPC code
+  assignment that follows v12.1) covers the decision path, both hooks, the
+  SARIF rule set and the inert-until-configured property.
+  Gateway tests 796 -> **874** (33 files); modules behind `pep.py`
+  36 -> **41**; Hypothesis state machines 9 -> **13**; workspace **1396**;
+  CI floor 780 -> **860**. Every validator is inert until a trusted adapter
+  attaches its state, so a session without pins, a snapshot, a manifest, or
+  a matcher keeps the v12.1 decision path.
+- `benchmarks/benchmark.py` and `benchmarks/artifacts/`: the reference
+  microbenchmark and its measured output (5000 samples per case, combined
+  p99 **4.833856 ms** on Python 3.12.14, retained matcher allocations
+  1,426,200 bytes), plus the reference `validation_results.json` and the
+  package manifest under `docs/reference-package/`.
+
 ## [Unreleased] - v12.1 interpreter, first-listing, and collusion guards (29 October 2026)
 
 - `interpreter_exec_guard.py`: inline payloads of `python -c` (parsed with

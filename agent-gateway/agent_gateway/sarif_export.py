@@ -138,10 +138,26 @@ RULES: dict[str, tuple[str, str, tuple[str, ...], str]] = {
     "COLLUSION_CYCLIC_AMPLIFICATION": ("error", "Cross-agent ping-pong on one artifact", ("AML.T0086",),
                                        "Agents passed the same artifact back and forth more than the hand-off limit "
                                        "without approval."),
+    # v12.2 reference middleware validators.
+    "REGISTRY_PIN_DRIFT": ("error", "Descriptor pin revoked", ("AML.T0051",),
+                           "A pinned provider descriptor changed, failed metadata lint, or disappeared: the pin is "
+                           "revoked for the rest of the session and calls to it are refused."),
+    "REGISTRY_ALIAS_AMBIGUOUS": ("error", "Ambiguous tool alias", ("AML.T0051",),
+                                 "Two providers advertised the same bare tool name. The alias never resolves by "
+                                 "arrival order or last-writer-wins; qualified calls stay distinguishable."),
+    "WORKSPACE_EFFECT_DENIED": ("error", "Protected path in a modelled shell effect", ("AML.T0053",),
+                                "A literal-subset shell command had an effect on a reserved namespace entry or a "
+                                "shared inode, or used syntax outside the modelled subset (fail closed)."),
+    "FLOW_MANIFEST_DENIED": ("error", "Call outside the pinned workflow manifest", ("AML.T0051",),
+                             "A call did not match an unused precommitted manifest step on provider, method, pin, "
+                             "resource roles, path pattern, or argument digest."),
+    "SIMILARITY_LEAK_DENIED": ("error", "Protected string in an outbound identifier", ("AML.T0086",),
+                               "An outbound argument shared a rolling shingle or dense subsequence coverage with a "
+                               "protected string under the pinned normalization profile."),
     "analyzer_match": ("warning", "Offline analyzer match", (),
                        "A match reported by the offline agentwatch-analyzer."),
 }
-# Rule id -> approximate OWASP Top 10 for Agentic Applications category (v11, v12, and v12.1 rules).
+# Rule id -> approximate OWASP Top 10 for Agentic Applications category (v11, v12, v12.1, and v12.2 rules).
 OWASP_ASI: dict[str, tuple[str, ...]] = {
     "schema_drift_denied": ("ASI04",),
     "tool_shadowing_denied": ("ASI04",),
@@ -169,6 +185,11 @@ OWASP_ASI: dict[str, tuple[str, ...]] = {
     "COLLUSION_CROSS_AGENT_LAUNDERING": ("ASI07", "ASI03"),
     "COLLUSION_SPLIT_TOXIC_CHAIN": ("ASI07", "ASI08"),
     "COLLUSION_CYCLIC_AMPLIFICATION": ("ASI08",),
+    "REGISTRY_PIN_DRIFT": ("ASI04",),
+    "REGISTRY_ALIAS_AMBIGUOUS": ("ASI04",),
+    "WORKSPACE_EFFECT_DENIED": ("ASI05",),
+    "FLOW_MANIFEST_DENIED": ("ASI01",),
+    "SIMILARITY_LEAK_DENIED": ("ASI02",),
 }
 # Rule id -> approximate OWASP Top 10 for LLM Applications (2025) category.
 OWASP_LLM: dict[str, tuple[str, ...]] = {
@@ -192,6 +213,11 @@ OWASP_LLM: dict[str, tuple[str, ...]] = {
     "COLLUSION_CROSS_AGENT_LAUNDERING": ("LLM02:2025", "LLM06:2025"),
     "COLLUSION_SPLIT_TOXIC_CHAIN": ("LLM06:2025",),
     "COLLUSION_CYCLIC_AMPLIFICATION": ("LLM10:2025",),
+    "REGISTRY_PIN_DRIFT": ("LLM03:2025",),
+    "REGISTRY_ALIAS_AMBIGUOUS": ("LLM03:2025",),
+    "WORKSPACE_EFFECT_DENIED": ("LLM06:2025",),
+    "FLOW_MANIFEST_DENIED": ("LLM01:2025",),
+    "SIMILARITY_LEAK_DENIED": ("LLM02:2025",),
 }
 # Rule id -> CWE ids and OWASP Top 10 (2021) category, for web-application rules.
 CWE: dict[str, tuple[str, ...]] = {
@@ -220,6 +246,11 @@ CWE: dict[str, tuple[str, ...]] = {
     "COLLUSION_CROSS_AGENT_LAUNDERING": ("CWE-441", "CWE-201"),
     "COLLUSION_SPLIT_TOXIC_CHAIN": ("CWE-441", "CWE-863"),
     "COLLUSION_CYCLIC_AMPLIFICATION": ("CWE-834",),
+    "REGISTRY_PIN_DRIFT": ("CWE-345", "CWE-494"),
+    "REGISTRY_ALIAS_AMBIGUOUS": ("CWE-706",),
+    "WORKSPACE_EFFECT_DENIED": ("CWE-59",),
+    "FLOW_MANIFEST_DENIED": ("CWE-807", "CWE-285"),
+    "SIMILARITY_LEAK_DENIED": ("CWE-201",),
 }
 OWASP_WEB: dict[str, tuple[str, ...]] = {
     "PHP_PATH_TRAVERSAL": ("A01:2021",),
@@ -246,6 +277,8 @@ _LOG_KIND_RULES = frozenset({
     "INTERPRETER_PROTECTED_WRITE", "INTERPRETER_OBFUSCATED_PIPE", "INTERPRETER_DANGEROUS_PRIMITIVE",
     "MCP_FIRST_SEEN_OVERPRIVILEGED", "MCP_SCHEMA_PURPOSE_MISMATCH", "MCP_TOOL_NAMESPACE_FLOOD",
     "COLLUSION_CROSS_AGENT_LAUNDERING", "COLLUSION_SPLIT_TOXIC_CHAIN", "COLLUSION_CYCLIC_AMPLIFICATION",
+    "REGISTRY_PIN_DRIFT", "REGISTRY_ALIAS_AMBIGUOUS", "WORKSPACE_EFFECT_DENIED",
+    "FLOW_MANIFEST_DENIED", "SIMILARITY_LEAK_DENIED",
 })
 
 

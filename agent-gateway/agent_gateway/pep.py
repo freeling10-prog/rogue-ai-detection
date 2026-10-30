@@ -59,6 +59,11 @@ Safety:
   crosses between agent sessions through notes, files, the bus, or
   delegation is tracked in a provenance graph so a peer cannot complete a
   split toxic chain (``cross_agent_collusion_guard.py``).
+- v12.2: four reference middleware validators stay inert until a trusted
+  adapter attaches state. Descriptor pins, a filesystem snapshot, a workflow
+  manifest, and a similarity matcher then deny with their own rule codes
+  (``registry_pin_validator.py``, ``workspace_path_validator.py``,
+  ``lattice_flow_validator.py``, ``shingle_similarity_validator.py``).
 """
 from __future__ import annotations
 
@@ -97,6 +102,16 @@ from .workspace_config_guard import WorkspaceConfigGuard
 from .cross_agent_collusion_guard import EXTERNAL_SINK, PRIVILEGED_EXEC, CrossAgentCollusionGuard, artifact_id
 from .interpreter_exec_guard import InterpreterExecGuard
 from .mcp_capability_manifest_guard import McpCapabilityManifestGuard
+# v12.2 reference middleware validators (deterministic, standard-library only).
+from . import common as reference_json
+from .common import Denied as ReferenceDenied
+from .lattice_flow_validator import (
+    Call as FlowCall, Gate as ManifestGate, Label as FlowLabel,
+    MethodPolicy as FlowMethodPolicy, Step as FlowStep,
+)
+from .registry_pin_validator import Registry as PinRegistry, lint_description as pin_lint_description
+from .shingle_similarity_validator import Matcher as ShingleMatcher
+from .workspace_path_validator import Node as FsNode, Snapshot as FsSnapshot, analyze_shell
 from .paths import default_registry_path
 from .registry import Registry
 from .scrub import scrub_obj
@@ -171,6 +186,26 @@ _V12_ATLAS = {"WORKSPACE_CONFIG_WRITE": "AML.T0051", "WORKSPACE_HOOK_TAMPER": "A
               "MCP_SCHEMA_PURPOSE_MISMATCH": "AML.T0051", "MCP_TOOL_NAMESPACE_FLOOD": "AML.T0051",
               "COLLUSION_CROSS_AGENT_LAUNDERING": "AML.T0086", "COLLUSION_SPLIT_TOXIC_CHAIN": "AML.T0086",
               "COLLUSION_CYCLIC_AMPLIFICATION": "AML.T0086"}
+# v12.2 reference middleware validators. Rule codes ride the same decision path,
+# findings list, alert chain and SARIF export as the v11 / v12 / v12.1 guards.
+# -32055..-32059 and -32062..-32065 belong to v12.1; -32060 / -32061 are the
+# sampling errors, so these five take the next free codes.
+REGISTRY_PIN_DRIFT = "REGISTRY_PIN_DRIFT"
+REGISTRY_ALIAS_AMBIGUOUS = "REGISTRY_ALIAS_AMBIGUOUS"
+WORKSPACE_EFFECT_DENIED = "WORKSPACE_EFFECT_DENIED"
+FLOW_MANIFEST_DENIED = "FLOW_MANIFEST_DENIED"
+SIMILARITY_LEAK_DENIED = "SIMILARITY_LEAK_DENIED"
+# Descriptor fields the reference profile hashes for a pin (annotations included:
+# annotation-only drift is drift under this policy).
+_REFERENCE_PIN_FIELDS = ("description", "inputSchema", "outputSchema", "annotations", "title")
+_V12_CODES.update({
+    REGISTRY_PIN_DRIFT: -32066, REGISTRY_ALIAS_AMBIGUOUS: -32067,
+    WORKSPACE_EFFECT_DENIED: -32068, FLOW_MANIFEST_DENIED: -32069,
+    SIMILARITY_LEAK_DENIED: -32070,
+})
+_V12_ATLAS.update({REGISTRY_PIN_DRIFT: "AML.T0051", REGISTRY_ALIAS_AMBIGUOUS: "AML.T0051",
+                   WORKSPACE_EFFECT_DENIED: "AML.T0053", FLOW_MANIFEST_DENIED: "AML.T0051",
+                   SIMILARITY_LEAK_DENIED: "AML.T0086"})
 _EXEC_TOOL_RE = re.compile(r"(?:^|[._\-])(?:shell|bash|exec|terminal|run_command|run_script)(?:$|[._\-])")
 _DEFAULT_SINK_TOOLS = tuple(sorted(
     name for name, ec in TOOL_EGRESS.items() if ec in (EGRESS_WRITE, EGRESS_SEND, EGRESS_CREDS)
@@ -345,6 +380,16 @@ class PolicyEngine:
         self.workspace = WorkspaceConfigGuard(allow=self.cfg.workspace_allow)
         self.cfi = ControlFlowIntegrityGuard()
         self.stego = StegoExfilGuard()
+        # v12.2 reference middleware validators. Each is inert until a trusted
+        # adapter supplies its state, so a session with no pins, snapshot,
+        # manifest, or matcher is unchanged by them.
+        self.pin_registries: dict[str, PinRegistry] = {}
+        self.pin_enrolled: set[tuple[str, str]] = set()
+        self.pin_owners: dict[str, set[str]] = {}
+        self.pin_findings: list[dict] = []
+        self.path_snapshots: dict[str, FsSnapshot] = {}
+        self.flow_gates: dict[str, ManifestGate] = {}
+        self.similarity: Optional[ShingleMatcher] = None
         self.poisoned_tools: dict[tuple[str, str], dict] = {}
         self.interpreter = InterpreterExecGuard(allow=self.cfg.workspace_allow)
         core = set(CORE_MCP_SERVERS)
@@ -643,6 +688,11 @@ class PolicyEngine:
             cfi = self.cfi.evaluate(sess.session_id, tool_name, args)
             if not cfi.allowed:
                 return self._v12_deny(sess, step, tool_name, args, cfi.rule_code, {"cfi": cfi.as_dict()})
+
+        # --- Reference middleware validators (v12.2) ---------------------------------
+        ref = self._reference_middleware(sess, step, tool_name, args, eclass)
+        if ref is not None:
+            return ref
 
         # --- Review hold (MCP rug pull, side channel): every call waits for a person ---
         if sess.review_hold and not oob():
@@ -1112,6 +1162,188 @@ class PolicyEngine:
             raise ValueError("capability manifest must be pinned before the session reads untrusted data")
         self.cfi.pin_manifest(manifest)
 
+    # --- v12.2 reference middleware validators ---------------------------------------
+
+    def pin_tool_descriptors(self, server_name: str, tools: list[dict]) -> list[dict]:
+        """Enroll ``(server, tool)`` descriptors in the reference pin registry.
+
+        One :class:`PinRegistry` per provider: the first listing of a server pins
+        every descriptor it advertises and seals that server; a later listing can
+        only confirm, never grow. Drift is sticky - a changed, invalid or removed
+        descriptor revokes the key for the rest of the session (``REVOKED`` never
+        heals), and a bare tool name claimed by two servers is recorded as an
+        ambiguous alias rather than resolved by arrival order.
+
+        Only failures are returned, each already carrying the rule code the
+        caller records as a finding. Enrollment also lints display metadata with
+        the reference linter, so a poisoned description is refused before it is
+        ever served to a model.
+        """
+        verdicts: list[dict] = []
+        for tool in tools or []:
+            if not isinstance(tool, dict):
+                continue
+            name = str(tool.get("name") or "")
+            if not name:
+                continue
+            descriptor = {k: tool[k] for k in _REFERENCE_PIN_FIELDS if k in tool}
+            registry = self.pin_registries.setdefault(server_name, PinRegistry())
+            try:
+                raw = json.dumps(descriptor, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+                registry.register(server_name, name, raw)
+            except ReferenceDenied as exc:
+                # Membership is sticky: a key that was ever enrolled stays
+                # enrolled, so a revoked pin is still gated at call time.
+                verdicts.append({
+                    "ok": False, "code": REGISTRY_PIN_DRIFT, "tool": name, "server_id": server_name,
+                    "reason": str(exc),
+                    "lint": list(pin_lint_description(str(descriptor.get("description") or ""))),
+                })
+                continue
+            registry.seal()
+            self.pin_enrolled.add((server_name, name))
+            owners = self.pin_owners.setdefault(name, set())
+            owners.add(server_name)
+            if len(owners) > 1:
+                verdicts.append({
+                    "ok": False, "code": REGISTRY_ALIAS_AMBIGUOUS, "tool": name,
+                    "server_id": server_name, "owners": sorted(owners),
+                    "reason": "bare alias claimed by several providers",
+                })
+        return verdicts
+
+    def pin_state(self, server_name: str, tool_name: str) -> str:
+        """``PINNED`` / ``REVOKED`` / ``UNPINNED`` for one qualified method."""
+        registry = self.pin_registries.get(server_name)
+        if registry is None or (server_name, tool_name) not in self.pin_enrolled:
+            return "UNPINNED"
+        try:
+            registry.lookup(tool_name, server_name)
+        except ReferenceDenied as exc:
+            return "REVOKED" if str(exc) in {"REVOKED_OR_UNKNOWN", "REGISTRY_NOT_SEALED"} else str(exc)
+        return "PINNED"
+
+    def attach_workspace_snapshot(self, session_id: str, nodes: dict[str, FsNode],
+                                  generation: int = 0, root: str = "/ws") -> FsSnapshot:
+        """Make shell-effect analysis live for one session.
+
+        ``nodes`` is a trusted, complete filesystem model built by the broker -
+        never caller-supplied JSON. Once attached, every shell command the
+        session submits is parsed into a conservative effect union and checked
+        against the model; unmodeled syntax, a protected path, a shared inode or
+        a stale generation is a denial.
+        """
+        snapshot = FsSnapshot(nodes, generation, root)
+        self.path_snapshots[session_id] = snapshot
+        return snapshot
+
+    def pin_workflow_manifest(self, session_id: str, job_id: str, steps: tuple[FlowStep, ...],
+                              policies: dict[tuple[str, str], FlowMethodPolicy]) -> ManifestGate:
+        """Gate a session's calls with a precommitted, single-use-step manifest.
+
+        Once pinned, every call must match one unused step on provider, method,
+        pin, resource roles, path patterns and argument digest. Failed and
+        unknown outcomes never restore spent authority.
+        """
+        gate = ManifestGate(job_id, tuple(steps), dict(policies))
+        self.flow_gates[session_id] = gate
+        return gate
+
+    def configure_similarity_matcher(self, key: bytes, protected: tuple[str, ...],
+                                     **kwargs) -> ShingleMatcher:
+        """Match outbound identifiers against protected strings (shingle + LCS).
+
+        Audit records carry keyed identifier hashes only, never the raw query or
+        the protected string.
+        """
+        self.similarity = ShingleMatcher(key, tuple(protected), **kwargs)
+        return self.similarity
+
+    def _flow_call(self, gate: ManifestGate, tool_name: str, args: dict) -> FlowCall:
+        """Typed adapter: discover the step, its roles and the canonical digest."""
+        try:
+            args_digest = reference_json.digest("flow-args-v1", args)
+        except ReferenceDenied:
+            return FlowCall("", "", "", tool_name, "", (), "")
+        pending = sorted(sid for sid, s in gate.steps.items() if s.method == tool_name
+                         and gate.status(sid) == "NEW")
+        if not pending:
+            # A spent step is still addressable so that an identical request key
+            # resolves to its prior receipt (idempotent replay) instead of a
+            # silent new dispatch.
+            pending = sorted(sid for sid, s in gate.steps.items() if s.method == tool_name)
+        if not pending:
+            return FlowCall("", "", "", tool_name, "", (), args_digest)
+        step = gate.steps[pending[0]]
+        resources = tuple((role, str(args[role])) for role, _ in step.resources
+                          if isinstance(args.get(role), str))
+        request_key = reference_json.digest("flow-request-v1",
+                                            {"step": step.step_id, "args": args})
+        return FlowCall(request_key, step.step_id, step.provider, tool_name, step.pin,
+                        resources, args_digest)
+
+    def _reference_middleware(self, sess: SessionState, step: int, tool_name: str, args: dict,
+                              eclass: str) -> Optional[dict]:
+        """Shell effects, manifest admission and outbound identifier matching.
+
+        Returns a denial dict, or None when every applicable validator passed.
+        A validator with no trusted state attached is not applicable and
+        contributes nothing - the v11 / v12 gates above already ran.
+        """
+        snapshot = self.path_snapshots.get(sess.session_id)
+        command = args.get("command") or args.get("cmd") or args.get("script")
+        if snapshot is not None and isinstance(command, str) and command.strip():
+            try:
+                effects = analyze_shell(command)
+            except ReferenceDenied as exc:
+                return self._v12_deny(sess, step, tool_name, args, WORKSPACE_EFFECT_DENIED,
+                                      {"shell": {"reason": str(exc), "modeled": False,
+                                                 "generation": snapshot.generation}})
+            cwd = args.get("cwd") if isinstance(args.get("cwd"), str) else None
+            try:
+                snapshot.check_all(effects, cwd)
+            except ReferenceDenied as exc:
+                return self._v12_deny(sess, step, tool_name, args, WORKSPACE_EFFECT_DENIED,
+                                      {"shell": {"reason": str(exc), "modeled": True,
+                                                 "effects": len(effects),
+                                                 "generation": snapshot.generation}})
+
+        gate = self.flow_gates.get(sess.session_id)
+        if gate is not None:
+            if sess.tainted:
+                gate.ingest(FlowLabel.EXTERNAL)
+            ticket = self._flow_call(gate, tool_name, args)
+            try:
+                receipt = gate.begin(ticket)
+            except ReferenceDenied as exc:
+                return self._v12_deny(sess, step, tool_name, args, FLOW_MANIFEST_DENIED,
+                                      {"flow": {"reason": str(exc), "label": gate.label.name,
+                                                "step": ticket.step_id or None}})
+            # The lab gateway simulates the tool result, so the dispatch completes
+            # here. A real dispatcher takes from the outbox and records the
+            # downstream outcome (DONE / FAILED / UNKNOWN) instead. An idempotent
+            # replay returns the prior receipt and is not completed again.
+            if gate.status(receipt.call.step_id) == "QUEUED":
+                gate.take()
+                gate.complete(receipt, "DONE")
+
+        matcher = self.similarity
+        if matcher is not None and eclass in (EGRESS_WRITE, EGRESS_SEND, EGRESS_CREDS):
+            for _, text in iter_strings(args):
+                if not isinstance(text, str) or not text:
+                    continue
+                try:
+                    decision = matcher.check(text)
+                except ReferenceDenied as exc:
+                    return self._v12_deny(sess, step, tool_name, args, SIMILARITY_LEAK_DENIED,
+                                          {"similarity": {"reason": str(exc), "blocked": True}})
+                if decision.blocked:
+                    return self._v12_deny(sess, step, tool_name, args, SIMILARITY_LEAK_DENIED,
+                                          {"similarity": {"reason": decision.reason,
+                                                          "identifier_hash": decision.identifier_hash,
+                                                          "protected_hash": decision.protected_hash}})
+        return None
+
     def _agent_node(self, sess: SessionState) -> str:
         """Collusion-graph node for one session of one registered agent."""
         rec = self.registry.get(sess.agent_key)
@@ -1176,6 +1408,16 @@ class PolicyEngine:
             if not cv.ok:
                 verdicts.append({"ok": False, "code": cv.code, "tool": cv.tool, "server_id": server_name,
                                  "detail": cv.detail, "first_seen": cv.first_seen})
+        # Reference pin registry: sticky descriptor pins, alias ambiguity, metadata lint.
+        for verdict in self.pin_tool_descriptors(server_name, tools):
+            kind = verdict["code"]
+            finding = {"kind": kind, "session_id": session_id, "server": server_name,
+                       "tool": verdict.get("tool"), "atlas": _V12_ATLAS.get(kind, ""),
+                       "atlas_approximate": True,
+                       **{k: v for k, v in verdict.items() if k not in ("ok", "code")}}
+            self.findings.append(finding)
+            self.pin_findings.append(finding)
+            self._alert(kind, finding)
         for v in verdicts:
             if v["ok"]:
                 continue
@@ -1189,7 +1431,7 @@ class PolicyEngine:
     def check_schema_call(
         self, agent_key: str, session_id: str, server_name: str, tool_name: str, arguments: Optional[dict] = None,
     ) -> Optional[dict]:
-        """Deny a call to a tool whose pinned schema drifted or whose definition is poisoned, or return None."""
+        """Deny a call to a tool whose pinned schema drifted, whose capability profile refused it, or whose definition is poisoned, or return None."""
         cap = self.capability.check_call(server_name, tool_name)
         if not cap.ok and self.registry.get(agent_key):
             sess = self.get_session(session_id, agent_key)
@@ -1197,6 +1439,14 @@ class PolicyEngine:
             out = self._v12_deny(sess, sess.step_index, tool_name, dict(arguments or {}), cap.code,
                                  {"mcp": cap.as_dict()})
             return self._attach_capability(session_id, out)
+        if (server_name, tool_name) in self.pin_enrolled and self.pin_state(server_name, tool_name) == "REVOKED":
+            if self.registry.get(agent_key):
+                sess = self.get_session(session_id, agent_key)
+                sess.step_index += 1
+                out = self._v12_deny(sess, sess.step_index, tool_name, dict(arguments or {}),
+                                     REGISTRY_PIN_DRIFT,
+                                     {"pin": {"server_id": server_name, "state": "REVOKED"}})
+                return self._attach_capability(session_id, out)
         poison = self.poisoned_tools.get((server_name, tool_name))
         if poison is not None and self.registry.get(agent_key):
             sess = self.get_session(session_id, agent_key)

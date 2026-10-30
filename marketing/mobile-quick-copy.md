@@ -10,7 +10,7 @@ Links used below:
 
 Standing rules (same as [outreach-sequence.md](outreach-sequence.md)): figures are same-author lab checks, not a benchmark or a detection rate for the recipient. Never pool them with the separate **2 of 13** loopback archive figure. Not a penetration test and not a certification; ATLAS ids are approximate. No scare copy and no deadline copy. We do not deploy on their hosts and never take production credentials.
 
-Figures you may quote: **652** gateway tests passing on `main` across **33** modules behind `pep.py`; **57/57** collusion defence checks and **0** denials in **750** benign decisions at the sprint snapshot; CPU **p50 0.126 ms** per decision (slowest **3.84 ms**).
+Figures you may quote: **874** gateway tests passing on `main` across **41** modules behind `pep.py`; **57/57** collusion defence checks and **0** denials in **750** benign decisions at the sprint snapshot; CPU **p50 0.126 ms** per decision (slowest **3.84 ms**).
 
 ---
 
@@ -107,7 +107,7 @@ What you get:
 - Every call checked by an open-source policy engine and logged in a SHA-256 hash-chained audit log
 - A pytest acceptance suite; nothing deployed on your hosts by me, staging access only
 
-Open-source engine (Apache 2.0), 652 tests passing: https://github.com/freeling10-prog/rogue-ai-detection
+Open-source engine (Apache 2.0), 874 tests passing: https://github.com/freeling10-prog/rogue-ai-detection
 Recorded policy traces: https://freeling10-prog.github.io/rogue-ai-detection/#traces
 Sample report: https://freeling10-prog.github.io/rogue-ai-detection/sprint/collusion_sprint_report.pdf
 
@@ -139,7 +139,7 @@ Each decision, allowed or denied, is appended to a SHA-256 hash-chained ~/.claud
 
 These are lexical configuration checks, not a sandbox: anything run outside Claude Code is out of scope, and a determined user can get around them.
 
-The same repo has the gateway itself: a loopback policy engine with taint tracking, capability attenuation, and split-exfiltration checks. 652 gateway tests pass on main. You can step through 8 recorded scenarios in the browser (rug-pull, split-chunk exfil, confused deputy, schema drift, memory lineage, and more): https://freeling10-prog.github.io/rogue-ai-detection/#traces
+The same repo has the gateway itself: a loopback policy engine with taint tracking, capability attenuation, and split-exfiltration checks. 874 gateway tests pass on main. You can step through 8 recorded scenarios in the browser (rug-pull, split-chunk exfil, confused deputy, schema drift, memory lineage, and more): https://freeling10-prog.github.io/rogue-ai-detection/#traces
 
 Sample lab report (same-author scripted checks, not a benchmark): https://freeling10-prog.github.io/rogue-ai-detection/sprint/collusion_sprint_report.pdf
 Source: https://github.com/freeling10-prog/rogue-ai-detection

@@ -51,6 +51,19 @@ Safety:
   sensitive values reshaped into branch names, package names, DNS labels,
   URL parts, or other identifier arguments are denied on outbound calls
   (``stego_exfil_guard.py``; free-text bodies stay with ``deobfuscate.py``).
+- v12.1: inline interpreter payloads (``python -c``, ``node -e``, heredocs,
+  decoded pipes) are statically analysed for protected writes, obfuscated
+  execution, and process / network primitives (``interpreter_exec_guard.py``);
+  every MCP listing, the first included, is checked against the server's
+  capability profile (``mcp_capability_manifest_guard.py``); and taint that
+  crosses between agent sessions through notes, files, the bus, or
+  delegation is tracked in a provenance graph so a peer cannot complete a
+  split toxic chain (``cross_agent_collusion_guard.py``).
+- v12.2: four reference middleware validators stay inert until a trusted
+  adapter attaches state. Descriptor pins, a filesystem snapshot, a workflow
+  manifest, and a similarity matcher then deny with their own rule codes
+  (``registry_pin_validator.py``, ``workspace_path_validator.py``,
+  ``lattice_flow_validator.py``, ``shingle_similarity_validator.py``).
 """
 from __future__ import annotations
 
@@ -86,6 +99,9 @@ from .control_flow_integrity_guard import ControlFlowIntegrityGuard, UserCapabil
 from .mcp_rugpull_guard import POISONING, scan_definition
 from .stego_exfil_guard import StegoExfilGuard
 from .workspace_config_guard import WorkspaceConfigGuard
+from .cross_agent_collusion_guard import EXTERNAL_SINK, PRIVILEGED_EXEC, CrossAgentCollusionGuard, artifact_id
+from .interpreter_exec_guard import InterpreterExecGuard
+from .mcp_capability_manifest_guard import McpCapabilityManifestGuard
 # v12.2 reference middleware validators (deterministic, standard-library only).
 from . import common as reference_json
 from .common import Denied as ReferenceDenied
@@ -154,13 +170,26 @@ _V12_CODES = {
     "WORKSPACE_CONFIG_WRITE": -32045, "WORKSPACE_HOOK_TAMPER": -32046, "WORKSPACE_SYMLINK_ESCAPE": -32047,
     "CFI_TAINTED_PRIVILEGED_SINK": -32048, "CFI_UNENDORSED_TARGET": -32049,
     "STEGO_SECRET_SHINGLE_LEAK": -32052, "STEGO_SUBSEQUENCE_EXFIL": -32053, POISONING: -32054,
+    # v12.1 (-32060 / -32061 are the sampling errors, so the block skips them)
+    "INTERPRETER_PROTECTED_WRITE": -32055, "INTERPRETER_OBFUSCATED_PIPE": -32056,
+    "INTERPRETER_DANGEROUS_PRIMITIVE": -32057, "MCP_FIRST_SEEN_OVERPRIVILEGED": -32058,
+    "MCP_SCHEMA_PURPOSE_MISMATCH": -32059, "MCP_TOOL_NAMESPACE_FLOOD": -32062,
+    "COLLUSION_CROSS_AGENT_LAUNDERING": -32063, "COLLUSION_SPLIT_TOXIC_CHAIN": -32064,
+    "COLLUSION_CYCLIC_AMPLIFICATION": -32065,
 }
 _V12_ATLAS = {"WORKSPACE_CONFIG_WRITE": "AML.T0051", "WORKSPACE_HOOK_TAMPER": "AML.T0053",
               "WORKSPACE_SYMLINK_ESCAPE": "AML.T0053", "CFI_TAINTED_PRIVILEGED_SINK": "AML.T0051",
               "CFI_UNENDORSED_TARGET": "AML.T0051", "STEGO_SECRET_SHINGLE_LEAK": "AML.T0086",
-              "STEGO_SUBSEQUENCE_EXFIL": "AML.T0086", POISONING: "AML.T0051"}
+              "STEGO_SUBSEQUENCE_EXFIL": "AML.T0086", POISONING: "AML.T0051",
+              "INTERPRETER_PROTECTED_WRITE": "AML.T0053", "INTERPRETER_OBFUSCATED_PIPE": "AML.T0053",
+              "INTERPRETER_DANGEROUS_PRIMITIVE": "AML.T0053", "MCP_FIRST_SEEN_OVERPRIVILEGED": "AML.T0051",
+              "MCP_SCHEMA_PURPOSE_MISMATCH": "AML.T0051", "MCP_TOOL_NAMESPACE_FLOOD": "AML.T0051",
+              "COLLUSION_CROSS_AGENT_LAUNDERING": "AML.T0086", "COLLUSION_SPLIT_TOXIC_CHAIN": "AML.T0086",
+              "COLLUSION_CYCLIC_AMPLIFICATION": "AML.T0086"}
 # v12.2 reference middleware validators. Rule codes ride the same decision path,
-# findings list, alert chain and SARIF export as the v11 / v12 guards.
+# findings list, alert chain and SARIF export as the v11 / v12 / v12.1 guards.
+# -32055..-32059 and -32062..-32065 belong to v12.1; -32060 / -32061 are the
+# sampling errors, so these five take the next free codes.
 REGISTRY_PIN_DRIFT = "REGISTRY_PIN_DRIFT"
 REGISTRY_ALIAS_AMBIGUOUS = "REGISTRY_ALIAS_AMBIGUOUS"
 WORKSPACE_EFFECT_DENIED = "WORKSPACE_EFFECT_DENIED"
@@ -170,13 +199,14 @@ SIMILARITY_LEAK_DENIED = "SIMILARITY_LEAK_DENIED"
 # annotation-only drift is drift under this policy).
 _REFERENCE_PIN_FIELDS = ("description", "inputSchema", "outputSchema", "annotations", "title")
 _V12_CODES.update({
-    REGISTRY_PIN_DRIFT: -32055, REGISTRY_ALIAS_AMBIGUOUS: -32056,
-    WORKSPACE_EFFECT_DENIED: -32057, FLOW_MANIFEST_DENIED: -32058,
-    SIMILARITY_LEAK_DENIED: -32059,
+    REGISTRY_PIN_DRIFT: -32066, REGISTRY_ALIAS_AMBIGUOUS: -32067,
+    WORKSPACE_EFFECT_DENIED: -32068, FLOW_MANIFEST_DENIED: -32069,
+    SIMILARITY_LEAK_DENIED: -32070,
 })
 _V12_ATLAS.update({REGISTRY_PIN_DRIFT: "AML.T0051", REGISTRY_ALIAS_AMBIGUOUS: "AML.T0051",
                    WORKSPACE_EFFECT_DENIED: "AML.T0053", FLOW_MANIFEST_DENIED: "AML.T0051",
                    SIMILARITY_LEAK_DENIED: "AML.T0086"})
+_EXEC_TOOL_RE = re.compile(r"(?:^|[._\-])(?:shell|bash|exec|terminal|run_command|run_script)(?:$|[._\-])")
 _DEFAULT_SINK_TOOLS = tuple(sorted(
     name for name, ec in TOOL_EGRESS.items() if ec in (EGRESS_WRITE, EGRESS_SEND, EGRESS_CREDS)
     and name not in SENSITIVE_READ_TOOLS
@@ -211,6 +241,10 @@ class PepConfig:
     gui_regions: Optional[list] = None
     # Opt in to agent config ("config") and / or execution-hook ("hook") writes. Symlink escapes stay denied.
     workspace_allow: tuple = ()
+    # MCP server -> capability profile (PURE_TRANSFORM ... PRIVILEGED). Core servers are PRIVILEGED.
+    mcp_server_profiles: dict = field(default_factory=dict)
+    max_tools_per_server: int = 32
+    max_handoff_depth: int = 8
 
 
 def shannon_entropy(s: str) -> float:
@@ -347,8 +381,8 @@ class PolicyEngine:
         self.cfi = ControlFlowIntegrityGuard()
         self.stego = StegoExfilGuard()
         # v12.2 reference middleware validators. Each is inert until a trusted
-        # adapter supplies its state, so an unconfigured engine keeps the v12
-        # behaviour byte-for-byte.
+        # adapter supplies its state, so a session with no pins, snapshot,
+        # manifest, or matcher is unchanged by them.
         self.pin_registries: dict[str, PinRegistry] = {}
         self.pin_enrolled: set[tuple[str, str]] = set()
         self.pin_owners: dict[str, set[str]] = {}
@@ -357,6 +391,17 @@ class PolicyEngine:
         self.flow_gates: dict[str, ManifestGate] = {}
         self.similarity: Optional[ShingleMatcher] = None
         self.poisoned_tools: dict[tuple[str, str], dict] = {}
+        self.interpreter = InterpreterExecGuard(allow=self.cfg.workspace_allow)
+        core = set(CORE_MCP_SERVERS)
+        if self.cfg.registry_path.is_file():
+            try:
+                core |= set(json.loads(self.cfg.registry_path.read_text()).get("core_mcp_servers") or [])
+            except (ValueError, OSError):
+                pass
+        self.capability = McpCapabilityManifestGuard(
+            profiles={**{c: "PRIVILEGED" for c in core}, **dict(self.cfg.mcp_server_profiles)},
+            max_tools_per_server=self.cfg.max_tools_per_server)
+        self.collusion = CrossAgentCollusionGuard(max_handoff_depth=self.cfg.max_handoff_depth)
         self._provenance: Optional[MemoryProvenanceGuard] = None
         self.inventories: dict[str, dict[str, dict]] = {}
         self.toxic: dict[str, dict] = {}
@@ -598,6 +643,11 @@ class PolicyEngine:
         if profile is not None:
             self.delegation.observe(principal, profile)
 
+        # --- Inline interpreter payloads: protected writes, decoded execution, primitives (v12.1) ---
+        interp = self.interpreter.inspect_tool_call(tool_name, args, session_id=sess.session_id)
+        if not interp.allowed:
+            return self._v12_deny(sess, step, tool_name, args, interp.rule_code, {"interpreter": interp.as_dict()})
+
         # --- Lexical / canonical argument firewall (approximate AML.T0051 / AML.T0053) ---
         arg_hit = inspect_arg_call(tool_name, args, self._tool_class(tool_name))
         if arg_hit is not None:
@@ -694,6 +744,9 @@ class PolicyEngine:
             if n >= limit:
                 return {"ok": False, "error": "max_children_per_parent", "code": -32011,
                         "message": f"fan-out refused: max_children_per_parent={limit}"}
+            col = self._collusion_sink(sess, PRIVILEGED_EXEC)
+            if col is not None:
+                return self._v12_deny(sess, step, tool_name, args, col.rule_code, {"collusion": col.as_dict()})
             # reserve slot
             self.shared.children_by_parent[root] = n + 1
             sess.children_spawned += 1
@@ -722,6 +775,9 @@ class PolicyEngine:
                 # bus post while tainted still allowed as *internal laundering vector we track*,
                 # but we stamp taint on the message; outbound from peers will gate.
                 pass
+            col = self._collusion_write(sess, artifact_id("msg", "internal_bus"))
+            if col is not None:
+                return self._v12_deny(sess, step, tool_name, args, col.rule_code, {"collusion": col.as_dict()})
             msg = {
                 "from_key": agent_key,
                 "session_id": session_id,
@@ -737,6 +793,7 @@ class PolicyEngine:
 
         if tool_name == "poll_internal_bus":
             # reading tainted bus messages taints this session
+            self.collusion.record_read(self._agent_node(sess), artifact_id("msg", "internal_bus"))
             out = []
             for m in self.shared.bus:
                 out.append(m)
@@ -751,6 +808,9 @@ class PolicyEngine:
             # always persist taint_inherited=True so a later clean session re-taints on read.
             note_id = str(args.get("note_id") or f"note-{session_id}-{step}")
             body = str(args.get("text") or args.get("body") or args.get("note") or "")
+            col = self._collusion_write(sess, artifact_id("mem", note_id))
+            if col is not None:
+                return self._v12_deny(sess, step, tool_name, args, col.rule_code, {"collusion": col.as_dict()})
             entry = ScratchpadEntry(
                 note_id=note_id, body=body, taint_inherited=bool(sess.tainted),
                 source_session=session_id, created_at=self.now(),
@@ -772,6 +832,8 @@ class PolicyEngine:
                 denied = self._provenance_read(sess, step, tool_name, args, f"scratchpad:{entry.note_id}")
                 if denied is not None:
                     return denied
+            if entry is not None:
+                self.collusion.record_read(self._agent_node(sess), artifact_id("mem", entry.note_id))
             if entry and entry.taint_inherited:
                 self._taint(sess, "scratchpad_taint_inherited", source_id=f"scratchpad:{entry.note_id}")
             return {"ok": True, "allowed": True, "tool": tool_name, "egress_class": eclass,
@@ -905,6 +967,14 @@ class PolicyEngine:
                 out["frozen_agents"] = frozen
                 return out
             self.side_channel.commit(sess.session_id, tool_name, args, now)
+        # Cross-agent provenance (v12.1). A call a person released with a bound OOB token is not re-judged.
+        if not approved:
+            sink = self._sink_stage(tool_name, eclass, args)
+            col = self._collusion_sink(sess, sink) if sink else None
+            if col is None and eclass == EGRESS_WRITE and (uri := _resource_uri(tool_name, args)) is not None:
+                col = self._collusion_write(sess, artifact_id("file", uri))
+            if col is not None:
+                return self._v12_deny(sess, step, tool_name, args, col.rule_code, {"collusion": col.as_dict()})
         return self._allow(sess, step, tool_name, args, eclass, constrained=constrained)
 
     # --- Multi-agent delegation, argument class -----------------------------------
@@ -941,6 +1011,9 @@ class PolicyEngine:
                 if not recipient.allow_egress:
                     recipient.mark_tainted("delegation_attenuated", source_id=f"delegation:{sender_principal[:12]}")
         merged = self.delegation.delegate(sender_principal, recipient_principal, at_step=sender.step_index if sender else 0)
+        if sender is not None and recipient is not None:
+            self._collusion_sync(sender)
+            self.collusion.record_delegation(self._agent_node(sender), self._agent_node(recipient))
         if recipient is not None:
             self.delegation.observe(recipient_principal,
                                     profile_from_token(recipient.capability_token,
@@ -1271,6 +1344,36 @@ class PolicyEngine:
                                                           "protected_hash": decision.protected_hash}})
         return None
 
+    def _agent_node(self, sess: SessionState) -> str:
+        """Collusion-graph node for one session of one registered agent."""
+        rec = self.registry.get(sess.agent_key)
+        return f"{rec.agent_id if rec else sess.agent_key[:12]}/{sess.session_id}"
+
+    def _collusion_sync(self, sess: SessionState) -> None:
+        node = self._agent_node(sess)
+        if sess.sensitive_read:
+            self.collusion.record_source(node, "sensitive")
+        if sess.tainted:
+            self.collusion.record_source(node, "untrusted")
+
+    def _collusion_write(self, sess: SessionState, artifact: str):
+        self._collusion_sync(sess)
+        d = self.collusion.record_write(self._agent_node(sess), artifact)
+        return None if d.allowed else d
+
+    def _collusion_sink(self, sess: SessionState, sink: str):
+        self._collusion_sync(sess)
+        d = self.collusion.check_sink(self._agent_node(sess), sink)
+        return None if d.allowed else d
+
+    @staticmethod
+    def _sink_stage(tool_name: str, eclass: str, args: dict) -> Optional[str]:
+        if eclass == EGRESS_SPAWN or _EXEC_TOOL_RE.search(tool_name.casefold()):
+            return PRIVILEGED_EXEC
+        if eclass == EGRESS_SEND or places_params_on_external_boundary(tool_name, args):
+            return EXTERNAL_SINK
+        return None
+
     def _v12_deny(self, sess: SessionState, step: int, tool_name: str, args: dict, rule_code: str,
                   extra: dict) -> dict:
         atlas = _V12_ATLAS.get(rule_code, "")
@@ -1301,6 +1404,10 @@ class PolicyEngine:
                 self.poisoned_tools[(server_name, name)] = hit
                 verdicts.append({"ok": False, "code": POISONING, "tool": name, "server_id": server_name,
                                  "marker": hit["marker"], "field": hit["field"]})
+        for cv in self.capability.register_listing(server_name, tools, session_id=session_id):
+            if not cv.ok:
+                verdicts.append({"ok": False, "code": cv.code, "tool": cv.tool, "server_id": server_name,
+                                 "detail": cv.detail, "first_seen": cv.first_seen})
         # Reference pin registry: sticky descriptor pins, alias ambiguity, metadata lint.
         for verdict in self.pin_tool_descriptors(server_name, tools):
             kind = verdict["code"]
@@ -1314,7 +1421,7 @@ class PolicyEngine:
         for v in verdicts:
             if v["ok"]:
                 continue
-            kind = v["code"] if v["code"] == POISONING else v["code"].lower()
+            kind = v["code"] if v["code"] in _V12_CODES else v["code"].lower()
             finding = {"kind": kind, "session_id": session_id, "server": server_name, "tool": v.get("tool"),
                        **{k: val for k, val in v.items() if k not in ("ok", "tool")}}
             self.findings.append(finding)
@@ -1324,7 +1431,14 @@ class PolicyEngine:
     def check_schema_call(
         self, agent_key: str, session_id: str, server_name: str, tool_name: str, arguments: Optional[dict] = None,
     ) -> Optional[dict]:
-        """Deny a call to a tool whose pinned schema drifted or whose definition is poisoned, or return None."""
+        """Deny a call to a tool whose pinned schema drifted, whose capability profile refused it, or whose definition is poisoned, or return None."""
+        cap = self.capability.check_call(server_name, tool_name)
+        if not cap.ok and self.registry.get(agent_key):
+            sess = self.get_session(session_id, agent_key)
+            sess.step_index += 1
+            out = self._v12_deny(sess, sess.step_index, tool_name, dict(arguments or {}), cap.code,
+                                 {"mcp": cap.as_dict()})
+            return self._attach_capability(session_id, out)
         if (server_name, tool_name) in self.pin_enrolled and self.pin_state(server_name, tool_name) == "REVOKED":
             if self.registry.get(agent_key):
                 sess = self.get_session(session_id, agent_key)
@@ -1457,6 +1571,8 @@ class PolicyEngine:
     def _allow(self, sess: SessionState, step: int, tool_name: str, args: dict, eclass: str,
                constrained: bool = False, delegation: Optional[dict] = None) -> dict:
         sess.history.append({"step": step, "tool": tool_name, "ok": True, "constrained": constrained})
+        if eclass in (EGRESS_INTERNAL_READ, EGRESS_EXTERNAL_READ) and (uri := _resource_uri(tool_name, args)):
+            self.collusion.record_read(self._agent_node(sess), artifact_id("file", uri))
         # Simulated tool results for lab (no real egress)
         result: dict[str, Any] = {"echo": True, "tool": tool_name}
         if tool_name in ("read_internal_secrets", "credentials.get", "secrets.get"):

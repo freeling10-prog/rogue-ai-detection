@@ -31,6 +31,14 @@ from tests.conftest import KEY_A
 
 NEW_RULES = (REGISTRY_PIN_DRIFT, REGISTRY_ALIAS_AMBIGUOUS, WORKSPACE_EFFECT_DENIED,
              FLOW_MANIFEST_DENIED, SIMILARITY_LEAK_DENIED)
+# v12.1 owns -32055..-32059 and -32062..-32065; -32060/-32061 are sampling.
+NEW_RPC = {
+    REGISTRY_PIN_DRIFT: -32066,
+    REGISTRY_ALIAS_AMBIGUOUS: -32067,
+    WORKSPACE_EFFECT_DENIED: -32068,
+    FLOW_MANIFEST_DENIED: -32069,
+    SIMILARITY_LEAK_DENIED: -32070,
+}
 MATCHER_KEY = b"validator-wiring-test-key-32bytes"
 PROTECTED = "sk_live_wiring_test_42"
 TOOL = {"name": "add", "description": "Adds two numbers.",
@@ -166,6 +174,7 @@ def test_pins_revoke_stickily_and_deny_later_calls(engine: PolicyEngine) -> None
     denied = engine.check_schema_call(KEY_A, "s-pin", "srv", "add", {"a": 1})
     assert denied is not None
     assert denied["rule_code"] == REGISTRY_PIN_DRIFT
+    assert denied["code"] == NEW_RPC[REGISTRY_PIN_DRIFT]
     assert denied["pin"]["state"] == "REVOKED"
 
     # REVOKED never heals: the original descriptor reappearing does not restore it.
@@ -204,6 +213,14 @@ def test_a_new_method_after_sealing_cannot_join_the_pinned_server(engine: Policy
 # ===================================================================================
 # 6. SARIF export declares and anchors all five new rule codes
 # ===================================================================================
+
+def test_v12_2_rpc_codes_follow_v12_1() -> None:
+    """v12.1 keeps -32055..-32059 and -32062..-32065; these five follow them."""
+    from agent_gateway.pep import _V12_CODES
+    for rule, code in NEW_RPC.items():
+        assert _V12_CODES[rule] == code
+    assert len(set(_V12_CODES.values())) == len(_V12_CODES)
+
 
 def test_sarif_declares_every_new_rule() -> None:
     for rule in NEW_RULES:

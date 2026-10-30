@@ -17,38 +17,90 @@ Release.
   (a changed, invalid or removed descriptor stays `REVOKED` for the session),
   local-Pointer-only schema closure, a display-metadata linter, and abnormal
   alias tracking that never resolves by arrival order. Rule codes
-  `REGISTRY_PIN_DRIFT` (-32055), `REGISTRY_ALIAS_AMBIGUOUS` (-32056).
+  `REGISTRY_PIN_DRIFT` (-32066), `REGISTRY_ALIAS_AMBIGUOUS` (-32067).
+  These are the next free JSON-RPC codes: v12.1 already uses -32055 through
+  -32059 and -32062 through -32065, and -32060 / -32061 stay the sampling errors.
 - `workspace_path_validator.py`: bounded literal-shell analyzer and an
   immutable filesystem model (symlink splicing before `..`, protected-name
   and inode checks, work credits, `move`/`symlink` batches refused).
   `PolicyEngine.attach_workspace_snapshot()` turns it on per session; an
   unmodeled command, a protected path, a shared inode or a stale generation
-  is `WORKSPACE_EFFECT_DENIED` (-32057). Both Claude Code hooks run the
+  is `WORKSPACE_EFFECT_DENIED` (-32068). Both Claude Code hooks run the
   lexical half of the same analyzer, which covers reserved names the v12
   workspace guard does not model (`.clinerules`, `.idea/`, `.windsurf/`).
 - `lattice_flow_validator.py`: two-level contamination lattice with
   dispatch-time taint, a precommitted manifest of single-use steps, DAG
   admission, path patterns and an idempotent request ledger.
   `PolicyEngine.pin_workflow_manifest()` makes every call match an unused
-  step, else `FLOW_MANIFEST_DENIED` (-32058).
+  step, else `FLOW_MANIFEST_DENIED` (-32069).
 - `shingle_similarity_validator.py`: rolling shingles plus bounded
   bit-parallel LCS over two pinned normalization views, keyed audit
   identifiers only. `PolicyEngine.configure_similarity_matcher()` scans
-  outbound string arguments, else `SIMILARITY_LEAK_DENIED` (-32059).
-- `sarif_export.py`: the five codes as error-level rules with ATLAS, CWE,
-  OWASP Agentic and OWASP LLM tags, counted in the decision-log summary.
+  outbound string arguments, else `SIMILARITY_LEAK_DENIED` (-32070).
+- `sarif_export.py` / `audit_report.py`: the five codes as error-level
+  rules with ATLAS, CWE, OWASP Agentic and OWASP LLM tags, counted in the
+  decision-log summary, beside the nine v12.1 rules.
 - `tests/test_validators.py` (64, including four Hypothesis state machines)
   imported with package-qualified imports and unchanged oracles;
-  `tests/test_v12_2_validator_wiring.py` (13) covers the decision path, both
-  hooks, the SARIF rule set and the inert-until-configured property.
-  Gateway tests 652 -> **729** (32 files); Hypothesis state machines
-  8 -> **12**. Every validator is inert until a trusted adapter attaches its
-  state, so the v12 tree is unchanged. CI floor 640 -> **700**.
+  `tests/test_v12_2_validator_wiring.py` (14, including the JSON-RPC code
+  assignment that follows v12.1) covers the decision path, both hooks, the
+  SARIF rule set and the inert-until-configured property.
+  Gateway tests 796 -> **874** (33 files); modules behind `pep.py`
+  36 -> **41**; Hypothesis state machines 9 -> **13**; workspace **1396**;
+  CI floor 780 -> **860**. Every validator is inert until a trusted adapter
+  attaches its state, so a session without pins, a snapshot, a manifest, or
+  a matcher keeps the v12.1 decision path.
 - `benchmarks/benchmark.py` and `benchmarks/artifacts/`: the reference
   microbenchmark and its measured output (5000 samples per case, combined
   p99 **4.833856 ms** on Python 3.12.14, retained matcher allocations
   1,426,200 bytes), plus the reference `validation_results.json` and the
   package manifest under `docs/reference-package/`.
+
+## [Unreleased] - v12.1 interpreter, first-listing, and collusion guards (29 October 2026)
+
+- `interpreter_exec_guard.py`: inline payloads of `python -c` (parsed with
+  `ast`; `os.path.join`, `Path(...) / ...`, f-strings, concatenation, and
+  simple assignments are constant-folded), `node -e`, `ruby -e`,
+  `perl -e`, `php -r`, `bash -c` / `sh -c`, heredocs (`python3 - <<EOF`,
+  `cat <<EOF | node`), and decode pipelines (`base64 -d`, `xxd -r`,
+  `openssl ... -d` into a shell or interpreter, `eval "$(... | base64 -d)"`,
+  `bash <(...)`). `INTERPRETER_PROTECTED_WRITE` (paths through
+  `workspace_config_guard.classify_path` plus credential and system
+  locations), `INTERPRETER_OBFUSCATED_PIPE`,
+  `INTERPRETER_DANGEROUS_PRIMITIVE`. Closes the v12 interpreter-write gap.
+- `mcp_capability_manifest_guard.py`: zero-trust check of every listing,
+  the first included, against a capability profile
+  (`PURE_TRANSFORM` ... `PRIVILEGED`). `MCP_FIRST_SEEN_OVERPRIVILEGED`
+  (credential parameters below `EXTERNAL_NETWORK`, execution parameters
+  below `PRIVILEGED`, neither for unverified servers; pagination tokens
+  and token limits are not credentials), `MCP_SCHEMA_PURPOSE_MISMATCH`,
+  `MCP_TOOL_NAMESPACE_FLOOD` (more than 32 tools in one listing). Closes
+  the v12 first-listing gap.
+- `cross_agent_collusion_guard.py`: provenance graph of agents and
+  `file:` / `mem:` / `msg:` artifacts with monotone taint origins and
+  toxic-chain stages. `COLLUSION_CROSS_AGENT_LAUNDERING`,
+  `COLLUSION_SPLIT_TOXIC_CHAIN`, `COLLUSION_CYCLIC_AMPLIFICATION`.
+- `pep.py`: interpreter guard before the argument firewall (-32055 /
+  -32056 / -32057); capability profiles on every proxied listing (-32058 /
+  -32059 / -32062; `PepConfig.mcp_server_profiles`,
+  `max_tools_per_server`; core servers are `PRIVILEGED`); collusion graph
+  on notes, the internal bus, files, delegation, and spawn, with sinks
+  checked after the other gates (-32063 / -32064 / -32065;
+  `max_handoff_depth`). -32060 / -32061 stay the sampling errors. A
+  secret read by one agent and passed to a peer through an untainted note
+  is now denied at the peer's send.
+- `claude_code_hook.py`: the interpreter guard on `Bash`, honouring
+  `--allow-workspace-writes` for config / hook paths (credential paths
+  never).
+- `sarif_export.py` / `audit_report.py`: the nine codes as error-level
+  rules with CWE, OWASP Agentic, and OWASP LLM tags, counted in the
+  decision-log summary.
+- `tests/test_v12_1_guards.py` (144, including the ninth Hypothesis state
+  machine for cross-agent provenance). Gateway tests 652 -> **796** (31
+  files); modules behind `pep.py` 33 -> **36**; Hypothesis state machines
+  8 -> **9**; workspace **1318**; CI floor 640 -> 780. 750 benign
+  decisions, 0 denials; A / B / C 57/57; Group D 124/124.
+  `sprint_submission/` and `site/sprint/` unchanged.
 
 ## [Unreleased] - v12 evasion guards (29 October 2026)
 

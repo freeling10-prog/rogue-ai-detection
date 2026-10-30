@@ -37,6 +37,13 @@ Rules (first match wins):
   files). ``--allow-workspace-writes config,hook`` (or the
   ``AGENTGATE_ALLOW_WORKSPACE_WRITES`` environment variable) opts in;
   symlink escapes are never allowed.
+- ``INTERPRETER_PROTECTED_WRITE`` / ``INTERPRETER_OBFUSCATED_PIPE`` /
+  ``INTERPRETER_DANGEROUS_PRIMITIVE`` (``interpreter_exec_guard.py``): a
+  ``Bash`` command whose inline interpreter payload (``python -c``,
+  ``node -e``, ``ruby -e``, ``perl -e``, ``php -r``, ``bash -c``, a heredoc)
+  writes a protected path, or that pipes decoded base64 / hex into a shell,
+  or whose payload calls a process, network, or dynamic-code primitive. The
+  workspace opt-in applies to protected writes; credential paths never.
 - ``WORKSPACE_HIDDEN_DIRECTIVE``: a ``Read`` of an instruction file
   (``CLAUDE.md``, ``AGENTS.md``, ``SKILL.md``, ``.cursor/rules/*``) whose
   current content on disk has an HTML comment or invisible characters.
@@ -61,6 +68,7 @@ from pathlib import Path
 from typing import Any, Iterable, Optional
 
 from .audit_chain import GENESIS, link, verify_chain_file
+from .interpreter_exec_guard import InterpreterExecGuard
 from .workspace_config_guard import (
     WorkspaceConfigGuard,
     is_instruction_file,
@@ -338,6 +346,11 @@ def evaluate(tool_name: str, tool_input: Any, *, workspace_allow: Iterable[str] 
     ws = _workspace_checks(tool_name, tool_input, workspace_allow, cwd)
     if ws is not None:
         return ws
+    if tool_name == "Bash":
+        interp = InterpreterExecGuard(allow=workspace_allow).inspect_command(str(tool_input.get("command") or ""))
+        if not interp.allowed:
+            where = f" on {interp.path}" if interp.path else ""
+            return HookDecision(False, interp.rule_code, f"inline {interp.language} payload{where}: {interp.detail}")
     return HookDecision(True, "POLICY_COMPLIANT", "no workspace policy rule matched")
 
 

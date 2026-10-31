@@ -154,6 +154,10 @@ RULES: dict[str, tuple[str, str, tuple[str, ...], str]] = {
     "SIMILARITY_LEAK_DENIED": ("error", "Protected string in an outbound identifier", ("AML.T0086",),
                                "An outbound argument shared a rolling shingle or dense subsequence coverage with a "
                                "protected string under the pinned normalization profile."),
+    "OBLIGATION_PROTOCOL_DENIED": ("error", "Workflow transition not enabled by the Petri-net marking", ("AML.T0051",),
+                                   "A call was not an enabled transition of the attached workflow net: missing input "
+                                   "tokens, a place above capacity, or an outbound step with unsettled resource "
+                                   "cleanup state."),
     "analyzer_match": ("warning", "Offline analyzer match", (),
                        "A match reported by the offline agentwatch-analyzer."),
 }
@@ -190,6 +194,7 @@ OWASP_ASI: dict[str, tuple[str, ...]] = {
     "WORKSPACE_EFFECT_DENIED": ("ASI05",),
     "FLOW_MANIFEST_DENIED": ("ASI01",),
     "SIMILARITY_LEAK_DENIED": ("ASI02",),
+    "OBLIGATION_PROTOCOL_DENIED": ("ASI01",),
 }
 # Rule id -> approximate OWASP Top 10 for LLM Applications (2025) category.
 OWASP_LLM: dict[str, tuple[str, ...]] = {
@@ -218,6 +223,7 @@ OWASP_LLM: dict[str, tuple[str, ...]] = {
     "WORKSPACE_EFFECT_DENIED": ("LLM06:2025",),
     "FLOW_MANIFEST_DENIED": ("LLM01:2025",),
     "SIMILARITY_LEAK_DENIED": ("LLM02:2025",),
+    "OBLIGATION_PROTOCOL_DENIED": ("LLM06:2025",),
 }
 # Rule id -> CWE ids and OWASP Top 10 (2021) category, for web-application rules.
 CWE: dict[str, tuple[str, ...]] = {
@@ -251,6 +257,7 @@ CWE: dict[str, tuple[str, ...]] = {
     "WORKSPACE_EFFECT_DENIED": ("CWE-59",),
     "FLOW_MANIFEST_DENIED": ("CWE-807", "CWE-285"),
     "SIMILARITY_LEAK_DENIED": ("CWE-201",),
+    "OBLIGATION_PROTOCOL_DENIED": ("CWE-691", "CWE-772"),
 }
 OWASP_WEB: dict[str, tuple[str, ...]] = {
     "PHP_PATH_TRAVERSAL": ("A01:2021",),
@@ -278,7 +285,7 @@ _LOG_KIND_RULES = frozenset({
     "MCP_FIRST_SEEN_OVERPRIVILEGED", "MCP_SCHEMA_PURPOSE_MISMATCH", "MCP_TOOL_NAMESPACE_FLOOD",
     "COLLUSION_CROSS_AGENT_LAUNDERING", "COLLUSION_SPLIT_TOXIC_CHAIN", "COLLUSION_CYCLIC_AMPLIFICATION",
     "REGISTRY_PIN_DRIFT", "REGISTRY_ALIAS_AMBIGUOUS", "WORKSPACE_EFFECT_DENIED",
-    "FLOW_MANIFEST_DENIED", "SIMILARITY_LEAK_DENIED",
+    "FLOW_MANIFEST_DENIED", "SIMILARITY_LEAK_DENIED", "OBLIGATION_PROTOCOL_DENIED",
 })
 
 

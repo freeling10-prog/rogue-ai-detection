@@ -64,6 +64,10 @@ Safety:
   manifest, and a similarity matcher then deny with their own rule codes
   (``registry_pin_validator.py``, ``workspace_path_validator.py``,
   ``lattice_flow_validator.py``, ``shingle_similarity_validator.py``).
+- v12.3: a fifth reference validator, a bounded 16-place Petri net with
+  weighted token conservation, gates workflow transitions once a trusted
+  adapter attaches a manifest; an outbound step cannot fire while resource
+  cleanup state is unsettled (``linear_obligation_validator.py``).
 """
 from __future__ import annotations
 
@@ -105,6 +109,9 @@ from .mcp_capability_manifest_guard import McpCapabilityManifestGuard
 # v12.2 reference middleware validators (deterministic, standard-library only).
 from . import common as reference_json
 from .common import Denied as ReferenceDenied
+from .linear_obligation_validator import (
+    ObligationManifest, ObligationNet,
+)
 from .lattice_flow_validator import (
     Call as FlowCall, Gate as ManifestGate, Label as FlowLabel,
     MethodPolicy as FlowMethodPolicy, Step as FlowStep,
@@ -195,17 +202,19 @@ REGISTRY_ALIAS_AMBIGUOUS = "REGISTRY_ALIAS_AMBIGUOUS"
 WORKSPACE_EFFECT_DENIED = "WORKSPACE_EFFECT_DENIED"
 FLOW_MANIFEST_DENIED = "FLOW_MANIFEST_DENIED"
 SIMILARITY_LEAK_DENIED = "SIMILARITY_LEAK_DENIED"
+# v12.3: the Petri-net transition gate takes the next free code after -32070.
+OBLIGATION_PROTOCOL_DENIED = "OBLIGATION_PROTOCOL_DENIED"
 # Descriptor fields the reference profile hashes for a pin (annotations included:
 # annotation-only drift is drift under this policy).
 _REFERENCE_PIN_FIELDS = ("description", "inputSchema", "outputSchema", "annotations", "title")
 _V12_CODES.update({
     REGISTRY_PIN_DRIFT: -32066, REGISTRY_ALIAS_AMBIGUOUS: -32067,
     WORKSPACE_EFFECT_DENIED: -32068, FLOW_MANIFEST_DENIED: -32069,
-    SIMILARITY_LEAK_DENIED: -32070,
+    SIMILARITY_LEAK_DENIED: -32070, OBLIGATION_PROTOCOL_DENIED: -32071,
 })
 _V12_ATLAS.update({REGISTRY_PIN_DRIFT: "AML.T0051", REGISTRY_ALIAS_AMBIGUOUS: "AML.T0051",
                    WORKSPACE_EFFECT_DENIED: "AML.T0053", FLOW_MANIFEST_DENIED: "AML.T0051",
-                   SIMILARITY_LEAK_DENIED: "AML.T0086"})
+                   SIMILARITY_LEAK_DENIED: "AML.T0086", OBLIGATION_PROTOCOL_DENIED: "AML.T0051"})
 _EXEC_TOOL_RE = re.compile(r"(?:^|[._\-])(?:shell|bash|exec|terminal|run_command|run_script)(?:$|[._\-])")
 _DEFAULT_SINK_TOOLS = tuple(sorted(
     name for name, ec in TOOL_EGRESS.items() if ec in (EGRESS_WRITE, EGRESS_SEND, EGRESS_CREDS)
@@ -390,6 +399,7 @@ class PolicyEngine:
         self.path_snapshots: dict[str, FsSnapshot] = {}
         self.flow_gates: dict[str, ManifestGate] = {}
         self.similarity: Optional[ShingleMatcher] = None
+        self.obligation_nets: dict[str, ObligationNet] = {}
         self.poisoned_tools: dict[tuple[str, str], dict] = {}
         self.interpreter = InterpreterExecGuard(allow=self.cfg.workspace_allow)
         core = set(CORE_MCP_SERVERS)
@@ -1259,6 +1269,19 @@ class PolicyEngine:
         self.similarity = ShingleMatcher(key, tuple(protected), **kwargs)
         return self.similarity
 
+    def attach_obligation_net(self, session_id: str, manifest: ObligationManifest) -> ObligationNet:
+        """Gate a session's calls with a bounded Petri-net workflow manifest.
+
+        The manifest is compiled (bounds plus the weighted non-minting rule)
+        before it is attached. Once attached, every call must be an enabled
+        transition: enough tokens in each input place, no place above 15, and
+        for an outbound step, every resource cleanup place settled to zero.
+        The marking advances only after all other reference validators pass.
+        """
+        net = ObligationNet(manifest)
+        self.obligation_nets[session_id] = net
+        return net
+
     def _flow_call(self, gate: ManifestGate, tool_name: str, args: dict) -> FlowCall:
         """Typed adapter: discover the step, its roles and the canonical digest."""
         try:
@@ -1327,6 +1350,16 @@ class PolicyEngine:
                 gate.take()
                 gate.complete(receipt, "DONE")
 
+        net = self.obligation_nets.get(sess.session_id)
+        transition = None
+        if net is not None:
+            sequence = net.sequence
+            try:
+                transition = net.resolve(tool_name)
+                net.check(*transition)
+            except ReferenceDenied as exc:
+                return self._obligation_deny(sess, step, tool_name, args, net, exc)
+
         matcher = self.similarity
         if matcher is not None and eclass in (EGRESS_WRITE, EGRESS_SEND, EGRESS_CREDS):
             for _, text in iter_strings(args):
@@ -1342,7 +1375,19 @@ class PolicyEngine:
                                           {"similarity": {"reason": decision.reason,
                                                           "identifier_hash": decision.identifier_hash,
                                                           "protected_hash": decision.protected_hash}})
+        if net is not None and transition is not None:
+            # Commit point: fenced on the sequence read before the other checks.
+            try:
+                net.fire(*transition, expected_sequence=sequence)
+            except ReferenceDenied as exc:
+                return self._obligation_deny(sess, step, tool_name, args, net, exc)
         return None
+
+    def _obligation_deny(self, sess: SessionState, step: int, tool_name: str, args: dict,
+                         net: ObligationNet, exc: ReferenceDenied) -> dict:
+        return self._v12_deny(sess, step, tool_name, args, OBLIGATION_PROTOCOL_DENIED,
+                              {"obligation": {"reason": str(exc), "marking": net.marking_hex,
+                                              "sequence": net.sequence}})
 
     def _agent_node(self, sess: SessionState) -> str:
         """Collusion-graph node for one session of one registered agent."""

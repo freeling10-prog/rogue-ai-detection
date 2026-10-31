@@ -4,6 +4,29 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
+## [Unreleased] - v12.3 Petri-net transition gate (31 October 2026)
+
+- `linear_obligation_validator.py`: a bounded 16-place Petri net with 4-bit
+  places packed into one 64-bit marking. The manifest must pass a weighted
+  non-minting conservation check when it is compiled (bootstrap transitions
+  are one-shot). The per-call check is constant time and covers sufficient
+  tokens, place capacity and resource cleanup state settled before outbound
+  steps. Bare names owned by two providers never resolve.
+- `common.py`: frozen `DispatchEnvelope` with defaulted fields (including
+  `petri_marking_hex`) and a domain-separated `commitment()`. Existing
+  exports unchanged.
+- `pep.py`: `PolicyEngine.attach_obligation_net()`. The transition is checked
+  before the outbound-identifier matcher and fired, fenced on the marking
+  sequence, only after every other reference validator passes. Rule code
+  `OBLIGATION_PROTOCOL_DENIED` (-32071) in SARIF (CWE-691, CWE-772) and in
+  the audit-report counts.
+- Tests: 14 new cases in `tests/test_validators.py` (including
+  `PetriObligationMachine`) and `tests/test_v12_3_obligation_wiring.py` (6).
+  Gateway tests 874 -> **894**; Hypothesis state machines 13 -> **14**.
+- `benchmarks/benchmark.py`: obligation transition case and a five-check
+  combined case. The 31 October run is from a slower container than the
+  29 October one; both tables are in `docs/DESIGN.md`.
+
 ## [Unreleased] - v12.2 reference middleware validators (29 October 2026)
 
 - Four deterministic, standard-library validators land in `agent_gateway` as

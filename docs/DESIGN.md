@@ -15,9 +15,9 @@ Three distinctions are essential:
 The common safety specification is:
 
 $$\operatorname{Dispatch}(s,c,t)\Rightarrow
- R(s,c,t)\land W(s,c,t)\land F(s,c,t)\land I(s,c,t).$$
+ R(s,c,t)\land W(s,c,t)\land F(s,c,t)\land I(s,c,t)\land P(s,c,t).$$
 
-R is registry pin validity, W workspace mutation safety, F manifest/flow validity, and I outbound identifier admissibility. A component that is inapplicable to a typed call contributes true; a missing adapter, unsupported construct, exceeded budget, or unavailable trusted state contributes false. Check every item of JSON-RPC batches, including notifications. JSON-RPC itself is stateless and does not impose batch ordering [1].
+R is registry pin validity, W workspace mutation safety, F manifest/flow validity, I outbound identifier admissibility, and P bounded workflow-net transition enablement with resource cleanup state settled before outbound steps (section 5). A component that is inapplicable to a typed call contributes true; a missing adapter, unsupported construct, exceeded budget, or unavailable trusted state contributes false. Check every item of JSON-RPC batches, including notifications. JSON-RPC itself is stateless and does not impose batch ordering [1].
 
 Treat the specification as a prefix-closed execution safety policy [8]. This does not prove semantic noninterference, correctness of provider implementations, or absence of every possible data leak.
 
@@ -311,9 +311,42 @@ Memory is O(number of shingles) plus mask storage O(sum_p alphabet_size(p) × ce
 
 Compare the rolling recurrence with independently recomputed window hashes. Compare bit-parallel LCS with an independent O(mn) dynamic program. Test symmetry/bounds, no-shingle subsequences, padding, short strings, normalization stability, forced rolling collisions, threshold boundaries, and keyed audit output. SimilarityMachine adds protected patterns and checks that prior blocked queries never become allowed and every registered string remains blocked.
 
+## 5. linear_obligation_validator.py
+
+### Invariant and representation
+
+A session's workflow state is a marking of a bounded Petri net with 16 places P_0..P_15, each holding 0..15 tokens. The marking is packed as 16 unsigned 4-bit nibbles into one integer M with 0 <= M < 2^64. A transition t (keyed by authenticated provider and exact method) carries Pre[t] and Post[t] vectors in the same packed form and an is_external_egress flag set by the trusted manifest compiler. The manifest also fixes the initial marking, a positive weight vector w in (Z+)^16, and obligation_places_mask: whole 0xF nibbles over the places that hold resource cleanup state.
+
+$$P(s,c,t)\equiv
+ \forall i:\ M_t[i]\ge \mathrm{Pre}[c][i]
+ \ \land\ \forall i:\ M_t[i]-\mathrm{Pre}[c][i]+\mathrm{Post}[c][i]\le 15
+ \ \land\ (\mathrm{egress}(c)\Rightarrow M_t\,\&\,\mathrm{mask}_{ob}=0).$$
+
+On admission the successor marking M_t - Pre[c] + Post[c] is committed under the session lock. An unknown method, a bare method name owned by two providers, a stale marking sequence, or a spent bootstrap transition contributes false.
+
+### Cold-path conservation
+
+At manifest compilation every vector must have at most 16 entries in 0..15, every key must be unique, there are 1..64 transitions, and the weights lie in 1..2^16. Every repeatable transition must satisfy the weighted non-minting rule
+
+$$\forall c\in T\setminus T_{boot}:\ \sum_{i=0}^{15} w_i\,(\mathrm{Post}[c][i]-\mathrm{Pre}[c][i])\le 0,$$
+
+so the weighted token count w·M is non-increasing along any firing sequence, apart from the explicitly designated bootstrap transitions T_boot, each of which can fire at most once per session. A manifest that violates the rule is never attached. The manifest commitment is a domain-separated digest over the packed vectors, flags, weights, initial marking, and obligation mask.
+
+### Hot path
+
+Each nibble is spread into an 8-bit lane of a 128-bit integer. With values 0..15, the lane-wise expression (lanes | 0x80…) - Pre has its high bit set in lane i exactly when M[i] >= Pre[i], and no borrow crosses lanes. Given sufficient tokens, lanes - Pre + Post holds values 0..30 per lane, so no carry crosses lanes, and any bit in the upper nibble of a lane means a place above capacity. Each check is a constant number of integer operations over a fixed 16-place width: O(1) in the manifest size. A rejected firing leaves the marking and sequence unchanged.
+
+### Gateway wiring
+
+PolicyEngine.attach_obligation_net(session_id, manifest) attaches a compiled net. The gateway resolves the tool name to a transition and checks it before the outbound-identifier matcher. It fires the transition, fenced on the marking sequence read before the other checks, only after every other reference validator has passed. A denial from a later validator therefore never consumes tokens. Denials use OBLIGATION_PROTOCOL_DENIED (JSON-RPC -32071, approximate ATLAS AML.T0051) and record the reason code, the packed marking in hex, and the sequence. The frozen DispatchEnvelope in common.py has a petri_marking_hex field for binding the marking into the dispatch commitment.
+
+### Tests
+
+Nibble get/set round-trips leave the other 15 places unchanged. The lane-parallel successor is compared with an independent per-place loop over random markings and vectors. Minting, out-of-range, duplicate, malformed-mask, and malformed-weight manifests are rejected. Bootstrap transitions are one-shot, places cannot exceed capacity, and check() is pure. PetriObligationMachine fires random acquire/work/settle/release/egress/probe/grant sequences against a Python model. It asserts nibble bounds, a non-increasing weighted token count outside the one-shot grant, agreement with the model, and that no egress is admitted while a cleanup place is non-zero. tests/test_v12_3_obligation_wiring.py covers the gateway path, the JSON-RPC code, commit-after-all-checks ordering, and the SARIF rule.
+
 ## Validation and deployment criteria
 
-The included test suite has 64 passing test cases, including four RuleBasedStateMachine classes. Hypothesis generates/shrinks sequences rather than just isolated messages [13]. These tests are executable evidence, not a formal proof of all schedules or operating-system behavior.
+The original reference suite has 64 passing test cases, including four RuleBasedStateMachine classes. Section 5 adds 14 cases to test_validators.py, including PetriObligationMachine, and 6 gateway wiring cases. Hypothesis generates/shrinks sequences rather than just isolated messages [13]. These tests are executable evidence, not a formal proof of all schedules or operating-system behavior.
 
 benchmark.py records 5,000 samples per case, nearest-rank p99, wall and process CPU clocks, GC enabled, and warm single-process execution. Cold construction is excluded. Path measurements use a trusted in-memory filesystem model. The 16-by-256 matcher case exercises the maximum configured number and length of protected strings, but is one synthetic miss workload; it does not establish the worst case over all alphabets, shingle-length mixes, hash collisions, normalization work, or workloads. benchmark_results.json is the authoritative measured output.
 
@@ -332,6 +365,20 @@ The production acceptance conditions are: adapters enumerate all effects; all di
 | combined: four bounded checks | 4.833856 | 12.030749 |
 
 Python 3.12.14, Linux x86-64, 5,000 samples per case. Combined p99 was 4.833856 ms; the 12.030749 ms combined maximum demonstrates that this is not a hard deadline guarantee. The measured matcher retained 1,426,200 bytes of traced Python allocations. See the JSON results for the complete methodology.
+
+### Measured results — 31 October 2026 (adds the obligation cases)
+
+| Benchmark case | Wall p99 (ms) | Wall maximum (ms) |
+|---|---:|---:|
+| registry: qualified lookup, 256 pins | 0.002004 | 0.048793 |
+| path: parse + snapshot validation, 64 writes | 2.093854 | 9.089749 |
+| flow: fresh EXTERNAL step admission | 0.056480 | 0.122664 |
+| similarity: 16 x 256, 256-char miss, both modes | 5.506425 | 14.532536 |
+| obligation: outbound transition, 16 places x 64 transitions | 0.056841 | 2.109065 |
+| combined: four bounded checks | 8.030680 | 17.220236 |
+| combined: five bounded checks (with obligation) | 7.307601 | 18.571365 |
+
+Python 3.12.3, Linux x86-64, 5,000 samples per case, in a different and slower container than the 29 October run. The unchanged similarity case measured 5.506 ms p99 here against 3.766 ms there, so compare the rows within a table, not across tables. The obligation transition itself measured 0.056841 ms p99. On this host both combined cases exceed the 5 ms reference at p99 (8.031 ms for four checks, 7.308 ms for five). Almost all of that cost comes from the path and similarity checks. The five-check case can read lower than the four-check case because run-to-run variance on this host is larger than the obligation check's cost. benchmark_results.json holds this run.
 
 ## Primary sources
 

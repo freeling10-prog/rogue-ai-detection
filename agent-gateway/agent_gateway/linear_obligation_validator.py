@@ -210,6 +210,17 @@ class ObligationNet:
             raise Denied("BOOTSTRAP_SPENT")
         return transition
 
+    def resolve(self, method: str, provider: str | None = None) -> tuple[str, str]:
+        """Qualified transition key; a bare name owned by two providers never resolves."""
+        if provider is not None:
+            return provider, method
+        owners = sorted(p for p, m in self._transitions if m == method)
+        if len(owners) > 1:
+            raise Denied("AMBIGUOUS_TRANSITION")
+        if not owners:
+            raise Denied("UNKNOWN_TRANSITION")
+        return owners[0], method
+
     def check(self, provider: str, method: str) -> int:
         """Return the successor marking without committing it."""
         with self._lock:

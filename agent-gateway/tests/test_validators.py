@@ -626,6 +626,18 @@ def test_rejected_firing_leaves_marking_and_check_is_pure():
     assert (net.marking, net.sequence) == before
 
 
+def test_bare_transition_name_resolves_only_when_unique():
+    net = ObligationNet(ObligationManifest(0x1, 0, (
+        TransitionSpec("a", "step", (1,), (1,), False),
+        TransitionSpec("b", "step", (1,), (1,), False),
+        TransitionSpec("a", "only", (1,), (1,), False))))
+    assert net.resolve("only") == ("a", "only")
+    assert net.resolve("step", "b") == ("b", "step")
+    for method in ("step", "missing"):
+        with pytest.raises(Denied):
+            net.resolve(method)
+
+
 def test_dispatch_envelope_defaults_and_binding():
     empty = DispatchEnvelope()
     assert empty.schema_pin is None and empty.resources == ()

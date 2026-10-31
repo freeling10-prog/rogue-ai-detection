@@ -16,6 +16,8 @@ from agent_gateway.registry_pin_validator import Registry
 from agent_gateway.workspace_path_validator import Node, Snapshot, analyze_shell
 from agent_gateway.lattice_flow_validator import Call, Gate, Label, MethodPolicy, Step
 from agent_gateway.shingle_similarity_validator import Matcher
+from agent_gateway.linear_obligation_validator import (
+    ObligationManifest, ObligationNet, TransitionSpec)
 
 N = 5000
 
@@ -79,11 +81,25 @@ def main():
     tracemalloc.stop()
     assert not matcher.check(query).blocked
 
+    # 16 places, 64 transitions: a resource cleanup place per pair, plus an
+    # outbound step that requires every cleanup place to be settled.
+    specs = [TransitionSpec("p", "outbound", (1,), (1,), True)]
+    for i in range(63):
+        place = 1 + i % 15
+        specs.append(TransitionSpec("p", f"t{i}", (1,) + (0,) * 15,
+                                    tuple(1 if j == place else 0 for j in range(16)), False))
+    obligation = ObligationManifest(0x1, 0xFFFF_FFFF_0000_0000, tuple(specs))
+
+    def fresh_net():
+        holder["net"] = ObligationNet(obligation)
+
     results = [
         run("registry: qualified lookup, 256 pins", lambda: r.lookup("method255", "provider")),
         run("path: parse + snapshot validation, 64 writes", path_case),
         run("flow: fresh EXTERNAL step admission", lambda: holder["gate"].begin(call), fresh_gate),
         run("similarity: 16 x 256, 256-char miss, both modes", lambda: matcher.check(query)),
+        run("obligation: outbound transition, 16 places x 64 transitions",
+            lambda: holder["net"].fire("p", "outbound"), fresh_net),
     ]
 
     def combined():
@@ -93,6 +109,16 @@ def main():
         matcher.check(query)
 
     results.append(run("combined: four bounded checks", combined, fresh_gate))
+
+    def prepare_five():
+        fresh_gate()
+        fresh_net()
+
+    def combined_five():
+        combined()
+        holder["net"].fire("p", "outbound")
+
+    results.append(run("combined: five bounded checks (with obligation)", combined_five, prepare_five))
     output = {
         "python": sys.version, "platform": platform.platform(),
         "gc_enabled": gc.isenabled(), "samples_per_case": N,

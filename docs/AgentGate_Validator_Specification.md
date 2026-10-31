@@ -15,9 +15,9 @@ Three distinctions are essential:
 The common safety specification is:
 
 $$\operatorname{Dispatch}(s,c,t)\Rightarrow
- R(s,c,t)\land W(s,c,t)\land F(s,c,t)\land I(s,c,t)\land P(s,c,t).$$
+ R(s,c,t)\land W(s,c,t)\land F(s,c,t)\land I(s,c,t)\land P(s,c,t)\land T(s,c,t).$$
 
-R is registry pin validity, W workspace mutation safety, F manifest/flow validity, I outbound identifier admissibility, and P bounded workflow-net transition enablement with resource cleanup state settled before outbound steps (section 5). A component that is inapplicable to a typed call contributes true; a missing adapter, unsupported construct, exceeded budget, or unavailable trusted state contributes false. Check every item of JSON-RPC batches, including notifications. JSON-RPC itself is stateless and does not impose batch ordering [1].
+R is registry pin validity, W workspace mutation safety, F manifest/flow validity, I outbound identifier admissibility, P bounded workflow-net transition enablement with resource cleanup state settled before outbound steps (section 5), and T file label flow: no non-PUBLIC file into an outbound call and no UNTRUSTED file into an execution sink (section 6). A component that is inapplicable to a typed call contributes true; a missing adapter, unsupported construct, exceeded budget, or unavailable trusted state contributes false. Check every item of JSON-RPC batches, including notifications. JSON-RPC itself is stateless and does not impose batch ordering [1].
 
 Treat the specification as a prefix-closed execution safety policy [8]. This does not prove semantic noninterference, correctness of provider implementations, or absence of every possible data leak.
 
@@ -344,9 +344,39 @@ PolicyEngine.attach_obligation_net(session_id, manifest) attaches a compiled net
 
 Nibble get/set round-trips leave the other 15 places unchanged. The lane-parallel successor is compared with an independent per-place loop over random markings and vectors. Minting, out-of-range, duplicate, malformed-mask, and malformed-weight manifests are rejected. Bootstrap transitions are one-shot, places cannot exceed capacity, and check() is pure. PetriObligationMachine fires random acquire/work/settle/release/egress/probe/grant sequences against a Python model. It asserts nibble bounds, a non-increasing weighted token count outside the one-shot grant, agreement with the model, and that no egress is admitted while a cleanup place is non-zero. tests/test_v12_3_obligation_wiring.py covers the gateway path, the JSON-RPC code, commit-after-all-checks ordering, and the SARIF rule.
 
+## 6. symbolic_fs_transducer.py
+
+### Invariant and representation
+
+W denies mutation of protected paths and inodes but deliberately admits reading them, so a protected or sensitive file can be copied into an ordinary workspace file and the copy attached to an outbound call. Content written while the session is untrusted can likewise be written into a workspace file and later consumed by an execution sink. T closes both flows with a label per file object in the product lattice
+
+$$\mathcal{L}=\{\mathrm{PUBLIC}<\mathrm{SENSITIVE}<\mathrm{PROTECTED}\}\times\{\mathrm{TRUSTED}<\mathrm{UNTRUSTED}\},$$
+
+joined pointwise with max. Labels live in an immutable copy-on-write overlay over W's Snapshot, keyed by inode identity when the model has one and by canonical path otherwise, with a generation counter. A path or inode that W classifies as protected (including a symlink or hard-link alias of one) defaults to (PROTECTED, TRUSTED); every other file defaults to (PUBLIC, TRUSTED).
+
+For a call c with resolved read sources R and write targets E, after W(s,c,t) holds:
+
+$$\ell_{new}=(\mathrm{PUBLIC},\ell_{session})\sqcup\bigsqcup_{r\in R}\ell(r),\qquad \forall w\in E:\ \ell'(w)=\ell(w)\sqcup\ell_{new}$$
+
+$$T(s,c,t)\equiv(\mathrm{egress}(c)\Rightarrow\forall r\in R:\ \ell(r).C=\mathrm{PUBLIC})\ \land\ (\mathrm{exec}(c)\Rightarrow\forall r\in R:\ \ell(r).I=\mathrm{TRUSTED}).$$
+
+The specification text assigns ℓ_new to each target; the implementation joins it into the target's existing label instead, so labels only rise. The model cannot see whether a write completed or replaced the whole file, so lowering a label on overwrite could understate what the file holds, while raising it can only overstate. Append and in-place edit also count the target as a read source. A chmod target is treated as an execution sink because Intent does not carry the mode bits. The whole analyzed command is one unit: W's effect union does not record which pipeline member feeds which, so joining across the command over-approximates the flow and never misses one. ℓ_session is monotone and becomes UNTRUSTED when the gateway marks the session tainted or the broker calls observe_untrusted().
+
+### Hot path
+
+check() runs W's check_all first; a W denial propagates unchanged and nothing changes. It then resolves copy and move sources, looks up at most 64 read labels (one overlay probe per key, O(1) each), applies the sink rules, and builds the successor overlay by copying the mapping, O(|overlay| + |E|). Overlays are capped at 65,536 entries. commit() is fenced on the generation the pending result was computed from. rebase(snapshot) adopts a strictly newer base with the same root, keeps the overlay, and bumps the generation so results computed against the old base cannot commit. Reason codes are fixed strings and carry no paths or content.
+
+### Gateway wiring
+
+PolicyEngine.attach_fs_transducer(session_id, nodes, generation, root) builds a Snapshot from the same trusted broker model as attach_workspace_snapshot. A literal shell command is analyzed into its effect union; its fixed command set never interprets file content and its output returns to the agent, so it is neither an egress nor an execution sink. Any other call is applicable only when a resource argument (uri, resource_uri, resource, path) names a path inside the workspace root: a write tool's paths are write targets, and every other tool's paths are read sources checked against the call's sink stage (outbound for send and credential classes or external parameter boundaries, execution for spawn and shell, exec and script tool names). T is checked right after the shell-effect check. Labels are committed after every other reference validator has passed and before the Petri-net fire, so a later denial never commits labels, and a failed fire after the commit can only overstate a label. Label denials use FS_LABEL_FLOW_DENIED (JSON-RPC -32072, approximate ATLAS AML.T0086) and record the reason code, the axis, the overlay generation, and the session integrity. A denial from the workspace model inside T is reported as WORKSPACE_EFFECT_DENIED with via=fs_transducer.
+
+### Tests
+
+The lattice laws (commutativity, associativity, idempotence, identity, absorption, and order agreeing with join) are checked over all six labels. Further cases cover protected defaults through symlink and hard-link aliases, pipeline joins, session integrity, labels never lowering on overwrite, the egress, execution, and chmod sinks, W and sink denials leaving state unchanged, evaluate() purity and overlay immutability, generation fencing, rebase rules, and reason codes without paths. TransducerMachine runs random copies, pipes, appends, overwrites, taint events, sink reads, chmods, and protected writes against an independent label model and asserts agreement after every step; a deliberately broken join fails it. tests/test_v12_4_fs_label_wiring.py covers the gateway path, the JSON-RPC code, commit-after-all-checks ordering, a broker rebase, and the SARIF rule.
+
 ## Validation and deployment criteria
 
-The original reference suite has 64 passing test cases, including four RuleBasedStateMachine classes. Section 5 adds 14 cases to test_validators.py, including PetriObligationMachine, and 6 gateway wiring cases. Hypothesis generates/shrinks sequences rather than just isolated messages [13]. These tests are executable evidence, not a formal proof of all schedules or operating-system behavior.
+The original reference suite has 64 passing test cases, including four RuleBasedStateMachine classes. Section 5 adds 14 cases to test_validators.py, including PetriObligationMachine, and 6 gateway wiring cases. Section 6 adds 11 cases, including TransducerMachine, and 7 gateway wiring cases. Hypothesis generates/shrinks sequences rather than just isolated messages [13]. These tests are executable evidence, not a formal proof of all schedules or operating-system behavior.
 
 benchmark.py records 5,000 samples per case, nearest-rank p99, wall and process CPU clocks, GC enabled, and warm single-process execution. Cold construction is excluded. Path measurements use a trusted in-memory filesystem model. The 16-by-256 matcher case exercises the maximum configured number and length of protected strings, but is one synthetic miss workload; it does not establish the worst case over all alphabets, shingle-length mixes, hash collisions, normalization work, or workloads. benchmark_results.json is the authoritative measured output.
 
@@ -379,6 +409,22 @@ Python 3.12.14, Linux x86-64, 5,000 samples per case. Combined p99 was 4.833856 
 | combined: five bounded checks (with obligation) | 7.307601 | 18.571365 |
 
 Python 3.12.3, Linux x86-64, 5,000 samples per case, in a different and slower container than the 29 October run. The unchanged similarity case measured 5.506 ms p99 here against 3.766 ms there, so compare the rows within a table, not across tables. The obligation transition itself measured 0.056841 ms p99. On this host both combined cases exceed the 5 ms reference at p99 (8.031 ms for four checks, 7.308 ms for five). Almost all of that cost comes from the path and similarity checks. The five-check case can read lower than the four-check case because run-to-run variance on this host is larger than the obligation check's cost. benchmark_results.json holds this run.
+
+### Measured results — 31 October 2026 (adds the transducer cases)
+
+| Benchmark case | Wall p99 (ms) | Wall maximum (ms) |
+|---|---:|---:|
+| registry: qualified lookup, 256 pins | 0.001310 | 0.019146 |
+| path: parse + snapshot validation, 64 writes | 1.554548 | 6.242128 |
+| flow: fresh EXTERNAL step admission | 0.035524 | 0.087832 |
+| similarity: 16 x 256, 256-char miss, both modes | 4.112741 | 5.570932 |
+| obligation: outbound transition, 16 places x 64 transitions | 0.026391 | 0.092510 |
+| transducer: 1 read joined into 63 writes, copy-on-write overlay | 0.860511 | 2.734727 |
+| combined: four bounded checks | 5.524086 | 10.616541 |
+| combined: five bounded checks (with obligation) | 5.615334 | 8.698577 |
+| combined: six bounded checks (with transducer) | 6.486561 | 14.034532 |
+
+Python 3.12.3, Linux x86-64, 5,000 samples per case, in another container than either earlier run, so compare rows within this table only. The transducer case measured 0.860511 ms p99; its shell text is parsed once outside the timed region, so it times W's check plus the label work, not parsing. The six-check combined case measured 6.487 ms p99, above the 5 ms reference, and so did the four- and five-check cases on this host (5.524 ms and 5.615 ms). benchmark_results.json holds this run.
 
 ## Primary sources
 

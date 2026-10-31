@@ -18,6 +18,7 @@ from agent_gateway.lattice_flow_validator import Call, Gate, Label, MethodPolicy
 from agent_gateway.shingle_similarity_validator import Matcher
 from agent_gateway.linear_obligation_validator import (
     ObligationManifest, ObligationNet, TransitionSpec)
+from agent_gateway.symbolic_fs_transducer import FsTransducer
 
 N = 5000
 
@@ -93,6 +94,13 @@ def main():
     def fresh_net():
         holder["net"] = ObligationNet(obligation)
 
+    # One read source joined into 63 write targets: W's check plus 64 label
+    # lookups and a copy-on-write overlay of 63 entries.
+    label_intents = analyze_shell("cat out/f0 | tee -- " + " ".join(f"out/f{i}" for i in range(1, 64)))
+
+    def fresh_transducer():
+        holder["fs"] = FsTransducer(snap)
+
     results = [
         run("registry: qualified lookup, 256 pins", lambda: r.lookup("method255", "provider")),
         run("path: parse + snapshot validation, 64 writes", path_case),
@@ -100,6 +108,8 @@ def main():
         run("similarity: 16 x 256, 256-char miss, both modes", lambda: matcher.check(query)),
         run("obligation: outbound transition, 16 places x 64 transitions",
             lambda: holder["net"].fire("p", "outbound"), fresh_net),
+        run("transducer: 1 read joined into 63 writes, copy-on-write overlay",
+            lambda: holder["fs"].apply(label_intents), fresh_transducer),
     ]
 
     def combined():
@@ -119,6 +129,16 @@ def main():
         holder["net"].fire("p", "outbound")
 
     results.append(run("combined: five bounded checks (with obligation)", combined_five, prepare_five))
+
+    def prepare_six():
+        prepare_five()
+        fresh_transducer()
+
+    def combined_six():
+        combined_five()
+        holder["fs"].apply(label_intents)
+
+    results.append(run("combined: six bounded checks (with transducer)", combined_six, prepare_six))
     output = {
         "python": sys.version, "platform": platform.platform(),
         "gc_enabled": gc.isenabled(), "samples_per_case": N,

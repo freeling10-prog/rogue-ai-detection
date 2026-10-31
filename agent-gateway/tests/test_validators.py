@@ -1,5 +1,6 @@
 """Reference middleware validators: 64 original cases incl. four Hypothesis state machines,
-plus Predicate P (linear_obligation_validator) unit tests and PetriObligationMachine.
+plus Predicate P (linear_obligation_validator) unit tests and PetriObligationMachine,
+and Predicate T (symbolic_fs_transducer) unit tests and TransducerMachine.
 
 Moved unchanged from the AgentGate_Middleware_Reference drop except for package-qualified
 imports (``agent_gateway.*``). Oracles are independent of the implementations: an O(mn) DP
@@ -714,3 +715,224 @@ class PetriObligationMachine(RuleBasedStateMachine):
 
 TestPetriObligation = PetriObligationMachine.TestCase
 TestPetriObligation.settings = settings(max_examples=60, stateful_step_count=40, deadline=None)
+
+
+# --- Predicate T: symbolic_fs_transducer ----------------------------------------------
+
+from itertools import product
+
+from agent_gateway.symbolic_fs_transducer import (
+    BOTTOM, PROTECTED_DEFAULT, TOP, Confidentiality, FileLabel, FsTransducer, Integrity,
+    LabelDenied, TransducerSnapshot, path_intents)
+
+C, I = Confidentiality, Integrity
+ALL_LABELS = [FileLabel(c, i) for c, i in product(C, I)]
+WRITABLE = ("out/f0", "out/f1", "out/f2", "out/f3")
+
+
+def label_nodes(extra=None):
+    nodes = {"/ws": Node("dir"), "/ws/out": Node("dir"),
+             "/ws/.mcp.json": Node("file", (1, 2), links=2),
+             # A second name for the protected inode: reads through it are PROTECTED.
+             "/ws/out/alias": Node("file", (1, 2), links=2),
+             "/ws/AGENTS.md": Node("file", (1, 3)),
+             "/ws/link": Node("symlink", target="/ws/.mcp.json")}
+    for i, name in enumerate(WRITABLE):
+        nodes[f"/ws/{name}"] = Node("file", (2, i + 1))
+    nodes.update(extra or {})
+    return nodes
+
+
+def transducer(extra=None):
+    return FsTransducer(Snapshot(label_nodes(extra)))
+
+
+def test_label_lattice_laws():
+    for a, b, c in product(ALL_LABELS, repeat=3):
+        assert a.join(b) == b.join(a)
+        assert a.join(b).join(c) == a.join(b.join(c))
+        assert a.flows_to(b) == (a.join(b) == b)
+    for a in ALL_LABELS:
+        assert a.join(a) == a and BOTTOM.join(a) == a and TOP.join(a) == TOP
+    with pytest.raises(Denied):
+        FileLabel(2, 0)
+
+
+def test_default_labels_follow_the_workspace_model():
+    t = transducer()
+    assert t.label_at(".mcp.json") == PROTECTED_DEFAULT
+    assert t.label_at("AGENTS.md") == PROTECTED_DEFAULT
+    assert t.label_at("link") == PROTECTED_DEFAULT  # symlink to a protected name
+    assert t.label_at("out/alias") == PROTECTED_DEFAULT  # hardlink to a protected inode
+    assert t.label_at("out/f0") == BOTTOM
+
+
+def test_pipeline_join_and_session_integrity():
+    t = transducer()
+    effect = t.apply(analyze_shell("cat link out/f1 | tee out/f0"))
+    assert effect.reads == ("/ws/.mcp.json", "/ws/out/f1") and effect.writes == ("/ws/out/f0",)
+    assert effect.label == PROTECTED_DEFAULT and t.label_at("out/f0") == PROTECTED_DEFAULT
+    t.observe_untrusted()
+    t.apply(analyze_shell("echo x > out/f2"))
+    assert t.label_at("out/f2") == FileLabel(C.PUBLIC, I.UNTRUSTED)
+    t.apply(analyze_shell("cp out/f0 out/f3"))
+    assert t.label_at("out/f3") == TOP
+    assert t.generation == 3
+
+
+def test_labels_never_lower_on_overwrite():
+    t = transducer()
+    t.apply(analyze_shell("cp .mcp.json out/f0"))
+    t.apply(analyze_shell("echo x > out/f0"))
+    assert t.label_at("out/f0") == PROTECTED_DEFAULT
+
+
+def test_sinks_check_read_sources():
+    t = transducer()
+    t.apply(analyze_shell("cp out/alias out/f0"))
+    for path in ("/ws/out/f0", "/ws/.mcp.json", "/ws/link"):
+        with pytest.raises(LabelDenied) as err:
+            t.check(path_intents(reads=(path,)), is_egress=True)
+        assert err.value.axis == "confidentiality" and str(err.value) == "CONFIDENTIAL_SOURCE_TO_EGRESS"
+    t.check(path_intents(reads=("/ws/out/f1",)), is_egress=True)
+    t.check(path_intents(reads=("/ws/out/f0",)), is_config_or_exec_sink=True)  # TRUSTED
+    t.observe_untrusted()
+    t.apply(analyze_shell("echo x >> out/f1"))
+    with pytest.raises(LabelDenied) as err:
+        t.check(path_intents(reads=("/ws/out/f1",)), is_config_or_exec_sink=True)
+    assert err.value.axis == "integrity"
+    with pytest.raises(LabelDenied):
+        t.apply(analyze_shell("chmod 755 out/f1"))
+    t.apply(analyze_shell("chmod 644 out/f2"))
+
+
+def test_base_denial_and_sink_denial_leave_state_unchanged():
+    t = transducer()
+    before = t.state
+    for command in ("echo x > .mcp.json", "cp out/f0 AGENTS.md", "ln out/f0 out/f9",
+                    "cat out/missing"):
+        with pytest.raises(Denied) as err:
+            t.apply(analyze_shell(command))
+        assert not isinstance(err.value, LabelDenied)
+    with pytest.raises(LabelDenied):
+        t.apply(analyze_shell("cat .mcp.json"), is_egress=True)
+    assert t.state is before and t.generation == 0
+
+
+def test_evaluate_is_pure_and_snapshot_is_immutable():
+    t = transducer()
+    state = t.state
+    effect, successor = state.evaluate(analyze_shell("cp .mcp.json out/f0"))
+    assert state.overlay == {} and state.generation == 0
+    assert successor.generation == 1 and successor.label_at("out/f0") == PROTECTED_DEFAULT
+    assert state.evaluate(analyze_shell("cat out/f0"))[1] is state  # no writes, no successor
+    with pytest.raises(AttributeError):
+        state.generation = 5
+    with pytest.raises(TypeError):
+        successor.overlay[("path", "/ws/x")] = TOP
+
+
+def test_commit_is_fenced_on_generation():
+    t = transducer()
+    first = t.check(analyze_shell("cp .mcp.json out/f0"))
+    second = t.check(analyze_shell("echo x > out/f1"))
+    t.commit(first)
+    with pytest.raises(LabelDenied) as err:
+        t.commit(second)
+    assert str(err.value) == "STALE_LABEL_GENERATION" and err.value.axis == "state"
+    assert t.label_at("out/f1") == BOTTOM
+
+
+def test_rebase_carries_labels_and_fences_old_results():
+    t = transducer()
+    t.apply(analyze_shell("cp .mcp.json out/new"))
+    with pytest.raises(Denied):
+        t.label_at("out/new")  # Not in the base model yet.
+    pending = t.check(analyze_shell("echo x > out/f0"))
+    with pytest.raises(LabelDenied):
+        t.rebase(Snapshot(label_nodes(), 0))
+    with pytest.raises(LabelDenied):
+        t.rebase(Snapshot({"/w": Node("dir")}, 1, root="/w"))
+    t.rebase(Snapshot(label_nodes({"/ws/out/new": Node("file", (3, 1))}), 1))
+    assert t.label_at("out/new") == PROTECTED_DEFAULT
+    with pytest.raises(LabelDenied):
+        t.commit(pending)
+
+
+def test_reason_codes_carry_no_paths():
+    t = transducer()
+    for call in (lambda: t.apply(analyze_shell("cat .mcp.json"), is_egress=True),
+                 lambda: t.apply(analyze_shell("cat out/missing_secret_name"))):
+        with pytest.raises(Denied) as err:
+            call()
+        assert "/" not in str(err.value) and "secret" not in str(err.value)
+
+
+class TransducerMachine(RuleBasedStateMachine):
+    """Shell copies, pipes, appends and overwrites against an independent label model."""
+
+    SOURCES = WRITABLE + (".mcp.json", "out/alias", "link", "AGENTS.md")
+
+    def __init__(self):
+        super().__init__()
+        self.t = transducer()
+        self.model = {name: (0, 0) for name in WRITABLE}
+        for name in (".mcp.json", "out/alias", "link", "AGENTS.md"):
+            self.model[name] = (2, 0)
+        self.session = 0
+        self.commits = 0
+
+    def flow(self, dst, *sources):
+        old = self.model[dst]
+        joined = [old, (0, self.session)] + [self.model[s] for s in sources]
+        self.model[dst] = (max(c for c, _ in joined), max(i for _, i in joined))
+        self.commits += 1
+
+    @rule(src=st.sampled_from(SOURCES), dst=st.sampled_from(WRITABLE))
+    def copy(self, src, dst):
+        self.t.apply(analyze_shell(f"cp {src} {dst}"))
+        self.flow(dst, src)
+
+    @rule(srcs=st.lists(st.sampled_from(SOURCES), min_size=1, max_size=3),
+          dst=st.sampled_from(WRITABLE), append=st.booleans())
+    def pipe(self, srcs, dst, append):
+        self.t.apply(analyze_shell(f"cat {' '.join(srcs)} | tee {'-a ' if append else ''}{dst}"))
+        self.flow(dst, *srcs, *([dst] if append else []))
+
+    @rule(dst=st.sampled_from(WRITABLE))
+    def overwrite(self, dst):
+        self.t.apply(analyze_shell(f"echo x > {dst}"))
+        self.flow(dst)
+
+    @rule()
+    def untrusted(self):
+        self.t.observe_untrusted()
+        self.session = 1
+
+    @rule(path=st.sampled_from(SOURCES), egress=st.booleans())
+    def sink(self, path, egress):
+        conf, integ = self.model[path]
+        expected = (conf == 0) if egress else (integ == 0)
+        flags = {"is_egress": egress, "is_config_or_exec_sink": not egress}
+        before = self.t.generation
+        assert allows(self.t.apply, path_intents(reads=("/ws/" + path,)), **flags) == expected
+        assert self.t.generation == before
+
+    @rule(dst=st.sampled_from(WRITABLE))
+    def chmod(self, dst):
+        assert allows(self.t.apply, analyze_shell(f"chmod 755 {dst}")) == (self.model[dst][1] == 0)
+
+    @rule(dst=st.sampled_from([".mcp.json", "AGENTS.md", "out/alias"]))
+    def protected_write(self, dst):
+        assert not allows(self.t.apply, analyze_shell(f"echo x > {dst}"))
+
+    @invariant()
+    def labels_match_model(self):
+        for name, (conf, integ) in self.model.items():
+            assert self.t.label_at(name) == FileLabel(C(conf), I(integ))
+        assert self.t.generation == self.commits
+        assert len(self.t.state.overlay) <= len(WRITABLE)
+
+
+TestTransducer = TransducerMachine.TestCase
+TestTransducer.settings = settings(max_examples=60, stateful_step_count=40, deadline=None)

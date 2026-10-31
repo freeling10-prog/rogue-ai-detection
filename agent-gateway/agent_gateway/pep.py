@@ -68,6 +68,11 @@ Safety:
   weighted token conservation, gates workflow transitions once a trusted
   adapter attaches a manifest; an outbound step cannot fire while resource
   cleanup state is unsettled (``linear_obligation_validator.py``).
+- v12.4: a sixth reference validator carries (confidentiality, integrity)
+  labels across file effects in a copy-on-write overlay over the workspace
+  model. A protected file copied into an ordinary one cannot be attached to an
+  outbound call, and a file written while the session is untrusted cannot
+  feed an execution sink (``symbolic_fs_transducer.py``).
 """
 from __future__ import annotations
 
@@ -118,6 +123,7 @@ from .lattice_flow_validator import (
 )
 from .registry_pin_validator import Registry as PinRegistry, lint_description as pin_lint_description
 from .shingle_similarity_validator import Matcher as ShingleMatcher
+from .symbolic_fs_transducer import FsTransducer, LabelDenied, PendingLabels, path_intents
 from .workspace_path_validator import Node as FsNode, Snapshot as FsSnapshot, analyze_shell
 from .paths import default_registry_path
 from .registry import Registry
@@ -204,6 +210,8 @@ FLOW_MANIFEST_DENIED = "FLOW_MANIFEST_DENIED"
 SIMILARITY_LEAK_DENIED = "SIMILARITY_LEAK_DENIED"
 # v12.3: the Petri-net transition gate takes the next free code after -32070.
 OBLIGATION_PROTOCOL_DENIED = "OBLIGATION_PROTOCOL_DENIED"
+# v12.4: the file label transducer takes the next free code after -32071.
+FS_LABEL_FLOW_DENIED = "FS_LABEL_FLOW_DENIED"
 # Descriptor fields the reference profile hashes for a pin (annotations included:
 # annotation-only drift is drift under this policy).
 _REFERENCE_PIN_FIELDS = ("description", "inputSchema", "outputSchema", "annotations", "title")
@@ -211,10 +219,12 @@ _V12_CODES.update({
     REGISTRY_PIN_DRIFT: -32066, REGISTRY_ALIAS_AMBIGUOUS: -32067,
     WORKSPACE_EFFECT_DENIED: -32068, FLOW_MANIFEST_DENIED: -32069,
     SIMILARITY_LEAK_DENIED: -32070, OBLIGATION_PROTOCOL_DENIED: -32071,
+    FS_LABEL_FLOW_DENIED: -32072,
 })
 _V12_ATLAS.update({REGISTRY_PIN_DRIFT: "AML.T0051", REGISTRY_ALIAS_AMBIGUOUS: "AML.T0051",
                    WORKSPACE_EFFECT_DENIED: "AML.T0053", FLOW_MANIFEST_DENIED: "AML.T0051",
-                   SIMILARITY_LEAK_DENIED: "AML.T0086", OBLIGATION_PROTOCOL_DENIED: "AML.T0051"})
+                   SIMILARITY_LEAK_DENIED: "AML.T0086", OBLIGATION_PROTOCOL_DENIED: "AML.T0051",
+                   FS_LABEL_FLOW_DENIED: "AML.T0086"})
 _EXEC_TOOL_RE = re.compile(r"(?:^|[._\-])(?:shell|bash|exec|terminal|run_command|run_script)(?:$|[._\-])")
 _DEFAULT_SINK_TOOLS = tuple(sorted(
     name for name, ec in TOOL_EGRESS.items() if ec in (EGRESS_WRITE, EGRESS_SEND, EGRESS_CREDS)
@@ -400,6 +410,7 @@ class PolicyEngine:
         self.flow_gates: dict[str, ManifestGate] = {}
         self.similarity: Optional[ShingleMatcher] = None
         self.obligation_nets: dict[str, ObligationNet] = {}
+        self.fs_transducers: dict[str, FsTransducer] = {}
         self.poisoned_tools: dict[tuple[str, str], dict] = {}
         self.interpreter = InterpreterExecGuard(allow=self.cfg.workspace_allow)
         core = set(CORE_MCP_SERVERS)
@@ -1282,6 +1293,52 @@ class PolicyEngine:
         self.obligation_nets[session_id] = net
         return net
 
+    def attach_fs_transducer(self, session_id: str, nodes: dict[str, FsNode],
+                             generation: int = 0, root: str = "/ws") -> FsTransducer:
+        """Carry (confidentiality, integrity) labels across a session's file effects.
+
+        ``nodes`` is the same trusted broker model ``attach_workspace_snapshot``
+        takes. Protected paths and inodes start PROTECTED; everything else starts
+        PUBLIC / TRUSTED. Shell commands and workspace path arguments are checked
+        by the workspace model first, then labels flow from read sources to write
+        targets. An outbound call may not read a non-PUBLIC file and an execution
+        sink may not read an UNTRUSTED one. Labels are committed only after every
+        other reference validator passes. The broker publishes namespace changes
+        with ``FsTransducer.rebase``.
+        """
+        transducer = FsTransducer(FsSnapshot(nodes, generation, root))
+        self.fs_transducers[session_id] = transducer
+        return transducer
+
+    def _fs_label_plan(self, transducer: FsTransducer, tool_name: str, args: dict,
+                       eclass: str) -> Optional[tuple]:
+        """Typed adapter: (intents, cwd, is_egress, is_config_or_exec_sink), or None.
+
+        A literal shell command is analyzed into its effect union. Its fixed
+        command set (cat, tee, cp, mv, ln, chmod, sed, echo) never interprets
+        file content, and its output returns to the agent, so it is neither an
+        egress nor an execution sink; ``chmod`` targets are still checked as
+        execution sinks inside the transducer. Any other call is applicable only
+        when a resource argument names a path inside the workspace root: a write
+        tool's paths are write targets, every other tool's paths are read
+        sources, checked against the call's sink stage.
+        """
+        cwd = args.get("cwd") if isinstance(args.get("cwd"), str) else None
+        command = args.get("command") or args.get("cmd") or args.get("script")
+        if isinstance(command, str) and command.strip():
+            return analyze_shell(command), cwd, False, False
+        root = transducer.state.base.root
+        paths = tuple(dict.fromkeys(
+            args[k] for k in _RESOURCE_ARGS
+            if isinstance(args.get(k), str) and (args[k] == root or args[k].startswith(root + "/"))))
+        if not paths:
+            return None
+        stage = self._sink_stage(tool_name, eclass, args)
+        if eclass == EGRESS_WRITE and stage is None:
+            return path_intents(writes=paths), cwd, False, False
+        is_egress = stage == EXTERNAL_SINK or eclass in (EGRESS_SEND, EGRESS_CREDS)
+        return path_intents(reads=paths), cwd, is_egress, stage == PRIVILEGED_EXEC
+
     def _flow_call(self, gate: ManifestGate, tool_name: str, args: dict) -> FlowCall:
         """Typed adapter: discover the step, its roles and the canonical digest."""
         try:
@@ -1331,6 +1388,26 @@ class PolicyEngine:
                                                  "effects": len(effects),
                                                  "generation": snapshot.generation}})
 
+        transducer = self.fs_transducers.get(sess.session_id)
+        labels: Optional[PendingLabels] = None
+        if transducer is not None:
+            if sess.tainted:
+                transducer.observe_untrusted()
+            try:
+                plan = self._fs_label_plan(transducer, tool_name, args, eclass)
+                if plan is not None:
+                    intents, cwd, is_egress, is_sink = plan
+                    labels = transducer.check(intents, cwd, is_egress=is_egress,
+                                              is_config_or_exec_sink=is_sink)
+            except LabelDenied as exc:
+                return self._fs_label_deny(sess, step, tool_name, args, transducer, exc)
+            except ReferenceDenied as exc:
+                # The workspace model itself refused the effect (Predicate W).
+                return self._v12_deny(sess, step, tool_name, args, WORKSPACE_EFFECT_DENIED,
+                                      {"shell": {"reason": str(exc), "modeled": True,
+                                                 "generation": transducer.state.base.generation,
+                                                 "via": "fs_transducer"}})
+
         gate = self.flow_gates.get(sess.session_id)
         if gate is not None:
             if sess.tainted:
@@ -1375,6 +1452,13 @@ class PolicyEngine:
                                           {"similarity": {"reason": decision.reason,
                                                           "identifier_hash": decision.identifier_hash,
                                                           "protected_hash": decision.protected_hash}})
+        if labels is not None:
+            # Labels only rise, so committing before the Petri-net fire can
+            # overstate a file's label if that fire then fails, never understate it.
+            try:
+                transducer.commit(labels)
+            except LabelDenied as exc:
+                return self._fs_label_deny(sess, step, tool_name, args, transducer, exc)
         if net is not None and transition is not None:
             # Commit point: fenced on the sequence read before the other checks.
             try:
@@ -1388,6 +1472,14 @@ class PolicyEngine:
         return self._v12_deny(sess, step, tool_name, args, OBLIGATION_PROTOCOL_DENIED,
                               {"obligation": {"reason": str(exc), "marking": net.marking_hex,
                                               "sequence": net.sequence}})
+
+    def _fs_label_deny(self, sess: SessionState, step: int, tool_name: str, args: dict,
+                       transducer: FsTransducer, exc: LabelDenied) -> dict:
+        # Reason codes and labels only: no path or file content in the finding.
+        return self._v12_deny(sess, step, tool_name, args, FS_LABEL_FLOW_DENIED,
+                              {"fs_label": {"reason": str(exc), "axis": exc.axis,
+                                            "generation": transducer.generation,
+                                            "session_integrity": transducer.session_integrity.name}})
 
     def _agent_node(self, sess: SessionState) -> str:
         """Collusion-graph node for one session of one registered agent."""

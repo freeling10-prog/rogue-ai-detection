@@ -4,6 +4,28 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
+## [Unreleased] - v12.4 file label transducer (31 October 2026)
+
+- `symbolic_fs_transducer.py`: Predicate T. A (confidentiality, integrity)
+  product lattice (PUBLIC < SENSITIVE < PROTECTED, TRUSTED < UNTRUSTED) per
+  file object, in an immutable copy-on-write overlay over the workspace
+  `Snapshot`. Protected paths and inodes (including symlink and hard-link
+  aliases) start PROTECTED. The workspace check runs first. Labels flow from
+  read sources to write targets joined with the session integrity, only ever
+  rise, and are fenced on an overlay generation. Outbound calls cannot read
+  non-PUBLIC files; execution sinks and chmod cannot use UNTRUSTED ones.
+  `FsTransducer.rebase()` adopts a newer broker snapshot and keeps labels.
+- `pep.py`: `PolicyEngine.attach_fs_transducer()`. Checked right after the
+  shell-effect check and committed after every other reference validator,
+  before the Petri-net fire. Rule code `FS_LABEL_FLOW_DENIED` (-32072,
+  approximate AML.T0086) in SARIF (CWE-201, CWE-829, ASI02, LLM02:2025) and
+  in the audit-report counts.
+- Tests: 11 new cases in `tests/test_validators.py` (including
+  `TransducerMachine`) and `tests/test_v12_4_fs_label_wiring.py` (7).
+  Gateway tests 894 -> **912**; Hypothesis state machines 14 -> **15**.
+- `benchmarks/benchmark.py`: transducer case (1 read joined into 63 writes)
+  and a six-check combined case; `benchmark_results.json` regenerated.
+
 ## [Unreleased] - v12.3 Petri-net transition gate (31 October 2026)
 
 - `linear_obligation_validator.py`: a bounded 16-place Petri net with 4-bit

@@ -1,4 +1,5 @@
-# Publishes the self-contained static site in site/ to GitHub Pages.
+# Publishes site/ to GitHub Pages.
+# site/index.html is the marketing page; site/demo/ is the previous technical report.
 # Public, zero-auth-wall: served at https://freeling10-prog.github.io/rogue-ai-detection/
 # Deploys on push to main (only when site/ or this workflow changes), and on manual dispatch.
 name: Deploy GitHub Pages
@@ -30,7 +31,7 @@ jobs:
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Stamp asset versions (cache-bust styles.css / app.js on every deploy)
-        run: sed -i "s/__BUILD__/${GITHUB_SHA::8}/g" site/index.html
+        run: sed -i "s/__BUILD__/${GITHUB_SHA::8}/g" site/demo/index.html
       - name: Upload site/ artifact
         uses: actions/upload-pages-artifact@v3
         with:

@@ -202,9 +202,14 @@ def test_batch_notifications_and_invalid(engine: PolicyEngine):
         {"jsonrpc": "2.0", "method": "notifications/initialized"},
         _req(2, "tools/call", {"name": "credentials.pass_through", "arguments": {}}),
     ]
+    # A batch is one message. It is rejected whole so an item cannot skip inspection.
     res = proxy.handle(CLIENT_TO_SERVER, batch)
-    assert [m.get("method") for m in res.forward] == ["initialize", "notifications/initialized"]
-    assert res.reply[0]["id"] == 2 and res.reply[0]["error"]["data"]["error"] == "credentials_pass_through_refused"
+    assert res.decision == "invalid" and res.forward == []
+    assert res.reply[0]["error"]["code"] == -32600
+    note = proxy.handle(CLIENT_TO_SERVER, {"jsonrpc": "2.0", "method": "notifications/initialized"})
+    assert note.forward and note.forward[0]["method"] == "notifications/initialized"
+    refused = _call(proxy, 2, "credentials.pass_through", {})
+    assert refused.reply[0]["error"]["data"]["error"] == "credentials_pass_through_refused"
     assert proxy.handle_line(CLIENT_TO_SERVER, "{not json").reply[0]["error"]["code"] == -32700
     assert proxy.handle(CLIENT_TO_SERVER, {"id": 3, "method": "x"}).reply[0]["error"]["code"] == -32600
     assert proxy.handle(CLIENT_TO_SERVER, []).reply[0]["error"]["code"] == -32600

@@ -222,12 +222,20 @@ class PendingLabels:
 
 
 class FsTransducer:
-    """ONE session's label state; every transition is serialized under the lock."""
+    """ONE session's label state; every transition is serialized under the lock.
 
-    def __init__(self, snapshot: Snapshot):
+    ``store`` is an optional ``FsLabelStore`` shared by every session on this
+    workspace. Committed labels are appended there, and a new transducer loads
+    them, so a later session does not start from (PUBLIC, TRUSTED). Without a
+    store the transducer is the in-memory model the unit tests exercise.
+    """
+
+    def __init__(self, snapshot: Snapshot, store=None):
+        self._store = store
         self._state = TransducerSnapshot(snapshot)
         self.session_integrity = Integrity.TRUSTED
         self._lock = RLock()
+        self._refresh()
 
     @property
     def state(self) -> TransducerSnapshot:
@@ -246,12 +254,17 @@ class FsTransducer:
 
     def label_at(self, path: str, cwd: str | None = None) -> FileLabel:
         with self._lock:
+            self._refresh()
+            self._join_content((path,), cwd)
             return self._state.label_at(path, cwd)
 
     def check(self, intents: tuple[Intent, ...], cwd: str | None = None, *,
               is_egress: bool = False, is_config_or_exec_sink: bool = False) -> PendingLabels:
         """Evaluate without committing."""
         with self._lock:
+            self._refresh()
+            raw = [p for intent in intents for p in (intent.path, intent.source) if p]
+            self._join_content(raw, cwd)
             state = self._state
             effect, successor = state.evaluate(
                 intents, cwd, session_integrity=self.session_integrity,
@@ -263,8 +276,76 @@ class FsTransducer:
         with self._lock:
             if pending.expected_generation != self._state.generation:
                 raise LabelDenied("STALE_LABEL_GENERATION", "state")
+            before = self._state
             self._state = pending.successor
+            self._persist(before, pending.effect)
             return pending.effect
+
+    def _refresh(self) -> None:
+        """Join labels other sessions have committed. No-op without a store."""
+        store = self._store
+        if store is None:
+            return
+        extra = dict(store.labels_for(self._state.base.root))
+        floor = store.floor_label()
+        if floor is not None:
+            for path, node in self._state.base.nodes.items():
+                if getattr(node, "kind", None) != "file":
+                    continue
+                extra[("path", path)] = floor if ("path", path) not in extra else extra[("path", path)].join(floor)
+                if getattr(node, "inode", _NO_INODE) != _NO_INODE:
+                    key = ("inode",) + tuple(node.inode)
+                    extra[key] = floor if key not in extra else extra[key].join(floor)
+        self._join_overlay(extra)
+
+    def _join_content(self, raw_paths, cwd: str | None) -> None:
+        store = self._store
+        if store is None:
+            return
+        extra = {}
+        for raw in raw_paths:
+            try:
+                resolved = self._state.base.resolve(raw, cwd)
+            except Denied:
+                continue
+            if resolved.node is None or resolved.node.kind != "file":
+                continue
+            label = store.content_label(resolved.path)
+            if label is None:
+                continue
+            extra[object_key(resolved)] = label
+            extra[("path", resolved.path)] = label
+        self._join_overlay(extra)
+
+    def _join_overlay(self, extra: dict) -> None:
+        if not extra:
+            return
+        overlay = dict(self._state.overlay)
+        changed = False
+        for key, label in extra.items():
+            joined = overlay.get(key, BOTTOM).join(label)
+            if overlay.get(key) != joined:
+                overlay[key] = joined
+                changed = True
+        if changed:
+            self._state = TransducerSnapshot(self._state.base, overlay, self._state.generation + 1)
+
+    def _persist(self, before: TransducerSnapshot, effect: FlowEffect) -> None:
+        store = self._store
+        if store is None:
+            return
+        changed = {key: label for key, label in self._state.overlay.items()
+                   if before.overlay.get(key) != label}
+        if not changed:
+            return
+        content_for: dict = {}
+        for path in effect.writes:
+            ident = store.content_identity(path)
+            content_for[("path", path)] = ident
+            if ident is not None:
+                content_for[("inode", ident.dev, ident.ino)] = ident
+        for key, label in changed.items():
+            store.record(key, label, content=content_for.get(key))
 
     def apply(self, intents: tuple[Intent, ...], cwd: str | None = None, **sinks) -> FlowEffect:
         with self._lock:

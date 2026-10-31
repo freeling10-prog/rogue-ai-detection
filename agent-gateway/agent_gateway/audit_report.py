@@ -102,6 +102,7 @@ GATEWAY_FINDING_KINDS = (
     "FS_LABEL_FLOW_DENIED",
     "ARGUMENT_CONFINEMENT_DENIED",
     "FORK_JOIN_LEDGER_DENIED",
+    "DYNAMIC_INGRESSION_DENIED",
 )
 _EXFIL_EGRESS = frozenset({"external_read", "send", "write", "creds"})
 _ATLAS_RE = re.compile(r"AML\.T\d{4}(?:\.\d{3})?")

@@ -83,6 +83,11 @@ Safety:
   the root's denial, outbound and token budgets instead of fresh ones, stale
   concurrent dispatches are refused, and taint flows along forks and joins
   (``fork_join_vector_validator.py``).
+- v12.7: a ninth reference validator learns secrets from tool responses
+  before the agent sees them (sensitive fields, credential prefixes,
+  internal hosts, e-mail addresses, high-entropy tokens) into a
+  non-evicting per-session store, and denies later outbound strings that
+  cover one (``dynamic_ingression_validator.py``).
 """
 from __future__ import annotations
 
@@ -93,6 +98,7 @@ import logging
 import math
 import re
 import time
+import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
@@ -124,6 +130,10 @@ from .mcp_capability_manifest_guard import McpCapabilityManifestGuard
 # v12.2 reference middleware validators (deterministic, standard-library only).
 from . import common as reference_json
 from .common import Denied as ReferenceDenied
+from .dynamic_ingression_validator import (
+    MAX_SECRET as INGRESS_MAX_SECRET, MIN_SECRET as INGRESS_MIN_SECRET,
+    Field as IngressField, Ingression,
+)
 from .fork_join_vector_validator import (
     FIRE as LEDGER_FIRE, FORK as LEDGER_FORK, SEND as LEDGER_SEND, TAINT as LEDGER_TAINT,
     ZERO as LEDGER_ZERO, Owner as LedgerOwner, Root as LedgerRoot,
@@ -235,6 +245,13 @@ FS_LABEL_FLOW_DENIED = "FS_LABEL_FLOW_DENIED"
 ARGUMENT_CONFINEMENT_DENIED = "ARGUMENT_CONFINEMENT_DENIED"
 # v12.6: the fork/join conservation ledger takes -32074.
 FORK_JOIN_LEDGER_DENIED = "FORK_JOIN_LEDGER_DENIED"
+# v12.7: dynamic ingression pins take -32075.
+DYNAMIC_INGRESSION_DENIED = "DYNAMIC_INGRESSION_DENIED"
+# Result keys whose short values are enrolled whole as secrets.
+_SENSITIVE_RESULT_KEYS = frozenset({
+    "secret", "password", "passwd", "token", "api_key", "apikey", "access_key",
+    "secret_key", "private_key", "client_secret", "credential", "credentials",
+})
 # Descriptor fields the reference profile hashes for a pin (annotations included:
 # annotation-only drift is drift under this policy).
 _REFERENCE_PIN_FIELDS = ("description", "inputSchema", "outputSchema", "annotations", "title")
@@ -243,13 +260,13 @@ _V12_CODES.update({
     WORKSPACE_EFFECT_DENIED: -32068, FLOW_MANIFEST_DENIED: -32069,
     SIMILARITY_LEAK_DENIED: -32070, OBLIGATION_PROTOCOL_DENIED: -32071,
     FS_LABEL_FLOW_DENIED: -32072, ARGUMENT_CONFINEMENT_DENIED: -32073,
-    FORK_JOIN_LEDGER_DENIED: -32074,
+    FORK_JOIN_LEDGER_DENIED: -32074, DYNAMIC_INGRESSION_DENIED: -32075,
 })
 _V12_ATLAS.update({REGISTRY_PIN_DRIFT: "AML.T0051", REGISTRY_ALIAS_AMBIGUOUS: "AML.T0051",
                    WORKSPACE_EFFECT_DENIED: "AML.T0053", FLOW_MANIFEST_DENIED: "AML.T0051",
                    SIMILARITY_LEAK_DENIED: "AML.T0086", OBLIGATION_PROTOCOL_DENIED: "AML.T0051",
                    FS_LABEL_FLOW_DENIED: "AML.T0086", ARGUMENT_CONFINEMENT_DENIED: "AML.T0053",
-                   FORK_JOIN_LEDGER_DENIED: "AML.T0086"})
+                   FORK_JOIN_LEDGER_DENIED: "AML.T0086", DYNAMIC_INGRESSION_DENIED: "AML.T0086"})
 _EXEC_TOOL_RE = re.compile(r"(?:^|[._\-])(?:shell|bash|exec|terminal|run_command|run_script)(?:$|[._\-])")
 _DEFAULT_SINK_TOOLS = tuple(sorted(
     name for name, ec in TOOL_EGRESS.items() if ec in (EGRESS_WRITE, EGRESS_SEND, EGRESS_CREDS)
@@ -442,6 +459,7 @@ class PolicyEngine:
         self._confined: dict[str, dict] = {}
         # session id -> (ledger owner, branch slot); every branch of a root shares one owner.
         self.fork_ledgers: dict[str, tuple[LedgerOwner, int]] = {}
+        self.ingressions: dict[str, Ingression] = {}
         self.poisoned_tools: dict[tuple[str, str], dict] = {}
         self.interpreter = InterpreterExecGuard(allow=self.cfg.workspace_allow)
         core = set(CORE_MCP_SERVERS)
@@ -638,7 +656,34 @@ class PolicyEngine:
             parent_key=parent_key, bound_step_index=bound_step_index,
             capability_token=capability_token, destination=destination,
         )
+        out = self._ingress_result(session_id, tool_name, arguments, out)
         return self._attach_capability(session_id, out)
+
+    def _ingress_result(self, session_id: str, tool_name: str, arguments: Optional[dict],
+                        out: dict) -> dict:
+        """Enroll every result the agent is about to see, whichever path produced it.
+
+        Runs after the decision, so it covers the general allow path and the
+        bespoke ones (scratchpad notes, the internal bus, spawns) alike. A result
+        that cannot be enrolled within bounds is withheld and the call denied.
+        """
+        holder = self.ingressions.get(session_id)
+        if holder is None or not out.get("allowed") or out.get("result") is None:
+            return out
+        result = out["result"]
+        if isinstance(result, dict):
+            # "tool" is the gateway's own echo of the method name, not tool output.
+            result = {k: v for k, v in result.items() if k != "tool"}
+        try:
+            holder.receive(self._ingress_fields(tool_name, result))
+        except ReferenceDenied as exc:
+            sess = self.sessions[session_id]
+            return self._v12_deny(sess, out.get("step_index", sess.step_index), tool_name,
+                                  dict(arguments or {}), DYNAMIC_INGRESSION_DENIED,
+                                  {"ingression": {"reason": str(exc), "direction": "inbound",
+                                                  "slots_used": holder.used,
+                                                  "result_withheld": True}})
+        return out
 
     def _evaluate_call(
         self,
@@ -1370,6 +1415,55 @@ class PolicyEngine:
             raise ValueError("tool is already pinned to an argument policy")
         self.command_tools.add(tool_name)
 
+    def attach_ingression(self, session_id: str) -> Ingression:
+        """Learn secrets from this session's tool responses and block them outbound.
+
+        Every tool result the gateway returns to the session is scanned first:
+        short values under secret-like keys, and every short string a sensitive
+        read returns, are enrolled whole; other strings are scanned for
+        credential prefixes, internal host names, e-mail addresses and
+        high-entropy tokens. The store holds 8 values and never evicts. A
+        response that is too large, has an over-long token, or would need a
+        ninth slot is withheld. Later outbound strings that cover 85% of an
+        enrolled value are denied.
+        """
+        holder = self.ingressions.get(session_id)
+        if holder is None:
+            holder = self.ingressions[session_id] = Ingression()
+        return holder
+
+    def ingest_dynamic_result(self, agent_key: str, session_id: str, tool_name: str, result: Any) -> int:
+        """Proxy entry point: enroll a real tool result before it reaches the agent.
+
+        Returns how many new values were enrolled (0 when no holder is attached).
+        Raises ``ValueError`` with a fixed reason code when the result must be
+        withheld.
+        """
+        holder = self.ingressions.get(session_id)
+        if holder is None:
+            return 0
+        self.get_session(session_id, agent_key)
+        return holder.receive(self._ingress_fields(tool_name, result))
+
+    @staticmethod
+    def _ingress_fields(tool_name: str, result: Any) -> list:
+        """Fields as the agent reads them.
+
+        Unicode format characters (category Cf, e.g. the canary watermark's
+        zero-width marks) are removed first: they are invisible, so a copied
+        secret rarely carries them, and enrolling them would dilute coverage.
+        The canary guard tracks the watermark itself.
+        """
+        sensitive_tool = tool_name in SENSITIVE_READ_TOOLS or egress_class(tool_name) == EGRESS_CREDS
+        fields = []
+        for key, value in iter_strings(result):
+            value = "".join(ch for ch in value if unicodedata.category(ch) != "Cf")
+            size = len(value.encode("utf-8", "surrogatepass"))
+            named = key.rsplit(".", 1)[-1].casefold() in _SENSITIVE_RESULT_KEYS
+            sensitive = (named or sensitive_tool) and INGRESS_MIN_SECRET <= size <= INGRESS_MAX_SECRET
+            fields.append(IngressField(value, sensitive))
+        return fields
+
     def attach_fork_join(self, session_id: str, root: LedgerRoot,
                          transitions: Optional[dict[str, tuple]] = None) -> LedgerOwner:
         """Put ``session_id`` at slot 0 of a fork/join conservation ledger.
@@ -1659,6 +1753,17 @@ class PolicyEngine:
                                           {"similarity": {"reason": decision.reason,
                                                           "identifier_hash": decision.identifier_hash,
                                                           "protected_hash": decision.protected_hash}})
+        holder = self.ingressions.get(sess.session_id)
+        if holder is not None and eclass in (EGRESS_WRITE, EGRESS_SEND, EGRESS_CREDS):
+            for _, text in iter_strings(args):
+                query = text.encode("utf-8", "surrogatepass")
+                try:
+                    holder.outbound(query)
+                except ReferenceDenied as exc:
+                    return self._v12_deny(sess, step, tool_name, args, DYNAMIC_INGRESSION_DENIED,
+                                          {"ingression": {"reason": str(exc), "direction": "outbound",
+                                                          "slot": holder.matching_slot(query),
+                                                          "slots_used": holder.used}})
         if labels is not None:
             # Labels only rise, so committing before the Petri-net fire can
             # overstate a file's label if that fire then fails, never understate it.

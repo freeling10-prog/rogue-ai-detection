@@ -15,9 +15,9 @@ Three distinctions are essential:
 The common safety specification is:
 
 $$\operatorname{Dispatch}(s,c,t)\Rightarrow
- R(s,c,t)\land W(s,c,t)\land F(s,c,t)\land I(s,c,t)\land P(s,c,t)\land T(s,c,t)\land S(s,c,t)\land V(s,c,t).$$
+ R(s,c,t)\land W(s,c,t)\land F(s,c,t)\land I(s,c,t)\land P(s,c,t)\land T(s,c,t)\land S(s,c,t)\land V(s,c,t)\land D(s,c,t).$$
 
-R is registry pin validity, W workspace mutation safety, F manifest/flow validity, I outbound identifier admissibility, P bounded workflow-net transition enablement with resource cleanup state settled before outbound steps (section 5), T file label flow: no non-PUBLIC file into an outbound call and no UNTRUSTED file into an execution sink (section 6), S canonical arguments for pinned tools and no operand in an option position for typed commands (section 7), and V one conservation ledger for a root session and its forked branches, fenced on vector clocks (section 8). A component that is inapplicable to a typed call contributes true; a missing adapter, unsupported construct, exceeded budget, or unavailable trusted state contributes false. Check every item of JSON-RPC batches, including notifications. JSON-RPC itself is stateless and does not impose batch ordering [1].
+R is registry pin validity, W workspace mutation safety, F manifest/flow validity, I outbound identifier admissibility, P bounded workflow-net transition enablement with resource cleanup state settled before outbound steps (section 5), T file label flow: no non-PUBLIC file into an outbound call and no UNTRUSTED file into an execution sink (section 6), S canonical arguments for pinned tools and no operand in an option position for typed commands (section 7), V one conservation ledger for a root session and its forked branches, fenced on vector clocks (section 8), and D no outbound string covering a value learned from an earlier tool response (section 9). A component that is inapplicable to a typed call contributes true; a missing adapter, unsupported construct, exceeded budget, or unavailable trusted state contributes false. Check every item of JSON-RPC batches, including notifications. JSON-RPC itself is stateless and does not impose batch ordering [1].
 
 Treat the specification as a prefix-closed execution safety policy [8]. This does not prove semantic noninterference, correctness of provider implementations, or absence of every possible data leak.
 
@@ -434,9 +434,46 @@ Every gateway denial on a ledger session, from any gate, spends one of that bran
 
 Unit cases cover Root.make validation; fencing on slot, activity, clock and event budget; fork grants and child clocks; lifetime width with no slot reuse; join rules (not a child, has children, inactive) and the merge; send, deny and fire semantics with weighted conservation and ledger-wide cleanup state; a fraction below UNIT; tampered roots rejected by conserved() and by Owner; and atomic, fenced Owner batches. LedgerMachine forks, joins, fires weighted moves, sends, denies, taints and attempts stale writes on random branches against an independent Python model, and asserts the conservation laws after every step. A fork that mints, or a send that checks cleanup state only on its own branch, fails it. tests/test_v12_6_fork_join_wiring.py covers shared budgets, fractional tokens, ledger-wide cleanup state, denial charging, a stale-clock commit, spawn auto-forks, taint along forks and joins, and the SARIF rule.
 
+## 9. dynamic_ingression_validator.py
+
+### Invariant and representation
+
+The similarity matcher (I) protects only strings pinned when the session starts. A credential, internal host name, or address that first appears in a tool response is unknown to it. D scans each inbound response before the agent sees it, enrolls secret-looking values into a per-session store of SLOTS = 8 values, and denies later outbound strings that cover one.
+
+An inbound batch has at most 32 fields and 4096 UTF-8 bytes. A field marked sensitive is enrolled whole and must be 4..128 bytes. Every maximal run of TOKEN bytes ([A-Za-z0-9_-.@+/=]) is a candidate; a run over 128 bytes fails the batch. A run of 4 or more bytes is enrolled when it matches any of these rules:
+
+- it starts with sk-, ghp_ or AKIA;
+- it ends with .internal or .corp;
+- it has exactly one @, a non-empty left side, and a right side that contains "." and does not start with it;
+- it has high entropy, tested exactly in integers over the byte counts c_x:
+
+$$|b|\ge 24\ \land\ |\{x: c_x>0\}|\ge 16\ \land\ 16\sum_x c_x^2\le |b|^2\iff H_2(b)=-\log_2\sum_x (c_x/|b|)^2\ge 4\ \text{bits/byte}.$$
+
+The store never evicts. A batch whose new distinct values do not fit fails with D_CAPACITY and enrolls nothing, so a response cannot push an earlier secret out. With E the enrolled values and LCS the longest common subsequence:
+
+$$D(s,c,t)\equiv \forall q\in\mathrm{strings}(\mathrm{args}(c)),\ \forall e\in E_s:\ 100\cdot \mathrm{LCS}(e,q) < 85\,|e|,\qquad |q|\le 512\ \text{when}\ E_s\neq\emptyset.$$
+
+Coverage is a subsequence measure, so separators interleaved between the characters, or a few dropped characters, do not hide a value.
+
+### Hot path
+
+Each enrolled value is compiled once into a 256-entry byte bitmask table. The outbound check runs the bit-parallel recurrence x = M[c] | S; S = x & ~(x - ((S << 1) | 1)) over the query. It costs O(|q|) big-integer steps per value, with at most 128-bit masks, 8 values, and 512 query bytes. Enrollment is linear in the batch plus one 256-entry count per run that passes the length gate. Reason codes never carry values, and denial records carry only the matching slot index.
+
+### Gateway wiring
+
+PolicyEngine.attach_ingression(session_id) attaches the store. Inbound scanning happens in evaluate_call after the decision, on every allowed result the agent is about to see. That covers the general allow path and the bespoke ones (scratchpad notes, the internal bus, spawns); a scratchpad note written by another session is scanned when it is read. The gateway's own echo of the method name is not tool output and is skipped. Unicode format characters (category Cf, including the canary watermark's zero-width marks) are removed first, so the visible value is what gets enrolled; the canary guard still tracks the watermark itself.
+
+Short values under secret-like keys (secret, password, token, api_key and similar) and short strings returned by sensitive reads are enrolled whole. Everything else is token-scanned. A result that cannot be enrolled within bounds (D_CAPACITY, D_TEXT, D_TOKEN_SIZE, D_SECRET_SIZE) is withheld, and the call is denied. Proxy callers that hold real results call ingest_dynamic_result before forwarding them.
+
+The outbound check runs in the reference middleware right after the similarity matcher, on every string argument of write, send, and credential-class calls. Denials use DYNAMIC_INGRESSION_DENIED (JSON-RPC -32075, approximate ATLAS AML.T0086) and record the reason code, the direction, the matching slot or the slots used, and whether a result was withheld.
+
+### Tests
+
+Unit cases cover the candidate rules (prefix, host suffix, address shape, and length bounds), the exact entropy boundary at 4 bits, a property that the integer test agrees with floating-point Renyi-2 entropy away from the boundary, maximal token runs, every extraction bound (including UTF-8 bytes rather than characters), all-or-nothing capacity with no eviction, the 85% threshold at 17 of 20 bytes against 16 of 20, query bounds, and a property that the bit-parallel LCS equals an O(mn) dynamic program. A test also shows that oracle detects the classic dropped carry-in mutation. IngressionMachine sends random batches of pooled secrets, noise, and sensitive fields, then exact, spaced, and truncated queries. It checks every decision against the dynamic program and the store against a model. A laxer threshold, or enrollment that keeps whatever fits instead of failing the batch, fails it. tests/test_v12_7_ingression_wiring.py covers enrollment from the general and scratchpad paths, the watermarked secret, outbound denial, withheld results, capacity without eviction, query bounds, the proxy entry point, and the SARIF rule.
+
 ## Validation and deployment criteria
 
-The original reference suite has 64 passing test cases, including four RuleBasedStateMachine classes. Section 5 adds 14 cases to test_validators.py, including PetriObligationMachine, and 6 gateway wiring cases. Section 6 adds 11 cases, including TransducerMachine, and 7 gateway wiring cases. Section 7 adds 82 cases (most of them parametrized), including CanonicalArgumentMachine, and 14 gateway wiring cases. Section 8 adds 10 cases, including LedgerMachine, and 9 gateway wiring cases. Hypothesis generates/shrinks sequences rather than just isolated messages [13]. These tests are executable evidence, not a formal proof of all schedules or operating-system behavior.
+The original reference suite has 64 passing test cases, including four RuleBasedStateMachine classes. Section 5 adds 14 cases to test_validators.py, including PetriObligationMachine, and 6 gateway wiring cases. Section 6 adds 11 cases, including TransducerMachine, and 7 gateway wiring cases. Section 7 adds 82 cases (most of them parametrized), including CanonicalArgumentMachine, and 14 gateway wiring cases. Section 8 adds 10 cases, including LedgerMachine, and 9 gateway wiring cases. Section 9 adds 28 cases, including IngressionMachine, and 9 gateway wiring cases. Hypothesis generates/shrinks sequences rather than just isolated messages [13]. These tests are executable evidence, not a formal proof of all schedules or operating-system behavior.
 
 benchmark.py records 5,000 samples per case, nearest-rank p99, wall and process CPU clocks, GC enabled, and warm single-process execution. Cold construction is excluded. Path measurements use a trusted in-memory filesystem model. The 16-by-256 matcher case exercises the maximum configured number and length of protected strings, but is one synthetic miss workload; it does not establish the worst case over all alphabets, shingle-length mixes, hash collisions, normalization work, or workloads. benchmark_results.json is the authoritative measured output.
 
@@ -525,6 +562,30 @@ Python 3.12.3, Linux x86-64, 5,000 samples per case, same container as the previ
 | combined: eight bounded checks (with fork/join ledger) | 7.301175 | 14.358839 |
 
 Python 3.12.3, Linux x86-64, 5,000 samples per case, same container as the previous two tables. The ledger case runs on a full-width ledger, with the root and seven forked branches holding shares of every budget. Each sample applies one fenced batch: a weighted transition and a 512-byte send whose cleanup-state scan covers all 8 branches and 16 places without stopping early. It measured 0.111582 ms p99. Every combined case is above the 5 ms reference at p99 on this host. benchmark_results.json holds this run.
+
+### Measured results — 31 October 2026 (adds the dynamic ingression cases)
+
+| Benchmark case | Wall p99 (ms) | Wall maximum (ms) |
+|---|---:|---:|
+| registry: qualified lookup, 256 pins | 0.001327 | 1.119669 |
+| path: parse + snapshot validation, 64 writes | 1.511991 | 5.036394 |
+| flow: fresh EXTERNAL step admission | 0.031730 | 0.272676 |
+| similarity: 16 x 256, 256-char miss, both modes | 4.261600 | 14.666758 |
+| obligation: outbound transition, 16 places x 64 transitions | 0.031013 | 0.598921 |
+| transducer: 1 read joined into 63 writes, copy-on-write overlay | 0.819434 | 3.863845 |
+| arguments: canonicalize 16 fields, 2048-byte wire | 0.652920 | 3.461686 |
+| command: confine 16 operands | 0.007603 | 0.028858 |
+| ledger: fire + send batch, 8 branches x 16 places | 0.073253 | 1.845644 |
+| ingress: scan 32 fields, 4096-byte response | 1.077864 | 2.834703 |
+| ingress: 512-byte query vs 8 x 128-byte pins | 0.465435 | 2.744064 |
+| combined: four bounded checks | 6.166688 | 12.402833 |
+| combined: five bounded checks (with obligation) | 5.659863 | 12.368818 |
+| combined: six bounded checks (with transducer) | 6.684585 | 11.110117 |
+| combined: seven bounded checks (with canonicalization) | 7.245276 | 11.302802 |
+| combined: eight bounded checks (with fork/join ledger) | 7.369963 | 12.748586 |
+| combined: nine bounded checks (with ingression outbound) | 7.779452 | 19.946084 |
+
+Python 3.12.3, Linux x86-64, 5,000 samples per case, same container as the previous three tables. The inbound case is the full budget: 32 fields and 4096 bytes, where each field is one 128-byte token run that passes the length gate and gets a full entropy count but is not enrolled. It measured 1.077864 ms p99. The outbound case runs a 512-byte miss against 8 enrolled 128-byte values and measured 0.465435 ms p99. Inbound scanning happens once per result, after the decision, so it is not part of the combined dispatch cases. Every combined case is above the 5 ms reference at p99 on this host. benchmark_results.json holds this run.
 
 ## Primary sources
 

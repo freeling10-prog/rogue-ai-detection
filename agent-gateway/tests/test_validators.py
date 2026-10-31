@@ -2,7 +2,8 @@
 plus Predicate P (linear_obligation_validator) unit tests and PetriObligationMachine,
 and Predicate T (symbolic_fs_transducer) unit tests and TransducerMachine,
 and Predicate S (canonical_argument_confinement) unit tests and CanonicalArgumentMachine,
-and Predicate V (fork_join_vector_validator) unit tests and LedgerMachine.
+and Predicate V (fork_join_vector_validator) unit tests and LedgerMachine,
+and Predicate D (dynamic_ingression_validator) unit tests and IngressionMachine.
 
 Moved unchanged from the AgentGate_Middleware_Reference drop except for package-qualified
 imports (``agent_gateway.*``). Oracles are independent of the implementations: an O(mn) DP
@@ -1496,3 +1497,174 @@ class LedgerMachine(RuleBasedStateMachine):
 
 TestLedger = LedgerMachine.TestCase
 TestLedger.settings = settings(max_examples=60, stateful_step_count=50, deadline=None)
+
+
+# --- Predicate D: dynamic_ingression_validator ----------------------------------------
+
+import math as _math
+
+from agent_gateway.dynamic_ingression_validator import (
+    MAX_QUERY, SLOTS, TOKEN, Field, Ingression, Pattern, candidate, extract, high_entropy,
+    token_runs)
+
+TOKEN_ALPHABET = bytes(sorted(TOKEN))
+
+
+def dp_lcs(a: bytes, b: bytes) -> int:
+    """Independent O(mn) LCS oracle."""
+    prev = [0] * (len(b) + 1)
+    for x in a:
+        cur = [0]
+        for j, y in enumerate(b):
+            cur.append(prev[j] + 1 if x == y else max(prev[j + 1], cur[j]))
+        prev = cur
+    return prev[-1]
+
+
+def d_reason(fn, *args):
+    with pytest.raises(Denied) as err:
+        fn(*args)
+    return str(err.value)
+
+
+@pytest.mark.parametrize("token, expected", [
+    (b"sk-x", True), (b"sk-", False), (b"ghp_abc", True), (b"AKIAEXAMPLE", True), (b"akiaexample", False),
+    (b"db.internal", True), (b"git.corp", True), (b"corp", False), (b"x.internal.example", False),
+    (b"ops@example.com", True), (b"a@b.c", True), (b"a@.com", False), (b"@b.com", False),
+    (b"a@bcom", False), (b"a@b@c.d", False), (b"hello", False), (b"x" * 40, False),
+    (b"sk-" + b"x" * 125, True), (b"sk-" + b"x" * 126, False),
+])
+def test_candidate_rules(token, expected):
+    assert candidate(token) is expected
+
+
+def test_entropy_boundary_is_exact_in_integers():
+    sixteen = bytes(TOKEN_ALPHABET[:16])
+    assert high_entropy(sixteen * 2)  # 16 * (16 * 2**2) == 32**2: exactly 4 bits
+    # Same length, same 16 values, one byte repeated a third time: 16 * 66 > 32**2.
+    assert not high_entropy(sixteen + sixteen[:15] + sixteen[:1])
+    assert not high_entropy(TOKEN_ALPHABET[:15] * 2)  # only 15 distinct values
+    assert not high_entropy(TOKEN_ALPHABET[:23])  # shorter than 24 bytes
+    assert high_entropy(TOKEN_ALPHABET[:24])
+
+
+@given(st.binary(min_size=24, max_size=128).map(lambda b: bytes(TOKEN_ALPHABET[x % len(TOKEN_ALPHABET)] for x in b)))
+def test_entropy_matches_float_renyi2(b):
+    counts = [b.count(x) for x in set(b)]
+    h2 = -_math.log2(sum((c / len(b)) ** 2 for c in counts))
+    if abs(h2 - 4) > 1e-9:
+        assert high_entropy(b) == (h2 > 4 and len(set(b)) >= 16)
+
+
+def test_token_runs_are_maximal_and_bounded():
+    assert list(token_runs(b"key: sk-abc, host=db.internal!")) == [b"key", b"sk-abc", b"host=db.internal"]
+    assert list(token_runs(b"")) == [] and list(token_runs(b"  ")) == []
+    assert extract([Field("x" * 128)]) == ()
+    assert d_reason(extract, [Field("x" * 129)]) == "D_TOKEN_SIZE"
+
+
+def test_extract_bounds_and_sensitive_fields():
+    assert extract([Field("pw: hunter22", sensitive=True), Field("sk-1234 sk-1234")]) == (
+        b"pw: hunter22", b"sk-1234")
+    for fields, reason in [
+        ([Field("abc", sensitive=True)], "D_SECRET_SIZE"),
+        ([Field("a" * 129, sensitive=True)], "D_SECRET_SIZE"),
+        ([Field("a")] * 33, "D_FIELDS"),
+        ([Field("ab " * 1365), Field("ab")], "D_TEXT"),
+        ([("sk-1234", False)], "D_FIELD_TYPE"),
+        ([Field(b"sk-1234")], "D_FIELD_TYPE"),
+        ([Field("\ud800 sk-1234")], "D_ENCODING"),
+    ]:
+        assert d_reason(extract, fields) == reason
+    assert len(extract([Field("é" * 2048)])) == 0
+    assert d_reason(extract, [Field("é" * 2048), Field("x")]) == "D_TEXT"  # bytes, not chars
+
+
+def test_capacity_is_all_or_nothing():
+    holder = Ingression()
+    assert holder.receive([Field(" ".join(f"sk-{i:04d}" for i in range(4)))]) == 4
+    before = holder._patterns
+    assert d_reason(holder.receive, [Field(" ".join(f"sk-{i:04d}" for i in range(4, 9)))]) == "D_CAPACITY"
+    assert holder._patterns is before and holder.used == 4
+    assert holder.receive([Field("sk-0000 sk-0001")]) == 0  # known values need no slot
+    assert holder.receive([Field(" ".join(f"sk-{i:04d}" for i in range(4, 8)))]) == 4
+    assert d_reason(holder.receive, [Field("sk-9999")]) == "D_CAPACITY"
+    assert holder.used == SLOTS
+    holder.outbound(b"unrelated")
+    assert d_reason(holder.outbound, b"sk-0000") == "D_MATCH"  # nothing was evicted
+
+
+def test_outbound_threshold_and_bounds():
+    holder = Ingression()
+    holder.outbound(b"x" * (MAX_QUERY + 1))  # nothing enrolled: no bound to apply
+    holder.receive([Field("abcdefghijklmnopqrst", sensitive=True)])  # 20 bytes
+    assert d_reason(holder.outbound, b"abcdefghijklmnopq") == "D_MATCH"  # 17/20 = 85%
+    holder.outbound(b"abcdefghijklmnop")  # 16/20 = 80%
+    assert d_reason(holder.outbound, b"a-b-c-d-e-f-g-h-i-j-k-l-m-n-o-p-q-r-s-t") == "D_MATCH"
+    assert d_reason(holder.outbound, b"x" * (MAX_QUERY + 1)) == "D_QUERY_SIZE"
+    holder.outbound(b"x" * MAX_QUERY)
+    assert d_reason(holder.outbound, "abcdefghijklmnopqrst") == "D_QUERY_TYPE"
+    assert holder.matching_slot(b"zz abcdefghijklmnopqrst") == 0
+    assert holder.matching_slot(b"unrelated") is None
+    assert "abcdefghij" not in repr(holder._patterns[0])
+
+
+@given(st.binary(min_size=1, max_size=64), st.binary(max_size=160))
+def test_bit_parallel_lcs_matches_dp(raw, query):
+    assert Pattern.compile(raw).lcs(query) == dp_lcs(raw, query)
+
+
+def test_dp_oracle_detects_a_mutated_recurrence():
+    def mutant(p, q):  # drops the carry-in "| 1": the classic off-by-one
+        state = 0
+        for byte in q:
+            x = p.masks[byte] | state
+            state = x & ~(x - (state << 1))
+        return state.bit_count()
+    p = Pattern.compile(b"abcab")
+    assert any(mutant(p, q) != dp_lcs(p.raw, q) for q in (b"ab", b"bca", b"cab", b"abcab"))
+
+
+class IngressionMachine(RuleBasedStateMachine):
+    """Random enrollment batches and outbound queries against a model and a DP oracle."""
+
+    POOL = [f"sk-pool{i:02d}x" for i in range(12)] + ["db{0}.internal".format(i) for i in range(3)]
+
+    def __init__(self):
+        super().__init__()
+        self.holder = Ingression()
+        self.model: list[bytes] = []
+
+    @rule(picks=st.lists(st.integers(0, 14), max_size=5), noise=st.booleans(),
+          sensitive=st.sampled_from([None, "pw-alpha", "pw-bravo", "pw-charlie"]))
+    def receive(self, picks, noise, sensitive):
+        values = [self.POOL[i] for i in picks]
+        fields = [Field(" ".join(values) + (" plain words here" if noise else ""))]
+        if sensitive:
+            fields.append(Field(sensitive, sensitive=True))
+        expected = list(dict.fromkeys(v.encode() for v in values + ([sensitive] if sensitive else [])))
+        new = [v for v in expected if v not in self.model]
+        before = self.holder.used
+        ok = len(self.model) + len(new) <= SLOTS
+        assert allows(self.holder.receive, fields) == ok
+        if ok:
+            self.model.extend(new)
+        else:
+            assert self.holder.used == before
+
+    @rule(i=st.integers(0, 17), mode=st.sampled_from(["exact", "spaced", "drop1", "drop2", "drop4"]))
+    def outbound(self, i, mode):
+        base = (self.POOL + ["pw-alpha", "pw-bravo", "pw-charlie"])[i].encode()
+        query = {"exact": base, "spaced": b" ".join(bytes([c]) for c in base),
+                 "drop1": base[1:], "drop2": base[:-2], "drop4": base[2:-2]}[mode]
+        expected = any(100 * dp_lcs(v, query) >= 85 * len(v) for v in self.model)
+        assert allows(self.holder.outbound, query) == (not expected)
+
+    @invariant()
+    def store_matches_model(self):
+        assert [p.raw for p in self.holder._patterns] == self.model
+        assert len(self.model) <= SLOTS
+
+
+TestIngression = IngressionMachine.TestCase
+TestIngression.settings = settings(max_examples=60, stateful_step_count=40, deadline=None)

@@ -21,6 +21,7 @@ from agent_gateway.linear_obligation_validator import (
 from agent_gateway.symbolic_fs_transducer import FsTransducer
 from agent_gateway.canonical_argument_confinement import Command, FieldPolicy, Policy, confine
 from agent_gateway.fork_join_vector_validator import UNIT, WIDTH, Owner, Root
+from agent_gateway.dynamic_ingression_validator import Field, Ingression
 
 N = 5000
 
@@ -138,6 +139,22 @@ def main():
     def fresh_owner():
         holder["owner"] = Owner(ledger)
 
+    # Inbound: 32 fields, 4096 bytes in all, each one 128-byte token run that
+    # passes the length gate, so every run gets the full entropy count, and none
+    # is enrolled (16 distinct values, too many repeats).
+    low = "".join(rng.choices("abcdefghijklmnop", k=128))
+    response = [Field(low) for _ in range(32)]
+    assert sum(len(f.value) for f in response) == 4096
+    # Outbound: 8 enrolled 128-byte values against a 512-byte miss.
+    pins = Ingression()
+    pins.receive([Field("".join(rng.choices("ABCDEFGHJKLMNPQRSTUVWXYZ0123456789", k=128)), sensitive=True)
+                  for _ in range(8)])
+    miss = "".join(rng.choices("abcdefghijklmnopqrstuvwxyz ", k=512)).encode()
+    pins.outbound(miss)
+
+    def fresh_ingression():
+        holder["ingress"] = Ingression()
+
     results = [
         run("registry: qualified lookup, 256 pins", lambda: r.lookup("method255", "provider")),
         run("path: parse + snapshot validation, 64 writes", path_case),
@@ -151,6 +168,9 @@ def main():
         run("command: confine 16 operands", lambda: confine(command)),
         run("ledger: fire + send batch, 8 branches x 16 places",
             lambda: holder["owner"].apply(0, holder["owner"].clock(0), batch), fresh_owner),
+        run("ingress: scan 32 fields, 4096-byte response",
+            lambda: holder["ingress"].receive(response), fresh_ingression),
+        run("ingress: 512-byte query vs 8 x 128-byte pins", lambda: pins.outbound(miss)),
     ]
 
     def combined():
@@ -196,6 +216,12 @@ def main():
         holder["owner"].apply(0, holder["owner"].clock(0), batch)
 
     results.append(run("combined: eight bounded checks (with fork/join ledger)", combined_eight, prepare_eight))
+
+    def combined_nine():
+        combined_eight()
+        pins.outbound(miss)
+
+    results.append(run("combined: nine bounded checks (with ingression outbound)", combined_nine, prepare_eight))
     output = {
         "python": sys.version, "platform": platform.platform(),
         "gc_enabled": gc.isenabled(), "samples_per_case": N,

@@ -4,6 +4,31 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
+## [Unreleased] - v12.7 dynamic ingression pins (31 October 2026)
+
+- `dynamic_ingression_validator.py`: Predicate D. Inbound tool response
+  fields are scanned before the agent sees them: sensitive fields are
+  enrolled whole, and maximal token runs are enrolled on a credential prefix,
+  an internal host suffix, an e-mail address shape, or exact integer Renyi-2
+  entropy of at least 4 bits per byte. The 8-slot store never evicts; a
+  batch that does not fit fails with D_CAPACITY and enrolls nothing.
+  Outbound strings (512 bytes at most) are denied when a bit-parallel LCS
+  covers 85% of an enrolled value.
+- `pep.py`: `PolicyEngine.attach_ingression()` and `ingest_dynamic_result()`.
+  Every allowed result, including scratchpad notes, the internal bus, and
+  spawns, is enrolled in `evaluate_call` after the decision, with Unicode
+  format characters (the canary watermark) removed; a result that cannot be
+  enrolled is withheld. The outbound check runs after the similarity
+  matcher. Rule code `DYNAMIC_INGRESSION_DENIED` (-32075, approximate
+  AML.T0086) in SARIF (CWE-201, CWE-522, ASI02, LLM02:2025) and in the
+  audit-report counts.
+- Tests: 28 new cases in `tests/test_validators.py` (including
+  `IngressionMachine`) and `tests/test_v12_7_ingression_wiring.py` (9).
+  Gateway tests 1027 -> **1064**; Hypothesis state machines 17 -> **18**.
+- `benchmarks/benchmark.py`: full-budget inbound scan, 8-pin outbound
+  check, and a nine-check combined case; `benchmark_results.json`
+  regenerated.
+
 ## [Unreleased] - v12.6 fork/join conservation ledger (31 October 2026)
 
 - `fork_join_vector_validator.py`: Predicate V. A root and at most 8

@@ -4,6 +4,34 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
+## [Unreleased] - Site and README for the v12.8 tree (31 October 2026)
+
+No gateway code changes. Predicate D (`dynamic_ingression_validator.py`,
+-32075) is unchanged from v12.7 and its sync into Z from v12.8.
+
+- Merged `main` (PR #35): the marketing page is `site/index.html` and the
+  lab report moved to `site/demo/`. This branch's lab-report count updates
+  were carried into `site/demo/index.html`.
+- `site/index.html` `#method`: the ten-predicate validator layer
+  (R, W, F, I, P, T, S, V, D, Z; JSON-RPC -32066 to -32076) with one
+  invariant and the isolated-case p99 from `docs/DESIGN.md` per predicate,
+  plus the combined ten-check p99 (8.08 ms, above the 5 ms reference). A
+  2025-2026 literature crosswalk against CaMeL, FIDES, Progent, ToolGate,
+  Whispering Agents, Memory Provenance Laundering and Blindfold, compared
+  against each paper's abstract; not a systematic review.
+- `site/demo/` `#traces`: two new recorded traces, 09 (D: learned values
+  denied outbound) and 10 (Z: reversed, XOR-masked and block-reordered
+  values, and a D-learned value caught reversed). Recorded by
+  `examples/record_site_traces.py` scenarios 9 and 10 against the real
+  engine, Python 3.12.3, 30 runs each; both decision-log chains verify.
+- Counts for the v12.8 tree: gateway tests **1082** (re-run 31 October,
+  Python 3.12.3, Hypothesis 6.140.0 because PyPI was unreachable for the
+  pinned 6.170.9); Hypothesis state machines **19**; modules behind
+  `pep.py` **47**; reference-validator rule codes **11**; workspace
+  **1604** (1082 + 512 `agent-watch` + 10 `agentwatch-analyzer`; the last
+  two are CI figures, and `agent-watch` ran 510 passed / 4 skipped here).
+- README: badge, headline counts and the "use this count" list.
+
 ## [Unreleased] - v12.8 transform-invariant pins (31 October 2026)
 
 - `transform_invariant_validator.py`: Predicate Z. Each pin precomputes

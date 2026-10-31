@@ -4,6 +4,30 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
+## [Unreleased] - v12.6 fork/join conservation ledger (31 October 2026)
+
+- `fork_join_vector_validator.py`: Predicate V. A root and at most 8
+  lifetime branches share one immutable ledger of wallets (denial units,
+  outbound bytes, 16 token places in 1/256 units) with vector clocks. Forks
+  move a grant, joins return it and merge clocks and taint, firings conserve
+  the weighted token count, sends are capped at 512 bytes and need cleanup
+  state settled across the whole ledger, and every operation is fenced on
+  the branch's own clock component. `Owner` applies fenced batches all or
+  nothing under one lock; `Root.conserved()` checks the ledger laws.
+- `pep.py`: `PolicyEngine.attach_fork_join()`, `fork_branch()` and
+  `join_branch()`; spawning from a ledger session auto-forks an empty
+  branch. The call's ledger operations are planned after the label
+  transducer check and committed, fenced on the clock, before the Petri-net
+  fire. Every gateway denial on a ledger session spends a shared denial
+  unit, and branch taint is mirrored into sessions. Rule code
+  `FORK_JOIN_LEDGER_DENIED` (-32074, approximate AML.T0086) in SARIF
+  (CWE-770, CWE-362, ASI07, LLM10:2025) and in the audit-report counts.
+- Tests: 10 new cases in `tests/test_validators.py` (including
+  `LedgerMachine`) and `tests/test_v12_6_fork_join_wiring.py` (9).
+  Gateway tests 1008 -> **1027**; Hypothesis state machines 16 -> **17**.
+- `benchmarks/benchmark.py`: full-width ledger batch and an eight-check
+  combined case; `benchmark_results.json` regenerated.
+
 ## [Unreleased] - v12.5 argument canonicalization and command confinement (31 October 2026)
 
 - `canonical_argument_confinement.py`: Predicate S. `Policy.canonicalize`

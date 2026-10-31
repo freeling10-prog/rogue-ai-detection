@@ -1,7 +1,8 @@
 """Reference middleware validators: 64 original cases incl. four Hypothesis state machines,
 plus Predicate P (linear_obligation_validator) unit tests and PetriObligationMachine,
 and Predicate T (symbolic_fs_transducer) unit tests and TransducerMachine,
-and Predicate S (canonical_argument_confinement) unit tests and CanonicalArgumentMachine.
+and Predicate S (canonical_argument_confinement) unit tests and CanonicalArgumentMachine,
+and Predicate V (fork_join_vector_validator) unit tests and LedgerMachine.
 
 Moved unchanged from the AgentGate_Middleware_Reference drop except for package-qualified
 imports (``agent_gateway.*``). Oracles are independent of the implementations: an O(mn) DP
@@ -1228,3 +1229,270 @@ class CanonicalArgumentMachine(RuleBasedStateMachine):
 
 TestCanonicalArgument = CanonicalArgumentMachine.TestCase
 TestCanonicalArgument.settings = settings(max_examples=60, stateful_step_count=40, deadline=None)
+
+
+# --- Predicate V: fork_join_vector_validator ------------------------------------------
+
+from dataclasses import replace as _replace
+
+from agent_gateway.fork_join_vector_validator import (
+    MAX_EVENTS, UNIT as V_UNIT, WIDTH, ZERO, Owner, Root)
+
+V_ZERO16 = (0,) * 16
+
+
+def tokens(**places):
+    out = [0] * 16
+    for name, amount in places.items():
+        out[int(name[1:])] = amount
+    return tuple(out)
+
+
+def wallet(denials=0, outbound=0, **places):
+    return (denials, outbound) + tokens(**places)
+
+
+def v_reason(fn, *args):
+    with pytest.raises(Denied) as err:
+        fn(*args)
+    return str(err.value)
+
+
+def test_root_make_validates_configuration():
+    r = Root.make()
+    assert r.initial == (3, 4096, V_UNIT) + (0,) * 15 and r.conserved()
+    for kwargs, reason in [
+        ({"denials": -1}, "BUDGET_RANGE"), ({"outbound": 65536}, "BUDGET_RANGE"),
+        ({"denials": True}, "BUDGET_RANGE"), ({"tokens": (0,) * 15}, "TOKEN_RANGE"),
+        ({"tokens": (-1,) + (0,) * 15}, "TOKEN_RANGE"), ({"weights": (0,) + (1,) * 15}, "WEIGHT_RANGE"),
+        ({"weights": (1,) * 17}, "WEIGHT_RANGE"), ({"obligation_mask": 1 << 16}, "OBLIGATION_MASK"),
+        ({"obligation_mask": -1}, "OBLIGATION_MASK"),
+    ]:
+        assert v_reason(lambda: Root.make(**kwargs)) == reason
+
+
+def test_checked_fences_slot_activity_clock_and_event_budget():
+    r = Root.make()
+    assert v_reason(r.taint, 1, 0) == "BRANCH_SLOT"
+    assert v_reason(r.taint, 0, 1) == "STALE_CLOCK"
+    r1 = r.taint(0, 0)
+    assert r1.branches[0].clock[0] == 1 and r1.events == 1 and r.branches[0].clock[0] == 0
+    assert v_reason(r1.taint, 0, 0) == "STALE_CLOCK"
+    assert v_reason(_replace(r, events=MAX_EVENTS).taint, 0, 0) == "EVENT_BUDGET"
+    worn = _replace(r, branches=(_replace(r.branches[0], clock=(MAX_EVENTS,) + (0,) * 7),))
+    assert v_reason(worn.taint, 0, MAX_EVENTS) == "CLOCK_BUDGET"
+
+
+def test_fork_moves_a_grant_and_starts_the_child_clock():
+    r = Root.make(denials=3, outbound=100, tokens=tokens(p0=V_UNIT)).taint(0, 0)
+    r, child = r.fork(0, 1, wallet(1, 40, p0=64))
+    assert child == 1 and r.conserved()
+    parent, kid = r.branches
+    assert parent.wallet[:3] == (2, 60, V_UNIT - 64) and kid.wallet[:3] == (1, 40, 64)
+    assert parent.clock[:2] == (2, 0) and kid.clock[:2] == (2, 1)
+    assert kid.parent == 0 and kid.taint == 1
+    assert v_reason(r.fork, 0, 2, wallet(3)) == "GRANT_EXCEEDS_WALLET"
+    assert v_reason(r.fork, 0, 2, wallet(-1)) == "GRANT_SHAPE"
+    assert v_reason(r.fork, 0, 2, (0,) * 17) == "GRANT_SHAPE"
+
+
+def test_width_counts_lifetime_branches_and_slots_are_never_reused():
+    r = Root.make()
+    for i in range(1, WIDTH):
+        r, child = r.fork(0, r.branches[0].clock[0], ZERO)
+        assert child == i
+    assert v_reason(r.fork, 0, r.branches[0].clock[0], ZERO) == "WIDTH_EXHAUSTED"
+    r = r.join(0, r.branches[0].clock[0], 3)
+    assert v_reason(r.fork, 0, r.branches[0].clock[0], ZERO) == "WIDTH_EXHAUSTED"
+    assert v_reason(r.taint, 3, r.branches[3].clock[3]) == "BRANCH_INACTIVE"
+    assert r.conserved()
+
+
+def test_join_rules_and_merge():
+    r = Root.make(denials=4, tokens=tokens(p0=V_UNIT))
+    r, a = r.fork(0, 0, wallet(2, 0, p0=V_UNIT))
+    r, b = r.fork(a, 1, wallet(1))
+    r = r.taint(b, 1)
+    assert v_reason(r.join, 0, r.branches[0].clock[0], b) == "JOIN_NOT_CHILD"
+    assert v_reason(r.join, 0, r.branches[0].clock[0], a) == "JOIN_HAS_CHILDREN"
+    assert v_reason(r.join, 0, r.branches[0].clock[0], 0) == "BRANCH_SLOT"
+    r = r.join(a, r.branches[a].clock[a], b)
+    assert r.branches[a].taint == 1 and r.branches[a].wallet[0] == 2
+    assert r.branches[a].clock[b] == r.branches[b].clock[b] == 2
+    assert r.branches[b].wallet == ZERO and not r.branches[b].active
+    assert v_reason(r.join, a, r.branches[a].clock[a], b) == "JOIN_INACTIVE"
+    r = r.join(0, r.branches[0].clock[0], a)
+    assert r.branches[0].wallet == r.initial and r.branches[0].taint == 1 and r.conserved()
+
+
+def test_send_deny_and_fire_semantics():
+    r = Root.make(denials=1, outbound=600, tokens=tokens(p0=V_UNIT), obligation_mask=0b100,
+                  weights=(1, 2) + (1,) * 14)
+    c = lambda: r.branches[0].clock[0]
+    assert v_reason(r.send, 0, 0, 513) == "SEND_LIMIT"
+    assert v_reason(r.send, 0, 0, -1) == "SEND_LIMIT"
+    r = r.send(0, 0, 512)
+    assert v_reason(r.send, 0, c(), 89) == "OUTBOUND_BUDGET"
+    assert v_reason(r.fire, 0, c(), tokens(p0=2), tokens(p1=2)) == "FIRE_NOT_CONSERVED"
+    r = r.fire(0, c(), tokens(p0=2), tokens(p1=1))  # weights: 2 * 1 == 1 * 2
+    assert v_reason(r.fire, 0, c(), tokens(p1=2), tokens(p0=4)) == "INSUFFICIENT_TOKENS"
+    assert v_reason(r.fire, 0, c(), (0,) * 15, V_ZERO16) == "FIRE_SHAPE"
+    r = r.fire(0, c(), tokens(p0=1), tokens(p2=1))
+    assert v_reason(r.send, 0, c(), 1) == "UNSETTLED_OBLIGATION"
+    r = r.fire(0, c(), tokens(p2=1), tokens(p0=1)).deny(0, r.branches[0].clock[0] + 1)
+    assert r.spent == (1, 512) and r.conserved()
+    assert v_reason(r.deny, 0, c()) == "DENIAL_BUDGET"
+    assert v_reason(r.send, 0, c(), 0) == "DENIAL_BUDGET"
+
+
+def test_fraction_below_unit_cannot_fire_a_full_token():
+    r, kid = Root.make(tokens=tokens(p0=V_UNIT)).fork(0, 0, wallet(p0=V_UNIT - 1))
+    full = (tokens(p0=V_UNIT), tokens(p1=V_UNIT))
+    assert v_reason(r.fire, kid, 1, *full) == "INSUFFICIENT_TOKENS"
+    assert v_reason(r.fire, 0, 1, *full) == "INSUFFICIENT_TOKENS"
+    r = r.join(0, 1, kid)
+    assert r.fire(0, 2, *full).branches[0].wallet[2:4] == (0, V_UNIT)
+
+
+def test_conserved_detects_tampering():
+    r, kid = Root.make().fork(0, 0, wallet(1, 10))
+    assert r.conserved()
+    minted = _replace(r, branches=(r.branches[0], _replace(r.branches[1], wallet=wallet(2, 10))))
+    leaked = _replace(r, branches=(r.branches[0], _replace(r.branches[1], active=False)))
+    skewed = _replace(r, events=r.events + 1)
+    for bad in (minted, leaked, skewed):
+        assert not bad.conserved()
+        assert v_reason(Owner, bad) == "ROOT_STATE"
+
+
+def test_owner_batches_are_atomic_and_fenced():
+    owner = Owner(Root.make(denials=1, outbound=100, tokens=tokens(p0=V_UNIT)),
+                  {"step": (tokens(p0=V_UNIT), tokens(p1=V_UNIT))})
+    before = owner.root
+    assert owner.check(0, 0, [("send", 10), ("fire",) + owner.transitions["step"]]) == (None, None)
+    assert owner.root is before
+    assert v_reason(owner.apply, 0, 0, [("send", 10), ("send", 200)]) == "OUTBOUND_BUDGET"
+    assert owner.root is before
+    assert v_reason(owner.apply, 0, 0, [("mint",)]) == "UNKNOWN_OPERATION"
+    assert v_reason(owner.apply, 1, 0, []) == "BRANCH_SLOT"
+    assert v_reason(owner.apply, 0, 5, []) == "STALE_CLOCK"
+    (kid,) = owner.apply(0, 0, [("fork", wallet(1))])
+    assert owner.charge_denial(kid) is True and owner.charge_denial(kid) is False
+    assert v_reason(owner.join, 9, kid) == "BRANCH_SLOT"
+    for bad, reason in [({"x": (tokens(p0=1), tokens(p1=2))}, "FIRE_NOT_CONSERVED"),
+                        ({"": (V_ZERO16, V_ZERO16)}, "TRANSITION_NAME"),
+                        ({"x": ((0,) * 15, V_ZERO16)}, "FIRE_SHAPE")]:
+        assert v_reason(Owner, Root.make(), bad) == reason
+
+
+class LedgerMachine(RuleBasedStateMachine):
+    """Random forks, joins, weighted firings, sends, denials, taint and stale writes."""
+
+    WEIGHTS = (1, 2) + (1,) * 14  # place 1 is worth two units of place 0
+    MOVES = {"0to1": ((0, 2), (1, 1)), "1to0": ((1, 1), (0, 2)),
+             "0to2": ((0, 1), (2, 1)), "2to0": ((2, 1), (0, 1))}
+
+    def __init__(self):
+        super().__init__()
+        self.owner = Owner(Root.make(denials=4, outbound=2000, tokens=tokens(p0=4 * V_UNIT),
+                                     obligation_mask=0b100, weights=self.WEIGHTS))
+        self.model = [{"parent": -1, "active": True, "wallet": list(self.owner.root.initial), "taint": 0}]
+        self.events = 0
+
+    def slot(self, i):
+        return i % len(self.model)
+
+    def attempt(self, slot, ops, expected_ok):
+        before = self.owner.root
+        ok = allows(self.owner.apply, slot, self.owner.clock(slot), ops)
+        assert ok == expected_ok
+        if not ok:
+            assert self.owner.root is before
+        else:
+            self.events += 1
+        return ok
+
+    @rule(i=st.integers(0, 7), parts=st.lists(st.integers(0, 3), min_size=3, max_size=3))
+    def fork(self, i, parts):
+        s = self.slot(i)
+        w = self.model[s]["wallet"]
+        g = [w[0] * parts[0] // 3, w[1] * parts[1] // 3, w[2] * parts[2] // 3] + [0] * 15
+        g[3] = w[3] // 2
+        ok = self.model[s]["active"] and len(self.model) < WIDTH
+        if self.attempt(s, [("fork", tuple(g))], ok):
+            self.model[s]["wallet"] = [a - b for a, b in zip(w, g)]
+            self.model.append({"parent": s, "active": True, "wallet": g, "taint": self.model[s]["taint"]})
+
+    @rule(i=st.integers(0, 7), j=st.integers(0, 7))
+    def join(self, i, j):
+        s, c = self.slot(i), self.slot(j)
+        child = self.model[c]
+        ok = (self.model[s]["active"] and c > 0 and child["active"] and child["parent"] == s
+              and not any(b["active"] and b["parent"] == c for b in self.model))
+        before = self.owner.root
+        if allows(self.owner.join, s, c) != ok:
+            raise AssertionError("join admission disagrees with the model")
+        if not ok:
+            assert self.owner.root is before
+            return
+        self.events += 1
+        parent = self.model[s]
+        parent["wallet"] = [a + b for a, b in zip(parent["wallet"], child["wallet"])]
+        parent["taint"] = max(parent["taint"], child["taint"])
+        child.update(active=False, wallet=[0] * 18)
+
+    @rule(i=st.integers(0, 7), move=st.sampled_from(sorted(MOVES)), units=st.integers(1, V_UNIT))
+    def fire(self, i, move, units):
+        s = self.slot(i)
+        (src, k_take), (dst, k_put) = self.MOVES[move]
+        take, put = [0] * 16, [0] * 16
+        take[src], put[dst] = k_take * units, k_put * units
+        w = self.model[s]["wallet"]
+        ok = self.model[s]["active"] and w[2 + src] >= take[src]
+        if self.attempt(s, [("fire", tuple(take), tuple(put))], ok):
+            w[2 + src] -= take[src]
+            w[2 + dst] += put[dst]
+
+    @rule(i=st.integers(0, 7), n=st.integers(0, 600))
+    def send(self, i, n):
+        s = self.slot(i)
+        w = self.model[s]["wallet"]
+        held = any(b["active"] and b["wallet"][4] for b in self.model)
+        ok = self.model[s]["active"] and n <= 512 and w[0] > 0 and n <= w[1] and not held
+        if self.attempt(s, [("send", n)], ok):
+            w[1] -= n
+
+    @rule(i=st.integers(0, 7))
+    def deny(self, i):
+        s = self.slot(i)
+        w = self.model[s]["wallet"]
+        if self.attempt(s, [("deny",)], self.model[s]["active"] and w[0] > 0):
+            w[0] -= 1
+
+    @rule(i=st.integers(0, 7))
+    def taint(self, i):
+        s = self.slot(i)
+        if self.attempt(s, [("taint",)], self.model[s]["active"]):
+            self.model[s]["taint"] = 1
+
+    @rule(i=st.integers(0, 7), skew=st.sampled_from([-1, 1, 7]))
+    def stale(self, i, skew):
+        s = self.slot(i)
+        before = self.owner.root
+        assert not allows(self.owner.apply, s, self.owner.clock(s) + skew, [("taint",)])
+        assert self.owner.root is before
+
+    @invariant()
+    def ledger_matches_model_and_conserves(self):
+        root = self.owner.root
+        assert root.conserved()
+        assert root.events == self.events
+        assert len(root.branches) == len(self.model)
+        for row, model in zip(root.branches, self.model):
+            assert (row.parent, row.active, row.taint) == (model["parent"], model["active"], model["taint"])
+            assert list(row.wallet) == model["wallet"]
+        assert root.weighted_tokens() == 4 * V_UNIT
+
+
+TestLedger = LedgerMachine.TestCase
+TestLedger.settings = settings(max_examples=60, stateful_step_count=50, deadline=None)

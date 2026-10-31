@@ -78,6 +78,11 @@ Safety:
   and compiles typed file commands to a fixed argv with ``--`` before every
   positional, refusing operands that start with ``-``
   (``canonical_argument_confinement.py``).
+- v12.6: an eighth reference validator puts a root session and the branches
+  it forks under one conservation ledger with vector clocks. A child spends
+  the root's denial, outbound and token budgets instead of fresh ones, stale
+  concurrent dispatches are refused, and taint flows along forks and joins
+  (``fork_join_vector_validator.py``).
 """
 from __future__ import annotations
 
@@ -119,6 +124,10 @@ from .mcp_capability_manifest_guard import McpCapabilityManifestGuard
 # v12.2 reference middleware validators (deterministic, standard-library only).
 from . import common as reference_json
 from .common import Denied as ReferenceDenied
+from .fork_join_vector_validator import (
+    FIRE as LEDGER_FIRE, FORK as LEDGER_FORK, SEND as LEDGER_SEND, TAINT as LEDGER_TAINT,
+    ZERO as LEDGER_ZERO, Owner as LedgerOwner, Root as LedgerRoot,
+)
 from .canonical_argument_confinement import (
     Policy as ArgumentPolicy, command_from_arguments, confine, encode_arguments,
 )
@@ -224,6 +233,8 @@ OBLIGATION_PROTOCOL_DENIED = "OBLIGATION_PROTOCOL_DENIED"
 FS_LABEL_FLOW_DENIED = "FS_LABEL_FLOW_DENIED"
 # v12.5: argument canonicalization and command confinement take -32073.
 ARGUMENT_CONFINEMENT_DENIED = "ARGUMENT_CONFINEMENT_DENIED"
+# v12.6: the fork/join conservation ledger takes -32074.
+FORK_JOIN_LEDGER_DENIED = "FORK_JOIN_LEDGER_DENIED"
 # Descriptor fields the reference profile hashes for a pin (annotations included:
 # annotation-only drift is drift under this policy).
 _REFERENCE_PIN_FIELDS = ("description", "inputSchema", "outputSchema", "annotations", "title")
@@ -232,11 +243,13 @@ _V12_CODES.update({
     WORKSPACE_EFFECT_DENIED: -32068, FLOW_MANIFEST_DENIED: -32069,
     SIMILARITY_LEAK_DENIED: -32070, OBLIGATION_PROTOCOL_DENIED: -32071,
     FS_LABEL_FLOW_DENIED: -32072, ARGUMENT_CONFINEMENT_DENIED: -32073,
+    FORK_JOIN_LEDGER_DENIED: -32074,
 })
 _V12_ATLAS.update({REGISTRY_PIN_DRIFT: "AML.T0051", REGISTRY_ALIAS_AMBIGUOUS: "AML.T0051",
                    WORKSPACE_EFFECT_DENIED: "AML.T0053", FLOW_MANIFEST_DENIED: "AML.T0051",
                    SIMILARITY_LEAK_DENIED: "AML.T0086", OBLIGATION_PROTOCOL_DENIED: "AML.T0051",
-                   FS_LABEL_FLOW_DENIED: "AML.T0086", ARGUMENT_CONFINEMENT_DENIED: "AML.T0053"})
+                   FS_LABEL_FLOW_DENIED: "AML.T0086", ARGUMENT_CONFINEMENT_DENIED: "AML.T0053",
+                   FORK_JOIN_LEDGER_DENIED: "AML.T0086"})
 _EXEC_TOOL_RE = re.compile(r"(?:^|[._\-])(?:shell|bash|exec|terminal|run_command|run_script)(?:$|[._\-])")
 _DEFAULT_SINK_TOOLS = tuple(sorted(
     name for name, ec in TOOL_EGRESS.items() if ec in (EGRESS_WRITE, EGRESS_SEND, EGRESS_CREDS)
@@ -427,6 +440,8 @@ class PolicyEngine:
         self.command_tools: set[str] = set()
         # Per-session result of the last admitted confinement, read by _allow().
         self._confined: dict[str, dict] = {}
+        # session id -> (ledger owner, branch slot); every branch of a root shares one owner.
+        self.fork_ledgers: dict[str, tuple[LedgerOwner, int]] = {}
         self.poisoned_tools: dict[tuple[str, str], dict] = {}
         self.interpreter = InterpreterExecGuard(allow=self.cfg.workspace_allow)
         core = set(CORE_MCP_SERVERS)
@@ -465,6 +480,7 @@ class PolicyEngine:
             self.sessions[session_id] = s
         if not s.capability_token:
             self._install_fresh_capability(s)
+        self._fork_join_sync(s)
         return s
 
     def _install_fresh_capability(self, sess: SessionState) -> None:
@@ -1354,6 +1370,99 @@ class PolicyEngine:
             raise ValueError("tool is already pinned to an argument policy")
         self.command_tools.add(tool_name)
 
+    def attach_fork_join(self, session_id: str, root: LedgerRoot,
+                         transitions: Optional[dict[str, tuple]] = None) -> LedgerOwner:
+        """Put ``session_id`` at slot 0 of a fork/join conservation ledger.
+
+        ``root`` (``Root.make``) fixes the denial, outbound-byte and token budgets
+        that the root and every branch it forks will share. ``transitions`` maps a
+        tool name to the (take, put) token vectors its call fires; each entry must
+        conserve the weighted token count. Branches are forked and joined with
+        ``fork_branch`` / ``join_branch``, or forked automatically, with an empty
+        grant, when a ledger session spawns a sub-agent.
+        """
+        if session_id in self.fork_ledgers:
+            raise ValueError("session already belongs to a fork/join ledger")
+        owner = LedgerOwner(root, transitions)
+        self.fork_ledgers[session_id] = (owner, 0)
+        return owner
+
+    def fork_branch(self, parent_session: str, child_session: str,
+                    grant: tuple[int, ...] = LEDGER_ZERO) -> int:
+        """Trusted control plane: fork ``child_session`` with ``grant`` moved from its parent."""
+        owner, slot = self.fork_ledgers[parent_session]
+        if child_session in self.fork_ledgers:
+            raise ValueError("child session already belongs to a fork/join ledger")
+        (child,) = owner.apply(slot, owner.clock(slot), [(LEDGER_FORK, tuple(grant))])
+        self.fork_ledgers[child_session] = (owner, child)
+        return child
+
+    def join_branch(self, parent_session: str, child_session: str) -> None:
+        """Trusted control plane: return a child's remaining budget and taint to its parent."""
+        owner, slot = self.fork_ledgers[parent_session]
+        child_owner, child = self.fork_ledgers[child_session]
+        if child_owner is not owner:
+            raise ReferenceDenied("JOIN_OTHER_LEDGER")
+        owner.join(slot, child)
+        parent = self.sessions.get(parent_session)
+        if parent is not None:
+            self._fork_join_sync(parent)
+
+    def _fork_join_sync(self, sess: SessionState) -> None:
+        """Mirror branch taint into the session before any gate looks at it."""
+        ledger = self.fork_ledgers.get(sess.session_id)
+        if ledger is None:
+            return
+        owner, slot = ledger
+        if owner.root.branches[slot].taint and not sess.tainted:
+            sess.mark_tainted("fork_join_branch_taint", source_id="fork_join_ledger")
+
+    def _fork_join_plan(self, sess: SessionState, tool_name: str, args: dict,
+                        eclass: str) -> Optional[tuple]:
+        """(owner, slot, expected clock, ops, child session to bind), checked, or None."""
+        ledger = self.fork_ledgers.get(sess.session_id)
+        if ledger is None:
+            return None
+        owner, slot = ledger
+        ops: list[tuple] = []
+        if sess.tainted and not owner.root.branches[slot].taint:
+            ops.append((LEDGER_TAINT,))
+        transition = owner.transitions.get(tool_name)
+        if transition is not None:
+            ops.append((LEDGER_FIRE, *transition))
+        if (eclass in (EGRESS_SEND, EGRESS_CREDS)
+                or self._sink_stage(tool_name, eclass, args) == EXTERNAL_SINK):
+            body = json.dumps(args, sort_keys=True, separators=(",", ":"),
+                              ensure_ascii=False, default=str)
+            ops.append((LEDGER_SEND, len(body.encode("utf-8", "surrogatepass"))))
+        child_session = None
+        if tool_name == "spawn_subagent" or eclass == EGRESS_SPAWN:
+            child_session = str(args.get("child_session_id") or f"{sess.session_id}:child")
+            if child_session in self.fork_ledgers:
+                if self.fork_ledgers[child_session][0] is not owner:
+                    raise ReferenceDenied("CHILD_IN_OTHER_LEDGER")
+                child_session = None  # Already forked by the control plane.
+            else:
+                ops.append((LEDGER_FORK, LEDGER_ZERO))
+        expected = owner.clock(slot)
+        owner.check(slot, expected, ops)
+        return owner, slot, expected, tuple(ops), child_session
+
+    def _fork_join_commit(self, plan: tuple) -> None:
+        owner, slot, expected, ops, child_session = plan
+        results = owner.apply(slot, expected, ops)
+        if child_session is not None:
+            child = next(r for (op, *_), r in zip(ops, results) if op == LEDGER_FORK)
+            self.fork_ledgers[child_session] = (owner, child)
+
+    def _fork_join_deny(self, sess: SessionState, step: int, tool_name: str, args: dict,
+                        exc: ReferenceDenied) -> dict:
+        owner, slot = self.fork_ledgers[sess.session_id]
+        root = owner.root
+        return self._v12_deny(sess, step, tool_name, args, FORK_JOIN_LEDGER_DENIED,
+                              {"fork_join": {"reason": str(exc), "slot": slot,
+                                             "events": root.events, "spent": list(root.spent)}})
+
     def _confinement(self, sess: SessionState, step: int, tool_name: str,
                      args: dict) -> tuple[Optional[dict], Optional[tuple]]:
         """(denial, compiled argv). Both None when no confinement is pinned."""
@@ -1501,6 +1610,11 @@ class PolicyEngine:
                                                  "generation": transducer.state.base.generation,
                                                  "via": "fs_transducer"}})
 
+        try:
+            ledger_plan = self._fork_join_plan(sess, tool_name, args, eclass)
+        except ReferenceDenied as exc:
+            return self._fork_join_deny(sess, step, tool_name, args, exc)
+
         gate = self.flow_gates.get(sess.session_id)
         if gate is not None:
             if sess.tainted:
@@ -1552,6 +1666,13 @@ class PolicyEngine:
                 transducer.commit(labels)
             except LabelDenied as exc:
                 return self._fs_label_deny(sess, step, tool_name, args, transducer, exc)
+        if ledger_plan is not None:
+            # Fenced on the branch clock read before the other checks: a concurrent
+            # dispatch on the same branch, or a denial charged meanwhile, is stale.
+            try:
+                self._fork_join_commit(ledger_plan)
+            except ReferenceDenied as exc:
+                return self._fork_join_deny(sess, step, tool_name, args, exc)
         if net is not None and transition is not None:
             # Commit point: fenced on the sequence read before the other checks.
             try:
@@ -1785,6 +1906,10 @@ class PolicyEngine:
     def _deny(self, sess: SessionState, step: int, tool_name: str, args: dict, error: str, code: int,
               atlas: str = "") -> dict:
         sess.history.append({"step": step, "tool": tool_name, "ok": False, "error": error})
+        ledger = self.fork_ledgers.get(sess.session_id)
+        if ledger is not None:
+            # Every denial on any branch spends the root's shared denial budget.
+            ledger[0].charge_denial(ledger[1])
         self._alert("policy_deny", {"session_id": sess.session_id, "step": step, "tool": tool_name,
                                     "error": error, "atlas": atlas, "args": scrub_obj(args)})
         out = {

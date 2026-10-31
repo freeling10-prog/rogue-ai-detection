@@ -20,6 +20,7 @@ from agent_gateway.linear_obligation_validator import (
     ObligationManifest, ObligationNet, TransitionSpec)
 from agent_gateway.symbolic_fs_transducer import FsTransducer
 from agent_gateway.canonical_argument_confinement import Command, FieldPolicy, Policy, confine
+from agent_gateway.fork_join_vector_validator import UNIT, WIDTH, Owner, Root
 
 N = 5000
 
@@ -122,6 +123,21 @@ def main():
     assert argument_policy.canonicalize(canonical) == canonical
     command = Command("chmod", tuple(f"out/f{i}" for i in range(16)), mode="0644")
 
+    # A full-width ledger: the root and 7 forked branches, each holding a share of
+    # every budget. One batch fires a weighted transition and sends, which scans
+    # cleanup state across all 8 branches x 16 places (place 15, empty everywhere,
+    # so the scan never stops early).
+    ledger = Root.make(denials=64, outbound=65535, tokens=(8 * UNIT,) * 15 + (0,),
+                       obligation_mask=0x8000)
+    for _ in range(WIDTH - 1):
+        share = (8, 8000) + (UNIT,) * 15 + (0,)
+        ledger, _ = ledger.fork(0, ledger.branches[0].clock[0], share)
+    fire = ((UNIT,) + (0,) * 15, (0, UNIT) + (0,) * 14)
+    batch = [("fire", *fire), ("send", 512)]
+
+    def fresh_owner():
+        holder["owner"] = Owner(ledger)
+
     results = [
         run("registry: qualified lookup, 256 pins", lambda: r.lookup("method255", "provider")),
         run("path: parse + snapshot validation, 64 writes", path_case),
@@ -133,6 +149,8 @@ def main():
             lambda: holder["fs"].apply(label_intents), fresh_transducer),
         run("arguments: canonicalize 16 fields, 2048-byte wire", lambda: argument_policy.canonicalize(wire)),
         run("command: confine 16 operands", lambda: confine(command)),
+        run("ledger: fire + send batch, 8 branches x 16 places",
+            lambda: holder["owner"].apply(0, holder["owner"].clock(0), batch), fresh_owner),
     ]
 
     def combined():
@@ -168,6 +186,16 @@ def main():
         combined_six()
 
     results.append(run("combined: seven bounded checks (with canonicalization)", combined_seven, prepare_six))
+
+    def prepare_eight():
+        prepare_six()
+        fresh_owner()
+
+    def combined_eight():
+        combined_seven()
+        holder["owner"].apply(0, holder["owner"].clock(0), batch)
+
+    results.append(run("combined: eight bounded checks (with fork/join ledger)", combined_eight, prepare_eight))
     output = {
         "python": sys.version, "platform": platform.platform(),
         "gc_enabled": gc.isenabled(), "samples_per_case": N,

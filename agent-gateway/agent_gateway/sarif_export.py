@@ -168,6 +168,11 @@ RULES: dict[str, tuple[str, str, tuple[str, ...], str]] = {
                                     "policy (unknown or duplicate field, non-finite or oversized number, nesting, "
                                     "duplicate set element), or a typed file command had an operand that would be "
                                     "read as an option or fell outside the command profile."),
+    "FORK_JOIN_LEDGER_DENIED": ("error", "Forked branch outside the shared conservation ledger", ("AML.T0086",),
+                                "A root session or one of its forked branches tried to spend denial, outbound or "
+                                "token budget it does not hold, dispatched on a stale vector clock, used an "
+                                "inactive or exhausted branch, or sent while cleanup state was held anywhere in "
+                                "the ledger."),
     "analyzer_match": ("warning", "Offline analyzer match", (),
                        "A match reported by the offline agentwatch-analyzer."),
 }
@@ -207,6 +212,7 @@ OWASP_ASI: dict[str, tuple[str, ...]] = {
     "OBLIGATION_PROTOCOL_DENIED": ("ASI01",),
     "FS_LABEL_FLOW_DENIED": ("ASI02",),
     "ARGUMENT_CONFINEMENT_DENIED": ("ASI02",),
+    "FORK_JOIN_LEDGER_DENIED": ("ASI07",),
 }
 # Rule id -> approximate OWASP Top 10 for LLM Applications (2025) category.
 OWASP_LLM: dict[str, tuple[str, ...]] = {
@@ -238,6 +244,7 @@ OWASP_LLM: dict[str, tuple[str, ...]] = {
     "OBLIGATION_PROTOCOL_DENIED": ("LLM06:2025",),
     "FS_LABEL_FLOW_DENIED": ("LLM02:2025",),
     "ARGUMENT_CONFINEMENT_DENIED": ("LLM05:2025",),
+    "FORK_JOIN_LEDGER_DENIED": ("LLM10:2025",),
 }
 # Rule id -> CWE ids and OWASP Top 10 (2021) category, for web-application rules.
 CWE: dict[str, tuple[str, ...]] = {
@@ -274,6 +281,7 @@ CWE: dict[str, tuple[str, ...]] = {
     "OBLIGATION_PROTOCOL_DENIED": ("CWE-691", "CWE-772"),
     "FS_LABEL_FLOW_DENIED": ("CWE-201", "CWE-829"),
     "ARGUMENT_CONFINEMENT_DENIED": ("CWE-88", "CWE-514"),
+    "FORK_JOIN_LEDGER_DENIED": ("CWE-770", "CWE-362"),
 }
 OWASP_WEB: dict[str, tuple[str, ...]] = {
     "PHP_PATH_TRAVERSAL": ("A01:2021",),
@@ -302,7 +310,7 @@ _LOG_KIND_RULES = frozenset({
     "COLLUSION_CROSS_AGENT_LAUNDERING", "COLLUSION_SPLIT_TOXIC_CHAIN", "COLLUSION_CYCLIC_AMPLIFICATION",
     "REGISTRY_PIN_DRIFT", "REGISTRY_ALIAS_AMBIGUOUS", "WORKSPACE_EFFECT_DENIED",
     "FLOW_MANIFEST_DENIED", "SIMILARITY_LEAK_DENIED", "OBLIGATION_PROTOCOL_DENIED",
-    "FS_LABEL_FLOW_DENIED", "ARGUMENT_CONFINEMENT_DENIED",
+    "FS_LABEL_FLOW_DENIED", "ARGUMENT_CONFINEMENT_DENIED", "FORK_JOIN_LEDGER_DENIED",
 })
 
 

@@ -15,9 +15,9 @@ Three distinctions are essential:
 The common safety specification is:
 
 $$\operatorname{Dispatch}(s,c,t)\Rightarrow
- R(s,c,t)\land W(s,c,t)\land F(s,c,t)\land I(s,c,t)\land P(s,c,t)\land T(s,c,t)\land S(s,c,t).$$
+ R(s,c,t)\land W(s,c,t)\land F(s,c,t)\land I(s,c,t)\land P(s,c,t)\land T(s,c,t)\land S(s,c,t)\land V(s,c,t).$$
 
-R is registry pin validity, W workspace mutation safety, F manifest/flow validity, I outbound identifier admissibility, P bounded workflow-net transition enablement with resource cleanup state settled before outbound steps (section 5), T file label flow: no non-PUBLIC file into an outbound call and no UNTRUSTED file into an execution sink (section 6), and S canonical arguments for pinned tools and no operand in an option position for typed commands (section 7). A component that is inapplicable to a typed call contributes true; a missing adapter, unsupported construct, exceeded budget, or unavailable trusted state contributes false. Check every item of JSON-RPC batches, including notifications. JSON-RPC itself is stateless and does not impose batch ordering [1].
+R is registry pin validity, W workspace mutation safety, F manifest/flow validity, I outbound identifier admissibility, P bounded workflow-net transition enablement with resource cleanup state settled before outbound steps (section 5), T file label flow: no non-PUBLIC file into an outbound call and no UNTRUSTED file into an execution sink (section 6), S canonical arguments for pinned tools and no operand in an option position for typed commands (section 7), and V one conservation ledger for a root session and its forked branches, fenced on vector clocks (section 8). A component that is inapplicable to a typed call contributes true; a missing adapter, unsupported construct, exceeded budget, or unavailable trusted state contributes false. Check every item of JSON-RPC batches, including notifications. JSON-RPC itself is stateless and does not impose batch ordering [1].
 
 Treat the specification as a prefix-closed execution safety policy [8]. This does not prove semantic noninterference, correctness of provider implementations, or absence of every possible data leak.
 
@@ -400,9 +400,43 @@ PolicyEngine.pin_argument_policy(tool_name, policy) and PolicyEngine.pin_command
 
 Unit cases cover ROUND_HALF_EVEN boundaries, -0, equivalent spellings sharing one form, set order by encoded bytes, every rejection reason, depth counting that ignores brackets and escaped quotes inside strings, policy validation (including non-canonical defaults), the presence bit, a Hypothesis property for idempotence and order independence, every utility's argv, every confine rejection, the typed-argument adapter, a repr without operands, and a property that operands never reach an option position. Every compiled argv is also accepted by the workspace analyzer. CanonicalArgumentMachine keeps a semantic argument object and re-spells it on every step: key order, number notation including exact halves, set order, explicit defaults, and escaped or raw text. It compares the canonical bytes with an oracle that formats amounts with integer arithmetic, independent of Decimal. Replacing ROUND_HALF_EVEN with ROUND_HALF_UP fails it. tests/test_v12_5_argument_confinement_wiring.py covers the gateway path, the JSON-RPC code, identical bytes for equivalent objects, option injection, typed commands through W and T, results not leaking into later calls, one-way pinning, and the SARIF rule.
 
+## 8. fork_join_vector_validator.py
+
+### Invariant and representation
+
+Per-session budgets and markings assume one session. When a root session forks sub-agent branches and later joins them, a child that gets a fresh, independent quota multiplies the root's budgets, and two branches that dispatch concurrently can both spend one balance. V keeps a root and at most WIDTH = 8 lifetime branches under one immutable ledger. Slot 0 is the root, and slots are never reused. Each branch b has a parent, an active flag, a vector clock c_b in N^8, a taint bit, and a wallet w_b = (denial units, outbound bytes, 16 token places). Token amounts are in units of 1/UNIT of a capability, with UNIT = 256. The root also records the initial wallet I, the consumed denial units and outbound bytes in spent, a positive weight vector, an obligation mask over the 16 places, and an event count. Over the active branches A:
+
+$$\forall k\in\{0,1\}:\ \sum_{b\in A} w_b[k]+\mathrm{spent}[k]=I[k],\qquad \sum_{b\in A}\sum_{i}\omega_i\,w_b[2+i]=\sum_i \omega_i\,I[2+i],\qquad \sum_b c_b[b]=\mathrm{events}+|\mathrm{branches}|-1.$$
+
+An inactive branch holds the zero wallet. Every operation names a slot and the expected value of that branch's own clock component. It needs the branch active, the clock current, and fewer than 65,535 events, and a commit ticks that component.
+
+- fork moves a grant (each entry at most the parent's) into a new child. The child's clock is the parent's after the tick with its own component set to 1, and it inherits the parent's taint.
+- join needs the child active, a direct child of the joining slot, and no active children of its own. It adds the child's wallet back, takes the elementwise maximum of clocks and taint, and deactivates the child for good.
+- fire needs take ≤ the branch's tokens and the weighted sums of take and put to be equal, so no firing mints. A branch holding a fraction below UNIT cannot take a full-token transition until that fraction is joined back.
+- send allows at most 512 bytes per call, needs a remaining denial unit and enough outbound bytes, and needs every active branch in the ledger to hold zero tokens in the obligation places. Cleanup state is settled ledger-wide, not per branch.
+- deny spends one denial unit.
+
+$$V(s,c,t)\equiv \mathrm{active}(b_s)\land \mathrm{clock}_c=c_{b_s}[b_s]\land \mathrm{ops}(c)\ \text{admissible on}\ w_{b_s}\ \text{and the ledger}.$$
+
+### Hot path
+
+Each operation is O(WIDTH × PLACES) at worst; that bound comes from the ledger-wide obligation scan on send. Owner holds the current Root under one lock. check() runs a batch against a snapshot and changes nothing. apply() runs the whole batch fenced on the expected clock and commits it all or nothing, so a dispatch computed from a stale view never commits. Owner validates its transition table at construction: every (take, put) entry must conserve the weighted token count.
+
+### Gateway wiring
+
+PolicyEngine.attach_fork_join(session_id, Root.make(...), transitions) puts a session at slot 0. fork_branch(parent, child, grant) and join_branch(parent, child) are the trusted control plane. A ledger session that calls spawn_subagent forks the child session automatically with an empty grant, so a spawned child starts with no budget unless the control plane gives it one. The forked slot is committed when the spawn passes the reference validators; a spawn denied later in the pipeline still uses a lifetime slot.
+
+The reference middleware plans the call's operations once the label transducer has been checked. Those are a taint mark if the session is tainted, the tool's transition if it has one, a send for outbound calls (send and credential classes or external parameter boundaries), measured as the canonical JSON size of the arguments, and the auto-fork. The plan is checked against the current ledger, then applied, fenced on the clock read at planning time, after every other reference validator has passed and before the Petri-net fire.
+
+Every gateway denial on a ledger session, from any gate, spends one of that branch's denial units, and an exhausted branch cannot send. Branch taint is mirrored into the session whenever the session is loaded, so a child of a tainted branch starts tainted and a join that brings taint back taints the parent. A joined child's later calls are denied (BRANCH_INACTIVE). Denials use FORK_JOIN_LEDGER_DENIED (JSON-RPC -32074, approximate ATLAS AML.T0086) and record the reason code, the slot, the event count, and spent.
+
+### Tests
+
+Unit cases cover Root.make validation; fencing on slot, activity, clock and event budget; fork grants and child clocks; lifetime width with no slot reuse; join rules (not a child, has children, inactive) and the merge; send, deny and fire semantics with weighted conservation and ledger-wide cleanup state; a fraction below UNIT; tampered roots rejected by conserved() and by Owner; and atomic, fenced Owner batches. LedgerMachine forks, joins, fires weighted moves, sends, denies, taints and attempts stale writes on random branches against an independent Python model, and asserts the conservation laws after every step. A fork that mints, or a send that checks cleanup state only on its own branch, fails it. tests/test_v12_6_fork_join_wiring.py covers shared budgets, fractional tokens, ledger-wide cleanup state, denial charging, a stale-clock commit, spawn auto-forks, taint along forks and joins, and the SARIF rule.
+
 ## Validation and deployment criteria
 
-The original reference suite has 64 passing test cases, including four RuleBasedStateMachine classes. Section 5 adds 14 cases to test_validators.py, including PetriObligationMachine, and 6 gateway wiring cases. Section 6 adds 11 cases, including TransducerMachine, and 7 gateway wiring cases. Section 7 adds 82 cases (most of them parametrized), including CanonicalArgumentMachine, and 14 gateway wiring cases. Hypothesis generates/shrinks sequences rather than just isolated messages [13]. These tests are executable evidence, not a formal proof of all schedules or operating-system behavior.
+The original reference suite has 64 passing test cases, including four RuleBasedStateMachine classes. Section 5 adds 14 cases to test_validators.py, including PetriObligationMachine, and 6 gateway wiring cases. Section 6 adds 11 cases, including TransducerMachine, and 7 gateway wiring cases. Section 7 adds 82 cases (most of them parametrized), including CanonicalArgumentMachine, and 14 gateway wiring cases. Section 8 adds 10 cases, including LedgerMachine, and 9 gateway wiring cases. Hypothesis generates/shrinks sequences rather than just isolated messages [13]. These tests are executable evidence, not a formal proof of all schedules or operating-system behavior.
 
 benchmark.py records 5,000 samples per case, nearest-rank p99, wall and process CPU clocks, GC enabled, and warm single-process execution. Cold construction is excluded. Path measurements use a trusted in-memory filesystem model. The 16-by-256 matcher case exercises the maximum configured number and length of protected strings, but is one synthetic miss workload; it does not establish the worst case over all alphabets, shingle-length mixes, hash collisions, normalization work, or workloads. benchmark_results.json is the authoritative measured output.
 
@@ -470,6 +504,27 @@ Python 3.12.3, Linux x86-64, 5,000 samples per case, in another container than e
 | combined: seven bounded checks (with canonicalization) | 7.006841 | 28.656578 |
 
 Python 3.12.3, Linux x86-64, 5,000 samples per case, same container as the previous table. The canonicalization case is the full budget: 16 fields, 2048 wire bytes, four 32-element sets in reverse order, and eight numbers quantized at scale 6. It measured 0.473239 ms p99, and confining 16 operands measured 0.007191 ms. Every combined case is above the 5 ms reference at p99 on this host. The maxima include scheduler outliers; the 28.66 ms seven-check maximum is not a deadline. benchmark_results.json holds this run.
+
+### Measured results — 31 October 2026 (adds the fork/join ledger cases)
+
+| Benchmark case | Wall p99 (ms) | Wall maximum (ms) |
+|---|---:|---:|
+| registry: qualified lookup, 256 pins | 0.001332 | 0.030552 |
+| path: parse + snapshot validation, 64 writes | 1.744593 | 5.277180 |
+| flow: fresh EXTERNAL step admission | 0.048727 | 0.071643 |
+| similarity: 16 x 256, 256-char miss, both modes | 4.017664 | 5.239107 |
+| obligation: outbound transition, 16 places x 64 transitions | 0.031539 | 0.588212 |
+| transducer: 1 read joined into 63 writes, copy-on-write overlay | 0.909569 | 6.889158 |
+| arguments: canonicalize 16 fields, 2048-byte wire | 0.614009 | 6.587237 |
+| command: confine 16 operands | 0.016011 | 0.144224 |
+| ledger: fire + send batch, 8 branches x 16 places | 0.111582 | 0.224673 |
+| combined: four bounded checks | 5.632157 | 13.899377 |
+| combined: five bounded checks (with obligation) | 5.770401 | 11.548429 |
+| combined: six bounded checks (with transducer) | 6.748795 | 20.982895 |
+| combined: seven bounded checks (with canonicalization) | 7.264731 | 19.152971 |
+| combined: eight bounded checks (with fork/join ledger) | 7.301175 | 14.358839 |
+
+Python 3.12.3, Linux x86-64, 5,000 samples per case, same container as the previous two tables. The ledger case runs on a full-width ledger, with the root and seven forked branches holding shares of every budget. Each sample applies one fenced batch: a weighted transition and a 512-byte send whose cleanup-state scan covers all 8 branches and 16 places without stopping early. It measured 0.111582 ms p99. Every combined case is above the 5 ms reference at p99 on this host. benchmark_results.json holds this run.
 
 ## Primary sources
 

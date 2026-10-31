@@ -1,4 +1,5 @@
-"""Reference middleware validators: 64 cases incl. four Hypothesis state machines.
+"""Reference middleware validators: 64 original cases incl. four Hypothesis state machines,
+plus Predicate P (linear_obligation_validator) unit tests and PetriObligationMachine.
 
 Moved unchanged from the AgentGate_Middleware_Reference drop except for package-qualified
 imports (``agent_gateway.*``). Oracles are independent of the implementations: an O(mn) DP
@@ -477,3 +478,227 @@ class SimilarityMachine(RuleBasedStateMachine):
 
 TestSimilarity = SimilarityMachine.TestCase
 TestSimilarity.settings = settings(max_examples=40, stateful_step_count=25, deadline=None)
+
+
+# --- Predicate P: linear_obligation_validator ---------------------------------------
+
+from agent_gateway.common import DispatchEnvelope
+from agent_gateway.linear_obligation_validator import (
+    CAPACITY, ObligationManifest, ObligationNet, TransitionSpec, compile_manifest,
+    get_nibble, pack_vector, set_nibble, successor, unpack, weighted_delta)
+
+# Places: P0 ready, P1 resource acquired, P2 resource in use, P3 result staged.
+# P1 and P2 are resource cleanup state that must be settled before an outbound step.
+OBLIGATION_MASK = 0x0FF0
+
+
+def workflow_transitions(bootstrap=True):
+    specs = [
+        TransitionSpec("p", "acquire", (1,), (0, 1), False),
+        TransitionSpec("p", "work", (0, 1), (0, 0, 1), False),
+        TransitionSpec("p", "settle", (0, 0, 1), (0, 0, 0, 1), False),
+        TransitionSpec("p", "release", (0, 1), (1,), False),
+        TransitionSpec("p", "egress", (0, 0, 0, 1), (1,), True),
+        TransitionSpec("p", "probe", (), (), True),
+    ]
+    if bootstrap:
+        specs.append(TransitionSpec("p", "grant", (), (1,), False, is_bootstrap=True))
+    return tuple(specs)
+
+
+def workflow_net(initial=0x1, bootstrap=True):
+    return ObligationNet(ObligationManifest(initial, OBLIGATION_MASK,
+                                            workflow_transitions(bootstrap)))
+
+
+def reference_successor(marking, spec, mask):
+    """Independent per-place oracle for the SWAR hot path."""
+    pre = spec.pre_vector + (0,) * (16 - len(spec.pre_vector))
+    post = spec.post_vector + (0,) * (16 - len(spec.post_vector))
+    current = unpack(marking)
+    if any(m < a for m, a in zip(current, pre)):
+        return "INSUFFICIENT_TOKENS"
+    if any(m - a + b > CAPACITY for m, a, b in zip(current, pre, post)):
+        return "PLACE_CAPACITY"
+    if spec.is_external_egress and marking & mask:
+        return "UNSETTLED_OBLIGATION"
+    return pack_vector(tuple(m - a + b for m, a, b in zip(current, pre, post)))
+
+
+NIBBLE_VECTOR = st.lists(st.integers(0, 15), min_size=0, max_size=16).map(tuple)
+
+
+@given(st.integers(0, (1 << 64) - 1), st.integers(0, 15), st.integers(0, 15))
+def test_nibble_roundtrip_isolated(marking, place, value):
+    updated = set_nibble(marking, place, value)
+    assert get_nibble(updated, place) == value
+    assert 0 <= updated < 1 << 64
+    for other in range(16):
+        if other != place:
+            assert get_nibble(updated, other) == get_nibble(marking, other)
+
+
+@pytest.mark.parametrize("args", [(-1, 0), (1 << 64, 0), (0, 16), (0, -1), (0, True)])
+def test_nibble_range_fails_closed(args):
+    with pytest.raises(Denied):
+        get_nibble(*args)
+    with pytest.raises(Denied):
+        set_nibble(0, 0, 16)
+
+
+@given(st.integers(0, (1 << 64) - 1), NIBBLE_VECTOR, NIBBLE_VECTOR, st.booleans())
+def test_swar_successor_equals_reference(marking, pre, post, egress):
+    spec = TransitionSpec("p", "m", pre, post, egress, is_bootstrap=True)
+    compiled = compile_manifest(ObligationManifest(0, OBLIGATION_MASK, (spec,)))[("p", "m")]
+    expected = reference_successor(marking, spec, OBLIGATION_MASK)
+    try:
+        actual = successor(marking, compiled, OBLIGATION_MASK)
+    except Denied as exc:
+        actual = str(exc)
+    assert actual == expected
+
+
+def test_manifest_rejects_minting_and_malformed_vectors():
+    minting = TransitionSpec("p", "mint", (1,), (2,), False)
+    with pytest.raises(Denied, match="CONSERVATION_VIOLATION"):
+        ObligationNet(ObligationManifest(0x1, 0, (minting,)))
+    # A heavier consumed place pays for a lighter produced token.
+    weights = (3,) + (1,) * 15
+    split = TransitionSpec("p", "split", (1,), (0, 1, 1, 1), False)
+    assert weighted_delta(split, weights) == 0
+    ObligationNet(ObligationManifest(0x1, 0, (split,), weights))
+    for bad in [TransitionSpec("p", "m", (16,), (), False),
+                TransitionSpec("p", "m", (0,) * 17, (), False),
+                TransitionSpec("p", "m", (-1,), (), False)]:
+        with pytest.raises(Denied):
+            ObligationNet(ObligationManifest(0, 0, (bad,)))
+    ok = TransitionSpec("p", "m", (1,), (), False)
+    for manifest in [ObligationManifest(0, 0, (ok, ok)),
+                     ObligationManifest(0, 0x0080, (ok,)),
+                     ObligationManifest(1 << 64, 0, (ok,)),
+                     ObligationManifest(0, 0, (ok,), (1,) * 15),
+                     ObligationManifest(0, 0, (ok,), (0,) + (1,) * 15),
+                     ObligationManifest(0, 0, ())]:
+        with pytest.raises(Denied):
+            ObligationNet(manifest)
+
+
+def test_workflow_cycle_settles_before_outbound_step():
+    net = workflow_net()
+    with pytest.raises(Denied, match="INSUFFICIENT_TOKENS"):
+        net.fire("p", "egress")
+    net.fire("p", "acquire")
+    with pytest.raises(Denied, match="UNSETTLED_OBLIGATION"):
+        net.fire("p", "probe")
+    net.fire("p", "work")
+    with pytest.raises(Denied, match="UNSETTLED_OBLIGATION"):
+        net.fire("p", "probe")
+    net.fire("p", "settle")
+    firing = net.fire("p", "egress")
+    assert firing.marking_after == 0x1 and firing.marking_hex == "0000000000000001"
+    assert firing.sequence == net.sequence == 4
+    with pytest.raises(Denied, match="UNKNOWN_TRANSITION"):
+        net.fire("p", "unregistered")
+    with pytest.raises(Denied, match="STALE_MARKING_SEQUENCE"):
+        net.fire("p", "acquire", expected_sequence=3)
+    assert net.marking == 0x1
+
+
+def test_bootstrap_is_one_shot_and_capacity_is_bounded():
+    net = workflow_net(initial=0xE)
+    net.fire("p", "grant")
+    assert get_nibble(net.marking, 0) == 15
+    with pytest.raises(Denied, match="BOOTSTRAP_SPENT"):
+        net.fire("p", "grant")
+    full = workflow_net(initial=0xF0 | 0x1)  # P1 already at 15.
+    with pytest.raises(Denied, match="PLACE_CAPACITY"):
+        full.fire("p", "acquire")
+    assert full.marking == 0xF1 and full.sequence == 0
+
+
+def test_rejected_firing_leaves_marking_and_check_is_pure():
+    net = workflow_net()
+    assert net.check("p", "acquire") == 0x10
+    assert net.marking == 0x1 and net.sequence == 0
+    net.fire("p", "acquire")
+    before = (net.marking, net.sequence)
+    assert not allows(net.fire, "p", "probe")
+    assert (net.marking, net.sequence) == before
+
+
+def test_dispatch_envelope_defaults_and_binding():
+    empty = DispatchEnvelope()
+    assert empty.schema_pin is None and empty.resources == ()
+    net = workflow_net()
+    env = DispatchEnvelope("s", 1, 1, "k", "p", "acquire", "pin", "args",
+                           (("target", "/ws/out/a"),), net.commitment, 0, "v1",
+                           net.marking_hex)
+    assert env.commitment() == DispatchEnvelope(**{
+        f: getattr(env, f) for f in env.__slots__}).commitment()
+    net.fire("p", "acquire")
+    moved = DispatchEnvelope(**{**{f: getattr(env, f) for f in env.__slots__},
+                                "petri_marking_hex": net.marking_hex})
+    assert moved.commitment() != env.commitment()
+    with pytest.raises(AttributeError):
+        env.method = "egress"
+
+
+class PetriObligationMachine(RuleBasedStateMachine):
+    """acquire -> work -> settle -> egress cycles with release and a one-shot grant."""
+
+    def __init__(self):
+        super().__init__()
+        self.net = workflow_net()
+        self.model = [1, 0, 0, 0]
+        self.granted = False
+        self.weight = self.net.weighted_tokens()
+
+    def expect(self, method):
+        m = self.model
+        if method == "grant":
+            return not self.granted and m[0] < 15
+        if method == "acquire":
+            return m[0] >= 1 and m[1] < 15
+        if method == "work":
+            return m[1] >= 1 and m[2] < 15
+        if method == "settle":
+            return m[2] >= 1 and m[3] < 15
+        if method == "release":
+            return m[1] >= 1 and m[0] < 15
+        if method == "egress":
+            return m[3] >= 1 and m[0] < 15 and m[1] == m[2] == 0
+        return m[1] == m[2] == 0  # probe
+
+    @rule(method=st.sampled_from(
+        ["acquire", "work", "settle", "release", "egress", "probe", "grant"]))
+    def fire(self, method):
+        expected = self.expect(method)
+        before = self.net.marking
+        unsettled = before & OBLIGATION_MASK
+        assert allows(self.net.fire, "p", method) == expected
+        if not expected:
+            assert self.net.marking == before
+            return
+        if method in {"egress", "probe"}:
+            assert unsettled == 0
+        delta = {"grant": {0: 1}, "acquire": {0: -1, 1: 1}, "work": {1: -1, 2: 1},
+                 "settle": {2: -1, 3: 1}, "release": {1: -1, 0: 1},
+                 "egress": {3: -1, 0: 1}, "probe": {}}[method]
+        for place, change in delta.items():
+            self.model[place] += change
+        if method == "grant":
+            self.granted = True
+            self.weight += 1
+
+    @invariant()
+    def bounded_conserved_and_modelled(self):
+        marking = self.net.marking
+        assert 0 <= marking < 1 << 64
+        assert all(0 <= n <= 15 for n in unpack(marking))
+        assert unpack(marking)[:4] == tuple(self.model) and unpack(marking)[4:] == (0,) * 12
+        assert self.net.weighted_tokens() <= self.weight
+        self.weight = self.net.weighted_tokens()
+
+
+TestPetriObligation = PetriObligationMachine.TestCase
+TestPetriObligation.settings = settings(max_examples=60, stateful_step_count=40, deadline=None)

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from decimal import Decimal
 from hashlib import sha256
 
@@ -136,3 +137,36 @@ def canonical(value: object) -> bytes:
 
 def digest(domain: str, value: object) -> str:
     return sha256(domain.encode("ascii") + b"\0" + canonical(value)).hexdigest()
+
+
+@dataclass(frozen=True, slots=True)
+class DispatchEnvelope:
+    """Exact authorization binding committed at the linearization point.
+
+    Every field has a default so callers that predate the envelope, or that
+    bind only a subset of validator revisions, remain compatible. ``None``
+    means "validator not applicable to this call", never "unchecked".
+    """
+    session_id: str = ""
+    fencing_epoch: int = 0
+    event_sequence: int = 0
+    request_key: str = ""
+    provider: str = ""
+    method: str = ""
+    schema_pin: str | None = None
+    arg_digest: str | None = None
+    resources: tuple[tuple[str, str], ...] = ()
+    manifest_commitment: str | None = None
+    fs_generation: int | None = None
+    policy_version: str = ""
+    petri_marking_hex: str | None = None
+
+    def commitment(self) -> str:
+        return digest("dispatch-envelope-v1", {
+            "session": self.session_id, "epoch": self.fencing_epoch,
+            "sequence": self.event_sequence, "requestKey": self.request_key,
+            "provider": self.provider, "method": self.method,
+            "pin": self.schema_pin, "args": self.arg_digest,
+            "resources": [[role, path] for role, path in self.resources],
+            "manifest": self.manifest_commitment, "fs": self.fs_generation,
+            "policy": self.policy_version, "marking": self.petri_marking_hex})

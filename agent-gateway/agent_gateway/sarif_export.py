@@ -162,6 +162,12 @@ RULES: dict[str, tuple[str, str, tuple[str, ...], str]] = {
                              "A file whose tracked label was above PUBLIC fed an outbound call, or a file written "
                              "while the session was untrusted fed an execution sink, under the workspace label "
                              "transducer."),
+    "ARGUMENT_CONFINEMENT_DENIED": ("error", "Tool arguments outside the pinned canonical or command profile",
+                                    ("AML.T0053",),
+                                    "A pinned tool's argument object could not be canonicalized under its field "
+                                    "policy (unknown or duplicate field, non-finite or oversized number, nesting, "
+                                    "duplicate set element), or a typed file command had an operand that would be "
+                                    "read as an option or fell outside the command profile."),
     "analyzer_match": ("warning", "Offline analyzer match", (),
                        "A match reported by the offline agentwatch-analyzer."),
 }
@@ -200,6 +206,7 @@ OWASP_ASI: dict[str, tuple[str, ...]] = {
     "SIMILARITY_LEAK_DENIED": ("ASI02",),
     "OBLIGATION_PROTOCOL_DENIED": ("ASI01",),
     "FS_LABEL_FLOW_DENIED": ("ASI02",),
+    "ARGUMENT_CONFINEMENT_DENIED": ("ASI02",),
 }
 # Rule id -> approximate OWASP Top 10 for LLM Applications (2025) category.
 OWASP_LLM: dict[str, tuple[str, ...]] = {
@@ -230,6 +237,7 @@ OWASP_LLM: dict[str, tuple[str, ...]] = {
     "SIMILARITY_LEAK_DENIED": ("LLM02:2025",),
     "OBLIGATION_PROTOCOL_DENIED": ("LLM06:2025",),
     "FS_LABEL_FLOW_DENIED": ("LLM02:2025",),
+    "ARGUMENT_CONFINEMENT_DENIED": ("LLM05:2025",),
 }
 # Rule id -> CWE ids and OWASP Top 10 (2021) category, for web-application rules.
 CWE: dict[str, tuple[str, ...]] = {
@@ -265,6 +273,7 @@ CWE: dict[str, tuple[str, ...]] = {
     "SIMILARITY_LEAK_DENIED": ("CWE-201",),
     "OBLIGATION_PROTOCOL_DENIED": ("CWE-691", "CWE-772"),
     "FS_LABEL_FLOW_DENIED": ("CWE-201", "CWE-829"),
+    "ARGUMENT_CONFINEMENT_DENIED": ("CWE-88", "CWE-514"),
 }
 OWASP_WEB: dict[str, tuple[str, ...]] = {
     "PHP_PATH_TRAVERSAL": ("A01:2021",),
@@ -293,7 +302,7 @@ _LOG_KIND_RULES = frozenset({
     "COLLUSION_CROSS_AGENT_LAUNDERING", "COLLUSION_SPLIT_TOXIC_CHAIN", "COLLUSION_CYCLIC_AMPLIFICATION",
     "REGISTRY_PIN_DRIFT", "REGISTRY_ALIAS_AMBIGUOUS", "WORKSPACE_EFFECT_DENIED",
     "FLOW_MANIFEST_DENIED", "SIMILARITY_LEAK_DENIED", "OBLIGATION_PROTOCOL_DENIED",
-    "FS_LABEL_FLOW_DENIED",
+    "FS_LABEL_FLOW_DENIED", "ARGUMENT_CONFINEMENT_DENIED",
 })
 
 

@@ -1,6 +1,7 @@
 """Reference middleware validators: 64 original cases incl. four Hypothesis state machines,
 plus Predicate P (linear_obligation_validator) unit tests and PetriObligationMachine,
-and Predicate T (symbolic_fs_transducer) unit tests and TransducerMachine.
+and Predicate T (symbolic_fs_transducer) unit tests and TransducerMachine,
+and Predicate S (canonical_argument_confinement) unit tests and CanonicalArgumentMachine.
 
 Moved unchanged from the AgentGate_Middleware_Reference drop except for package-qualified
 imports (``agent_gateway.*``). Oracles are independent of the implementations: an O(mn) DP
@@ -936,3 +937,294 @@ class TransducerMachine(RuleBasedStateMachine):
 
 TestTransducer = TransducerMachine.TestCase
 TestTransducer.settings = settings(max_examples=60, stateful_step_count=40, deadline=None)
+
+
+# --- Predicate S: canonical_argument_confinement ----------------------------------------
+
+import random as _random
+
+from agent_gateway.canonical_argument_confinement import (
+    Command, FieldPolicy, Policy, confine, command_from_arguments)
+from agent_gateway.workspace_path_validator import command_intents
+
+S_POLICY = Policy((
+    FieldPolicy("amount", "number", scale=2, required=True),
+    FieldPolicy("count", "number", default=b"0"),
+    # Without a pinned default, an empty set and an absent field stay distinct.
+    FieldPolicy("tags", "set", default=b"[]"),
+    FieldPolicy("note", "text", default=b'""'),
+    FieldPolicy("urgent", "bool", default=b"false"),
+))
+
+
+def canon(wire, policy=S_POLICY):
+    return policy.canonicalize(wire)
+
+
+def denied_reason(fn, *args):
+    with pytest.raises(Denied) as err:
+        fn(*args)
+    return str(err.value)
+
+
+@pytest.mark.parametrize("spelling, expected", [
+    ("2.675", "2.68"), ("2.665", "2.66"), ("2.6650001", "2.67"), ("-2.675", "-2.68"),
+    ("1", "1.00"), ("1.0", "1.00"), ("10e-1", "1.00"), ("100E-2", "1.00"), ("0.1e1", "1.00"),
+    ("-0", "0.00"), ("-0.004", "0.00"), ("-0.005", "0.00"), ("-0.015", "-0.02"), ("0.0049", "0.00"),
+])
+def test_number_quantization_half_even(spelling, expected):
+    assert canon(f'{{"amount":{spelling}}}') == f'{{"amount":{expected}}}'.encode()
+
+
+def test_equivalent_spellings_share_one_canonical_form():
+    forms = [
+        b'{"amount":1,"tags":["b","a"],"urgent":false,"note":"","count":0}',
+        b'{"tags":["a","b"],"amount":1.000}',
+        b'{ "count" : 0.0 , "amount" : 10E-1 , "tags" : [ "a" , "b" ] }',
+        '{"amount":1,"tags":["\\u0062","a"],"note":"\\u0000"}'.encode()[:0] + b'{"amount":0.1e1,"tags":["\\u0062","a"]}',
+    ]
+    outputs = {canon(f) for f in forms}
+    assert outputs == {b'{"amount":1.00,"tags":["a","b"]}'}
+
+
+def test_presence_is_a_bit_unless_a_default_is_pinned():
+    bare = Policy((FieldPolicy("a", "bool"), FieldPolicy("tags", "set")))
+    assert bare.canonicalize(b'{"a":true,"tags":[]}') != bare.canonicalize(b'{"a":true}')
+    assert canon(b'{"amount":1,"tags":[]}') == canon(b'{"amount":1}')
+
+
+def test_set_sorted_by_canonical_utf8_encoding():
+    out = canon('{"amount":0,"tags":["\u00e9","z","A","\\"q"]}'.encode())
+    assert out == '{"amount":0.00,"tags":["A","\\"q","z","\u00e9"]}'.encode()
+
+
+@pytest.mark.parametrize("wire, reason", [
+    (b'{"amount":1,"amount":2}', "DUPLICATE_KEY"),
+    (b'{"amount":NaN}', "NONFINITE"), (b'{"amount":Infinity}', "NONFINITE"),
+    (b'{"amount":-Infinity}', "NONFINITE"),
+    (b'{"amount":1,"other":1}', "UNKNOWN_FIELD"), (b'{}', "REQUIRED_FIELD"),
+    (b'[1]', "NOT_OBJECT"), (b'"x"', "NOT_OBJECT"),
+    (b'{"amount":1e13}', "NUMBER_LIMIT"), (b'{"amount":1e-13}', "NUMBER_LIMIT"),
+    (b'{"amount":1234567890123456789012345}', "NUMBER_LIMIT"),
+    (b'{"amount":0.' + b"0" * 47 + b'}', "NUMBER_LIMIT"),
+    (b'{"amount":123456789012345678901234e12}', "NUMBER_RANGE"),
+    (b'{"amount":"1"}', "FIELD_TYPE"), (b'{"amount":true}', "FIELD_TYPE"),
+    (b'{"amount":null}', "FIELD_TYPE"), (b'{"amount":1,"urgent":0}', "FIELD_TYPE"),
+    (b'{"amount":1,"tags":"a"}', "FIELD_TYPE"), (b'{"amount":1,"tags":[1]}', "ELEMENT_LIMIT"),
+    (b'{"amount":1,"tags":["a","a"]}', "DUPLICATE_ELEMENT"),
+    (b'{"amount":1,"tags":[{}]}', "WIRE_DEPTH"),
+    (b'{"amount":1,"tags":[[]]}', "WIRE_DEPTH"), (b'{"amount":{"x":1}}', "FIELD_TYPE"),
+    (b'{"amount":1,"note":"\\ud800"}', "INVALID_UNICODE"),
+    (b'{"amount":1,"note":"\xff"}', "WIRE_ENCODING"),
+    (b'{"amount":1', "INVALID_JSON"), (b'{"amount":01}', "INVALID_JSON"),
+])
+def test_canonicalize_rejects(wire, reason):
+    assert denied_reason(canon, wire) == reason
+
+
+def test_wire_limits_are_checked_before_parsing():
+    note = "x" * (2048 - len('{"amount":1,"note":""}'))
+    assert canon(f'{{"amount":1,"note":"{note}"}}'.encode())
+    assert denied_reason(canon, f'{{"amount":1,"note":"{note}x"}}'.encode()) == "WIRE_LIMIT"
+    # Brackets and escaped quotes inside strings do not count toward depth.
+    assert canon(b'{"amount":1,"note":"[[[{{{\\"]]]"}') == b'{"amount":1.00,"note":"[[[{{{\\"]]]"}'
+    assert denied_reason(canon, b'[[[]]]') == "WIRE_DEPTH"
+    assert denied_reason(canon, 3) == "WIRE_TYPE"
+    tags = ",".join(f'"t{i}"' for i in range(33))
+    assert denied_reason(canon, f'{{"amount":1,"tags":[{tags}]}}'.encode()) == "SET_LIMIT"
+    assert denied_reason(canon, f'{{"amount":1,"tags":["{"x" * 129}"]}}'.encode()) == "ELEMENT_LIMIT"
+
+
+def test_policy_configuration_is_validated():
+    cases = [
+        (lambda: Policy(()), "POLICY_FIELDS"),
+        (lambda: Policy(tuple(FieldPolicy(f"f{i}", "bool") for i in range(17))), "POLICY_FIELDS"),
+        (lambda: Policy((FieldPolicy("a", "bool"), FieldPolicy("a", "text"))), "DUPLICATE_FIELD"),
+        (lambda: Policy((FieldPolicy("a", "number", default=b"1.0"),)), "DEFAULT_NOT_CANONICAL"),
+        (lambda: Policy((FieldPolicy("a", "set", default=b'["b","a"]'),)), "DEFAULT_NOT_CANONICAL"),
+        (lambda: FieldPolicy("a", "number", scale=7), "FIELD_SCALE"),
+        (lambda: FieldPolicy("a", "text", scale=1), "FIELD_SCALE"),
+        (lambda: FieldPolicy("a", "number", scale=True), "FIELD_SCALE"),
+        (lambda: FieldPolicy("a", "list"), "FIELD_KIND"),
+        (lambda: FieldPolicy("", "bool"), "FIELD_NAME"),
+        (lambda: FieldPolicy("a", "bool", default="false"), "FIELD_DEFAULT"),
+        (lambda: FieldPolicy("a", "bool", default=b"false", required=True), "DEFAULT_CONFLICT"),
+    ]
+    for build, reason in cases:
+        assert denied_reason(build) == reason
+    assert Policy((FieldPolicy("a", "set", default=b'["a","b"]'),)).canonicalize(b'{"a":["b","a"]}') == b"{}"
+    assert S_POLICY.commitment == Policy(tuple(reversed(S_POLICY.fields))).commitment
+
+
+@given(st.dictionaries(st.sampled_from(["amount", "count", "tags", "note", "urgent"]),
+                       st.integers(), min_size=0, max_size=5), st.data())
+def test_canonical_form_is_idempotent_and_order_free(keys, data):
+    obj = {"amount": data.draw(st.decimals(min_value=-10**9, max_value=10**9, places=4))}
+    for key in keys:
+        if key == "count":
+            obj[key] = data.draw(st.integers(-10**6, 10**6))
+        elif key == "tags":
+            obj[key] = data.draw(st.lists(st.text(max_size=8), unique=True, max_size=6))
+        elif key == "note":
+            obj[key] = data.draw(st.text(max_size=16))
+        elif key == "urgent":
+            obj[key] = data.draw(st.booleans())
+    wire = json.dumps({k: str(v) if isinstance(v, Decimal) else v for k, v in obj.items()})
+    wire = wire.replace(f'"{obj["amount"]}"', str(obj["amount"]))
+    once = canon(wire.encode())
+    assert canon(once) == once
+    shuffled = dict(reversed(list(json.loads(wire).items())))
+    if "tags" in shuffled:
+        shuffled["tags"] = list(reversed(shuffled["tags"]))
+    respelled = json.dumps(shuffled).replace(json.dumps(str(obj["amount"])), str(obj["amount"]))
+    assert canon(respelled.encode()) == once
+
+
+@pytest.mark.parametrize("command, argv", [
+    (Command("cp", ("a", "b")), ("cp", "--", "a", "b")),
+    (Command("mv", ("a", "dir/b")), ("mv", "--", "a", "dir/b")),
+    (Command("tee", ("x", "y")), ("tee", "--", "x", "y")),
+    (Command("tee", ("x",), append=True), ("tee", "-a", "--", "x")),
+    (Command("ln", ("target", "link")), ("ln", "-s", "--", "target", "link")),
+    (Command("chmod", ("f", "g"), mode="0644"), ("chmod", "--", "0644", "f", "g")),
+    (Command("sed", ("f",), script="s/old/new/g"), ("sed", "-i", "--", "s/old/new/g", "f")),
+    (Command("cp", ("./-rf", "b")), ("cp", "--", "./-rf", "b")),
+])
+def test_confine_compiles_fixed_argv(command, argv):
+    assert confine(command) == argv
+    effects = command_intents(list(argv))  # The workspace model accepts every compiled argv.
+    assert effects and all(i.path in command.operands for i in effects)
+
+
+@pytest.mark.parametrize("command, reason", [
+    (Command("rm", ("a",)), "UTILITY"), (Command("bash", ("a",)), "UTILITY"),
+    (Command("cp", ("-rf", "b")), "OPERAND_OPTION"), (Command("cp", ("a", "--")), "OPERAND_OPTION"),
+    (Command("tee", ("-",)), "OPERAND_OPTION"), (Command("cp", ("a\0", "b")), "OPERAND_NUL"),
+    (Command("tee", ()), "OPERAND_COUNT"), (Command("tee", tuple("abcdefghijklmnopq")), "OPERAND_COUNT"),
+    (Command("tee", ["a"]), "OPERAND_COUNT"), (Command("tee", ("",)), "OPERAND_LIMIT"),
+    (Command("tee", ("x" * 257,)), "OPERAND_LIMIT"), (Command("tee", (1,)), "OPERAND_LIMIT"),
+    (Command("tee", ("x" * 256,) * 5), "COMMAND_LIMIT"),
+    (Command("cp", ("a",)), "COMMAND_ARITY"), (Command("ln", ("a", "b", "c")), "COMMAND_ARITY"),
+    (Command("tee", ("x",), mode="755"), "COMMAND_FIELD"), (Command("cp", ("a", "b"), append=True), "COMMAND_FIELD"),
+    (Command("chmod", ("f",), script="s/a/b/"), "COMMAND_FIELD"), (Command("tee", ("x",), append=1), "COMMAND_FIELD"),
+    (Command("chmod", ("f",)), "MODE_PROFILE"), (Command("chmod", ("f",), mode="u+x"), "MODE_PROFILE"),
+    (Command("chmod", ("f",), mode="4755"), "MODE_PROFILE"),
+    (Command("sed", ("f",), script="s/a/b/e"), "SED_SCRIPT"), (Command("sed", ("f",)), "SED_SCRIPT"),
+])
+def test_confine_rejects(command, reason):
+    assert denied_reason(confine, command) == reason
+
+
+def test_command_adapter_and_repr():
+    assert command_from_arguments({"utility": "cp", "operands": ["a", "b"]}) == Command("cp", ("a", "b"))
+    for args in ({"utility": "cp", "operands": ["a", "b"], "flags": "-f"}, {"operands": ["a"]}, []):
+        assert denied_reason(command_from_arguments, args) == "COMMAND_ARGUMENTS"
+    assert denied_reason(command_from_arguments, {"utility": "cp", "operands": "a b"}) == "OPERAND_COUNT"
+    assert "secret_name" not in repr(Command("cp", ("secret_name", "b")))
+    assert denied_reason(confine, ("cp", ("a", "b"))) == "COMMAND_TYPE"
+
+
+@given(st.lists(st.text(alphabet="ab-./_ \t\n\0", min_size=1, max_size=12), min_size=2, max_size=2))
+def test_confined_operands_never_reach_option_position(operands):
+    try:
+        argv = confine(Command("cp", tuple(operands)))
+    except Denied:
+        assert any(o.startswith("-") or "\0" in o for o in operands)
+        return
+    split = argv.index("--")
+    assert argv[:split] == ("cp",) and argv[split + 1:] == tuple(operands)
+
+
+class CanonicalArgumentMachine(RuleBasedStateMachine):
+    """A semantic argument object, re-spelled on the wire after every change.
+
+    The oracle formats numbers with integer arithmetic only (amount in cents),
+    independent of the Decimal implementation under test.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.cents = 0
+        self.count = 0
+        self.tags: set[str] = set()
+        self.note = ""
+        self.urgent = False
+        self.explicit: set[str] = set()  # optional fields spelled out at their default
+        self.rng = _random.Random(0)
+
+    def spell_amount(self):
+        sign = "-" if self.cents < 0 else ""
+        whole, frac = divmod(abs(self.cents), 100)
+        spellings = [f"{sign}{whole}.{frac:02d}", f"{sign}{whole}.{frac:02d}000",
+                     f"{sign}{abs(self.cents)}e-2", f"{sign}{abs(self.cents) * 10}E-3",
+                     f"{sign}{whole}.{frac:02d}49"]  # below the half: rounds back
+        if self.cents % 2 == 0:
+            spellings.append(f"{sign}{whole}.{frac:02d}5")  # exact half, even digit: stays
+        return self.rng.choice(spellings)
+
+    def wire(self):
+        members = [f'"amount":{self.spell_amount()}']
+        if self.count or "count" in self.explicit:
+            members.append(f'"count":{self.rng.choice([str(self.count), f"{self.count}.0", f"{self.count}e0"])}')
+        if self.tags or "tags" in self.explicit:
+            tags = sorted(self.tags)
+            self.rng.shuffle(tags)
+            members.append('"tags":[' + ",".join(json.dumps(t) for t in tags) + "]")
+        if self.note or "note" in self.explicit:
+            members.append(f'"note":{json.dumps(self.note, ensure_ascii=self.rng.random() < .5)}')
+        if self.urgent or "urgent" in self.explicit:
+            members.append(f'"urgent":{"true" if self.urgent else "false"}')
+        self.rng.shuffle(members)
+        return ("{" + ",".join(members) + "}").encode()
+
+    def expected(self):
+        sign = "-" if self.cents < 0 else ""
+        whole, frac = divmod(abs(self.cents), 100)
+        members = {"amount": f"{sign}{whole}.{frac:02d}"}
+        if self.count:
+            members["count"] = str(self.count)
+        if self.tags:
+            members["tags"] = "[" + ",".join(sorted(json.dumps(t, ensure_ascii=False)
+                                                    for t in self.tags)) + "]"
+        if self.note:
+            members["note"] = json.dumps(self.note, ensure_ascii=False)
+        if self.urgent:
+            members["urgent"] = "true"
+        return ("{" + ",".join(f'"{k}":{members[k]}' for k in sorted(members)) + "}").encode()
+
+    @rule(cents=st.integers(-10**8, 10**8))
+    def set_amount(self, cents):
+        self.cents = cents
+
+    @rule(count=st.integers(-1000, 1000))
+    def set_count(self, count):
+        self.count = count
+
+    @rule(tag=st.text(alphabet="abcXYZ\u00e9\"\\ ", max_size=6))
+    def toggle_tag(self, tag):
+        if tag in self.tags:
+            self.tags.discard(tag)
+        elif len(self.tags) < 32:
+            self.tags.add(tag)
+
+    @rule(note=st.text(alphabet="ab\u00e9\n\"\\", max_size=10), urgent=st.booleans())
+    def set_text(self, note, urgent):
+        self.note, self.urgent = note, urgent
+
+    @rule(name=st.sampled_from(["count", "tags", "note", "urgent"]))
+    def toggle_explicit_default(self, name):
+        self.explicit ^= {name}
+
+    @rule(seed=st.integers(0, 2**16))
+    def reseed(self, seed):
+        self.rng.seed(seed)
+
+    @invariant()
+    def canonical_matches_oracle_and_is_idempotent(self):
+        out = S_POLICY.canonicalize(self.wire())
+        assert out == self.expected()
+        assert S_POLICY.canonicalize(out) == out
+
+
+TestCanonicalArgument = CanonicalArgumentMachine.TestCase
+TestCanonicalArgument.settings = settings(max_examples=60, stateful_step_count=40, deadline=None)

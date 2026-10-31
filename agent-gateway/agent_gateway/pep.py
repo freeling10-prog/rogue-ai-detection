@@ -73,6 +73,11 @@ Safety:
   model. A protected file copied into an ordinary one cannot be attached to an
   outbound call, and a file written while the session is untrusted cannot
   feed an execution sink (``symbolic_fs_transducer.py``).
+- v12.5: a seventh reference validator canonicalizes a pinned tool's argument
+  object to one byte string (key order, number spelling, set order, defaults)
+  and compiles typed file commands to a fixed argv with ``--`` before every
+  positional, refusing operands that start with ``-``
+  (``canonical_argument_confinement.py``).
 """
 from __future__ import annotations
 
@@ -114,6 +119,9 @@ from .mcp_capability_manifest_guard import McpCapabilityManifestGuard
 # v12.2 reference middleware validators (deterministic, standard-library only).
 from . import common as reference_json
 from .common import Denied as ReferenceDenied
+from .canonical_argument_confinement import (
+    Policy as ArgumentPolicy, command_from_arguments, confine, encode_arguments,
+)
 from .linear_obligation_validator import (
     ObligationManifest, ObligationNet,
 )
@@ -124,7 +132,9 @@ from .lattice_flow_validator import (
 from .registry_pin_validator import Registry as PinRegistry, lint_description as pin_lint_description
 from .shingle_similarity_validator import Matcher as ShingleMatcher
 from .symbolic_fs_transducer import FsTransducer, LabelDenied, PendingLabels, path_intents
-from .workspace_path_validator import Node as FsNode, Snapshot as FsSnapshot, analyze_shell
+from .workspace_path_validator import (
+    Node as FsNode, Snapshot as FsSnapshot, analyze_shell, command_intents,
+)
 from .paths import default_registry_path
 from .registry import Registry
 from .scrub import scrub_obj
@@ -212,6 +222,8 @@ SIMILARITY_LEAK_DENIED = "SIMILARITY_LEAK_DENIED"
 OBLIGATION_PROTOCOL_DENIED = "OBLIGATION_PROTOCOL_DENIED"
 # v12.4: the file label transducer takes the next free code after -32071.
 FS_LABEL_FLOW_DENIED = "FS_LABEL_FLOW_DENIED"
+# v12.5: argument canonicalization and command confinement take -32073.
+ARGUMENT_CONFINEMENT_DENIED = "ARGUMENT_CONFINEMENT_DENIED"
 # Descriptor fields the reference profile hashes for a pin (annotations included:
 # annotation-only drift is drift under this policy).
 _REFERENCE_PIN_FIELDS = ("description", "inputSchema", "outputSchema", "annotations", "title")
@@ -219,12 +231,12 @@ _V12_CODES.update({
     REGISTRY_PIN_DRIFT: -32066, REGISTRY_ALIAS_AMBIGUOUS: -32067,
     WORKSPACE_EFFECT_DENIED: -32068, FLOW_MANIFEST_DENIED: -32069,
     SIMILARITY_LEAK_DENIED: -32070, OBLIGATION_PROTOCOL_DENIED: -32071,
-    FS_LABEL_FLOW_DENIED: -32072,
+    FS_LABEL_FLOW_DENIED: -32072, ARGUMENT_CONFINEMENT_DENIED: -32073,
 })
 _V12_ATLAS.update({REGISTRY_PIN_DRIFT: "AML.T0051", REGISTRY_ALIAS_AMBIGUOUS: "AML.T0051",
                    WORKSPACE_EFFECT_DENIED: "AML.T0053", FLOW_MANIFEST_DENIED: "AML.T0051",
                    SIMILARITY_LEAK_DENIED: "AML.T0086", OBLIGATION_PROTOCOL_DENIED: "AML.T0051",
-                   FS_LABEL_FLOW_DENIED: "AML.T0086"})
+                   FS_LABEL_FLOW_DENIED: "AML.T0086", ARGUMENT_CONFINEMENT_DENIED: "AML.T0053"})
 _EXEC_TOOL_RE = re.compile(r"(?:^|[._\-])(?:shell|bash|exec|terminal|run_command|run_script)(?:$|[._\-])")
 _DEFAULT_SINK_TOOLS = tuple(sorted(
     name for name, ec in TOOL_EGRESS.items() if ec in (EGRESS_WRITE, EGRESS_SEND, EGRESS_CREDS)
@@ -411,6 +423,10 @@ class PolicyEngine:
         self.similarity: Optional[ShingleMatcher] = None
         self.obligation_nets: dict[str, ObligationNet] = {}
         self.fs_transducers: dict[str, FsTransducer] = {}
+        self.argument_policies: dict[str, ArgumentPolicy] = {}
+        self.command_tools: set[str] = set()
+        # Per-session result of the last admitted confinement, read by _allow().
+        self._confined: dict[str, dict] = {}
         self.poisoned_tools: dict[tuple[str, str], dict] = {}
         self.interpreter = InterpreterExecGuard(allow=self.cfg.workspace_allow)
         core = set(CORE_MCP_SERVERS)
@@ -1310,8 +1326,81 @@ class PolicyEngine:
         self.fs_transducers[session_id] = transducer
         return transducer
 
+    def pin_argument_policy(self, tool_name: str, policy: ArgumentPolicy) -> ArgumentPolicy:
+        """Canonicalize ``tool_name``'s argument object under a pinned field policy.
+
+        Unknown fields, duplicate keys, non-finite or oversized numbers, nested
+        values beyond one array level and duplicate set elements are denied.
+        An admitted call's allow result carries the canonical bytes, which are
+        what a dispatcher forwards.
+        """
+        if type(policy) is not ArgumentPolicy:
+            raise TypeError("policy must be a canonical_argument_confinement.Policy")
+        if tool_name in self.command_tools:
+            raise ValueError("tool is already pinned as a typed command")
+        self.argument_policies[tool_name] = policy
+        return policy
+
+    def pin_command_tool(self, tool_name: str) -> None:
+        """Treat ``tool_name``'s arguments as a typed file command.
+
+        The arguments must be exactly {utility, operands, mode, script, append}.
+        The command is compiled to a fixed argv with ``--`` before every
+        positional; an operand starting with ``-`` is denied. The compiled
+        effects also go through the workspace model and the label transducer
+        when those are attached.
+        """
+        if tool_name in self.argument_policies:
+            raise ValueError("tool is already pinned to an argument policy")
+        self.command_tools.add(tool_name)
+
+    def _confinement(self, sess: SessionState, step: int, tool_name: str,
+                     args: dict) -> tuple[Optional[dict], Optional[tuple]]:
+        """(denial, compiled argv). Both None when no confinement is pinned."""
+        self._confined.pop(sess.session_id, None)
+        policy = self.argument_policies.get(tool_name)
+        if policy is not None:
+            try:
+                canonical = policy.canonicalize(encode_arguments(args))
+            except ReferenceDenied as exc:
+                return self._confinement_deny(sess, step, tool_name, args, "arguments", exc,
+                                              policy.commitment), None
+            self._confined[sess.session_id] = {
+                "kind": "arguments", "policy": policy.commitment,
+                "canonical_arguments": canonical.decode("utf-8")}
+            return None, None
+        if tool_name in self.command_tools:
+            try:
+                argv = confine(command_from_arguments(args))
+            except ReferenceDenied as exc:
+                return self._confinement_deny(sess, step, tool_name, args, "command", exc), None
+            self._confined[sess.session_id] = {"kind": "command", "argv": list(argv)}
+            return None, argv
+        return None, None
+
+    def _confinement_deny(self, sess: SessionState, step: int, tool_name: str, args: dict,
+                          kind: str, exc: ReferenceDenied, policy: Optional[str] = None) -> dict:
+        detail = {"reason": str(exc), "kind": kind}
+        if policy is not None:
+            detail["policy"] = policy
+        return self._v12_deny(sess, step, tool_name, args, ARGUMENT_CONFINEMENT_DENIED,
+                              {"confinement": detail})
+
+    def _shell_effects(self, args: dict, argv: Optional[tuple]):
+        """Effect union for a typed command's argv or a literal shell command, or None.
+
+        A typed command never falls back to shell text: its ``script`` field is
+        a sed expression, not a command line.
+        """
+        if argv is not None:
+            return command_intents(list(argv))
+        command = args.get("command") or args.get("cmd") or args.get("script")
+        if isinstance(command, str) and command.strip():
+            return analyze_shell(command)
+        return None
+
     def _fs_label_plan(self, transducer: FsTransducer, tool_name: str, args: dict,
-                       eclass: str) -> Optional[tuple]:
+                       eclass: str, argv: Optional[tuple] = None) -> Optional[tuple]:
         """Typed adapter: (intents, cwd, is_egress, is_config_or_exec_sink), or None.
 
         A literal shell command is analyzed into its effect union. Its fixed
@@ -1324,9 +1413,9 @@ class PolicyEngine:
         sources, checked against the call's sink stage.
         """
         cwd = args.get("cwd") if isinstance(args.get("cwd"), str) else None
-        command = args.get("command") or args.get("cmd") or args.get("script")
-        if isinstance(command, str) and command.strip():
-            return analyze_shell(command), cwd, False, False
+        effects = self._shell_effects(args, argv)
+        if effects is not None:
+            return effects, cwd, False, False
         root = transducer.state.base.root
         paths = tuple(dict.fromkeys(
             args[k] for k in _RESOURCE_ARGS
@@ -1370,15 +1459,19 @@ class PolicyEngine:
         A validator with no trusted state attached is not applicable and
         contributes nothing - the v11 / v12 gates above already ran.
         """
+        denial, argv = self._confinement(sess, step, tool_name, args)
+        if denial is not None:
+            return denial
+
         snapshot = self.path_snapshots.get(sess.session_id)
-        command = args.get("command") or args.get("cmd") or args.get("script")
-        if snapshot is not None and isinstance(command, str) and command.strip():
+        if snapshot is not None:
             try:
-                effects = analyze_shell(command)
+                effects = self._shell_effects(args, argv)
             except ReferenceDenied as exc:
                 return self._v12_deny(sess, step, tool_name, args, WORKSPACE_EFFECT_DENIED,
                                       {"shell": {"reason": str(exc), "modeled": False,
                                                  "generation": snapshot.generation}})
+        if snapshot is not None and effects is not None:
             cwd = args.get("cwd") if isinstance(args.get("cwd"), str) else None
             try:
                 snapshot.check_all(effects, cwd)
@@ -1394,7 +1487,7 @@ class PolicyEngine:
             if sess.tainted:
                 transducer.observe_untrusted()
             try:
-                plan = self._fs_label_plan(transducer, tool_name, args, eclass)
+                plan = self._fs_label_plan(transducer, tool_name, args, eclass, argv)
                 if plan is not None:
                     intents, cwd, is_egress, is_sink = plan
                     labels = transducer.check(intents, cwd, is_egress=is_egress,
@@ -1746,6 +1839,9 @@ class PolicyEngine:
             out["output_findings"] = output_findings
         if delegation is not None:
             out["delegation"] = delegation
+        confined = self._confined.pop(sess.session_id, None)
+        if confined is not None:
+            out["confinement"] = confined
         return out
 
 

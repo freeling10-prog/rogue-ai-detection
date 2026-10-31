@@ -3,81 +3,105 @@
   "platform": "Linux-6.18.44-fc-v185-x86_64-with-glibc2.39",
   "gc_enabled": true,
   "samples_per_case": 5000,
-  "matcher_tracemalloc_retained_bytes": 1426200,
-  "matcher_tracemalloc_peak_bytes": 1427437,
+  "matcher_tracemalloc_retained_bytes": 1426368,
+  "matcher_tracemalloc_peak_bytes": 1427605,
   "methodology": "Sequential warm-process microbenchmark; deterministic synthetic inputs; wall and process CPU clocks; setup excluded; GC left enabled. Path uses a trusted in-memory model. No filesystem I/O, network, durable commit, cross-process lock contention, or distributed failover is measured.",
   "results": [
     {
       "name": "registry: qualified lookup, 256 pins",
       "samples": 5000,
-      "wall_p50_ms": 0.000517,
-      "wall_p99_ms": 0.00131,
-      "wall_max_ms": 0.019146,
-      "cpu_p99_ms": 0.002534
+      "wall_p50_ms": 0.000767,
+      "wall_p99_ms": 0.001789,
+      "wall_max_ms": 0.028948,
+      "cpu_p99_ms": 0.003849
     },
     {
       "name": "path: parse + snapshot validation, 64 writes",
       "samples": 5000,
-      "wall_p50_ms": 0.735226,
-      "wall_p99_ms": 1.554548,
-      "wall_max_ms": 6.242128,
-      "cpu_p99_ms": 1.520743
+      "wall_p50_ms": 0.699906,
+      "wall_p99_ms": 1.494277,
+      "wall_max_ms": 4.803039,
+      "cpu_p99_ms": 1.487591
     },
     {
       "name": "flow: fresh EXTERNAL step admission",
       "samples": 5000,
-      "wall_p50_ms": 0.013781,
-      "wall_p99_ms": 0.035524,
-      "wall_max_ms": 0.087832,
-      "cpu_p99_ms": 0.036944
+      "wall_p50_ms": 0.013094,
+      "wall_p99_ms": 0.029512,
+      "wall_max_ms": 0.04491,
+      "cpu_p99_ms": 0.030758
     },
     {
       "name": "similarity: 16 x 256, 256-char miss, both modes",
       "samples": 5000,
-      "wall_p50_ms": 1.996326,
-      "wall_p99_ms": 4.112741,
-      "wall_max_ms": 5.570932,
-      "cpu_p99_ms": 4.082669
+      "wall_p50_ms": 2.046421,
+      "wall_p99_ms": 4.29452,
+      "wall_max_ms": 5.909389,
+      "cpu_p99_ms": 4.163082
     },
     {
       "name": "obligation: outbound transition, 16 places x 64 transitions",
       "samples": 5000,
-      "wall_p50_ms": 0.008199,
-      "wall_p99_ms": 0.026391,
-      "wall_max_ms": 0.09251,
-      "cpu_p99_ms": 0.030244
+      "wall_p50_ms": 0.009947,
+      "wall_p99_ms": 0.029973,
+      "wall_max_ms": 1.95791,
+      "cpu_p99_ms": 0.034058
     },
     {
       "name": "transducer: 1 read joined into 63 writes, copy-on-write overlay",
       "samples": 5000,
-      "wall_p50_ms": 0.420793,
-      "wall_p99_ms": 0.860511,
-      "wall_max_ms": 2.734727,
-      "cpu_p99_ms": 0.848097
+      "wall_p50_ms": 0.437777,
+      "wall_p99_ms": 0.809063,
+      "wall_max_ms": 5.509325,
+      "cpu_p99_ms": 0.801416
+    },
+    {
+      "name": "arguments: canonicalize 16 fields, 2048-byte wire",
+      "samples": 5000,
+      "wall_p50_ms": 0.265552,
+      "wall_p99_ms": 0.473239,
+      "wall_max_ms": 0.626497,
+      "cpu_p99_ms": 0.474382
+    },
+    {
+      "name": "command: confine 16 operands",
+      "samples": 5000,
+      "wall_p50_ms": 0.002961,
+      "wall_p99_ms": 0.007191,
+      "wall_max_ms": 0.15577,
+      "cpu_p99_ms": 0.008051
     },
     {
       "name": "combined: four bounded checks",
       "samples": 5000,
-      "wall_p50_ms": 2.799247,
-      "wall_p99_ms": 5.524086,
-      "wall_max_ms": 10.616541,
-      "cpu_p99_ms": 5.518957
+      "wall_p50_ms": 2.829915,
+      "wall_p99_ms": 5.824797,
+      "wall_max_ms": 23.323409,
+      "cpu_p99_ms": 5.686922
     },
     {
       "name": "combined: five bounded checks (with obligation)",
       "samples": 5000,
-      "wall_p50_ms": 2.777003,
-      "wall_p99_ms": 5.615334,
-      "wall_max_ms": 8.698577,
-      "cpu_p99_ms": 5.571488
+      "wall_p50_ms": 2.830052,
+      "wall_p99_ms": 5.619005,
+      "wall_max_ms": 14.187225,
+      "cpu_p99_ms": 5.590998
     },
     {
       "name": "combined: six bounded checks (with transducer)",
       "samples": 5000,
-      "wall_p50_ms": 3.29246,
-      "wall_p99_ms": 6.486561,
-      "wall_max_ms": 14.034532,
-      "cpu_p99_ms": 6.444255
+      "wall_p50_ms": 3.296232,
+      "wall_p99_ms": 6.608683,
+      "wall_max_ms": 15.088489,
+      "cpu_p99_ms": 6.54794
+    },
+    {
+      "name": "combined: seven bounded checks (with canonicalization)",
+      "samples": 5000,
+      "wall_p50_ms": 3.605296,
+      "wall_p99_ms": 7.006841,
+      "wall_max_ms": 28.656578,
+      "cpu_p99_ms": 6.992091
     }
   ]
 }

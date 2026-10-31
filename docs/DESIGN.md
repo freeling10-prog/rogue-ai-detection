@@ -15,9 +15,9 @@ Three distinctions are essential:
 The common safety specification is:
 
 $$\operatorname{Dispatch}(s,c,t)\Rightarrow
- R(s,c,t)\land W(s,c,t)\land F(s,c,t)\land I(s,c,t)\land P(s,c,t)\land T(s,c,t).$$
+ R(s,c,t)\land W(s,c,t)\land F(s,c,t)\land I(s,c,t)\land P(s,c,t)\land T(s,c,t)\land S(s,c,t).$$
 
-R is registry pin validity, W workspace mutation safety, F manifest/flow validity, I outbound identifier admissibility, P bounded workflow-net transition enablement with resource cleanup state settled before outbound steps (section 5), and T file label flow: no non-PUBLIC file into an outbound call and no UNTRUSTED file into an execution sink (section 6). A component that is inapplicable to a typed call contributes true; a missing adapter, unsupported construct, exceeded budget, or unavailable trusted state contributes false. Check every item of JSON-RPC batches, including notifications. JSON-RPC itself is stateless and does not impose batch ordering [1].
+R is registry pin validity, W workspace mutation safety, F manifest/flow validity, I outbound identifier admissibility, P bounded workflow-net transition enablement with resource cleanup state settled before outbound steps (section 5), T file label flow: no non-PUBLIC file into an outbound call and no UNTRUSTED file into an execution sink (section 6), and S canonical arguments for pinned tools and no operand in an option position for typed commands (section 7). A component that is inapplicable to a typed call contributes true; a missing adapter, unsupported construct, exceeded budget, or unavailable trusted state contributes false. Check every item of JSON-RPC batches, including notifications. JSON-RPC itself is stateless and does not impose batch ordering [1].
 
 Treat the specification as a prefix-closed execution safety policy [8]. This does not prove semantic noninterference, correctness of provider implementations, or absence of every possible data leak.
 
@@ -374,9 +374,35 @@ PolicyEngine.attach_fs_transducer(session_id, nodes, generation, root) builds a 
 
 The lattice laws (commutativity, associativity, idempotence, identity, absorption, and order agreeing with join) are checked over all six labels. Further cases cover protected defaults through symlink and hard-link aliases, pipeline joins, session integrity, labels never lowering on overwrite, the egress, execution, and chmod sinks, W and sink denials leaving state unchanged, evaluate() purity and overlay immutability, generation fencing, rebase rules, and reason codes without paths. TransducerMachine runs random copies, pipes, appends, overwrites, taint events, sink reads, chmods, and protected writes against an independent label model and asserts agreement after every step; a deliberately broken join fails it. tests/test_v12_4_fs_label_wiring.py covers the gateway path, the JSON-RPC code, commit-after-all-checks ordering, a broker rebase, and the SARIF rule.
 
+## 7. canonical_argument_confinement.py
+
+### Invariant and representation
+
+Two blind spots are about representation, not meaning. First, an argument object can say the same thing in many byte strings: key order, number spelling (1, 1.0, 10e-1, -0), set element order, duplicate keys, explicit defaults. Each choice can carry bits past checks that look only at meaning. Second, a file name that starts with "-" is read as a flag by cp, tee, sed and the other file utilities. S closes both for the tools a trusted adapter pins.
+
+A pinned Policy P has 1..16 FieldPolicy entries (name, kind in {number, set, text, bool}, scale 0..6 for numbers, an optional canonical default, required). The canonical form C_P sorts keys by their UTF-8 bytes and emits compact UTF-8 JSON. It quantizes numbers to the field's scale with ROUND_HALF_EVEN under a local 40-digit context, writes them in positional notation, and turns -0 into 0. It writes set fields as arrays of distinct strings sorted by their canonical UTF-8 JSON encodings, and omits optional fields whose encoding equals the default. Where Canon_P(x) is "x is accepted by P":
+
+$$S(s,c,t)\equiv \big(\mathrm{pinned}_P(c)\Rightarrow \mathrm{Canon}_P(\mathrm{args}(c))\big)\land\big(\mathrm{typed}(c)\Rightarrow \forall o\in\mathrm{operands}(c):\ o_0\neq\text{-}\big),\qquad C_P(C_P(x))=C_P(x).$$
+
+Input is bounded before parsing: at most 2048 wire bytes, and a quote- and escape-aware scan of the raw bytes allows nesting depth 2 (the object plus one array level). Duplicate keys, unknown fields, missing required fields, non-finite numbers, numbers longer than 48 characters, with more than 24 significant digits or with exponent magnitude above 12, sets above 32 elements or elements above 128 characters, duplicate set elements, invalid UTF-8, and lone surrogates contribute false. A quantized number that would itself fail those limits is refused (NUMBER_RANGE), which keeps C_P idempotent. A default must be its own canonical encoding, or the policy is never built. An optional field with no default keeps one bit: an absent field and, for example, an empty set stay distinct. Pinning a default closes that bit.
+
+confine(Command) accepts cp, mv, tee, ln, chmod and sed with 1..16 operands of 1..256 characters, at most 1024 characters in total, no NUL, and no operand starting with "-" ("./-name" is the explicit spelling). It compiles a fixed argv (utility, *options, "--", *positionals): options come only from typed fields (tee -a, ln -s, sed -i), and chmod's mode and sed's script are positionals placed after "--" ahead of the operands. Each one must match the same literal profile the workspace analyzer accepts. cp, mv and ln take exactly two operands, and ln is symbolic only.
+
+### Hot path
+
+Canonicalization is linear in the wire bytes plus sorting at most 16 keys and at most 32 elements per set. The 40-digit context bounds every quantization. confine is linear in the operand text. Neither keeps state, so there is no commit step.
+
+### Gateway wiring
+
+PolicyEngine.pin_argument_policy(tool_name, policy) and PolicyEngine.pin_command_tool(tool_name) pin a tool one way or the other, never both. S runs first in the reference middleware. A pinned argument object is re-encoded as compact JSON, because the gateway receives arguments already parsed. Duplicate keys and number spelling are therefore collapsed by the HTTP JSON parser before S sees them, and the wire-level checks apply in full to raw bytes a broker passes to Policy.canonicalize. The allow result carries confinement.canonical_arguments and the policy commitment, and those bytes are what a dispatcher forwards. A typed command's arguments must be exactly {utility, operands, mode, script, append}. Its compiled argv goes on the allow result as confinement.argv, and its effects (from the workspace analyzer's command_intents) go through W and T when those are attached. It never falls back to shell-text parsing, because its script field is a sed expression. Denials use ARGUMENT_CONFINEMENT_DENIED (JSON-RPC -32073, approximate ATLAS AML.T0053) and record the reason code, the kind (arguments or command), and the policy commitment.
+
+### Tests
+
+Unit cases cover ROUND_HALF_EVEN boundaries, -0, equivalent spellings sharing one form, set order by encoded bytes, every rejection reason, depth counting that ignores brackets and escaped quotes inside strings, policy validation (including non-canonical defaults), the presence bit, a Hypothesis property for idempotence and order independence, every utility's argv, every confine rejection, the typed-argument adapter, a repr without operands, and a property that operands never reach an option position. Every compiled argv is also accepted by the workspace analyzer. CanonicalArgumentMachine keeps a semantic argument object and re-spells it on every step: key order, number notation including exact halves, set order, explicit defaults, and escaped or raw text. It compares the canonical bytes with an oracle that formats amounts with integer arithmetic, independent of Decimal. Replacing ROUND_HALF_EVEN with ROUND_HALF_UP fails it. tests/test_v12_5_argument_confinement_wiring.py covers the gateway path, the JSON-RPC code, identical bytes for equivalent objects, option injection, typed commands through W and T, results not leaking into later calls, one-way pinning, and the SARIF rule.
+
 ## Validation and deployment criteria
 
-The original reference suite has 64 passing test cases, including four RuleBasedStateMachine classes. Section 5 adds 14 cases to test_validators.py, including PetriObligationMachine, and 6 gateway wiring cases. Section 6 adds 11 cases, including TransducerMachine, and 7 gateway wiring cases. Hypothesis generates/shrinks sequences rather than just isolated messages [13]. These tests are executable evidence, not a formal proof of all schedules or operating-system behavior.
+The original reference suite has 64 passing test cases, including four RuleBasedStateMachine classes. Section 5 adds 14 cases to test_validators.py, including PetriObligationMachine, and 6 gateway wiring cases. Section 6 adds 11 cases, including TransducerMachine, and 7 gateway wiring cases. Section 7 adds 82 cases (most of them parametrized), including CanonicalArgumentMachine, and 14 gateway wiring cases. Hypothesis generates/shrinks sequences rather than just isolated messages [13]. These tests are executable evidence, not a formal proof of all schedules or operating-system behavior.
 
 benchmark.py records 5,000 samples per case, nearest-rank p99, wall and process CPU clocks, GC enabled, and warm single-process execution. Cold construction is excluded. Path measurements use a trusted in-memory filesystem model. The 16-by-256 matcher case exercises the maximum configured number and length of protected strings, but is one synthetic miss workload; it does not establish the worst case over all alphabets, shingle-length mixes, hash collisions, normalization work, or workloads. benchmark_results.json is the authoritative measured output.
 
@@ -425,6 +451,25 @@ Python 3.12.3, Linux x86-64, 5,000 samples per case, in a different and slower c
 | combined: six bounded checks (with transducer) | 6.486561 | 14.034532 |
 
 Python 3.12.3, Linux x86-64, 5,000 samples per case, in another container than either earlier run, so compare rows within this table only. The transducer case measured 0.860511 ms p99; its shell text is parsed once outside the timed region, so it times W's check plus the label work, not parsing. The six-check combined case measured 6.487 ms p99, above the 5 ms reference, and so did the four- and five-check cases on this host (5.524 ms and 5.615 ms). benchmark_results.json holds this run.
+
+### Measured results — 31 October 2026 (adds the argument confinement cases)
+
+| Benchmark case | Wall p99 (ms) | Wall maximum (ms) |
+|---|---:|---:|
+| registry: qualified lookup, 256 pins | 0.001789 | 0.028948 |
+| path: parse + snapshot validation, 64 writes | 1.494277 | 4.803039 |
+| flow: fresh EXTERNAL step admission | 0.029512 | 0.044910 |
+| similarity: 16 x 256, 256-char miss, both modes | 4.294520 | 5.909389 |
+| obligation: outbound transition, 16 places x 64 transitions | 0.029973 | 1.957910 |
+| transducer: 1 read joined into 63 writes, copy-on-write overlay | 0.809063 | 5.509325 |
+| arguments: canonicalize 16 fields, 2048-byte wire | 0.473239 | 0.626497 |
+| command: confine 16 operands | 0.007191 | 0.155770 |
+| combined: four bounded checks | 5.824797 | 23.323409 |
+| combined: five bounded checks (with obligation) | 5.619005 | 14.187225 |
+| combined: six bounded checks (with transducer) | 6.608683 | 15.088489 |
+| combined: seven bounded checks (with canonicalization) | 7.006841 | 28.656578 |
+
+Python 3.12.3, Linux x86-64, 5,000 samples per case, same container as the previous table. The canonicalization case is the full budget: 16 fields, 2048 wire bytes, four 32-element sets in reverse order, and eight numbers quantized at scale 6. It measured 0.473239 ms p99, and confining 16 operands measured 0.007191 ms. Every combined case is above the 5 ms reference at p99 on this host. The maxima include scheduler outliers; the 28.66 ms seven-check maximum is not a deadline. benchmark_results.json holds this run.
 
 ## Primary sources
 

@@ -19,6 +19,7 @@ from agent_gateway.shingle_similarity_validator import Matcher
 from agent_gateway.linear_obligation_validator import (
     ObligationManifest, ObligationNet, TransitionSpec)
 from agent_gateway.symbolic_fs_transducer import FsTransducer
+from agent_gateway.canonical_argument_confinement import Command, FieldPolicy, Policy, confine
 
 N = 5000
 
@@ -101,6 +102,26 @@ def main():
     def fresh_transducer():
         holder["fs"] = FsTransducer(snap)
 
+    # 16 fields at the 2048-byte wire budget: 8 numbers at scale 6, 4 full
+    # 32-element sets in reverse order, 2 texts and 2 booleans at their defaults.
+    fields = ([FieldPolicy(f"n{i}", "number", scale=6) for i in range(8)]
+              + [FieldPolicy(f"s{i}", "set") for i in range(4)]
+              + [FieldPolicy(f"t{i}", "text") for i in range(2)]
+              + [FieldPolicy(f"b{i}", "bool", default=b"false") for i in range(2)])
+    argument_policy = Policy(tuple(fields))
+    members = [f'"n{i}":{rng.randint(-10**8, 10**8)}.{rng.randint(0, 10**9):09d}' for i in range(8)]
+    members += [f'"s{i}":[' + ",".join(f'"{chr(97 + i)}{j:02d}"' for j in reversed(range(32))) + "]"
+                for i in range(4)]
+    members += ['"b0":false', '"b1":false']
+    rng.shuffle(members)
+    body = "{" + ",".join(members) + ',"t0":"","t1":""}'
+    pad = 2048 - len(body.encode())
+    wire = body.replace('"t0":""', '"t0":"' + "x" * pad + '"').encode()
+    assert len(wire) == 2048
+    canonical = argument_policy.canonicalize(wire)
+    assert argument_policy.canonicalize(canonical) == canonical
+    command = Command("chmod", tuple(f"out/f{i}" for i in range(16)), mode="0644")
+
     results = [
         run("registry: qualified lookup, 256 pins", lambda: r.lookup("method255", "provider")),
         run("path: parse + snapshot validation, 64 writes", path_case),
@@ -110,6 +131,8 @@ def main():
             lambda: holder["net"].fire("p", "outbound"), fresh_net),
         run("transducer: 1 read joined into 63 writes, copy-on-write overlay",
             lambda: holder["fs"].apply(label_intents), fresh_transducer),
+        run("arguments: canonicalize 16 fields, 2048-byte wire", lambda: argument_policy.canonicalize(wire)),
+        run("command: confine 16 operands", lambda: confine(command)),
     ]
 
     def combined():
@@ -139,6 +162,12 @@ def main():
         holder["fs"].apply(label_intents)
 
     results.append(run("combined: six bounded checks (with transducer)", combined_six, prepare_six))
+
+    def combined_seven():
+        argument_policy.canonicalize(wire)
+        combined_six()
+
+    results.append(run("combined: seven bounded checks (with canonicalization)", combined_seven, prepare_six))
     output = {
         "python": sys.version, "platform": platform.platform(),
         "gc_enabled": gc.isenabled(), "samples_per_case": N,

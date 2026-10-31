@@ -4,6 +4,33 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
+## [Unreleased] - v12.5 argument canonicalization and command confinement (31 October 2026)
+
+- `canonical_argument_confinement.py`: Predicate S. `Policy.canonicalize`
+  maps a flat argument object onto one byte string under a pinned field
+  policy (up to 16 number, set, text and bool fields). Keys are sorted, numbers
+  quantized with ROUND_HALF_EVEN at a fixed scale (-0 -> 0), sets sorted by
+  encoded bytes, and defaults omitted. C_P(C_P(x)) == C_P(x). Wire bytes
+  (2048), raw-byte nesting depth (2), duplicate keys, unknown fields,
+  non-finite and oversized numbers, and duplicate set elements are checked
+  before or during parsing. `confine(Command)` compiles cp, mv, tee, ln,
+  chmod and sed to a fixed argv with `--` before every positional and denies
+  operands that start with `-`.
+- `pep.py`: `PolicyEngine.pin_argument_policy()` and `pin_command_tool()`.
+  S runs first in the reference middleware. The allow result carries the
+  canonical bytes or the compiled argv, and a typed command's effects go
+  through the workspace model and the label transducer. Rule code
+  `ARGUMENT_CONFINEMENT_DENIED` (-32073, approximate AML.T0053) in SARIF
+  (CWE-88, CWE-514, ASI02, LLM05:2025) and in the audit-report counts.
+- Tests: 82 new cases in `tests/test_validators.py` (including
+  `CanonicalArgumentMachine`) and `tests/test_v12_5_argument_confinement_wiring.py`
+  (14). Gateway tests 912 -> **1008**; Hypothesis state machines 15 -> **16**.
+- `benchmarks/benchmark.py`: full-budget canonicalization, 16-operand
+  confinement, and a seven-check combined case; `benchmark_results.json`
+  regenerated.
+- README: the reference validator intro now says eight rule codes,
+  -32066 through -32073.
+
 ## [Unreleased] - v12.4 file label transducer (31 October 2026)
 
 - `symbolic_fs_transducer.py`: Predicate T. A (confidentiality, integrity)

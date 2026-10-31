@@ -3,7 +3,8 @@ plus Predicate P (linear_obligation_validator) unit tests and PetriObligationMac
 and Predicate T (symbolic_fs_transducer) unit tests and TransducerMachine,
 and Predicate S (canonical_argument_confinement) unit tests and CanonicalArgumentMachine,
 and Predicate V (fork_join_vector_validator) unit tests and LedgerMachine,
-and Predicate D (dynamic_ingression_validator) unit tests and IngressionMachine.
+and Predicate D (dynamic_ingression_validator) unit tests and IngressionMachine,
+and Predicate Z (transform_invariant_validator) unit tests and TransformMachine.
 
 Moved unchanged from the AgentGate_Middleware_Reference drop except for package-qualified
 imports (``agent_gateway.*``). Oracles are independent of the implementations: an O(mn) DP
@@ -1668,3 +1669,208 @@ class IngressionMachine(RuleBasedStateMachine):
 
 TestIngression = IngressionMachine.TestCase
 TestIngression.settings = settings(max_examples=60, stateful_step_count=40, deadline=None)
+
+
+# --- Predicate Z: transform_invariant_validator ---------------------------------------
+
+import re as _re
+from collections import Counter as _Counter
+
+from agent_gateway.dynamic_ingression_validator import Pattern as DPattern
+from agent_gateway.transform_invariant_validator import (
+    CREDITS, MAX_PATTERNS, TransformIndex, TransformPin, caesar_delta, delta, initials, xor_delta)
+from agent_gateway.transform_invariant_validator import MAX_QUERY as Z_MAX_QUERY
+
+ALNUM = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+
+def z_reason(fn, *args):
+    with pytest.raises(Denied) as err:
+        fn(*args)
+    return str(err.value)
+
+
+def z_oracle(pins: list[bytes], q: bytes):
+    """Independent reference decision: None or the reason code Z must give."""
+    if not pins:
+        return None
+    if len(q) > Z_MAX_QUERY:
+        return "Z_QUERY_SIZE"
+
+    def chunks(b):
+        return _Counter(b[i:i + 4] for i in range(0, len(b) - 3, 4))
+
+    if sum((6 * -(-len(p) // 30) + 4 * len(chunks(p))) * len(q) for p in pins) > CREDITS:
+        return "Z_WORK"
+    d = bytes((q[i + 1] - q[i]) % 256 for i in range(len(q) - 1))
+    x = bytes(q[i + 1] ^ q[i] for i in range(len(q) - 1))
+    ac = bytes(m[0] for m in _re.findall(rb"[A-Za-z]+", q))
+    text = q.decode("latin-1")
+    ca = (bytes((ord(b) - ord(a)) % 26 for a, b in zip(text.lower(), text.lower()[1:]))
+          if q and text.isascii() and text.isalpha() else b"")
+    for p in pins:
+        pd = bytes((p[i + 1] - p[i]) % 256 for i in range(len(p) - 1))
+        px = bytes(p[i + 1] ^ p[i] for i in range(len(p) - 1))
+        pt = p.decode("latin-1")
+        pc = (bytes((ord(b) - ord(a)) % 26 for a, b in zip(pt.lower(), pt.lower()[1:]))
+              if pt.isascii() and pt.isalpha() else b"")
+        views = [(p, q), (p[::-1], q), (p, ac)]
+        if len(p) >= 5:
+            views += [(pd, d), (px, x)]
+        if len(pc) >= 4:
+            views.append((pc, ca))
+        if any(100 * dp_lcs(pat, view) >= 85 * len(pat) for pat, view in views):
+            return "Z_TRANSFORM"
+        covered = sum(4 * min(n, q.count(c)) for c, n in chunks(p).items())
+        if chunks(p) and 100 * covered >= 80 * len(p):
+            return "Z_BLOCKS"
+    return None
+
+
+@given(st.binary(min_size=2, max_size=64), st.integers(0, 255))
+def test_delta_views_are_invariant_under_their_masks(b, k):
+    assert delta(bytes((c + k) & 255 for c in b)) == delta(b)
+    assert xor_delta(bytes(c ^ k for c in b)) == xor_delta(b)
+
+
+@given(st.text(alphabet="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ", min_size=2, max_size=40),
+       st.integers(0, 25))
+def test_caesar_view_is_invariant_under_shift_and_case(word, k):
+    shifted = "".join(chr((ord(c.lower()) - 97 + k) % 26 + 97) for c in word)
+    assert caesar_delta(shifted.upper().encode()) == caesar_delta(word.encode())
+
+
+def test_view_helpers():
+    assert caesar_delta(b"ab c") == b"" and caesar_delta(b"") == b"" and caesar_delta(b"ab1") == b""
+    assert initials(b"Many old, usual nights-tell 9all") == b"Mounta"
+    assert initials(b"") == b"" and initials(b"123 456") == b""
+    assert delta(b"a") == b"" and xor_delta(b"") == b""
+
+
+def test_pin_views_and_blocks():
+    four = TransformPin.make(DPattern.make(b"abcd"))
+    assert four.additive is None and four.exclusive is None and four.alphabetic is None
+    five = TransformPin.make(DPattern.make(b"abcde"))
+    assert five.additive.raw == b"\x01" * 4 and five.alphabetic.raw == b"\x01" * 4
+    mixed = TransformPin.make(DPattern.make(b"ab-cdef"))
+    assert mixed.alphabetic is None and mixed.reverse.raw == b"fedc-ba"
+    blocks = TransformPin.make(DPattern.make(b"abcdabcdxyzw12"))  # trailing "12" is not a block
+    assert dict(blocks.blocks) == {b"abcd": 2, b"xyzw": 1}
+    assert blocks.cost(10) == (6 * 1 + 4 * 2) * 10
+
+
+def test_index_add_is_bounded_and_atomic():
+    index = TransformIndex([b"pin-0000"])
+    assert z_reason(index.add, [b"abc"]) == "Z_PIN_SIZE"
+    assert z_reason(index.add, [b"x" * 129]) == "Z_PIN_SIZE"
+    assert z_reason(index.add, ["text-pin"]) == "Z_PIN_SIZE"
+    assert index.add([b"pin-0000", b"pin-0001", b"pin-0001"]) == 1
+    before = index.pins
+    many = [f"pin-{i:04d}".encode() for i in range(2, MAX_PATTERNS + 1)]
+    assert z_reason(index.add, many) == "Z_CAPACITY"
+    assert index.pins is before
+    assert index.add(many[:-1]) == MAX_PATTERNS - 2 and index.used == MAX_PATTERNS
+
+
+def test_each_transform_is_detected():
+    secret = b"sk-live-7f3a9cQ2"
+    index = TransformIndex([secret, b"Mountainview"])
+    blocks = [secret[i:i + 4] for i in range(0, 16, 4)]
+    for q, expected in [
+        (secret, "Z_TRANSFORM"), (b"x " + secret[::-1], "Z_TRANSFORM"),
+        (bytes((c + 200) & 255 for c in secret), "Z_TRANSFORM"),
+        (bytes(c ^ 0xA5 for c in secret), "Z_TRANSFORM"),
+        (b"pbhagnvaivrj", "Z_TRANSFORM"),  # ROT13 of mountainview
+        (b"My old uncle never told anyone if numbers vanish in every way", "Z_TRANSFORM"),
+        (b"".join(reversed(blocks)), "Z_BLOCKS"),
+        (blocks[2] + b" | " + blocks[0] + b" | " + blocks[3] + b" | " + blocks[1], "Z_BLOCKS"),
+        (b"".join(blocks[:3]), None),  # 12 of 16 bytes: under 85% (subsequence) and 80% (blocks)
+        (b"weekly summary", None), (b"", None),
+    ]:
+        got = None if allows(index.check, q) else z_reason(index.check, q)
+        assert got == z_oracle([secret, b"Mountainview"], q), q
+        assert got == expected, q
+
+
+def test_block_threshold_is_80_percent():
+    pin = b"AAAABBBBCCCCDDDDEEEE"  # 5 distinct blocks, 20 bytes
+    index = TransformIndex([pin])
+    assert z_reason(index.check, b"DDDD|BBBB|EEEE|AAAA") == "Z_BLOCKS"  # 16 / 20
+    index.check(b"DDDD|BBBB|EEEE")  # 12 / 20
+    assert z_oracle([pin], b"DDDD|BBBB|EEEE") is None
+
+
+def test_work_budget_is_exact_and_precharged():
+    pin = bytes(_random.Random(7).choices(ALNUM, k=128))
+    index = TransformIndex([pin])
+    assert index.pins[0].cost(1) == 6 * 5 + 4 * 32
+    limit = CREDITS // index.pins[0].cost(1)
+    index.check(b"q" * limit)
+    assert z_reason(index.check, b"q" * (limit + 1)) == "Z_WORK"
+    assert z_reason(index.check, b"q" * (Z_MAX_QUERY + 1)) == "Z_QUERY_SIZE"
+    assert z_reason(index.check, "text") == "Z_QUERY_TYPE"
+    TransformIndex().check(b"q" * 4096)  # no pins: nothing to bound
+
+
+def test_d_commit_hook_keeps_both_stores_in_step():
+    holder = Ingression()
+    index = TransformIndex([f"pin-{i:04d}".encode() for i in range(MAX_PATTERNS - 1)])
+    assert z_reason(holder.receive, [Field("sk-aaaa sk-bbbb")], index.add) == "Z_CAPACITY"
+    assert holder.used == 0 and index.used == MAX_PATTERNS - 1
+    assert holder.receive([Field("sk-aaaa")], index.add) == 1
+    assert holder.values() == (b"sk-aaaa",) and index.used == MAX_PATTERNS
+    assert holder.receive([Field("sk-aaaa again")], index.add) == 0  # nothing new: hook not needed
+
+
+class TransformMachine(RuleBasedStateMachine):
+    """Pins and disguised queries, every decision checked against z_oracle."""
+
+    def __init__(self):
+        super().__init__()
+        self.index = TransformIndex()
+        self.pins: list[bytes] = []
+
+    @rule(seed=st.integers(0, 2**16), size=st.integers(4, 40), alpha=st.booleans())
+    def add(self, seed, size, alpha):
+        rng = _random.Random(seed)
+        pin = bytes(rng.choices(ALNUM[:52] if alpha else ALNUM, k=size))
+        new = 0 if pin in self.pins else 1
+        ok = len(self.pins) + new <= MAX_PATTERNS
+        assert allows(self.index.add, [pin]) == ok
+        if ok and new:
+            self.pins.append(pin)
+        assert [p.direct.raw for p in self.index.pins] == self.pins
+
+    @rule(i=st.integers(0, 30), k=st.integers(1, 255),
+          kind=st.sampled_from(["reverse", "add", "xor", "caesar", "acrostic", "blocks", "plain", "long"]),
+          pad=st.sampled_from([b"", b"ref: ", b"see attached; "]))
+    def query(self, i, k, kind, pad):
+        p = self.pins[i % len(self.pins)] if self.pins else b"nothing-pinned"
+        if kind == "reverse":
+            q = pad + p[::-1]
+        elif kind == "add":
+            q = pad + bytes((c + k) & 255 for c in p)
+        elif kind == "xor":
+            q = pad + bytes(c ^ k for c in p)
+        elif kind == "caesar":
+            q = bytes((c - 65 + k) % 26 + 65 if 65 <= c <= 90 else (c - 97 + k) % 26 + 97 if 97 <= c <= 122 else c
+                      for c in p)
+        elif kind == "acrostic":
+            q = pad + b" ".join(bytes([c]) + b"ord" if 65 <= c <= 90 or 97 <= c <= 122 else b"9"
+                                for c in p)
+        elif kind == "blocks":
+            q = pad + b"".join(reversed([p[j:j + 4] for j in range(0, len(p), 4)]))
+        elif kind == "plain":
+            q = pad + b"weekly summary for the team"
+        else:
+            q = b"weekly summary for the team " * (k % 20 + 1)
+        got = None if allows(self.index.check, q) else z_reason(self.index.check, q)
+        assert got == z_oracle(self.pins, q)
+
+    @invariant()
+    def bounded(self):
+        assert self.index.used == len(self.pins) <= MAX_PATTERNS
+
+
+TestTransform = TransformMachine.TestCase
+TestTransform.settings = settings(max_examples=60, stateful_step_count=40, deadline=None)

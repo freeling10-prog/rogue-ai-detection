@@ -69,6 +69,8 @@ class Pattern:
             masks[byte] |= 1 << i
         return cls(bytes(raw), tuple(masks))
 
+    make = compile  # the name Predicate Z uses
+
     def lcs(self, query: bytes) -> int:
         """Longest common subsequence length, bit-parallel over the pattern."""
         masks = self.masks
@@ -162,14 +164,27 @@ class Ingression:
         with self._lock:
             return len(self._patterns)
 
-    def receive(self, fields) -> int:
-        """Enroll a batch all or nothing. Returns how many new values were enrolled."""
+    def values(self) -> tuple[bytes, ...]:
+        """Enrolled values, oldest first. Sensitive: for trusted holders only."""
+        with self._lock:
+            return tuple(p.raw for p in self._patterns)
+
+    def receive(self, fields, on_commit=None) -> int:
+        """Enroll a batch all or nothing. Returns how many new values were enrolled.
+
+        ``on_commit(new_values)`` runs under the lock after every check has
+        passed and before anything is stored. If it raises, nothing is stored,
+        so a second store fed from this one (Predicate Z) never runs ahead of it
+        or behind it.
+        """
         values = extract(fields)
         with self._lock:
             known = {p.raw for p in self._patterns}
             new = [v for v in values if v not in known]
             if len(self._patterns) + len(new) > SLOTS:
                 raise Denied("D_CAPACITY")
+            if on_commit is not None and new:
+                on_commit(tuple(new))
             self._patterns = self._patterns + tuple(Pattern.compile(v) for v in new)
             return len(new)
 

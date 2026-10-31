@@ -15,9 +15,9 @@ Three distinctions are essential:
 The common safety specification is:
 
 $$\operatorname{Dispatch}(s,c,t)\Rightarrow
- R(s,c,t)\land W(s,c,t)\land F(s,c,t)\land I(s,c,t)\land P(s,c,t)\land T(s,c,t)\land S(s,c,t)\land V(s,c,t)\land D(s,c,t).$$
+ R(s,c,t)\land W(s,c,t)\land F(s,c,t)\land I(s,c,t)\land P(s,c,t)\land T(s,c,t)\land S(s,c,t)\land V(s,c,t)\land D(s,c,t)\land Z(s,c,t).$$
 
-R is registry pin validity, W workspace mutation safety, F manifest/flow validity, I outbound identifier admissibility, P bounded workflow-net transition enablement with resource cleanup state settled before outbound steps (section 5), T file label flow: no non-PUBLIC file into an outbound call and no UNTRUSTED file into an execution sink (section 6), S canonical arguments for pinned tools and no operand in an option position for typed commands (section 7), V one conservation ledger for a root session and its forked branches, fenced on vector clocks (section 8), and D no outbound string covering a value learned from an earlier tool response (section 9). A component that is inapplicable to a typed call contributes true; a missing adapter, unsupported construct, exceeded budget, or unavailable trusted state contributes false. Check every item of JSON-RPC batches, including notifications. JSON-RPC itself is stateless and does not impose batch ordering [1].
+R is registry pin validity, W workspace mutation safety, F manifest/flow validity, I outbound identifier admissibility, P bounded workflow-net transition enablement with resource cleanup state settled before outbound steps (section 5), T file label flow: no non-PUBLIC file into an outbound call and no UNTRUSTED file into an execution sink (section 6), S canonical arguments for pinned tools and no operand in an option position for typed commands (section 7), V one conservation ledger for a root session and its forked branches, fenced on vector clocks (section 8), D no outbound string covering a value learned from an earlier tool response (section 9), and Z no outbound string carrying a protected value under a finite transform family within a precharged work budget (section 10). A component that is inapplicable to a typed call contributes true; a missing adapter, unsupported construct, exceeded budget, or unavailable trusted state contributes false. Check every item of JSON-RPC batches, including notifications. JSON-RPC itself is stateless and does not impose batch ordering [1].
 
 Treat the specification as a prefix-closed execution safety policy [8]. This does not prove semantic noninterference, correctness of provider implementations, or absence of every possible data leak.
 
@@ -471,9 +471,47 @@ The outbound check runs in the reference middleware right after the similarity m
 
 Unit cases cover the candidate rules (prefix, host suffix, address shape, and length bounds), the exact entropy boundary at 4 bits, a property that the integer test agrees with floating-point Renyi-2 entropy away from the boundary, maximal token runs, every extraction bound (including UTF-8 bytes rather than characters), all-or-nothing capacity with no eviction, the 85% threshold at 17 of 20 bytes against 16 of 20, query bounds, and a property that the bit-parallel LCS equals an O(mn) dynamic program. A test also shows that oracle detects the classic dropped carry-in mutation. IngressionMachine sends random batches of pooled secrets, noise, and sensitive fields, then exact, spaced, and truncated queries. It checks every decision against the dynamic program and the store against a model. A laxer threshold, or enrollment that keeps whatever fits instead of failing the batch, fails it. tests/test_v12_7_ingression_wiring.py covers enrollment from the general and scratchpad paths, the watermarked secret, outbound denial, withheld results, capacity without eviction, query bounds, the proxy entry point, and the SARIF rule.
 
+## 10. transform_invariant_validator.py
+
+### Invariant and representation
+
+Forward substring and subsequence matchers (I and D) miss a protected value that leaves reversed, shifted by a constant byte (+k mod 256), XOR-masked with one byte, Caesar-shifted, spelled out as the initials of words, or cut into 4-byte blocks and reordered. Each of these transforms has a cheap invariant view:
+
+| Transform of the value | Query view | Pin view |
+|---|---|---|
+| none | q | p |
+| reversal | q | reverse(p) |
+| x -> (x + k) mod 256 | delta(q), successive differences mod 256 | delta(p) |
+| x -> x XOR k | xor_delta(q), successive XORs | xor_delta(p) |
+| Caesar shift, any case | caesar_delta(q), successive differences mod 26 of a lowercased all-letter q | caesar_delta(p) |
+| acrostic | initials(q), the first letter of each word | p |
+| reordered 4-byte blocks | block counts in q | aligned 4-byte chunks of p, with multiplicity |
+
+The additive and XOR views exist for pins of 5 or more bytes, and the alphabetic view for all-letter pins of 5 or more letters. Only whole aligned chunks count as blocks. With L the longest common subsequence:
+
+$$Z(s,c,t)\equiv \forall q,\ \forall p\in P_s:\ \bigwedge_{(u,v)} 100\,L(u,v)<85\,|u|\ \land\ 100\sum_{b} 4\min(n_b(p),n_b(q))<80\,|p|.$$
+
+### Hot path and work budget
+
+TransformPin precomputes a bit-parallel LCS mask table for each pin view, so a check is linear in the query per view. Work is precharged before any view is computed. Each pin costs (6 * ceil(|p|/30) + 4 * blocks(p)) * |q| credits, and a query whose total exceeds 32,768 credits is denied whole (Z_WORK) instead of being checked partly. The index holds at most 24 pins, queries are at most 512 bytes, and pins are 4..128 bytes.
+
+The budget makes long queries expensive. One 128-byte pin with 32 distinct blocks costs 158 credits per query byte, so queries longer than 207 bytes are denied. Eight 16-byte pins cost 22 credits per byte each, so queries longer than 186 bytes are denied. The credits bound the per-byte work, not the fixed cost of building six views per pin: at the limit, 24 short pins are slower than one long pin (see the results table).
+
+### Limits
+
+The family is finite. Compositions of two transforms, keyed ciphers, compression, and multi-byte keys are out of scope; deobfuscate.py covers common encodings. The Caesar view is computed only for a query made entirely of letters, so a Caesar-shifted value inside a sentence is not seen. The direct, reverse, and acrostic views are subsequence measures, so a short letters-only pin can match long natural text. In a synthetic test, 2,000 English sentences of up to 150 bytes were checked against three pins (a credential, a host name, and the 12-letter word Mountainview). 92 of them (4.6%) matched the 12-letter pin through the direct and reverse views, starting at about 70 bytes. The transform-specific views matched none. Pins that contain digits or punctuation, and longer pins, are far less exposed.
+
+### Gateway wiring
+
+PolicyEngine.attach_transform_index(session_id, protected) pins trusted values and every value Predicate D has already learned for the session. While both are attached, each D enrollment extends Z's pins in the same step: Ingression.receive calls TransformIndex.add before it stores anything, so if Z is full, D enrolls nothing and the result is withheld (DYNAMIC_INGRESSION_DENIED, reason Z_CAPACITY). The check runs in the reference middleware after D's outbound check, on every string argument of write, send, and credential-class calls. Denials use TRANSFORM_INVARIANT_DENIED (JSON-RPC -32076, approximate ATLAS AML.T0086) and record the reason code and the pin count.
+
+### Tests
+
+Unit cases cover each view's invariance (properties for +k, XOR k, and Caesar with case), the helper edge cases, which pin views exist and how blocks are counted, bounded atomic adds, each transform being detected, the 80% block threshold, the exact credit boundary, the D commit hook keeping both stores in step, and each decision matching z_oracle. That oracle reimplements every view independently, with regex initials, str-based Caesar, Counter blocks, and the O(mn) LCS. TransformMachine adds pins and sends reversed, +k, XOR k, Caesar, acrostic, block-reversed, plain, and long queries, and requires the exact reason code the oracle gives. Removing the reverse view, or counting a short trailing chunk as a block, fails it. tests/test_v12_8_transform_wiring.py covers static pins, disguised values, synchronization with D, catching up after D, a full index stopping D, the work and size bounds through the gateway, and the SARIF rule.
+
 ## Validation and deployment criteria
 
-The original reference suite has 64 passing test cases, including four RuleBasedStateMachine classes. Section 5 adds 14 cases to test_validators.py, including PetriObligationMachine, and 6 gateway wiring cases. Section 6 adds 11 cases, including TransducerMachine, and 7 gateway wiring cases. Section 7 adds 82 cases (most of them parametrized), including CanonicalArgumentMachine, and 14 gateway wiring cases. Section 8 adds 10 cases, including LedgerMachine, and 9 gateway wiring cases. Section 9 adds 28 cases, including IngressionMachine, and 9 gateway wiring cases. Hypothesis generates/shrinks sequences rather than just isolated messages [13]. These tests are executable evidence, not a formal proof of all schedules or operating-system behavior.
+The original reference suite has 64 passing test cases, including four RuleBasedStateMachine classes. Section 5 adds 14 cases to test_validators.py, including PetriObligationMachine, and 6 gateway wiring cases. Section 6 adds 11 cases, including TransducerMachine, and 7 gateway wiring cases. Section 7 adds 82 cases (most of them parametrized), including CanonicalArgumentMachine, and 14 gateway wiring cases. Section 8 adds 10 cases, including LedgerMachine, and 9 gateway wiring cases. Section 9 adds 28 cases, including IngressionMachine, and 9 gateway wiring cases. Section 10 adds 10 cases, including TransformMachine, and 8 gateway wiring cases. Hypothesis generates/shrinks sequences rather than just isolated messages [13]. These tests are executable evidence, not a formal proof of all schedules or operating-system behavior.
 
 benchmark.py records 5,000 samples per case, nearest-rank p99, wall and process CPU clocks, GC enabled, and warm single-process execution. Cold construction is excluded. Path measurements use a trusted in-memory filesystem model. The 16-by-256 matcher case exercises the maximum configured number and length of protected strings, but is one synthetic miss workload; it does not establish the worst case over all alphabets, shingle-length mixes, hash collisions, normalization work, or workloads. benchmark_results.json is the authoritative measured output.
 
@@ -586,6 +624,33 @@ Python 3.12.3, Linux x86-64, 5,000 samples per case, same container as the previ
 | combined: nine bounded checks (with ingression outbound) | 7.779452 | 19.946084 |
 
 Python 3.12.3, Linux x86-64, 5,000 samples per case, same container as the previous three tables. The inbound case is the full budget: 32 fields and 4096 bytes, where each field is one 128-byte token run that passes the length gate and gets a full entropy count but is not enrolled. It measured 1.077864 ms p99. The outbound case runs a 512-byte miss against 8 enrolled 128-byte values and measured 0.465435 ms p99. Inbound scanning happens once per result, after the decision, so it is not part of the combined dispatch cases. Every combined case is above the 5 ms reference at p99 on this host. benchmark_results.json holds this run.
+
+### Measured results — 31 October 2026 (adds the transform cases)
+
+| Benchmark case | Wall p99 (ms) | Wall maximum (ms) |
+|---|---:|---:|
+| registry: qualified lookup, 256 pins | 0.001600 | 0.033047 |
+| path: parse + snapshot validation, 64 writes | 1.483683 | 5.969009 |
+| flow: fresh EXTERNAL step admission | 0.049086 | 0.199209 |
+| similarity: 16 x 256, 256-char miss, both modes | 4.231456 | 11.104052 |
+| obligation: outbound transition, 16 places x 64 transitions | 0.028210 | 0.101805 |
+| transducer: 1 read joined into 63 writes, copy-on-write overlay | 0.895480 | 4.143730 |
+| arguments: canonicalize 16 fields, 2048-byte wire | 0.572727 | 2.566407 |
+| command: confine 16 operands | 0.012748 | 0.064206 |
+| ledger: fire + send batch, 8 branches x 16 places | 0.111155 | 0.256765 |
+| ingress: scan 32 fields, 4096-byte response | 1.071016 | 3.645928 |
+| ingress: 512-byte query vs 8 x 128-byte pins | 0.447981 | 0.598878 |
+| transform: 207-byte query vs 1 x 128-byte pin (credit limit) | 0.378847 | 0.824949 |
+| transform: 62-byte query vs 24 x 16-byte pins (credit limit) | 1.335440 | 5.821009 |
+| combined: four bounded checks | 6.090766 | 12.244070 |
+| combined: five bounded checks (with obligation) | 5.646579 | 15.062666 |
+| combined: six bounded checks (with transducer) | 6.980858 | 10.701319 |
+| combined: seven bounded checks (with canonicalization) | 7.438478 | 17.137083 |
+| combined: eight bounded checks (with fork/join ledger) | 7.300274 | 17.427649 |
+| combined: nine bounded checks (with ingression outbound) | 7.759864 | 14.114657 |
+| combined: ten bounded checks (with transform pins) | 8.080281 | 17.213474 |
+
+Python 3.12.3, Linux x86-64, 5,000 samples per case, same container as the previous four tables. Both transform cases sit at the precharged credit limit. One 128-byte pin against a 207-byte miss measured 0.378847 ms p99. The full 24 pins of 16 bytes against a 62-byte miss measured 1.335440 ms, because the credits do not charge the fixed per-pin cost of building six views. Every combined case is above the 5 ms reference at p99 on this host. benchmark_results.json holds this run.
 
 ## Primary sources
 

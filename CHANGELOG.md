@@ -4,6 +4,36 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
+## [Unreleased] - v12.8 transform-invariant pins (31 October 2026)
+
+- `transform_invariant_validator.py`: Predicate Z. Each pin precomputes
+  bit-parallel LCS masks for its direct, reversed, additive (delta mod 256),
+  exclusive (XOR delta) and alphabetic (Caesar delta) views plus its aligned
+  4-byte block multiset. A query is denied when a view covers 85% of a pin
+  view (`Z_TRANSFORM`, including word-initial acrostics) or holds 80% of the
+  pin's bytes as blocks (`Z_BLOCKS`). Work is precharged; a query over
+  32,768 credits is denied whole (`Z_WORK`). At most 24 pins and 512 query
+  bytes.
+- `dynamic_ingression_validator.py`: `Ingression.receive(fields, on_commit)`
+  runs a hook before storing, so a second store can veto the batch;
+  `Ingression.values()`; `Pattern.make` alias.
+- `pep.py`: `PolicyEngine.attach_transform_index()`. Values Predicate D
+  learns extend Z's pins in the same atomic step (a full index withholds
+  the result with reason `Z_CAPACITY`). The check runs after D's outbound
+  check. Rule code `TRANSFORM_INVARIANT_DENIED` (-32076, approximate
+  AML.T0086) in SARIF (CWE-201, CWE-1039, ASI02, LLM02:2025) and in the
+  audit-report counts.
+- Tests: 10 new cases in `tests/test_validators.py` (including
+  `TransformMachine` and an independent oracle) and
+  `tests/test_v12_8_transform_wiring.py` (8). Gateway tests 1064 ->
+  **1082**; Hypothesis state machines 18 -> **19**.
+- `benchmarks/benchmark.py`: two credit-limit transform cases and a
+  ten-check combined case; `benchmark_results.json` regenerated.
+- Known limits, documented in DESIGN.md section 10: the work budget denies
+  queries over roughly 190-210 bytes with typical pins; Caesar is checked
+  only on all-letter queries; short letters-only pins can match long
+  natural text through the direct and reverse views.
+
 ## [Unreleased] - v12.7 dynamic ingression pins (31 October 2026)
 
 - `dynamic_ingression_validator.py`: Predicate D. Inbound tool response

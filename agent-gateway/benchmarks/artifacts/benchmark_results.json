@@ -3,145 +3,169 @@
   "platform": "Linux-6.18.44-fc-v185-x86_64-with-glibc2.39",
   "gc_enabled": true,
   "samples_per_case": 5000,
-  "matcher_tracemalloc_retained_bytes": 1426200,
-  "matcher_tracemalloc_peak_bytes": 1427437,
+  "matcher_tracemalloc_retained_bytes": 1426368,
+  "matcher_tracemalloc_peak_bytes": 1427605,
   "methodology": "Sequential warm-process microbenchmark; deterministic synthetic inputs; wall and process CPU clocks; setup excluded; GC left enabled. Path uses a trusted in-memory model. No filesystem I/O, network, durable commit, cross-process lock contention, or distributed failover is measured.",
   "results": [
     {
       "name": "registry: qualified lookup, 256 pins",
       "samples": 5000,
-      "wall_p50_ms": 0.000528,
-      "wall_p99_ms": 0.001327,
-      "wall_max_ms": 1.119669,
-      "cpu_p99_ms": 0.002293
+      "wall_p50_ms": 0.000541,
+      "wall_p99_ms": 0.0016,
+      "wall_max_ms": 0.033047,
+      "cpu_p99_ms": 0.003008
     },
     {
       "name": "path: parse + snapshot validation, 64 writes",
       "samples": 5000,
-      "wall_p50_ms": 0.694257,
-      "wall_p99_ms": 1.511991,
-      "wall_max_ms": 5.036394,
-      "cpu_p99_ms": 1.490968
+      "wall_p50_ms": 0.705944,
+      "wall_p99_ms": 1.483683,
+      "wall_max_ms": 5.969009,
+      "cpu_p99_ms": 1.40202
     },
     {
       "name": "flow: fresh EXTERNAL step admission",
       "samples": 5000,
-      "wall_p50_ms": 0.013263,
-      "wall_p99_ms": 0.03173,
-      "wall_max_ms": 0.272676,
-      "cpu_p99_ms": 0.032904
+      "wall_p50_ms": 0.019539,
+      "wall_p99_ms": 0.049086,
+      "wall_max_ms": 0.199209,
+      "cpu_p99_ms": 0.051049
     },
     {
       "name": "similarity: 16 x 256, 256-char miss, both modes",
       "samples": 5000,
-      "wall_p50_ms": 2.123771,
-      "wall_p99_ms": 4.2616,
-      "wall_max_ms": 14.666758,
-      "cpu_p99_ms": 4.215968
+      "wall_p50_ms": 2.039226,
+      "wall_p99_ms": 4.231456,
+      "wall_max_ms": 11.104052,
+      "cpu_p99_ms": 4.202374
     },
     {
       "name": "obligation: outbound transition, 16 places x 64 transitions",
       "samples": 5000,
-      "wall_p50_ms": 0.008672,
-      "wall_p99_ms": 0.031013,
-      "wall_max_ms": 0.598921,
-      "cpu_p99_ms": 0.035827
+      "wall_p50_ms": 0.00829,
+      "wall_p99_ms": 0.02821,
+      "wall_max_ms": 0.101805,
+      "cpu_p99_ms": 0.032096
     },
     {
       "name": "transducer: 1 read joined into 63 writes, copy-on-write overlay",
       "samples": 5000,
-      "wall_p50_ms": 0.409639,
-      "wall_p99_ms": 0.819434,
-      "wall_max_ms": 3.863845,
-      "cpu_p99_ms": 0.780134
+      "wall_p50_ms": 0.430114,
+      "wall_p99_ms": 0.89548,
+      "wall_max_ms": 4.14373,
+      "cpu_p99_ms": 0.877996
     },
     {
       "name": "arguments: canonicalize 16 fields, 2048-byte wire",
       "samples": 5000,
-      "wall_p50_ms": 0.274069,
-      "wall_p99_ms": 0.65292,
-      "wall_max_ms": 3.461686,
-      "cpu_p99_ms": 0.547272
+      "wall_p50_ms": 0.386532,
+      "wall_p99_ms": 0.572727,
+      "wall_max_ms": 2.566407,
+      "cpu_p99_ms": 0.568857
     },
     {
       "name": "command: confine 16 operands",
       "samples": 5000,
-      "wall_p50_ms": 0.002979,
-      "wall_p99_ms": 0.007603,
-      "wall_max_ms": 0.028858,
-      "cpu_p99_ms": 0.008429
+      "wall_p50_ms": 0.005608,
+      "wall_p99_ms": 0.012748,
+      "wall_max_ms": 0.064206,
+      "cpu_p99_ms": 0.014577
     },
     {
       "name": "ledger: fire + send batch, 8 branches x 16 places",
       "samples": 5000,
-      "wall_p50_ms": 0.034467,
-      "wall_p99_ms": 0.073253,
-      "wall_max_ms": 1.845644,
-      "cpu_p99_ms": 0.072228
+      "wall_p50_ms": 0.056925,
+      "wall_p99_ms": 0.111155,
+      "wall_max_ms": 0.256765,
+      "cpu_p99_ms": 0.113155
     },
     {
       "name": "ingress: scan 32 fields, 4096-byte response",
       "samples": 5000,
-      "wall_p50_ms": 0.570794,
-      "wall_p99_ms": 1.077864,
-      "wall_max_ms": 2.834703,
-      "cpu_p99_ms": 1.057075
+      "wall_p50_ms": 0.574301,
+      "wall_p99_ms": 1.071016,
+      "wall_max_ms": 3.645928,
+      "cpu_p99_ms": 1.053071
     },
     {
       "name": "ingress: 512-byte query vs 8 x 128-byte pins",
       "samples": 5000,
-      "wall_p50_ms": 0.233554,
-      "wall_p99_ms": 0.465435,
-      "wall_max_ms": 2.744064,
-      "cpu_p99_ms": 0.462215
+      "wall_p50_ms": 0.210135,
+      "wall_p99_ms": 0.447981,
+      "wall_max_ms": 0.598878,
+      "cpu_p99_ms": 0.449051
+    },
+    {
+      "name": "transform: 207-byte query vs 1 x 128-byte pin (credit limit)",
+      "samples": 5000,
+      "wall_p50_ms": 0.194496,
+      "wall_p99_ms": 0.378847,
+      "wall_max_ms": 0.824949,
+      "cpu_p99_ms": 0.375058
+    },
+    {
+      "name": "transform: 62-byte query vs 24 x 16-byte pins (credit limit)",
+      "samples": 5000,
+      "wall_p50_ms": 0.69418,
+      "wall_p99_ms": 1.33544,
+      "wall_max_ms": 5.821009,
+      "cpu_p99_ms": 1.296781
     },
     {
       "name": "combined: four bounded checks",
       "samples": 5000,
-      "wall_p50_ms": 2.96402,
-      "wall_p99_ms": 6.166688,
-      "wall_max_ms": 12.402833,
-      "cpu_p99_ms": 5.97388
+      "wall_p50_ms": 2.989535,
+      "wall_p99_ms": 6.090766,
+      "wall_max_ms": 12.24407,
+      "cpu_p99_ms": 5.822234
     },
     {
       "name": "combined: five bounded checks (with obligation)",
       "samples": 5000,
-      "wall_p50_ms": 2.847348,
-      "wall_p99_ms": 5.659863,
-      "wall_max_ms": 12.368818,
-      "cpu_p99_ms": 5.627756
+      "wall_p50_ms": 2.860829,
+      "wall_p99_ms": 5.646579,
+      "wall_max_ms": 15.062666,
+      "cpu_p99_ms": 5.6067
     },
     {
       "name": "combined: six bounded checks (with transducer)",
       "samples": 5000,
-      "wall_p50_ms": 3.347124,
-      "wall_p99_ms": 6.684585,
-      "wall_max_ms": 11.110117,
-      "cpu_p99_ms": 6.614533
+      "wall_p50_ms": 3.303561,
+      "wall_p99_ms": 6.980858,
+      "wall_max_ms": 10.701319,
+      "cpu_p99_ms": 6.838074
     },
     {
       "name": "combined: seven bounded checks (with canonicalization)",
       "samples": 5000,
-      "wall_p50_ms": 3.728368,
-      "wall_p99_ms": 7.245276,
-      "wall_max_ms": 11.302802,
-      "cpu_p99_ms": 7.214052
+      "wall_p50_ms": 3.648083,
+      "wall_p99_ms": 7.438478,
+      "wall_max_ms": 17.137083,
+      "cpu_p99_ms": 7.319497
     },
     {
       "name": "combined: eight bounded checks (with fork/join ledger)",
       "samples": 5000,
-      "wall_p50_ms": 3.801532,
-      "wall_p99_ms": 7.369963,
-      "wall_max_ms": 12.748586,
-      "cpu_p99_ms": 7.333195
+      "wall_p50_ms": 3.73023,
+      "wall_p99_ms": 7.300274,
+      "wall_max_ms": 17.427649,
+      "cpu_p99_ms": 7.233224
     },
     {
       "name": "combined: nine bounded checks (with ingression outbound)",
       "samples": 5000,
-      "wall_p50_ms": 4.065766,
-      "wall_p99_ms": 7.779452,
-      "wall_max_ms": 19.946084,
-      "cpu_p99_ms": 7.765143
+      "wall_p50_ms": 3.953732,
+      "wall_p99_ms": 7.759864,
+      "wall_max_ms": 14.114657,
+      "cpu_p99_ms": 7.695602
+    },
+    {
+      "name": "combined: ten bounded checks (with transform pins)",
+      "samples": 5000,
+      "wall_p50_ms": 4.155646,
+      "wall_p99_ms": 8.080281,
+      "wall_max_ms": 17.213474,
+      "cpu_p99_ms": 8.015713
     }
   ]
 }

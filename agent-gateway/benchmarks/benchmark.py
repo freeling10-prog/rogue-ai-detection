@@ -22,6 +22,7 @@ from agent_gateway.symbolic_fs_transducer import FsTransducer
 from agent_gateway.canonical_argument_confinement import Command, FieldPolicy, Policy, confine
 from agent_gateway.fork_join_vector_validator import UNIT, WIDTH, Owner, Root
 from agent_gateway.dynamic_ingression_validator import Field, Ingression
+from agent_gateway.transform_invariant_validator import CREDITS, TransformIndex
 
 N = 5000
 
@@ -155,6 +156,18 @@ def main():
     def fresh_ingression():
         holder["ingress"] = Ingression()
 
+    # Transform checks at the precharged credit limit, two shapes: one 128-byte
+    # pin (32 blocks, 158 credits per query byte) with a 207-byte miss, and the
+    # full 24 pins of 16 bytes (528 credits per byte) with a 62-byte miss.
+    alnum = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
+    wide = TransformIndex([("".join(rng.choices(alnum, k=128))).encode()])
+    many = TransformIndex([("".join(rng.choices(alnum, k=16))).encode() for _ in range(24)])
+    wide_q = ("weekly summary for the team " * 8).encode()[:207]
+    many_q = wide_q[:62]
+    for index, q in ((wide, wide_q), (many, many_q)):
+        assert sum(pin.cost(len(q)) for pin in index.pins) <= CREDITS
+        index.check(q)
+
     results = [
         run("registry: qualified lookup, 256 pins", lambda: r.lookup("method255", "provider")),
         run("path: parse + snapshot validation, 64 writes", path_case),
@@ -171,6 +184,8 @@ def main():
         run("ingress: scan 32 fields, 4096-byte response",
             lambda: holder["ingress"].receive(response), fresh_ingression),
         run("ingress: 512-byte query vs 8 x 128-byte pins", lambda: pins.outbound(miss)),
+        run("transform: 207-byte query vs 1 x 128-byte pin (credit limit)", lambda: wide.check(wide_q)),
+        run("transform: 62-byte query vs 24 x 16-byte pins (credit limit)", lambda: many.check(many_q)),
     ]
 
     def combined():
@@ -222,6 +237,12 @@ def main():
         pins.outbound(miss)
 
     results.append(run("combined: nine bounded checks (with ingression outbound)", combined_nine, prepare_eight))
+
+    def combined_ten():
+        combined_nine()
+        wide.check(wide_q)
+
+    results.append(run("combined: ten bounded checks (with transform pins)", combined_ten, prepare_eight))
     output = {
         "python": sys.version, "platform": platform.platform(),
         "gc_enabled": gc.isenabled(), "samples_per_case": N,

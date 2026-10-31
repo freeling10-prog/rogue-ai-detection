@@ -88,6 +88,11 @@ Safety:
   internal hosts, e-mail addresses, high-entropy tokens) into a
   non-evicting per-session store, and denies later outbound strings that
   cover one (``dynamic_ingression_validator.py``).
+- v12.8: a tenth reference validator checks outbound strings against
+  protected and learned values under a finite transform family: reversal,
+  +k and XOR-k byte masks, Caesar shifts, word-initial acrostics and
+  reordered 4-byte blocks, under a precharged work budget
+  (``transform_invariant_validator.py``).
 """
 from __future__ import annotations
 
@@ -134,6 +139,7 @@ from .dynamic_ingression_validator import (
     MAX_SECRET as INGRESS_MAX_SECRET, MIN_SECRET as INGRESS_MIN_SECRET,
     Field as IngressField, Ingression,
 )
+from .transform_invariant_validator import TransformIndex
 from .fork_join_vector_validator import (
     FIRE as LEDGER_FIRE, FORK as LEDGER_FORK, SEND as LEDGER_SEND, TAINT as LEDGER_TAINT,
     ZERO as LEDGER_ZERO, Owner as LedgerOwner, Root as LedgerRoot,
@@ -247,6 +253,8 @@ ARGUMENT_CONFINEMENT_DENIED = "ARGUMENT_CONFINEMENT_DENIED"
 FORK_JOIN_LEDGER_DENIED = "FORK_JOIN_LEDGER_DENIED"
 # v12.7: dynamic ingression pins take -32075.
 DYNAMIC_INGRESSION_DENIED = "DYNAMIC_INGRESSION_DENIED"
+# v12.8: transform-invariant pins take -32076.
+TRANSFORM_INVARIANT_DENIED = "TRANSFORM_INVARIANT_DENIED"
 # Result keys whose short values are enrolled whole as secrets.
 _SENSITIVE_RESULT_KEYS = frozenset({
     "secret", "password", "passwd", "token", "api_key", "apikey", "access_key",
@@ -261,12 +269,14 @@ _V12_CODES.update({
     SIMILARITY_LEAK_DENIED: -32070, OBLIGATION_PROTOCOL_DENIED: -32071,
     FS_LABEL_FLOW_DENIED: -32072, ARGUMENT_CONFINEMENT_DENIED: -32073,
     FORK_JOIN_LEDGER_DENIED: -32074, DYNAMIC_INGRESSION_DENIED: -32075,
+    TRANSFORM_INVARIANT_DENIED: -32076,
 })
 _V12_ATLAS.update({REGISTRY_PIN_DRIFT: "AML.T0051", REGISTRY_ALIAS_AMBIGUOUS: "AML.T0051",
                    WORKSPACE_EFFECT_DENIED: "AML.T0053", FLOW_MANIFEST_DENIED: "AML.T0051",
                    SIMILARITY_LEAK_DENIED: "AML.T0086", OBLIGATION_PROTOCOL_DENIED: "AML.T0051",
                    FS_LABEL_FLOW_DENIED: "AML.T0086", ARGUMENT_CONFINEMENT_DENIED: "AML.T0053",
-                   FORK_JOIN_LEDGER_DENIED: "AML.T0086", DYNAMIC_INGRESSION_DENIED: "AML.T0086"})
+                   FORK_JOIN_LEDGER_DENIED: "AML.T0086", DYNAMIC_INGRESSION_DENIED: "AML.T0086",
+                   TRANSFORM_INVARIANT_DENIED: "AML.T0086"})
 _EXEC_TOOL_RE = re.compile(r"(?:^|[._\-])(?:shell|bash|exec|terminal|run_command|run_script)(?:$|[._\-])")
 _DEFAULT_SINK_TOOLS = tuple(sorted(
     name for name, ec in TOOL_EGRESS.items() if ec in (EGRESS_WRITE, EGRESS_SEND, EGRESS_CREDS)
@@ -460,6 +470,7 @@ class PolicyEngine:
         # session id -> (ledger owner, branch slot); every branch of a root shares one owner.
         self.fork_ledgers: dict[str, tuple[LedgerOwner, int]] = {}
         self.ingressions: dict[str, Ingression] = {}
+        self.transform_indexes: dict[str, TransformIndex] = {}
         self.poisoned_tools: dict[tuple[str, str], dict] = {}
         self.interpreter = InterpreterExecGuard(allow=self.cfg.workspace_allow)
         core = set(CORE_MCP_SERVERS)
@@ -675,7 +686,7 @@ class PolicyEngine:
             # "tool" is the gateway's own echo of the method name, not tool output.
             result = {k: v for k, v in result.items() if k != "tool"}
         try:
-            holder.receive(self._ingress_fields(tool_name, result))
+            self._enroll(session_id, holder, self._ingress_fields(tool_name, result))
         except ReferenceDenied as exc:
             sess = self.sessions[session_id]
             return self._v12_deny(sess, out.get("step_index", sess.step_index), tool_name,
@@ -1432,6 +1443,29 @@ class PolicyEngine:
             holder = self.ingressions[session_id] = Ingression()
         return holder
 
+    def attach_transform_index(self, session_id: str, protected: tuple[str, ...] = ()) -> TransformIndex:
+        """Check this session's outbound strings for disguised protected values.
+
+        ``protected`` are trusted values to pin now (4..128 UTF-8 bytes each).
+        Values Predicate D has already learned for the session are pinned too,
+        and every later D enrollment extends this index in the same atomic step:
+        if the index is full, D enrolls nothing and the result is withheld.
+        """
+        if session_id in self.transform_indexes:
+            raise ValueError("session already has a transform index")
+        values = tuple(v.encode("utf-8") for v in protected)
+        holder = self.ingressions.get(session_id)
+        if holder is not None:
+            values += holder.values()
+        index = TransformIndex(values)
+        self.transform_indexes[session_id] = index
+        return index
+
+    def _enroll(self, session_id: str, holder: Ingression, fields: list) -> int:
+        """D enrollment, extending Z's pins in the same all-or-nothing step."""
+        index = self.transform_indexes.get(session_id)
+        return holder.receive(fields, on_commit=None if index is None else index.add)
+
     def ingest_dynamic_result(self, agent_key: str, session_id: str, tool_name: str, result: Any) -> int:
         """Proxy entry point: enroll a real tool result before it reaches the agent.
 
@@ -1443,7 +1477,7 @@ class PolicyEngine:
         if holder is None:
             return 0
         self.get_session(session_id, agent_key)
-        return holder.receive(self._ingress_fields(tool_name, result))
+        return self._enroll(session_id, holder, self._ingress_fields(tool_name, result))
 
     @staticmethod
     def _ingress_fields(tool_name: str, result: Any) -> list:
@@ -1764,6 +1798,14 @@ class PolicyEngine:
                                           {"ingression": {"reason": str(exc), "direction": "outbound",
                                                           "slot": holder.matching_slot(query),
                                                           "slots_used": holder.used}})
+        index = self.transform_indexes.get(sess.session_id)
+        if index is not None and eclass in (EGRESS_WRITE, EGRESS_SEND, EGRESS_CREDS):
+            for _, text in iter_strings(args):
+                try:
+                    index.check(text.encode("utf-8", "surrogatepass"))
+                except ReferenceDenied as exc:
+                    return self._v12_deny(sess, step, tool_name, args, TRANSFORM_INVARIANT_DENIED,
+                                          {"transform": {"reason": str(exc), "pins": index.used}})
         if labels is not None:
             # Labels only rise, so committing before the Petri-net fire can
             # overstate a file's label if that fire then fails, never understate it.

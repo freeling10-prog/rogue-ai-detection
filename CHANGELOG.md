@@ -4,6 +4,86 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
+## [Unreleased] - cross-session file labels and MCP wire canonical ids (31 October 2026)
+
+Two critical gaps in the gateway on `volta`. No new credential freeze.
+The only automated block that freezes a registered key is still the
+existing 15-minute freeze. These changes fail closed (drop or hold) and
+hand the lead to the decision log.
+
+- `fs_label_store.py`: Predicate T labels are no longer only in session
+  memory. Each workspace root has an append-only hash-chained sidecar
+  under the gateway state directory (`fs-labels/<root digest>/chain.jsonl`
+  plus an `index.json` rewritten with `os.replace` under `flock`). A
+  committed write is keyed by inode or canonical path, and, when the
+  broker binds a real directory, by `dev + inode + size + mtime_ns +
+  SHA-256`. A new session on that root loads the chain. A regular file
+  with no record whose mtime is not strictly older than the store epoch
+  by 2 seconds is UNTRUSTED. An inode whose bytes change after a record
+  is UNTRUSTED even if mtime is rolled back. A chain that does not verify
+  joins TOP into every model file. The chain stops at 65,536 records and
+  then denies the commit (`LABEL_STORE_LIMIT`) instead of accepting a
+  write with no record.
+- `symbolic_fs_transducer.py`: `FsTransducer` takes an optional store.
+  `commit` appends risen labels. `check` and `label_at` join the store,
+  including the on-disk content floor, before the sink rules run.
+- `pep.py`: `attach_fs_transducer(..., real_root=)` opens that store.
+  Reading a source whose integrity is UNTRUSTED taints the session, so
+  the existing tainted-egress hold covers a later send. It does not add
+  a new deny class. Shell write targets, including redirections (`echo x
+  > out/b`, `: > out/c`), are entered in the provenance ledger when the
+  call is released, tainted if the written label is UNTRUSTED. The ledger
+  is saved to `provenance-ledger.json` in the state directory and loaded
+  by the next process. A ledger file that fails its HMAC is not replaced
+  with an empty one; reads are denied (`provenance_tamper_denied`).
+- `mcp_proxy.py`: one JSON-RPC id form, null or string or int, with no
+  coercion. `"7"`, `7`, and `7.0` are not the same id. A response whose
+  id is not in flight is not forwarded. Floats, batches, a leading BOM,
+  duplicate object keys, and lone surrogates are rejected on
+  `handle_line` (and, where the decoded value still shows them, on
+  `handle`). An id that is already in flight is rejected and the first
+  request stays pending. Results and error bodies are scanned before
+  they can reach the model, including `resources/list`,
+  `resources/subscribe`, and `prompts/list`. `sampling/createMessage`
+  and `elicitation/create` content is scanned first; a finding taints
+  the session and the bytes are not forwarded (sampling then hits the
+  existing tainted-sampling denial; elicitation returns `-32077` and
+  does not freeze a key). A server notification whose params scan as
+  injection is not forwarded.
+- Tests: `tests/test_v12_9_label_persistence.py` (5) and
+  `tests/test_mcp_wire_canonical.py` (7). Gateway collected tests
+  1082 -> **1094** (here, without a `php` binary: **1088 passed, 6
+  skipped**; the skips are the existing PHP parity tests). Hypothesis
+  state machines stay **19**.
+- Residual risk, in addition to DESIGN.md section 6:
+  - The state directory is trusted storage. `flock` is advisory and
+    per host. A writer who can replace the sidecar with a new chain
+    that hashes cleanly is not caught. Deleting `provenance-ledger.json`
+    looks like a first start; execution sinks still see the label
+    sidecar, but a read no longer inherits provenance taint.
+  - Timestamp rollback on an inode the store has never recorded, to
+    more than 2 seconds before the epoch, is indistinguishable from a
+    file that predates the gateway. The 2 second margin is clock skew
+    between `time.time_ns` and filesystem timestamps, not a bound on
+    an attacker who can set timestamps.
+  - Hash and stat are not the read the tool later performs. The broker
+    has to check the content key again at the descriptor.
+  - Without `real_root`, only labels the gateway itself committed are
+    persisted. A write that never passed through the gateway is
+    invisible until a directory is bound.
+  - Labels only rise. There is no clear operation.
+  - T is still not applicable to a session with no transducer attached.
+  - `handle` of an already-decoded dict cannot see duplicate keys.
+    `handle_line` is the wire entry. Peers that stringify ids will
+    have their responses dropped rather than inspected.
+  - Tool results and error bodies that scan clean are forwarded.
+    A finding taints the session and strips invisible characters; the
+    remaining text is still delivered, which is the existing scanner
+    contract, not a semantic filter. Sampling and elicitation with a
+    finding are not delivered.
+  - The literal shell subset is unchanged. A redirection inside a
+    construct the analyzer rejects never commits a label.
+
 ## [Unreleased] - v12.8 transform-invariant pins (31 October 2026)
 
 - `transform_invariant_validator.py`: Predicate Z. Each pin precomputes

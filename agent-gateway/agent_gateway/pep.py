@@ -101,6 +101,7 @@ import hmac
 import json
 import logging
 import math
+import os
 import re
 import time
 import unicodedata
@@ -156,7 +157,10 @@ from .lattice_flow_validator import (
 )
 from .registry_pin_validator import Registry as PinRegistry, lint_description as pin_lint_description
 from .shingle_similarity_validator import Matcher as ShingleMatcher
-from .symbolic_fs_transducer import FsTransducer, LabelDenied, PendingLabels, path_intents
+from .fs_label_store import FsLabelStore
+from .symbolic_fs_transducer import (
+    FsTransducer, Integrity, LabelDenied, PendingLabels, path_intents,
+)
 from .workspace_path_validator import (
     Node as FsNode, Snapshot as FsSnapshot, analyze_shell, command_intents,
 )
@@ -463,6 +467,10 @@ class PolicyEngine:
         self.similarity: Optional[ShingleMatcher] = None
         self.obligation_nets: dict[str, ObligationNet] = {}
         self.fs_transducers: dict[str, FsTransducer] = {}
+        self.fs_label_stores: dict[str, FsLabelStore] = {}
+        # Shell-effect labels committed for this call, recorded in provenance only if the call is released.
+        self._label_effects: dict[str, object] = {}
+        self._provenance_unreadable = False
         self.argument_policies: dict[str, ArgumentPolicy] = {}
         self.command_tools: set[str] = set()
         # Per-session result of the last admitted confinement, read by _allow().
@@ -498,6 +506,7 @@ class PolicyEngine:
         if self._provenance is None:
             key = hmac.new(capability.hmac_key(), _PROV_KEY_LABEL, hashlib.sha256).digest()
             self._provenance = MemoryProvenanceGuard(hmac_key=key)
+            self._load_provenance()
         return self._provenance
 
     def get_session(self, session_id: str, agent_key: str) -> SessionState:
@@ -709,6 +718,7 @@ class PolicyEngine:
         capability_token: Optional[str] = None,
         destination: Optional[str] = None,
     ) -> dict:
+        self._label_effects.pop(session_id, None)
         self.registry.lift_expired(self.now())
         rec = self.registry.get(agent_key)
         if not rec:
@@ -1151,13 +1161,17 @@ class PolicyEngine:
             return tool_output_scanner.sink_tools_from(inv.values())
         return list(_DEFAULT_SINK_TOOLS)
 
-    def scan_tool_output(self, agent_key: str, session_id: str, tool_name: str, result: Any) -> dict:
+    def scan_tool_output(self, agent_key: str, session_id: str, tool_name: str, result: Any,
+                         *, include_sinks: bool = True) -> dict:
         """Scan untrusted output before it reaches the agent loop (approximate AML.T0051).
 
         Any finding taints the session and attenuates its ``agw1.`` capability.
         Returns ``{"findings": [...], "result": <invisible characters removed>}``.
+        ``include_sinks`` is false for a ``tools/list`` body: the names in that
+        listing are the inventory, and matching them is not cross-tool shadowing.
         """
-        found = [f.as_dict() for f in tool_output_scanner.scan_output(result, self.sink_tools(session_id))]
+        sinks = self.sink_tools(session_id) if include_sinks else ()
+        found = [f.as_dict() for f in tool_output_scanner.scan_output(result, sinks)]
         if found:
             sess = self.get_session(session_id, agent_key)
             self._taint(sess, f"tool_output_injection:{tool_name}", source_id=f"tool_output:{tool_name}")
@@ -1217,7 +1231,37 @@ class PolicyEngine:
         mask = ALL_CAPABILITIES_MASK & ~_PROV_CAP_EGRESS if closed else ALL_CAPABILITIES_MASK
         return (_PROV_TAINTED if sess.tainted else 0), mask
 
+    def _provenance_path(self) -> Path:
+        return approve.state_dir() / "provenance-ledger.json"
+
+    def _load_provenance(self) -> None:
+        path = self._provenance_path()
+        if not path.is_file():
+            return
+        try:
+            self._provenance.load_ledger(json.loads(path.read_text(encoding="utf-8")))
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            # A ledger we cannot verify must not become a fresh empty one.
+            self._provenance_unreadable = True
+            self._alert("provenance_ledger_unreadable",
+                        {"atlas": "AML.T0080.000", "atlas_approximate": True})
+
+    def _save_provenance(self) -> None:
+        if self._provenance is None or self._provenance_unreadable:
+            return
+        path = self._provenance_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        blob = json.dumps(self.provenance.export_ledger(), sort_keys=True,
+                          separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+        tmp = path.with_suffix(".json.tmp")
+        tmp.write_bytes(blob)
+        os.replace(tmp, path)
+
     def _provenance_write(self, sess: SessionState, uri: str) -> None:
+        if self._provenance_unreadable:
+            self._alert("provenance_ledger_unreadable", {"session_id": sess.session_id,
+                                                         "atlas": "AML.T0080.000", "atlas_approximate": True})
+            return
         taint, mask = self._lineage(sess)
         try:
             self.provenance.record_write(uri, sess.session_id, taint, mask)
@@ -1225,10 +1269,54 @@ class PolicyEngine:
             # The stored record failed its HMAC; the next read of this resource is denied.
             self._alert("provenance_tamper_on_write", {"session_id": sess.session_id,
                                                        "atlas": "AML.T0080.000", "atlas_approximate": True})
+            return
+        self._save_provenance()
+
+    def _record_fs_writes(self, sess: SessionState, effect) -> None:
+        """Lineage for shell write targets, including redirections.
+
+        A write whose label is UNTRUSTED is recorded tainted even when the PEP
+        session itself is still clean (the broker called ``observe_untrusted``).
+        """
+        if self._provenance_unreadable:
+            self._alert("provenance_ledger_unreadable", {"session_id": sess.session_id,
+                                                         "atlas": "AML.T0080.000", "atlas_approximate": True})
+            return
+        untrusted = (effect.label.integrity > Integrity.TRUSTED
+                     or effect.source_label.integrity > Integrity.TRUSTED
+                     or sess.tainted)
+        for path in effect.writes:
+            if not isinstance(path, str) or not path:
+                continue
+            if untrusted:
+                try:
+                    self.provenance.record_write(
+                        path, sess.session_id, _PROV_TAINTED,
+                        ALL_CAPABILITIES_MASK & ~_PROV_CAP_EGRESS)
+                except ValueError:
+                    self._alert("provenance_tamper_on_write", {"session_id": sess.session_id,
+                                                               "atlas": "AML.T0080.000", "atlas_approximate": True})
+                    return
+            else:
+                taint, mask = self._lineage(sess)
+                try:
+                    self.provenance.record_write(path, sess.session_id, taint, mask)
+                except ValueError:
+                    self._alert("provenance_tamper_on_write", {"session_id": sess.session_id,
+                                                               "atlas": "AML.T0080.000", "atlas_approximate": True})
+                    return
+        if effect.writes:
+            self._save_provenance()
 
     def _provenance_read(self, sess: SessionState, step: int, tool_name: str, args: dict,
                          uri: str) -> Optional[dict]:
         """Deny a read of a tampered record, else carry the writer's taint into ``sess``."""
+        if self._provenance_unreadable:
+            self._taint(sess, "provenance_ledger_unreadable", source_id="provenance:ledger")
+            out = self._deny(sess, step, tool_name, args, "provenance_tamper_denied", -32042,
+                             atlas="AML.T0080.000")
+            out["provenance"] = {"verdict": "PROVENANCE_LEDGER_UNREADABLE"}
+            return out
         res = self.provenance.evaluate_read(uri, *self._lineage(sess))
         detail = {"verdict": res.verdict_code, "resource_hash": (res.resource_hash or "")[:16],
                   "writer_session_id": res.writer_session_id}
@@ -1381,20 +1469,39 @@ class PolicyEngine:
         self.obligation_nets[session_id] = net
         return net
 
+    def _label_store(self, root: str) -> FsLabelStore:
+        """One sidecar per workspace root, under the gateway state directory."""
+        store = self.fs_label_stores.get(root)
+        if store is None:
+            digest = hashlib.sha256(root.encode("utf-8")).hexdigest()[:16]
+            store = FsLabelStore(approve.state_dir() / "fs-labels" / digest, root)
+            self.fs_label_stores[root] = store
+        return store
+
     def attach_fs_transducer(self, session_id: str, nodes: dict[str, FsNode],
-                             generation: int = 0, root: str = "/ws") -> FsTransducer:
+                             generation: int = 0, root: str = "/ws",
+                             real_root: str | None = None) -> FsTransducer:
         """Carry (confidentiality, integrity) labels across a session's file effects.
 
         ``nodes`` is the same trusted broker model ``attach_workspace_snapshot``
         takes. Protected paths and inodes start PROTECTED; everything else starts
-        PUBLIC / TRUSTED. Shell commands and workspace path arguments are checked
-        by the workspace model first, then labels flow from read sources to write
-        targets. An outbound call may not read a non-PUBLIC file and an execution
-        sink may not read an UNTRUSTED one. Labels are committed only after every
-        other reference validator passes. The broker publishes namespace changes
-        with ``FsTransducer.rebase``.
+        PUBLIC / TRUSTED. Labels committed by any session on ``root`` are loaded
+        from the workspace sidecar, so a new session does not treat a file a
+        tainted session wrote as (PUBLIC, TRUSTED). ``real_root``, when set, is
+        the on-disk workspace: a regular file modified at or after the store
+        epoch with no content record is UNTRUSTED. Shell commands and workspace
+        path arguments are checked by the workspace model first, then labels
+        flow from read sources to write targets. An outbound call may not read
+        a non-PUBLIC file and an execution sink may not read an UNTRUSTED one.
+        Reading an UNTRUSTED file taints the session, which holds later egress
+        for review. Labels are committed only after every other reference
+        validator passes. The broker publishes namespace changes with
+        ``FsTransducer.rebase``.
         """
-        transducer = FsTransducer(FsSnapshot(nodes, generation, root))
+        store = self._label_store(root)
+        if real_root is not None:
+            store.bind_real_root(real_root)
+        transducer = FsTransducer(FsSnapshot(nodes, generation, root), store=store)
         self.fs_transducers[session_id] = transducer
         return transducer
 
@@ -1729,6 +1836,10 @@ class PolicyEngine:
                     intents, cwd, is_egress, is_sink = plan
                     labels = transducer.check(intents, cwd, is_egress=is_egress,
                                               is_config_or_exec_sink=is_sink)
+                    # Inherit integrity the way a provenance read inherits taint.
+                    # The existing tainted-egress hold then covers a send of the file.
+                    if labels.effect.source_label.integrity > Integrity.TRUSTED:
+                        self._taint(sess, "fs_label_untrusted_read", source_id="fs_label:untrusted")
             except LabelDenied as exc:
                 return self._fs_label_deny(sess, step, tool_name, args, transducer, exc)
             except ReferenceDenied as exc:
@@ -1810,7 +1921,7 @@ class PolicyEngine:
             # Labels only rise, so committing before the Petri-net fire can
             # overstate a file's label if that fire then fails, never understate it.
             try:
-                transducer.commit(labels)
+                self._label_effects[sess.session_id] = transducer.commit(labels)
             except LabelDenied as exc:
                 return self._fs_label_deny(sess, step, tool_name, args, transducer, exc)
         if ledger_plan is not None:
@@ -2095,6 +2206,9 @@ class PolicyEngine:
             uri = _resource_uri(tool_name, args)
             if uri is not None:
                 self._provenance_write(sess, uri)
+        effect = self._label_effects.pop(sess.session_id, None)
+        if effect is not None and getattr(effect, "writes", ()):
+            self._record_fs_writes(sess, effect)
         if tool_name == "lookup_order_status":
             result["order_id"] = args.get("order_id", 123)
             result["status"] = "shipped"

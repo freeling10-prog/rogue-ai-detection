@@ -1,0 +1,56 @@
+{
+  "by_stratum": {
+    "smithery_list_order": {
+      "cant_tell": 0,
+      "false_positive": 7,
+      "plausible": 7
+    },
+    "smithery_uniform": {
+      "cant_tell": 0,
+      "false_positive": 3,
+      "plausible": 11
+    }
+  },
+  "counts": {
+    "cant_tell": 0,
+    "false_positive": 10,
+    "plausible": 18
+  },
+  "n_reviewed": 28,
+  "note": "precision_among_decided excludes cant_tell from the denominator. precision_counting_cant_tell_as_not_plausible puts cant_tell in the denominator and not in the numerator. The reviewer is the project author, one rater, no second rater, so there is no inter-rater agreement. A plausible label is a static reading of names, descriptions, and schemas, not a confirmed vulnerability.",
+  "per_stratum": 14,
+  "precision_among_decided": {
+    "hits": 18,
+    "n": 28,
+    "prevalence": "0.642857",
+    "wilson95": [
+      "0.458303",
+      "0.792942"
+    ]
+  },
+  "precision_counting_cant_tell_as_not_plausible": {
+    "hits": 18,
+    "n": 28,
+    "prevalence": "0.642857",
+    "wilson95": [
+      "0.458303",
+      "0.792942"
+    ]
+  },
+  "primary_false_positive_causes": {
+    "default_branch_sink": 2,
+    "name_rule_not_a_read": 2,
+    "name_rule_not_a_source": 5,
+    "table_mismatch": 1
+  },
+  "reviewer": "project author, single rater",
+  "schema": "agentgate.wild-mcp-corpus-precision-summary/1",
+  "seed": 20261102,
+  "tool_disagreement_causes": {
+    "default_branch_sink": 20,
+    "name_rule_not_a_read": 240,
+    "name_rule_not_a_sink": 5,
+    "name_rule_not_a_source": 15,
+    "table_mismatch": 1
+  }
+}

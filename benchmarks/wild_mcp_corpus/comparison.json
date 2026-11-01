@@ -1,0 +1,466 @@
+{
+  "default_branch_sensitivity": {
+    "list_order": {
+      "n": 150,
+      "toxic_2hop_without_default_branch_tools": 75,
+      "toxic_3hop_without_default_branch_tools": 70
+    },
+    "note": "Tools on the default branch of tool_class were removed and toxic_path_exists was applied. Sensitivity check, not a predicate.",
+    "toxic_2hop_difference": {
+      "difference": "-0.052000",
+      "direction": "uniform_minus_list_order",
+      "newcombe95": [
+        "-0.151448",
+        "0.048412"
+      ]
+    },
+    "toxic_3hop_difference": {
+      "difference": "-0.306667",
+      "direction": "uniform_minus_list_order",
+      "newcombe95": [
+        "-0.395926",
+        "-0.213721"
+      ]
+    },
+    "uniform": {
+      "n": 250,
+      "toxic_2hop_without_default_branch_tools": 112,
+      "toxic_3hop_without_default_branch_tools": 40
+    }
+  },
+  "interval_note": "wilson95 is score.wilson, the 95% Wilson score interval. newcombe95 is Newcombe's 1998 hybrid score interval for uniform prevalence minus list-order prevalence. The list-order slice is a convenience prefix, so newcombe95 is not a confidence interval for a difference of population parameters. The uniform Wilson interval refers to Smithery servers that published a tool schema, under the simple random sample in sample_random.py, without a finite-population correction.",
+  "list_order_stratum": "smithery_list_order",
+  "metrics": [
+    {
+      "difference": {
+        "difference": "-0.034667",
+        "direction": "uniform_minus_list_order",
+        "newcombe95": [
+          "-0.088693",
+          "0.007701"
+        ]
+      },
+      "id": "R_cold_path",
+      "list_order": {
+        "hits": 10,
+        "n": 150,
+        "prevalence": "0.066667",
+        "wilson95": [
+          "0.036612",
+          "0.118362"
+        ]
+      },
+      "uniform": {
+        "hits": 8,
+        "n": 250,
+        "prevalence": "0.032000",
+        "wilson95": [
+          "0.016302",
+          "0.061862"
+        ]
+      }
+    },
+    {
+      "difference": {
+        "difference": "-0.042667",
+        "direction": "uniform_minus_list_order",
+        "newcombe95": [
+          "-0.142017",
+          "0.058031"
+        ]
+      },
+      "id": "toxic_2hop",
+      "list_order": {
+        "hits": 79,
+        "n": 150,
+        "prevalence": "0.526667",
+        "wilson95": [
+          "0.447101",
+          "0.604901"
+        ]
+      },
+      "uniform": {
+        "hits": 121,
+        "n": 250,
+        "prevalence": "0.484000",
+        "wilson95": [
+          "0.422764",
+          "0.545720"
+        ]
+      }
+    },
+    {
+      "difference": {
+        "difference": "-0.309333",
+        "direction": "uniform_minus_list_order",
+        "newcombe95": [
+          "-0.399486",
+          "-0.214511"
+        ]
+      },
+      "id": "toxic_3hop",
+      "list_order": {
+        "hits": 74,
+        "n": 150,
+        "prevalence": "0.493333",
+        "wilson95": [
+          "0.414497",
+          "0.572503"
+        ]
+      },
+      "uniform": {
+        "hits": 46,
+        "n": 250,
+        "prevalence": "0.184000",
+        "wilson95": [
+          "0.140876",
+          "0.236689"
+        ]
+      }
+    },
+    {
+      "difference": {
+        "difference": "0.010667",
+        "direction": "uniform_minus_list_order",
+        "newcombe95": [
+          "-0.059501",
+          "0.072998"
+        ]
+      },
+      "id": "MCP_FIRST_SEEN_OVERPRIVILEGED",
+      "list_order": {
+        "hits": 17,
+        "n": 150,
+        "prevalence": "0.113333",
+        "wilson95": [
+          "0.071974",
+          "0.174003"
+        ]
+      },
+      "uniform": {
+        "hits": 31,
+        "n": 250,
+        "prevalence": "0.124000",
+        "wilson95": [
+          "0.088748",
+          "0.170632"
+        ]
+      }
+    },
+    {
+      "difference": {
+        "difference": "-0.020000",
+        "direction": "uniform_minus_list_order",
+        "newcombe95": [
+          "-0.057147",
+          "0.000065"
+        ]
+      },
+      "id": "MCP_SCHEMA_PURPOSE_MISMATCH",
+      "list_order": {
+        "hits": 3,
+        "n": 150,
+        "prevalence": "0.020000",
+        "wilson95": [
+          "0.006825",
+          "0.057147"
+        ]
+      },
+      "uniform": {
+        "hits": 0,
+        "n": 250,
+        "prevalence": "0.000000",
+        "wilson95": [
+          "0.000000",
+          "0.015133"
+        ]
+      }
+    },
+    {
+      "difference": {
+        "difference": "-0.189333",
+        "direction": "uniform_minus_list_order",
+        "newcombe95": [
+          "-0.265628",
+          "-0.120384"
+        ]
+      },
+      "id": "MCP_TOOL_NAMESPACE_FLOOD",
+      "list_order": {
+        "hits": 35,
+        "n": 150,
+        "prevalence": "0.233333",
+        "wilson95": [
+          "0.172826",
+          "0.307158"
+        ]
+      },
+      "uniform": {
+        "hits": 11,
+        "n": 250,
+        "prevalence": "0.044000",
+        "wilson95": [
+          "0.024744",
+          "0.077058"
+        ]
+      }
+    },
+    {
+      "difference": {
+        "difference": "-0.002667",
+        "direction": "uniform_minus_list_order",
+        "newcombe95": [
+          "-0.032973",
+          "0.016444"
+        ]
+      },
+      "id": "MCP_DESCRIPTION_POISONING",
+      "list_order": {
+        "hits": 1,
+        "n": 150,
+        "prevalence": "0.006667",
+        "wilson95": [
+          "0.001178",
+          "0.036793"
+        ]
+      },
+      "uniform": {
+        "hits": 1,
+        "n": 250,
+        "prevalence": "0.004000",
+        "wilson95": [
+          "0.000706",
+          "0.022306"
+        ]
+      }
+    },
+    {
+      "difference": {
+        "difference": "0.241333",
+        "direction": "uniform_minus_list_order",
+        "newcombe95": [
+          "0.176518",
+          "0.301673"
+        ]
+      },
+      "id": "MCP_TOOL_SHADOWING",
+      "list_order": {
+        "hits": 4,
+        "n": 150,
+        "prevalence": "0.026667",
+        "wilson95": [
+          "0.010418",
+          "0.066554"
+        ]
+      },
+      "uniform": {
+        "hits": 67,
+        "n": 250,
+        "prevalence": "0.268000",
+        "wilson95": [
+          "0.216911",
+          "0.326111"
+        ]
+      }
+    },
+    {
+      "difference": {
+        "difference": "-0.112000",
+        "direction": "uniform_minus_list_order",
+        "newcombe95": [
+          "-0.206206",
+          "-0.012527"
+        ]
+      },
+      "id": "class:external_read",
+      "list_order": {
+        "hits": 99,
+        "n": 150,
+        "prevalence": "0.660000",
+        "wilson95": [
+          "0.581043",
+          "0.730967"
+        ]
+      },
+      "uniform": {
+        "hits": 137,
+        "n": 250,
+        "prevalence": "0.548000",
+        "wilson95": [
+          "0.486045",
+          "0.608503"
+        ]
+      }
+    },
+    {
+      "difference": {
+        "difference": "-0.048000",
+        "direction": "uniform_minus_list_order",
+        "newcombe95": [
+          "-0.118569",
+          "0.029882"
+        ]
+      },
+      "id": "class:internal_read",
+      "list_order": {
+        "hits": 129,
+        "n": 150,
+        "prevalence": "0.860000",
+        "wilson95": [
+          "0.795448",
+          "0.906574"
+        ]
+      },
+      "uniform": {
+        "hits": 203,
+        "n": 250,
+        "prevalence": "0.812000",
+        "wilson95": [
+          "0.758983",
+          "0.855574"
+        ]
+      }
+    },
+    {
+      "difference": {
+        "difference": "-0.024000",
+        "direction": "uniform_minus_list_order",
+        "newcombe95": [
+          "-0.069571",
+          "0.008556"
+        ]
+      },
+      "id": "class:sensitive_read",
+      "list_order": {
+        "hits": 6,
+        "n": 150,
+        "prevalence": "0.040000",
+        "wilson95": [
+          "0.018459",
+          "0.084513"
+        ]
+      },
+      "uniform": {
+        "hits": 4,
+        "n": 250,
+        "prevalence": "0.016000",
+        "wilson95": [
+          "0.006239",
+          "0.040410"
+        ]
+      }
+    },
+    {
+      "difference": {
+        "difference": "0.152000",
+        "direction": "uniform_minus_list_order",
+        "newcombe95": [
+          "0.077890",
+          "0.231812"
+        ]
+      },
+      "id": "class:write",
+      "list_order": {
+        "hits": 114,
+        "n": 150,
+        "prevalence": "0.760000",
+        "wilson95": [
+          "0.685709",
+          "0.821307"
+        ]
+      },
+      "uniform": {
+        "hits": 228,
+        "n": 250,
+        "prevalence": "0.912000",
+        "wilson95": [
+          "0.870362",
+          "0.941169"
+        ]
+      }
+    },
+    {
+      "difference": {
+        "difference": "-0.096000",
+        "direction": "uniform_minus_list_order",
+        "newcombe95": [
+          "-0.170824",
+          "-0.028804"
+        ]
+      },
+      "id": "class:send",
+      "list_order": {
+        "hits": 27,
+        "n": 150,
+        "prevalence": "0.180000",
+        "wilson95": [
+          "0.126758",
+          "0.249223"
+        ]
+      },
+      "uniform": {
+        "hits": 21,
+        "n": 250,
+        "prevalence": "0.084000",
+        "wilson95": [
+          "0.055596",
+          "0.124995"
+        ]
+      }
+    },
+    {
+      "difference": {
+        "difference": "-0.072000",
+        "direction": "uniform_minus_list_order",
+        "newcombe95": [
+          "-0.132176",
+          "-0.024038"
+        ]
+      },
+      "id": "class:credential_use",
+      "list_order": {
+        "hits": 15,
+        "n": 150,
+        "prevalence": "0.100000",
+        "wilson95": [
+          "0.061541",
+          "0.158435"
+        ]
+      },
+      "uniform": {
+        "hits": 7,
+        "n": 250,
+        "prevalence": "0.028000",
+        "wilson95": [
+          "0.013628",
+          "0.056658"
+        ]
+      }
+    }
+  ],
+  "n_list_order": 150,
+  "n_uniform": 250,
+  "schema": "agentgate.wild-mcp-corpus-comparison/1",
+  "server_id_overlap": 1,
+  "uniform_stratum": "smithery_uniform",
+  "use_count_list_order": {
+    "max": 419019,
+    "median": 6606,
+    "min": 2410,
+    "n": 150,
+    "p25": 4795,
+    "p75": 10070,
+    "quartile_index": "order statistic at n//4 and (3*n)//4; median matches score._use_summary",
+    "zeros": 0
+  },
+  "use_count_uniform": {
+    "max": 4759,
+    "median": 0,
+    "min": 0,
+    "n": 250,
+    "p25": 0,
+    "p75": 0,
+    "quartile_index": "order statistic at n//4 and (3*n)//4; median matches score._use_summary",
+    "zeros": 225
+  }
+}

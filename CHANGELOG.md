@@ -4,6 +4,13 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
+## [Unreleased] - shell model, staged collusion carriers, red-team payloads (1 November 2026)
+
+- `workspace_path_validator`: `rm` is modeled and unlinks a symlink itself (`_resolve_nofollow`); `ln -s TARGET DIR` links into the directory; symlink targets are checked with `_guard` and still may not be shared inodes. `Snapshot(protect_reads=True)` also denies reading or copying protected files; it is off by default because Predicate T depends on W allowing that read so it can label the copy and deny the send (turning it on by default fails 24 existing tests). `analyze_shell(text, snapshot=None, cwd=None)` checks the effects against a snapshot when one is given.
+- `StagedCollusionGuard` (same module): cross-agent staging, multi-file concatenation, filename and chmod-mode carriers over Snapshot-canonical paths. A model, not wired into the policy engine.
+- `egress_uri_guard` folds NFKC, ideographic dots and invisible characters before parsing and judges `file:` URIs by their path; `arg_ast_guard.canonicalize_path` flags dot-run components (`....//`) and invisible characters. 13 of 16 red-team strings were already caught; these close the other 3.
+- Tests: `tests/test_staged_collusion.py` (26), `tests/test_redteam_payloads.py` (26). On this branch, with the own-data search commit, Python 3.12.3 with `php`: gateway 1,255 passed (1,178 + 26 + 26 + 25); corpus 30 passed; agent-watch 510 passed, 4 skipped. agentwatch-analyzer and rogue-ai-pipeline did not run here (`stix2` and a `pydantic_core` build are missing, and PyPI is unreachable); this branch does not touch them.
+
 ## [Unreleased] - own-data search classifier (1 November 2026)
 
 - `toxic_combinations.own_data_search`: a tool whose only external-read name word is `search` is classed `internal_read` when its name or description shows it searches the server's own data and nothing shows external content; external evidence wins and no evidence stays `external_read`. Fixes the commonest false-positive cause in the PR #40 hand check: 5 of the 10 false positives are no longer flagged and all 18 plausible hits still are (in-sample; see `docs/wild_mcp_corpus_report.md`). The published PR #40 estimates are unchanged.

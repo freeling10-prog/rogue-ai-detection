@@ -17,7 +17,7 @@ Nothing in this folder has been posted or emailed by adding it to the tree. Show
 
 ## Live call to action
 
-**[Book a 48-hour Agentic Tool-Boundary Audit](mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit)**
+**[Book a 48-hour Agentic Tool-Boundary Audit](mailto:alec@room23.net?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit)**
 
 Offer page: [audit-offer.md](audit-offer.md). Ladder, with the existing audit prices unchanged: **$149** MCP Permission Quick Check (24 hours), **$450** Starter MCP Server Build (4 business days), **$750** Hardened MCP Server Build (48 hours), **$950 / $1,500** MCP Server Security Review (one server / two, 3 business days), **$1,500** Agent-Gateway Guardrail Drop-In (5 business days; log-only unless the client approves a deterministic rule, and only the client turns enforcement on), **$395/month** Boundary Watch, **$1,800** Tool Inventory Review, **$4,500** Fixed Tool-Boundary Note, or **$6,500** with instrumentation (a lab gateway pass on `127.0.0.1`, plus an offline analyzer pass on an authorized log they supply). Optional add-ons (Integration Blueprint +$2,500, Reviewer Briefing Call +$750, Quarterly Refresh Retainer $2,500 per quarter) are on the offer page. 100% of a Quick Check fee and 50% of a Security Review or Drop-In fee credits toward the flagship audit if booked within 30 days. They can reply to that email with a tool inventory. There is no scheduling link and no company domain.
 

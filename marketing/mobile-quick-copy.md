@@ -1,6 +1,6 @@
 # Mobile quick copy
 
-Copy-paste blocks for sending from a phone. Each block is complete on its own: select from the first line to the last line of the block and paste. Fill `{{first_name}}` and `{{company}}` from a page you actually opened, or use "there" and drop the company line. Send from `alecagentboundary@gmail.com` and sign as Alec.
+Copy-paste blocks for sending from a phone. Each block is complete on its own: select from the first line to the last line of the block and paste. Fill `{{first_name}}` and `{{company}}` from a page you actually opened, or use "there" and drop the company line. Send from `alec@room23.net` and sign as Alec.
 
 Links used below:
 
@@ -111,7 +111,7 @@ Open-source engine (Apache 2.0), 874 tests passing: https://github.com/freeling1
 Recorded policy traces: https://freeling10-prog.github.io/rogue-ai-detection/#traces
 Sample report: https://freeling10-prog.github.io/rogue-ai-detection/sprint/collusion_sprint_report.pdf
 
-Not a penetration test or a certification. DM or email alecagentboundary@gmail.com with the system and the tools you want.
+Not a penetration test or a certification. DM or email alec@room23.net with the system and the tools you want.
 ```
 
 ## Community post 2 — r/ClaudeAI and r/LocalLLaMA

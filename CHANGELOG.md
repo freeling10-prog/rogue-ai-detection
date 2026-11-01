@@ -4,6 +4,31 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
+## [Unreleased] - cross-session file labels and canonical MCP ids on main (1 November 2026)
+
+PR #34 (`dcce56e`, previously only on `volta`) brought onto `main`, which already has the round-2 fixes and v14 predicates C, E, B and A (PR #36, merge `2dbca57`). Both sets are kept. No new credential freeze. The only automated block that freezes a registered key is still the existing 15-minute freeze. These changes fail closed (drop or hold) and hand the lead to the decision log.
+
+- `fs_label_store.py`: Predicate T labels are no longer only in session memory. Each workspace root has an append-only hash-chained sidecar under the gateway state directory (`fs-labels/<root digest>/chain.jsonl` plus an `index.json` rewritten with `os.replace` under `flock`). A committed write is keyed by inode or canonical path, and, when the broker binds a real directory, by `dev + inode + size + mtime_ns + SHA-256`. A new session on that root loads the chain. A regular file with no record whose mtime is not strictly older than the store epoch by 2 seconds is UNTRUSTED. An inode whose bytes change after a record is UNTRUSTED even if mtime is rolled back. A chain that does not verify joins TOP into every model file. The chain stops at 65,536 records and then denies the commit (`LABEL_STORE_LIMIT`) instead of accepting a write with no record.
+- `symbolic_fs_transducer.py`: `FsTransducer` takes an optional store. `commit` appends risen labels. `check` and `label_at` join the store, including the on-disk content floor, before the sink rules run. `rebase` still carries broker inode aliases and path moves, and those carried labels are appended to the same sidecar.
+- `pep.py`: `attach_fs_transducer(..., real_root=)` opens that store. Reading a source whose integrity is UNTRUSTED taints the session, so the existing tainted-egress hold covers a later send. It does not add a new deny class. Shell write targets, including redirections (`echo x > out/b`, `: > out/c`), are entered in the provenance ledger when the call is released, tainted if the written label is UNTRUSTED. The ledger is saved to `provenance-ledger.json` in the state directory and loaded by the next process. A ledger file that fails its HMAC is not replaced with an empty one; reads are denied (`provenance_tamper_denied`).
+- `mcp_proxy.py`: one JSON-RPC id form, null or string or int, with no coercion. `"7"`, `7`, and `7.0` are not the same id. A response whose id is not in flight is not forwarded. An id that is already in flight is rejected and the first request stays pending. Results and error bodies are scanned before they can reach the model, including `resources/list`, `resources/subscribe`, and `prompts/list`. `sampling/createMessage` and `elicitation/create` content is scanned first; a finding taints the session and the bytes are not forwarded (sampling then hits the existing tainted-sampling denial; elicitation returns `-32081` and does not freeze a key). A server notification whose params scan as injection is not forwarded.
+- Reconciliation with the round-2 tree already on main:
+  - `handle_line` keeps `loads_strict` and `plain_numbers(exact=True)`, the same parser Flask `/mcp` uses. A JSON number that is not an integer token (`7.0`) is rejected as an id before an integral decimal collapses to `int`. Duplicate-key, BOM, and lone-surrogate failures stay JSON-RPC -32700, with messages `duplicate key`, `bom`, and `lone surrogate`. A batch is rejected whole (`batch rejected`).
+  - Predicate D still learns from each `tools/call` result and withholds a result that does not fit with -32075. Non-core resource and prompt listing results still taint the session.
+  - Elicitation and other held server requests use **-32081**. -32077 is Predicate C (`CAUSALITY_LAUNDERING_DENIED`) on main; the two denials cannot share a code. Elicitation is still not forwarded and still does not freeze a key.
+- Tests: `tests/test_v12_9_label_persistence.py` and `tests/test_mcp_wire_canonical.py`, including a rebase alias that survives a new process and a wire `7.0` that is not id `7`. Gateway on this branch, Python 3.12.3, 1 November 2026, no `php`: **1,178 collected; 1,172 passed, 6 skipped** (the skips are the existing PHP parity tests). `origin/main` at `2dbca57` on the same machine: **1,165 collected; 1,159 passed, 6 skipped**. `agent-watch`: **514 collected; 512 passed, 2 skipped** on both (same as the CI figure; see the site note). `agentwatch-analyzer`: **10 passed** on both. Hypothesis state machines stay **23**.
+- Residual risk, in addition to DESIGN.md section 6:
+  - The state directory is trusted storage. `flock` is advisory and per host. A writer who can replace the sidecar with a new chain that hashes cleanly is not caught. Deleting `provenance-ledger.json` looks like a first start; execution sinks still see the label sidecar, but a read no longer inherits provenance taint.
+  - Timestamp rollback on an inode the store has never recorded, to more than 2 seconds before the epoch, is indistinguishable from a file that predates the gateway. The 2 second margin is clock skew between `time.time_ns` and filesystem timestamps, not a bound on an attacker who can set timestamps.
+  - Hash and stat are not the read the tool later performs. The broker has to check the content key again at the descriptor.
+  - Without `real_root`, only labels the gateway itself committed are persisted. A write that never passed through the gateway is invisible until a directory is bound.
+  - Labels only rise. There is no clear operation.
+  - T is still not applicable to a session with no transducer attached.
+  - `handle` of an already-decoded dict cannot see duplicate keys. `handle_line` is the wire entry. Peers that stringify ids will have their responses dropped rather than inspected.
+  - Tool results and error bodies that scan clean are forwarded. A finding taints the session and strips invisible characters; the remaining text is still delivered, which is the existing scanner contract, not a semantic filter. Sampling and elicitation with a finding are not delivered.
+  - The literal shell subset is unchanged. A redirection inside a construct the analyzer rejects never commits a label.
+  - Split secrets (joining adjacent fields before enrollment) are not implemented. Predicate D's hard and soft stores are.
+
 ## [Unreleased] - v14 reference validators C, E, B and A (31 October 2026)
 
 Four bounded, stdlib-only predicates on the same decision path, findings,
@@ -93,8 +118,9 @@ machines were extended to the new behavior and run clean at 300 examples.
   the Decimal-preserving argument object (`evaluate_call(wire_arguments=)`;
   `Policy.canonicalize` accepts bytes or that object). The stdio proxy uses
   the same parser and forwards a number only when a binary float carries
-  exactly the checked value (`NUMBER_PRECISION` otherwise). `mcp_proxy.parse_wire`
-  from PR #34 is not on this branch; reconcile when merging.
+  exactly the checked value (`NUMBER_PRECISION` otherwise). Reconciled with
+  PR #34 in the entry above: `handle_line` kept this parser and rejects a
+  non-integer id token before an integral decimal collapses to `int`.
 - T (`symbolic_fs_transducer.py`): `rebase(snapshot, *, aliases=, path_moves=)`.
   Path-keyed labels follow their path onto its published inode; `aliases`
   carry an old inode's label to its replacement (GNU `sed -i`, `mv`);

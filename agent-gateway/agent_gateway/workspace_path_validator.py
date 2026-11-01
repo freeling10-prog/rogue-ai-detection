@@ -66,7 +66,7 @@ class Snapshot:
     A real broker owns all namespace mutations, publishes new generations,
     checks real inode identities, and denies unmodeled objects/mounts.
     """
-    def __init__(self, nodes: dict[str, Node], generation=0, root="/ws"):
+    def __init__(self, nodes: dict[str, Node], generation=0, root="/ws", *, protect_reads: bool = False):
         if not root.startswith("/") or root.endswith("/") or ".." in root.split("/"):
             raise Denied("ROOT")
         if nodes.get(root, Node("missing")).kind != "dir":
@@ -75,6 +75,9 @@ class Snapshot:
             raise Denied("SNAPSHOT_LIMIT")
         self.root = root
         self.generation = generation
+        # Off by default: Predicate T lets a protected file be read or copied and
+        # labels it, so a later send is denied. On, W itself denies the read.
+        self.protect_reads = bool(protect_reads)
         self.nodes = MappingProxyType(dict(nodes))
         self.protected_names = frozenset(p for p in nodes if protected(p, root))
         self.protected_inodes = frozenset(
@@ -142,6 +145,35 @@ class Snapshot:
         result = self.root + ("/" + "/".join(current) if current else "")
         return Resolved(result, self.nodes[result], tuple(visited))
 
+    def _guard(self, target: Resolved) -> None:
+        """Deny any protected name on the walk, the root, or a protected inode (reads too)."""
+        if target.path == self.root or any(
+            p in self.protected_names if p in self.nodes else protected(p, self.root)
+            for p in target.visited):
+            raise Denied("PROTECTED_PATH")
+        if target.node is not None and target.node.inode in self.protected_inodes:
+            raise Denied("PROTECTED_OR_SHARED_INODE")
+
+    def _resolve_nofollow(self, path: str, cwd: str | None, budget: PathBudget) -> Resolved:
+        """Resolve the parent, then take the last component as is (rm unlinks a symlink, not its target)."""
+        if cwd is not None and (cwd not in self.nodes or self.nodes[cwd].kind != "dir"):
+            raise Denied("INVALID_CWD")
+        full_path = path if path.startswith("/") else (self.root if cwd is None else cwd) + "/" + path
+        raw_parts = [p for p in self._relative(full_path) if p and p != "."]
+        if not raw_parts or raw_parts[-1] == "..":
+            raise Denied("PROTECTED_PATH")
+        parent_rel = "/".join(raw_parts[:-1])
+        parent_path = self.root if not parent_rel else f"{self.root}/{parent_rel}"
+        parent = self.resolve(parent_path, cwd=None, budget=budget)
+        if parent.node is None or parent.node.kind != "dir":
+            raise Denied("NOT_DIRECTORY")
+        candidate = f"{parent.path}/{raw_parts[-1]}"
+        budget.spend(len(candidate) // 32)
+        node = self.nodes.get(candidate)
+        if node is None:
+            raise Denied("MISSING_COMPONENT")
+        return Resolved(candidate, node, parent.visited + (candidate,))
+
     def _mutation(self, target: Resolved):
         if target.path == self.root or any(
             p in self.protected_names if p in self.nodes else protected(p, self.root)
@@ -164,17 +196,21 @@ class Snapshot:
         budget = PathBudget() if budget is None else budget
         if op == "read":
             result = self.resolve(intent.path, cwd, budget=budget)
-            if result.node.kind != "file":
+            if result.node is None or result.node.kind != "file":
                 raise Denied("READ_NOT_REGULAR")
+            if self.protect_reads:
+                self._guard(result)
             return result
         if op == "hardlink":
             raise Denied("HARDLINK_CREATION_DISABLED")
         if op in {"copy", "move"}:
             source = self.resolve(intent.source, cwd, budget=budget)
-            if source.node.kind != "file":
+            if source.node is None or source.node.kind != "file":
                 raise Denied("SOURCE_NOT_REGULAR")
             if op == "move":
                 self._mutation(source)
+            elif self.protect_reads:
+                self._guard(source)
             dest = self.resolve(intent.path, cwd, create=True, budget=budget)
             if dest.node is not None and dest.node.kind == "dir":
                 basename = intent.source.rstrip("/").rsplit("/", 1)[-1]
@@ -186,16 +222,32 @@ class Snapshot:
             return dest
         if op == "symlink":
             dest = self.resolve(intent.path, cwd, create=True, budget=budget)
-            self._mutation(dest)
+            if dest.node is not None and dest.node.kind == "dir":
+                # ln -s TARGET DIR creates DIR/basename(TARGET).
+                basename = intent.source.rstrip("/").rsplit("/", 1)[-1]
+                if not basename or basename in {".", ".."}:
+                    raise Denied("LINK_BASENAME")
+                child = self.resolve(dest.path + "/" + basename, cwd, create=True, budget=budget)
+                dest = Resolved(child.path, child.node, dest.visited + child.visited)
             if dest.node is not None:
                 raise Denied("LINK_DEST_EXISTS")
+            self._guard(dest)
             target = intent.source
             if not target.startswith("/"):
                 target = dest.path.rsplit("/", 1)[0] + "/" + target
             resolved_target = self.resolve(target, cwd, budget=budget)
-            self._mutation(resolved_target)  # No links to protected/shared objects.
+            self._guard(resolved_target)  # No links to protected objects.
+            if resolved_target.node.kind == "file" and resolved_target.node.links != 1:
+                raise Denied("PROTECTED_OR_SHARED_INODE")  # Nor to shared inodes.
             return dest
-        if op not in {"write", "append", "chmod", "remove", "edit"}:
+        if op == "remove":
+            leaf = self._resolve_nofollow(intent.path, cwd, budget)
+            self._guard(leaf)
+            if leaf.node.kind == "symlink":
+                return leaf  # Unlinks the link itself; the target is untouched.
+            self._mutation(leaf)
+            return leaf
+        if op not in {"write", "append", "chmod", "edit"}:
             raise Denied("UNMODELED_OPERATION")
         result = self.resolve(intent.path, cwd, create=op in {"write", "append"}, budget=budget)
         self._mutation(result)
@@ -330,6 +382,8 @@ def command_intents(argv: list[str]) -> list[Intent]:
         if len(args) != 2:
             raise Denied("LINK_ARITY")
         return [Intent("symlink" if symbolic else "hardlink", args[1], args[0])]
+    if name == "rm":
+        return [Intent("remove", p) for p in operands(args)]
     if name == "chmod":
         args = operands(args)
         if len(args) < 2 or not re.fullmatch(r"0?[0-7]{3}", args[0]):
@@ -345,7 +399,8 @@ def command_intents(argv: list[str]) -> list[Intent]:
     raise Denied("UNMODELED_COMMAND")
 
 
-def analyze_shell(text: str) -> tuple[Intent, ...]:
+def analyze_shell(text: str, snapshot: Snapshot | None = None,
+                  cwd: str | None = None) -> tuple[Intent, ...]:
     """Parse a literal subset, including (...) group redirections.
 
     Returns a conservative effect union, NOT an executable program or permit.
@@ -427,4 +482,76 @@ def analyze_shell(text: str) -> tuple[Intent, ...]:
     sequence()
     if pos != len(tokens):
         raise Denied("UNEXPECTED_GROUP_CLOSE")
-    return tuple(intents)
+    effect = tuple(intents)
+    if snapshot is not None:
+        snapshot.check_all(effect, cwd)
+    return effect
+
+
+class StagedCollusionGuard:
+    """Cross-agent staging carriers over the workspace model (reference profile).
+
+    Paths are canonicalized through a ``Snapshot``, so "a", "./a" and "/ws/a"
+    are one path. Denies, with stable codes:
+      CROSS_AGENT_STAGING  an agent reads (or copies/moves from) a path another agent wrote
+      MULTI_FILE_CONCAT    one command reads two or more distinct files and writes
+      FILENAME_CARRIER     a path component outside [A-Za-z0-9._-]{1,64}
+      PERMISSION_CARRIER   a chmod mode outside 600, 644, 700, 755
+    Deterministic and bounded. It is a model like ``Snapshot``: it is not wired
+    into the policy engine, and it sees only commands passed to ``observe``.
+    """
+    SAFE = re.compile(r"^[A-Za-z0-9._-]+$")
+    MODES = frozenset({"600", "644", "700", "755"})
+    MAX_PATHS = 65536
+
+    def __init__(self) -> None:
+        self.written_paths: dict[str, set[str]] = {}
+
+    def _check_name(self, path: str) -> None:
+        for part in path.split("/"):
+            if part and (not self.SAFE.fullmatch(part) or len(part) > 64):
+                raise Denied("FILENAME_CARRIER")
+
+    @staticmethod
+    def _canon_read(it: Intent, snapshot: Snapshot, cwd: str | None) -> str:
+        raw = it.path if it.operation == "read" else (it.source or "")
+        return snapshot.resolve(raw, cwd).path
+
+    @staticmethod
+    def _canon_write(it: Intent, snapshot: Snapshot, cwd: str | None) -> str:
+        dest = snapshot.resolve(it.path, cwd, create=True)
+        if it.operation in {"copy", "move"} and dest.node is not None and dest.node.kind == "dir":
+            basename = (it.source or "").rstrip("/").rsplit("/", 1)[-1]
+            dest = snapshot.resolve(f"{dest.path}/{basename}", cwd, create=True)
+        return dest.path
+
+    def observe(self, agent: str, intents: tuple[Intent, ...], snapshot: Snapshot,
+                text: str = "", cwd: str | None = None) -> None:
+        if not isinstance(agent, str) or not agent:
+            raise Denied("AGENT_ID")
+        if text:
+            toks = [t.value for t in lex(text) if t.kind == "word"]
+            for idx, val in enumerate(toks[:-1]):
+                if val != "chmod":
+                    continue
+                mode = toks[idx + 2] if toks[idx + 1] == "--" and idx + 2 < len(toks) else toks[idx + 1]
+                if re.fullmatch(r"0?[0-7]{3}", mode) and mode[-3:] not in self.MODES:
+                    raise Denied("PERMISSION_CARRIER")
+        for it in intents:
+            self._check_name(it.path)
+            if it.source:
+                self._check_name(it.source)
+        reads = [self._canon_read(it, snapshot, cwd) for it in intents
+                 if it.operation == "read" or (it.operation in {"copy", "move"} and it.source)]
+        writes = [self._canon_write(it, snapshot, cwd) for it in intents
+                  if it.operation in {"write", "append", "edit", "copy", "move", "chmod", "remove"}]
+        for p in reads:
+            if self.written_paths.get(p, set()) - {agent}:
+                raise Denied("CROSS_AGENT_STAGING")
+        if len(set(reads)) >= 2 and writes:
+            raise Denied("MULTI_FILE_CONCAT")
+        new = {p for p in writes if p not in self.written_paths}
+        if len(self.written_paths) + len(new) > self.MAX_PATHS:
+            raise Denied("STAGING_LEDGER_LIMIT")
+        for p in writes:
+            self.written_paths.setdefault(p, set()).add(agent)

@@ -4,6 +4,72 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
+## [Unreleased] - v14 reference validators C, E, B and A (31 October 2026)
+
+Four bounded, stdlib-only predicates on the same decision path, findings,
+SARIF and audit-report counts as R-Z. Each is inert until attached, and C, E
+and A follow the round-2 two-phase rule: check in the reference middleware,
+commit only when the whole call is allowed, abort otherwise.
+
+- `causality_laundering_validator.py`: Predicate C,
+  `CAUSALITY_LAUNDERING_DENIED` (-32077, approximate AML.T0086). Branches with
+  a taint bit and a pc stack; sticky labels on entries, directories
+  (tombstones kept after unlink/rmdir/rename) and statuses. Probes, listings
+  and status reads join labels into the observer, and the engine taints the
+  session before A and E authorize. `attach_causality()`,
+  `causality_push_pc()` / `causality_pop_pc()`; typed adapters for
+  `file.write` / `file.delete` / `file.rename` / `file.mkdir` / `file.rmdir`,
+  `file.read` / `file.exists` / `file.stat` / `file.list`, `status.set` /
+  `status.get`. `file.exists`, `file.stat`, `file.list`, `list_files` and
+  `status.get` are now classed as internal reads in `taint.py`.
+- `event_channel_capacity_validator.py`: Predicate E,
+  `EVENT_CHANNEL_CAPACITY_DENIED` (-32078, approximate AML.T0086). Exact
+  integer `quarter_bits(N) = (N**4 - 1).bit_length()`; `EventManifest`
+  (1..64 tools, at most 8 dimensions of 1..1024, product <= 2**20);
+  `EventChannelBudget` with reserve / commit / abort, sticky taint, 32 pending
+  and 256 committed ids. Charged only while tainted or holding live pins.
+  `attach_event_budget()`; eligible-tool check on every write, send and
+  credential call.
+- `blindfold_opaque_fault_validator.py`: Predicate B,
+  `BLINDFOLD_PERTURBATION_DENIED` (-32079, approximate AML.T0043). Exact
+  4-gram sets, SHA-256 and a BLAKE2b SimHash (receipt telemetry only),
+  near-neighbor lock for Jaccard in [0.25, 1), constant `AGENT_ENVELOPE`,
+  HMAC-signed receipts and `verify_receipt`. `attach_blindfold(opaque_wire=)`;
+  with an opaque wire every refusal is the same -32079 envelope, receipts in
+  `engine.blindfold_receipts`.
+- `reachability_confinement_validator.py`: Predicate A,
+  `REACHABILITY_CONFINEMENT_DENIED` (-32080, approximate AML.T0053). Forward
+  DAG of at most 64 nodes and 8 obligation bits; boot-time `forward`,
+  `viable_paths[t][r]` and `live_paths[t][r][i]` (so a terminal reachable
+  after an intermediate discharge is never pruned early); three-AND hot path;
+  sticky revocation. `attach_reachability()`, `reachability_finish()`.
+- Deviations from the request, by standing rule or conflict:
+  - B's branch and root locks auto-lift after 15 minutes and are recorded
+    as human-review leads; a permanent lock would be automatic blocking.
+  - The opaque envelope reuses -32079 rather than -32080, which A owns;
+    every JSON-RPC code stays unique.
+  - E releases a reservation when a later gate denies the call, so refusal
+    outcomes are not charged.
+  - A records the taint a call arrives with; taint its own result adds
+    contaminates before the next call.
+  - "v14" here names these four predicates. The AgentGate v14 reference
+    package attached in chat specifies B/M/G/K (Birkhoff, declassification,
+    cohort, KL), which is a different set.
+- Tests: 27 new cases in `tests/test_validators.py`, with
+  `CausalityStateMachine`, `EventCapacityStateMachine`,
+  `BlindfoldStateMachine` and `ReachabilityStateMachine`, against
+  brute-force paths, exact Fractions and explicit models. There are 16
+  wiring tests in `tests/test_v14_wiring.py`. Gateway tests 1122 ->
+  **1165**; Hypothesis state machines 19 -> **23**; modules behind
+  `pep.py` 47 -> **51**; reference-validator rule codes 11 -> **15**. All
+  four new machines also ran clean at 300 examples.
+- `benchmarks/benchmark.py`: six v14 cases plus a fourteen-check combined
+  case; `benchmark_results.json` regenerated. B measured 2.37 ms p99 at its
+  bounds and the combined case 8.28 ms p99, above the 5 ms reference.
+- Docs: DESIGN.md and the validator specification gain a round-2 section,
+  sections 11-14 and a results table. README, site `#method` and the lab
+  report are updated.
+
 ## [Unreleased] - Round-2 red-team fixes for V, S, T, D and Z (31 October 2026)
 
 Five confirmed findings from the round-2 audit of the R-Z implementation,

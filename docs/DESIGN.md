@@ -449,7 +449,7 @@ An inbound batch has at most 32 fields and 4096 UTF-8 bytes. A field marked sens
 
 $$|b|\ge 24\ \land\ |\{x: c_x>0\}|\ge 16\ \land\ 16\sum_x c_x^2\le |b|^2\iff H_2(b)=-\log_2\sum_x (c_x/|b|)^2\ge 4\ \text{bits/byte}.$$
 
-The store never evicts. A batch whose new distinct values do not fit fails with D_CAPACITY and enrolls nothing, so a response cannot push an earlier secret out. With E the enrolled values and LCS the longest common subsequence:
+Since the round-2 fixes there are two stores. Hard values (fields a trusted sensitive-source adapter marks sensitive) fill HARD_SLOTS = 8 and never evict: a batch whose new hard values do not fit fails with D_CAPACITY and enrolls nothing, so no response can push a trusted secret out. Heuristic values fill SOFT_SLOTS = 16 and evict oldest first, never failing a batch. With E the enrolled values and LCS the longest common subsequence:
 
 $$D(s,c,t)\equiv \forall q\in\mathrm{strings}(\mathrm{args}(c)),\ \forall e\in E_s:\ 100\cdot \mathrm{LCS}(e,q) < 85\,|e|,\qquad |q|\le 512\ \text{when}\ E_s\neq\emptyset.$$
 
@@ -463,7 +463,7 @@ Each enrolled value is compiled once into a 256-entry byte bitmask table. The ou
 
 PolicyEngine.attach_ingression(session_id) attaches the store. Inbound scanning happens in evaluate_call after the decision, on every allowed result the agent is about to see. That covers the general allow path and the bespoke ones (scratchpad notes, the internal bus, spawns); a scratchpad note written by another session is scanned when it is read. The gateway's own echo of the method name is not tool output and is skipped. Unicode format characters (category Cf, including the canary watermark's zero-width marks) are removed first, so the visible value is what gets enrolled; the canary guard still tracks the watermark itself.
 
-Short values under secret-like keys (secret, password, token, api_key and similar) and short strings returned by sensitive reads are enrolled whole. Everything else is token-scanned. A result that cannot be enrolled within bounds (D_CAPACITY, D_TEXT, D_TOKEN_SIZE, D_SECRET_SIZE) is withheld, and the call is denied. Proxy callers that hold real results call ingest_dynamic_result before forwarding them.
+Short strings returned by a trusted sensitive-source adapter (a sensitive read or a credential store) are enrolled whole as hard values. Key names in a result decide nothing: an untrusted response chooses them. Every string is token-scanned for soft values. A result that cannot be enrolled within bounds (hard D_CAPACITY, D_TEXT, D_TOKEN_SIZE, D_SECRET_SIZE) is withheld, and the call is denied. The MCP wire proxy calls ingest_dynamic_result on every tools/call result before forwarding it and forwards a -32075 error in place of a withheld result.
 
 The outbound check runs in the reference middleware right after the similarity matcher, on every string argument of write, send, and credential-class calls. Denials use DYNAMIC_INGRESSION_DENIED (JSON-RPC -32075, approximate ATLAS AML.T0086) and record the reason code, the direction, the matching slot or the slots used, and whether a result was withheld.
 
@@ -509,9 +509,119 @@ PolicyEngine.attach_transform_index(session_id, protected) pins trusted values a
 
 Unit cases cover each view's invariance (properties for +k, XOR k, and Caesar with case), the helper edge cases, which pin views exist and how blocks are counted, bounded atomic adds, each transform being detected, the 80% block threshold, the exact credit boundary, the D commit hook keeping both stores in step, and each decision matching z_oracle. That oracle reimplements every view independently, with regex initials, str-based Caesar, Counter blocks, and the O(mn) LCS. TransformMachine adds pins and sends reversed, +k, XOR k, Caesar, acrostic, block-reversed, plain, and long queries, and requires the exact reason code the oracle gives. Removing the reverse view, or counting a short trailing chunk as a block, fails it. tests/test_v12_8_transform_wiring.py covers static pins, disguised values, synchronization with D, catching up after D, a full index stopping D, the work and size bounds through the gateway, and the SARIF rule.
 
+## Round-2 audit fixes (31 October 2026)
+
+A second red-team pass over sections 1-10 confirmed five defects. Each fix keeps the predicate's invariant and moves state changes behind the whole decision.
+
+- **V, two-phase commit.** `_fork_join_plan` still checks the ledger operations in the reference middleware, but the plan is staged, not applied. `_settle_ledger` applies it in `evaluate_call` only when the call was allowed; a spawn applies it after its quota and collusion checks and before it reserves a slot. A denied call keeps only the denial unit `_deny` charges, and branch taint is still mirrored. Before the fix, seven SSRF-denied `spawn_subagent` calls left seven ghost branches and exhausted WIDTH = 8.
+- **S, strict wire parsing.** `loads_strict(raw)` is the one parser for Flask `/mcp` (raw `request.get_data()`) and the stdio proxy: strict UTF-8 only (no BOM, no UTF-16/32, no NUL), no lone surrogates raw or escaped, no duplicate keys at any depth, no NaN or Infinity, bounded nesting and number tokens, and exact `Decimal` for every non-integer. `/mcp` gives Predicate S the Decimal-preserving argument object (`evaluate_call(wire_arguments=...)`; `Policy.canonicalize` accepts it and re-encodes it with its exact digits), so `9007199254740993.0` canonicalizes to `9007199254740993` instead of collapsing through a binary float. A rejected message gets JSON-RPC -32700 with a fixed reason, never HTTP 500. The proxy forwards a number only if a binary float carries exactly the value checked (`NUMBER_PRECISION` otherwise).
+- **T, identity across rebase.** `FsTransducer.rebase(snapshot, *, aliases=None, path_moves=None)` joins path-keyed labels onto the inode their path now resolves to, joins an old inode's label onto the inode that replaced it (`aliases`, e.g. GNU `sed -i`), and joins an old path's full label (defaults included) onto its new path and inode (`path_moves`). A malformed or unresolvable target fails closed with `LABEL_ALIAS_UNRESOLVABLE` and leaves the state unchanged. The maps must come from the broker that ran the commands. Without an alias, an inode replacement still drops the old inode's label; that is the broker contract, tested as such.
+- **D, hard and soft stores.** `HARD_SLOTS = 8` hold fields a trusted sensitive-source adapter (a sensitive read or a credential store) marks sensitive: never evicted, a ninth distinct value is D_CAPACITY and the result is withheld. `SOFT_SLOTS = 16` hold heuristic finds: oldest evicted first, never D_CAPACITY. Key names in a result no longer mark anything sensitive, because an untrusted response chooses them. Hard values extend Z atomically; soft values enter Z only while it has room. The MCP wire proxy now feeds tool results to D and forwards a -32075 error in place of a withheld result. Residual: a response the attacker controls can rotate earlier heuristic values out of the soft store.
+- **Z, candidate views.** Each pin also precomputes `stride(p, k)` and its inverse for k in 2, 3, 4, matched by the direct LCS (`Z_STRIDE`); matching the pin's variants rather than de-interleaving the query keeps working when the value is embedded in text. Maximal runs of 16 or more hex characters (even length) and of 16 or more standard or URL-safe base64 characters that decode cleanly are decoded once and checked with the direct and reverse LCS (`Z_ENCODED`). Candidate work is precharged on its own budget, `(|strides(p)| + 2) * ceil(|p|/30) * |q|` per pin against `CANDIDATE_CREDITS = 32768`, so the section 10 limits are unchanged. Residual: compositions, nibble swaps, keyed ciphers and compression.
+
+Not changed in this pass, same shape as the V defect: P's Petri-net fire and T's label commit still happen inside the reference middleware, before the downstream gates. T can only over-label on a later denial; P can advance its marking for a call that is then denied.
+
+## 11. causality_laundering_validator.py (Predicate C, v14)
+
+### Invariant and representation
+
+Explicit taint follows data, not control. A branch that creates, deletes or renames a file, or sets a status, depending on untrusted input signals a bit to whoever later observes that name, its directory or the status, and the absence of a name carries the bit as well as its presence [16, 17]. C keeps per root a set of branches, each with `tainted` and a stack of condition labels `pc_stack` pushed by a trusted control plane, and three sticky label maps: `entries` and `directories` (path to label) and `status_labels` (target to label). With `pc(b) = tainted(b) or any(pc_stack(b))`:
+
+$$\text{mutation by }b\text{ on }n:\ \ell(n) := \ell(n)\lor pc(b);\qquad \text{observation of }n\text{ by }o:\ \mathit{tainted}(o) := \mathit{tainted}(o)\lor \ell(n)\lor\bigvee_{a\ \text{ancestor of}\ n}\ell(a).$$
+
+`unlink`, `rmdir` and `rename` keep the source name as a tombstone with its label. A directory listing joins every label at or below the directory. Any labeled ancestor counts, file or directory, because whether `a` exists decides whether `a/b` can. Labels only rise.
+
+### Hot path
+
+A probe joins at most 17 labels (the path and its ancestors); a listing scans at most `MAX_PATHS = 256` labels; `check_mutation` is a pure capacity and path check before any state changes. Bounds: 64 branches, 256 labeled paths, pc stacks of 16, paths of 256 UTF-8 bytes and 16 components below `/workspace`.
+
+### Gateway wiring
+
+`PolicyEngine.attach_causality(session_id, validator, branch_id=None)` makes the session one branch of a shared validator. Typed adapters map `file.write` / `file.create` to create, `file.delete` to unlink, `file.mkdir` / `file.rmdir`, `file.rename` / `file.move` (with `dest`), `file.read` / `file.exists` / `file.stat` to a probe, `file.list` to a listing, and `status.set` / `status.get` to statuses. `causality_push_pc` / `causality_pop_pc` are the control-plane entry points. Observations apply immediately (labels only rise); mutations and status writes are checked in the reference middleware and committed only when the call is allowed. A tainted observation taints the session before Predicates A and E authorize the call, so the laundered bit meets the same post-taint gates as a direct read. Bounds violations deny with CAUSALITY_LAUNDERING_DENIED (-32077, approximate AML.T0086).
+
+### Limits
+
+C sees only the effects its adapters report. Timing of mutations, sizes and contents (Predicate T), paths outside the modeled root, and decisions the control plane does not bracket with `push_pc` are out of scope.
+
+### Tests
+
+Unit cases cover canonical paths, tombstones, sticky labels, ancestor and nested-listing joins, status labels, capacity before mutation and every bound. CausalityStateMachine runs random ingests, pc pushes and pops, mutations, probes and listings against an explicit label model. Wiring tests cover absence laundering across two sessions reaching the post-taint gate, a denied mutation recording nothing, status labels, path bounds, and the C-to-A ordering.
+
+## 12. event_channel_capacity_validator.py (Predicate E, v14)
+
+### Invariant and representation
+
+An agent can signal through which eligible tool it calls and which structural choices it makes, with clean arguments [18, 19]. For an event drawn from a manifest with N combinations, Hartley support bounds the bits an adversary can choose at log2 N. E counts quarter bits exactly in integers:
+
+$$\mathrm{qb}(N)=(N^4-1).\mathrm{bit\_length}()=\lceil 4\log_2 N\rceil\ (N>1),\quad \mathrm{qb}(1)=0;\qquad \text{admit}\iff \mathit{spent}+\mathit{reserved}+c<B,$$
+
+with charge c = qb(N) when the (root, sink) budget is sticky-tainted, the branch is tainted, or live secret pins exist, else 0.
+
+### Hot path and wiring
+
+`reserve` is O(pending) with at most 32 pending and 256 committed ids; `commit` and `abort` are O(1). `PolicyEngine.attach_event_budget(session_id, budget, manifest)` checks every write, send and credential call: the tool must be eligible (E_INELIGIBLE), and the reservation is committed only when the call is allowed and released when a later gate denies it. Denials use EVENT_CHANNEL_CAPACITY_DENIED (-32078, approximate AML.T0086).
+
+### Limits
+
+This is support accounting, not KL divergence or a channel-capacity measurement: it bounds what a sender can choose, not what an observer learns. Releasing a reservation on denial means refusal outcomes are not charged, and timing, argument content and refusal patterns are other channels.
+
+### Tests
+
+A Hypothesis property checks qb against the smallest q with 2^q >= N^4. Unit cases cover manifest bounds, zero charges, sticky taint, the >= capacity edge, replay and ineligible tools. EventCapacityStateMachine reserves, commits and aborts against an explicit ledger. Wiring tests cover charging only with live pins, release on a downstream denial, and ineligible tools.
+
+## 13. blindfold_opaque_fault_validator.py (Predicate B, v14)
+
+### Invariant and representation
+
+Every refusal teaches the caller where the boundary lies, and small perturbations of a refused request search it [20]. B fingerprints a refused canonical request (4..2048 bytes) as its exact set of 4-byte grams G, plus a sorted-gram SHA-256 and a 64-bit SimHash (BLAKE2b, personalization AG-v14B) for the receipt only. A new request with grams G' is a near neighbor of a refusal when
+
+$$4\,|G\cap G'|\ \ge\ |G\cup G'|\quad\land\quad |G\cap G'|<|G\cup G'|,$$
+
+that is, exact Jaccard in [1/4, 1). A near neighbor locks its branch and is denied (B_PERTURBATION_LOCK); an exact repeat is not a perturbation. `seal` returns one constant public envelope and an HMAC-SHA256 receipt (rule, level, request fingerprint, sequence) that `verify_receipt` checks with `hmac.compare_digest`.
+
+### Locks under the standing rules
+
+A lock is the one automated action this project allows: it auto-lifts after 15 minutes and is reported as a lead for human review. Above 64 locked branches the root is locked, on the same auto-lifting timer. Refusal memory holds 32 fingerprints; sealing past that, or a request outside the size bounds, locks its branch.
+
+### Hot path and wiring
+
+`inspect` builds one gram set (at most 2045 grams) and does one intersection per remembered refusal, skipping pairs whose sizes already rule out 25% overlap. SimHash and SHA-256 are computed only when sealing. `PolicyEngine.attach_blindfold(session_id, sealer=None, opaque_wire=False)` inspects at the top of the guard chain and seals every other denial after settlement. With `opaque_wire` the agent sees `BLINDFOLD_ENVELOPE` (JSON-RPC -32079, "request refused") for every refusal; the real rule stays in findings, the decision log and `blindfold_receipts`. Locks deny with BLINDFOLD_PERTURBATION_DENIED (-32079, approximate AML.T0043). The default sealer derives its receipt key from the gateway key.
+
+### Limits
+
+A perturbation below 25% gram overlap is not caught, and an attacker who knows the policy needs no search. A legitimate retry that differs a little from a refused request locks its branch for 15 minutes: that false positive is the price of the rule, mitigated by the auto-lift and the review lead.
+
+### Tests
+
+A Hypothesis property checks `near_neighbor` against exact Fractions. Unit cases cover deterministic fingerprints, receipts and tampering, locks and their auto-lift, the root lock and its lift, and bounded refusal memory. BlindfoldStateMachine seals, inspects and advances a fake clock against a Fraction model. Wiring tests cover the lock and its lift through the gateway, receipts, unattached sessions, and identical opaque envelopes for different rules.
+
+## 14. reachability_confinement_validator.py (Predicate A, v14)
+
+### Invariant and representation
+
+Least privilege per tool does not say which tool may come next, and after untrusted input some continuations should be impossible [21, 22]. A policy is a forward-indexed DAG of at most 64 nodes (successor indices exceed their node's, so index order is topological; node 0 is the start state). A node may discharge obligation bits (at most 8) and may be forbidden when tainted; a node with no successors must be terminal. In reverse topological order the policy precomputes:
+
+$$\mathit{viable}_t[r]\ni i\iff \neg(t\land \mathit{forb}_i)\land\Big((\mathit{term}_i\land r'=0)\lor \exists j\in\mathit{succ}_i:\ j\in\mathit{viable}_t[r']\Big),\quad r'=r\land\lnot d_i,$$
+
+$$\mathit{live}_t[r][i]=\bigcup_{j\in\mathit{succ}_i,\ j\in\mathit{viable}_t[r]}\{j\}\cup\mathit{live}_t[r\land\lnot d_j][j].$$
+
+A child is looked up under the obligations its parent leaves, so a terminal reachable only after an intermediate discharge is not pruned early.
+
+### Hot path
+
+Candidates are `forward[step] & viable[tainted][obligations] & ~revoked`: three ANDs. Revocation is sticky: after every state change every node outside `live[tainted][obligations][step]` joins `revoked`. Boot is O(2^bits * n * out-degree); 64 nodes with 8 obligation bits booted in 0.12 to 0.16 s on the benchmark host across our runs.
+
+### Gateway wiring
+
+`PolicyEngine.attach_reachability(session_id, policy, obligations=0)` confines every call of the session: the tool name must be a candidate node (A_UNREACHABLE) and must be in the policy (A_NOT_IN_POLICY). Session taint, including taint C just propagated, contaminates the pruner before the check. The transition is committed only when the call is allowed, with the taint the call arrived with; taint the call's own result adds contaminates before the next call. `reachability_finish(session_id)` is the control-plane check that the run may stop (A_UNFINISHED). Denials use REACHABILITY_CONFINEMENT_DENIED (-32080, approximate AML.T0053).
+
+### Tests
+
+A Hypothesis property checks `live_paths` against brute-force path enumeration over random DAGs. Unit cases cover policy validation, the discharge-after-intermediate case, taint pruning, sticky revocation and a pure `check`. ReachabilityStateMachine boots random DAGs and moves through them against the brute-force oracle, including the sticky revocation set. Wiring tests cover viable paths, taint pruning a forbidden sink, a denied call not advancing the workflow, and C taint reaching A before it authorizes.
+
 ## Validation and deployment criteria
 
-The original reference suite has 64 passing test cases, including four RuleBasedStateMachine classes. Section 5 adds 14 cases to test_validators.py, including PetriObligationMachine, and 6 gateway wiring cases. Section 6 adds 11 cases, including TransducerMachine, and 7 gateway wiring cases. Section 7 adds 82 cases (most of them parametrized), including CanonicalArgumentMachine, and 14 gateway wiring cases. Section 8 adds 10 cases, including LedgerMachine, and 9 gateway wiring cases. Section 9 adds 28 cases, including IngressionMachine, and 9 gateway wiring cases. Section 10 adds 10 cases, including TransformMachine, and 8 gateway wiring cases. Hypothesis generates/shrinks sequences rather than just isolated messages [13]. These tests are executable evidence, not a formal proof of all schedules or operating-system behavior.
+The original reference suite has 64 passing test cases, including four RuleBasedStateMachine classes. Section 5 adds 14 cases to test_validators.py, including PetriObligationMachine, and 6 gateway wiring cases. Section 6 adds 11 cases, including TransducerMachine, and 7 gateway wiring cases. Section 7 adds 82 cases (most of them parametrized), including CanonicalArgumentMachine, and 14 gateway wiring cases. Section 8 adds 10 cases, including LedgerMachine, and 9 gateway wiring cases. Section 9 adds 28 cases, including IngressionMachine, and 9 gateway wiring cases. Section 10 adds 10 cases, including TransformMachine, and 8 gateway wiring cases. The round-2 fixes add 40 regression cases (13 Z, 10 T, 9 S, 5 D, 3 V) and extend IngressionMachine and TransformMachine. Sections 11-14 add 27 cases to test_validators.py, including CausalityStateMachine, EventCapacityStateMachine, BlindfoldStateMachine and ReachabilityStateMachine, and 16 gateway wiring cases in tests/test_v14_wiring.py. Hypothesis generates/shrinks sequences rather than just isolated messages [13]. These tests are executable evidence, not a formal proof of all schedules or operating-system behavior.
 
 benchmark.py records 5,000 samples per case, nearest-rank p99, wall and process CPU clocks, GC enabled, and warm single-process execution. Cold construction is excluded. Path measurements use a trusted in-memory filesystem model. The 16-by-256 matcher case exercises the maximum configured number and length of protected strings, but is one synthetic miss workload; it does not establish the worst case over all alphabets, shingle-length mixes, hash collisions, normalization work, or workloads. benchmark_results.json is the authoritative measured output.
 
@@ -652,6 +762,40 @@ Python 3.12.3, Linux x86-64, 5,000 samples per case, same container as the previ
 
 Python 3.12.3, Linux x86-64, 5,000 samples per case, same container as the previous four tables. Both transform cases sit at the precharged credit limit. One 128-byte pin against a 207-byte miss measured 0.378847 ms p99. The full 24 pins of 16 bytes against a 62-byte miss measured 1.335440 ms, because the credits do not charge the fixed per-pin cost of building six views. Every combined case is above the 5 ms reference at p99 on this host. benchmark_results.json holds this run.
 
+### Measured results — 31 October 2026 (round-2 fixes and the v14 cases)
+
+| Benchmark case | Wall p99 (ms) | Wall maximum (ms) |
+|---|---:|---:|
+| registry: qualified lookup, 256 pins | 0.000619 | 0.024992 |
+| path: parse + snapshot validation, 64 writes | 0.891407 | 5.915153 |
+| flow: fresh EXTERNAL step admission | 0.023590 | 0.190088 |
+| similarity: 16 x 256, 256-char miss, both modes | 2.495321 | 6.117469 |
+| obligation: outbound transition, 16 places x 64 transitions | 0.021539 | 0.049458 |
+| transducer: 1 read joined into 63 writes, copy-on-write overlay | 0.564171 | 0.922068 |
+| arguments: canonicalize 16 fields, 2048-byte wire | 0.588817 | 2.504927 |
+| command: confine 16 operands | 0.008164 | 0.046452 |
+| ledger: fire + send batch, 8 branches x 16 places | 0.051779 | 0.131756 |
+| ingress: scan 32 fields, 4096-byte response | 0.845164 | 6.114743 |
+| ingress: 512-byte query vs 8 x 128-byte pins | 0.316118 | 2.529627 |
+| transform: 207-byte query vs 1 x 128-byte pin (credit limit) | 0.681148 | 2.526318 |
+| transform: 62-byte query vs 24 x 16-byte pins (credit limit) | 2.246805 | 3.842182 |
+| combined: four bounded checks | 3.855621 | 7.111469 |
+| combined: five bounded checks (with obligation) | 4.138462 | 7.752261 |
+| combined: six bounded checks (with transducer) | 4.495453 | 10.173232 |
+| combined: seven bounded checks (with canonicalization) | 5.140388 | 7.284006 |
+| combined: eight bounded checks (with fork/join ledger) | 4.824164 | 9.114941 |
+| combined: nine bounded checks (with ingression outbound) | 5.407866 | 19.614240 |
+| combined: ten bounded checks (with transform pins) | 5.669623 | 8.033627 |
+| causality: probe, 16-deep path, 255 labels | 0.014617 | 0.035700 |
+| causality: list root, 255 labels | 0.031104 | 0.084046 |
+| causality: capacity check for one more mutation | 0.003822 | 0.040389 |
+| event channel: reserve + commit, 2**20 combinations | 0.004248 | 0.029850 |
+| blindfold: 2048-byte request vs 32 x 2048-byte refusals | 2.366797 | 5.708061 |
+| reachability: check + transition, 64 nodes x 8 obligation bits | 0.004865 | 0.119293 |
+| combined: fourteen bounded checks (with C, E, B, A) | 8.283602 | 16.742398 |
+
+Python 3.12.3, Linux x86-64, 5,000 samples per case, same container as the previous tables, re-run with the round-2 fixes and the four v14 predicates. Z's candidate views add stride variants and decoded views, so the 24-short-pin transform case rose to 2.247 ms p99. C, E and A cost microseconds at their bounds. B is the costly v14 check at its bounds: one 2048-byte request against 32 remembered 2048-byte refusals measured 2.367 ms p99 after removing SimHash from the inspect path and computing each Jaccard with one set operation. The fourteen-check combined case measured 8.284 ms p99, above the 5 ms reference; every combined case from six checks up is near or above it on this host. ReachabilityPolicy boot for 64 nodes and 8 obligation bits took 116.6 ms in this run (control-plane setup, not per call). benchmark_results.json holds this run.
+
 ## Primary sources
 
 1. [JSON-RPC 2.0 specification](https://www.jsonrpc.org/specification).
@@ -669,3 +813,10 @@ Python 3.12.3, Linux x86-64, 5,000 samples per case, same container as the previ
 13. [Hypothesis stateful testing documentation](https://hypothesis.readthedocs.io/en/latest/stateful.html).
 14. [GNU Bash redirection semantics](https://www.gnu.org/s/bash/manual/html_node/Redirections.html) and [command grouping](https://www.gnu.org/s/bash/manual/html_node/Command-Grouping.html).
 15. [Model Context Protocol, Tools, version 2025-06-18](https://modelcontextprotocol.io/specification/2025-06-18/server/tools).
+16. [Xu et al., Memory Provenance Laundering in LLM Agents](https://arxiv.org/abs/2607.29167), arXiv:2607.29167, 2026.
+17. [AGATE: Provenance-Based Runtime Defense Against Compositional Attacks on LLM Agents](https://arxiv.org/abs/2609.30830), arXiv:2609.30830, 2026.
+18. [Huang et al., Whispering Agents: An Event-Driven Covert Communication Protocol for the Internet of Agents](https://arxiv.org/abs/2508.02188), arXiv:2508.02188, 2025.
+19. [Metere, An Application-Layer Multi-Modal Covert-Channel Reference Monitor for LLM Agent Egress](https://arxiv.org/abs/2605.20734), arXiv:2605.20734, 2026.
+20. [Zhu, Zuo and Sun, Blindfold: Keeping the Audit Coin Secret from LLM Agents](https://arxiv.org/abs/2610.37055), arXiv:2610.37055, 2026.
+21. [Shi et al., Progent: Programmable Privilege Control for LLM Agents](https://arxiv.org/abs/2504.11703), arXiv:2504.11703, 2025.
+22. [Reachability-Based Capability Confinement for LLM Agents under Indirect Prompt Injection](https://arxiv.org/abs/2608.30041), arXiv:2608.30041, 2026.

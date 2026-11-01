@@ -23,6 +23,11 @@ from agent_gateway.canonical_argument_confinement import Command, FieldPolicy, P
 from agent_gateway.fork_join_vector_validator import UNIT, WIDTH, Owner, Root
 from agent_gateway.dynamic_ingression_validator import Field, Ingression
 from agent_gateway.transform_invariant_validator import CREDITS, TransformIndex
+from agent_gateway.causality_laundering_validator import CausalityValidator
+from agent_gateway.event_channel_capacity_validator import EventChannelBudget, EventManifest
+from agent_gateway.blindfold_opaque_fault_validator import BlindfoldSealer
+from agent_gateway.reachability_confinement_validator import CapabilityPruner, ReachabilityPolicy
+from agent_gateway.reachability_confinement_validator import Node as ANode
 
 N = 5000
 
@@ -243,11 +248,72 @@ def main():
         wide.check(wide_q)
 
     results.append(run("combined: ten bounded checks (with transform pins)", combined_ten, prepare_eight))
+
+    # --- v14: C, E, B, A at their bounds ------------------------------------------------
+    # C: 255 labeled paths, 16 components deep; a probe joins 16 ancestor labels and a
+    # root listing scans every label.
+    causal = CausalityValidator()
+    deep = "/workspace/" + "/".join(f"d{i}" for i in range(15))
+    for i in range(255):
+        causal.record_mutation("w", "create", f"{deep}/f{i}")
+    probe_path = f"{deep}/f254"
+    # E: 64 eligible tools x 8 dimensions (2**20 combinations), reserve + commit.
+    e_manifest = EventManifest(tuple(f"tool{i}" for i in range(64)), (4, 4, 4, 4, 2, 2, 2, 2))
+
+    def fresh_budget():
+        holder["budget"] = EventChannelBudget("root", "sink", 4096)
+
+    def e_case():
+        holder["budget"].reserve("e", "tool63", e_manifest, branch_tainted=True, live_pins=True)
+        holder["budget"].commit("e")
+
+    # B: a 2048-byte request against 32 remembered 2048-byte refusals, all misses.
+    brng = random.Random(23)
+    sealer = BlindfoldSealer(b"benchmark-only-receipt-key-32byte!", clock=lambda: 0.0)
+    for i in range(32):
+        sealer.seal("w", bytes(brng.choices(range(32, 127), k=2048)), "denied")
+    b_query = bytes(brng.choices(range(32, 127), k=2048))
+    # A: a 64-node DAG with 8 obligation bits; boot timed once, transitions per sample.
+    a_nodes = [ANode(f"n{i}", tuple(range(i + 1, 64)), terminal=i >= 60,
+                     discharge_mask=(1 << (i % 8)) if i < 60 else 0) for i in range(64)]
+    t0 = time.perf_counter_ns()
+    a_policy = ReachabilityPolicy(a_nodes, 8)
+    a_boot_ms = (time.perf_counter_ns() - t0) / 1e6
+
+    def fresh_pruner():
+        holder["pruner"] = CapabilityPruner(a_policy, obligations=0xFF)
+
+    results += [
+        run("causality: probe, 16-deep path, 255 labels", lambda: causal.probe("r", probe_path)),
+        run("causality: list root, 255 labels", lambda: causal.list_directory("r", "/workspace")),
+        run("causality: capacity check for one more mutation",
+            lambda: causal.check_mutation("w", "create", "/workspace/new")),
+        run("event channel: reserve + commit, 2**20 combinations", e_case, fresh_budget),
+        run("blindfold: 2048-byte request vs 32 x 2048-byte refusals", lambda: sealer.inspect("q", b_query)),
+        run("reachability: check + transition, 64 nodes x 8 obligation bits",
+            lambda: holder["pruner"].transition("n1"), fresh_pruner),
+    ]
+
+    def prepare_fourteen():
+        prepare_eight()
+        fresh_budget()
+        fresh_pruner()
+
+    def combined_fourteen():
+        combined_ten()
+        causal.probe("r", probe_path)
+        holder["pruner"].transition("n1")
+        e_case()
+        sealer.inspect("q", b_query)
+
+    results.append(run("combined: fourteen bounded checks (with C, E, B, A)", combined_fourteen,
+                       prepare_fourteen))
     output = {
         "python": sys.version, "platform": platform.platform(),
         "gc_enabled": gc.isenabled(), "samples_per_case": N,
         "matcher_tracemalloc_retained_bytes": matcher_retained,
         "matcher_tracemalloc_peak_bytes": matcher_peak,
+        "reachability_policy_boot_ms_64_nodes_8_bits": a_boot_ms,
         "methodology": (
             "Sequential warm-process microbenchmark; deterministic synthetic inputs; "
             "wall and process CPU clocks; setup excluded; GC left enabled. Path uses "

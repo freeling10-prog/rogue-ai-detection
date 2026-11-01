@@ -2003,3 +2003,577 @@ def test_round2_candidate_views_leave_benign_text_alone(benign):
     index = TransformIndex([R2_SECRET, b"ghp_0123456789abcdef", b"billing-db.internal"])
     index.check(benign)
     assert z_oracle([R2_SECRET, b"ghp_0123456789abcdef", b"billing-db.internal"], benign) is None
+
+
+# ======================================================================================
+# v14 reference validators: C, E, B, A. Every oracle below is written independently of
+# the module it checks (brute-force paths, Fractions, explicit dictionaries).
+# ======================================================================================
+
+from fractions import Fraction
+from itertools import product as _product
+
+from hypothesis.stateful import precondition
+
+from agent_gateway.blindfold_opaque_fault_validator import (
+    AGENT_ENVELOPE, LOCK_SECONDS, MAX_LOCKED, MAX_REFUSALS, BlindfoldSealer, fingerprint,
+    near_neighbor, verify_receipt)
+from agent_gateway.causality_laundering_validator import (
+    MAX_BRANCHES as C_MAX_BRANCHES, MAX_PATHS as C_MAX_PATHS, CausalityValidator, canonical_path)
+from agent_gateway.event_channel_capacity_validator import (
+    EventChannelBudget, EventManifest, quarter_bits)
+from agent_gateway.reachability_confinement_validator import (
+    CapabilityPruner, Node as ANode, ReachabilityPolicy)
+
+
+def reason_of(fn, *args, **kwargs) -> str:
+    with pytest.raises(Denied) as err:
+        fn(*args, **kwargs)
+    return str(err.value)
+
+
+# --- Predicate C: causality_laundering_validator -------------------------------------
+
+def test_c_paths_are_canonical_and_bounded():
+    assert canonical_path("/workspace/a/b") == "/workspace/a/b"
+    for bad in ("/workspace/../etc", "/workspace//a", "/workspace/a/", "/other/a", "/workspace/./a",
+                "/workspace/" + "x/" * 16 + "y", "/workspace/" + "é" * 200, 7, "/workspace/a\x00"):
+        assert reason_of(canonical_path, bad) == "C_PATH"
+
+
+def test_c_absence_is_a_channel_too():
+    c = CausalityValidator()
+    c.push_pc("writer", True)  # decision depends on untrusted data
+    c.record_mutation("writer", "create", "/workspace/flag")
+    c.record_mutation("writer", "unlink", "/workspace/flag")
+    assert c.entries["/workspace/flag"] is True  # tombstone kept
+    assert c.probe("reader", "/workspace/flag") is True and c.is_tainted("reader")
+
+
+def test_c_clean_pc_leaves_clean_labels_and_labels_never_fall():
+    c = CausalityValidator()
+    c.record_mutation("w", "create", "/workspace/a")
+    assert c.probe("r", "/workspace/a") is False and not c.is_tainted("r")
+    c.push_pc("w", True)
+    c.record_mutation("w", "create", "/workspace/a")
+    c.pop_pc("w")
+    c.record_mutation("w", "create", "/workspace/a")  # clean again: label stays tainted
+    assert c.entries["/workspace/a"] is True
+
+
+def test_c_directory_listing_sees_nested_labels_and_ancestors_taint_probes():
+    c = CausalityValidator()
+    c.push_pc("w", True)
+    c.record_mutation("w", "mkdir", "/workspace/d")
+    c.pop_pc("w")
+    c.record_mutation("w", "create", "/workspace/e/deep/x")
+    assert c.probe("p1", "/workspace/d/child") is True  # under a tainted directory
+    assert c.list_directory("p2", "/workspace/e") is False
+    c.push_pc("w", True)
+    c.record_mutation("w", "rename", "/workspace/e/deep/x", "/workspace/e/deep/y")
+    assert c.list_directory("p3", "/workspace") is True
+    assert c.entries["/workspace/e/deep/x"] is True and c.entries["/workspace/e/deep/y"] is True
+
+
+def test_c_status_labels_flow_to_observers():
+    c = CausalityValidator()
+    c.ingest_untrusted("a")
+    c.record_status("a", "job-7", "done")
+    assert c.observe_status("b", "job-7") == "done" and c.is_tainted("b")
+    assert c.observe_status("c", "job-8") is None and not c.is_tainted("c")
+
+
+def test_c_capacity_is_checked_before_mutating():
+    c = CausalityValidator()
+    for i in range(C_MAX_PATHS):
+        c.record_mutation("w", "create", f"/workspace/f{i}")
+    before = dict(c.entries)
+    assert reason_of(c.record_mutation, "w", "create", "/workspace/extra") == "C_CAPACITY"
+    assert c.entries == before
+    c.record_mutation("w", "unlink", "/workspace/f0")  # existing name: no new slot
+
+
+def test_c_bounds_and_operations():
+    c = CausalityValidator()
+    assert reason_of(c.record_mutation, "w", "chmod", "/workspace/a") == "C_OPERATION"
+    assert reason_of(c.record_mutation, "w", "rename", "/workspace/a") == "C_DEST"
+    assert reason_of(c.record_mutation, "w", "create", "/workspace/a", "/workspace/b") == "C_DEST"
+    assert reason_of(c.pop_pc, "w") == "C_PC_UNDERFLOW"
+    for _ in range(16):
+        c.push_pc("w", False)
+    assert reason_of(c.push_pc, "w", False) == "C_PC_DEPTH"
+    assert reason_of(c.push_pc, "w", 1) == "C_PC_LABEL"
+    for i in range(C_MAX_BRANCHES - 1):
+        c.branch(f"b{i}")
+    assert reason_of(c.branch, "one-too-many") == "C_BRANCHES"
+
+
+class CausalityStateMachine(RuleBasedStateMachine):
+    """Branch, pc and namespace operations against an explicit label model."""
+
+    PATHS = ["/workspace/a", "/workspace/b", "/workspace/d", "/workspace/d/x", "/workspace/d/y"]
+    BRANCHES = ["b0", "b1", "b2"]
+
+    def __init__(self):
+        super().__init__()
+        self.c = CausalityValidator()
+        self.tainted = {b: False for b in self.BRANCHES}
+        self.pc = {b: [] for b in self.BRANCHES}
+        self.labels: dict[str, bool] = {}  # path -> tainted, files and directories together
+
+    def pc_tainted(self, b):
+        return self.tainted[b] or any(self.pc[b])
+
+    def path_label(self, p):
+        parts = p.split("/")
+        ancestors = ["/".join(parts[:i]) for i in range(3, len(parts))]
+        return self.labels.get(p, False) or any(self.labels.get(a, False) for a in ancestors)
+
+    @rule(b=st.sampled_from(BRANCHES))
+    def ingest(self, b):
+        self.c.ingest_untrusted(b)
+        self.tainted[b] = True
+
+    @rule(b=st.sampled_from(BRANCHES), label=st.booleans())
+    def push(self, b, label):
+        ok = len(self.pc[b]) < 16
+        assert allows(self.c.push_pc, b, label) == ok
+        if ok:
+            self.pc[b].append(label)
+
+    @rule(b=st.sampled_from(BRANCHES))
+    def pop(self, b):
+        ok = bool(self.pc[b])
+        assert allows(self.c.pop_pc, b) == ok
+        if ok:
+            self.pc[b].pop()
+
+    @rule(b=st.sampled_from(BRANCHES), op=st.sampled_from(["create", "unlink", "mkdir", "rmdir", "rename"]),
+          p=st.sampled_from(PATHS), q=st.sampled_from(PATHS))
+    def mutate(self, b, op, p, q):
+        dest = q if op == "rename" else None
+        ok = not (op == "rename" and p == q)
+        assert allows(self.c.record_mutation, b, op, p, dest) == ok
+        if ok:
+            for path in ([p, q] if op == "rename" else [p]):
+                self.labels[path] = self.labels.get(path, False) or self.pc_tainted(b)
+
+    @rule(b=st.sampled_from(BRANCHES), p=st.sampled_from(PATHS))
+    def probe(self, b, p):
+        expected = self.path_label(p)
+        assert self.c.probe(b, p) == expected
+        self.tainted[b] = self.tainted[b] or expected
+
+    @rule(b=st.sampled_from(BRANCHES), d=st.sampled_from(["/workspace", "/workspace/d"]))
+    def listing(self, b, d):
+        expected = self.path_label(d) or any(v for p, v in self.labels.items() if p.startswith(d + "/"))
+        assert self.c.list_directory(b, d) == expected
+        self.tainted[b] = self.tainted[b] or expected
+
+    @invariant()
+    def agrees(self):
+        for b in self.BRANCHES:
+            assert self.c.branch(b).tainted == self.tainted[b]
+            assert self.c.branch(b).pc_stack == self.pc[b]
+        merged = {**self.c.entries, **{k: v or self.c.entries.get(k, False)
+                                       for k, v in self.c.directories.items()}}
+        for p, v in self.labels.items():
+            assert merged.get(p, False) == v
+
+
+TestCausality = CausalityStateMachine.TestCase
+TestCausality.settings = settings(max_examples=60, stateful_step_count=40, deadline=None)
+
+
+# --- Predicate E: event_channel_capacity_validator -----------------------------------
+
+def quarter_bits_oracle(n: int) -> int:
+    q = 0
+    while (1 << q) < n ** 4:  # smallest q with 2**(q/4) >= n
+        q += 1
+    return q
+
+
+@given(st.integers(1, 1 << 20))
+def test_e_quarter_bits_is_exact_ceil_of_four_log2(n):
+    assert quarter_bits(n) == quarter_bits_oracle(n)
+
+
+def test_e_quarter_bits_bounds():
+    assert [quarter_bits(n) for n in (1, 2, 3, 4, 16)] == [0, 4, 7, 8, 16]
+    for bad in (0, (1 << 20) + 1, 2.0, True):
+        assert reason_of(quarter_bits, bad) == "E_INVALID_CHOICES"
+
+
+def test_e_manifest_bounds():
+    assert EventManifest(("send_email",), (4, 4)).combinations == 16
+    for tools, dims in [((), ()), (("a", "a"), ()), (tuple(f"t{i}" for i in range(65)), ()),
+                        (("a",), (0,)), (("a",), (1025,)), (("a",), (2,) * 9),
+                        (("a", "b"), (1024, 1024)), (["a"], ())]:
+        with pytest.raises(Denied):
+            EventManifest(tools, dims)
+
+
+def test_e_two_phase_charges_only_what_could_carry_a_secret():
+    m = EventManifest(("send_email", "webhook.send"), (4,))  # 8 combinations -> 12 quarter bits
+    e = EventChannelBudget("root", "sink", 32)
+    assert e.reserve("e1", "send_email", m, branch_tainted=False, live_pins=False) == 0
+    e.commit("e1")
+    assert e.reserve("e2", "send_email", m, branch_tainted=False, live_pins=True) == 12
+    e.abort("e2")
+    assert e.spent == 0 and e.reserved == 0
+    assert e.reserve("e3", "webhook.send", m, branch_tainted=True, live_pins=False) == 12
+    e.commit("e3")
+    assert e.sticky_tainted
+    # Sticky: a clean branch after a tainted one is still charged.
+    assert e.reserve("e4", "send_email", m, branch_tainted=False, live_pins=False) == 12
+    assert e.spent + e.reserved == 24
+    assert reason_of(e.reserve, "e5", "send_email", m, branch_tainted=False, live_pins=False) == "E_CAPACITY"
+    assert reason_of(e.reserve, "e4", "send_email", m, branch_tainted=False, live_pins=False) == "E_REPLAY"
+    assert reason_of(e.reserve, "e6", "file.write", m, branch_tainted=False, live_pins=False) == "E_INELIGIBLE"
+    assert reason_of(e.commit, "nope") == "E_UNKNOWN_EVENT"
+    assert reason_of(e.abort, "e1") == "E_UNKNOWN_EVENT"
+
+
+def test_e_capacity_uses_greater_or_equal():
+    m = EventManifest(("t",), (16,))  # 16 quarter bits
+    e = EventChannelBudget("r", "s", 32)
+    e.reserve("a", "t", m, branch_tainted=True, live_pins=False)
+    assert reason_of(e.reserve, "b", "t", m, branch_tainted=True, live_pins=False) == "E_CAPACITY"  # 32 >= 32
+
+
+class EventCapacityStateMachine(RuleBasedStateMachine):
+    """Reserve / commit / abort against an explicit ledger model."""
+
+    MANIFESTS = [EventManifest(("send",)), EventManifest(("send", "post"), (3,)), EventManifest(("send",), (16,))]
+
+    def __init__(self):
+        super().__init__()
+        self.e = EventChannelBudget("root", "sink", 40)
+        self.spent = 0
+        self.pending: dict[str, int] = {}
+        self.used: set[str] = set()
+        self.sticky = False
+        self.n = 0
+
+    @rule(m=st.sampled_from(range(3)), tainted=st.booleans(), pins=st.booleans(),
+          tool=st.sampled_from(["send", "post"]))
+    def reserve(self, m, tainted, pins, tool):
+        self.n += 1
+        eid = f"e{self.n}"
+        manifest = self.MANIFESTS[m]
+        sticky = self.sticky or tainted
+        charge = quarter_bits_oracle(manifest.combinations) if (sticky or pins) else 0
+        ok = (tool in manifest.eligible_tools and len(self.pending) < 32
+              and len(self.used) + len(self.pending) < 256
+              and self.spent + sum(self.pending.values()) + charge < 40)
+        assert allows(self.e.reserve, eid, tool, manifest, branch_tainted=tainted, live_pins=pins) == ok
+        if ok:
+            self.sticky = sticky
+            self.pending[eid] = charge
+
+    @precondition(lambda self: self.pending)
+    @rule(data=st.data(), commit=st.booleans())
+    def settle(self, data, commit):
+        eid = data.draw(st.sampled_from(sorted(self.pending)))
+        charge = self.pending.pop(eid)
+        if commit:
+            self.e.commit(eid)
+            self.spent += charge
+            self.used.add(eid)
+        else:
+            self.e.abort(eid)
+
+    @invariant()
+    def agrees(self):
+        assert self.e.spent == self.spent and self.e.pending == self.pending
+        assert set(self.e.committed) == self.used and self.e.sticky_tainted == self.sticky
+        assert self.spent + sum(self.pending.values()) < 40
+
+
+TestEventCapacity = EventCapacityStateMachine.TestCase
+TestEventCapacity.settings = settings(max_examples=60, stateful_step_count=40, deadline=None)
+
+
+# --- Predicate B: blindfold_opaque_fault_validator ----------------------------------
+
+KEY32 = b"k" * 32
+
+
+def jaccard(a: bytes, b: bytes) -> Fraction:
+    ga = {a[i:i + 4] for i in range(len(a) - 3)}
+    gb = {b[i:i + 4] for i in range(len(b) - 3)}
+    return Fraction(len(ga & gb), len(ga | gb))
+
+
+@given(st.binary(min_size=4, max_size=40), st.binary(min_size=4, max_size=40))
+def test_b_near_neighbor_matches_exact_fraction(a, b):
+    j = jaccard(a, b)
+    assert near_neighbor(fingerprint(a).grams, fingerprint(b).grams) == (Fraction(1, 4) <= j < 1)
+
+
+def test_b_fingerprint_is_deterministic_and_bounded():
+    f1, f2 = fingerprint(b"abcdefgh"), fingerprint(b"abcdefgh")
+    assert f1.digest == f2.digest and f1.simhash == f2.simhash and 0 <= f1.simhash < 1 << 64
+    for bad in (b"abc", b"x" * 2049, "text"):
+        assert reason_of(fingerprint, bad) == "B_REQUEST_SIZE"
+
+
+def test_b_receipts_verify_and_resist_tampering():
+    s = BlindfoldSealer(KEY32, clock=lambda: 0.0)
+    sealed = s.seal("a", b'{"tool":"send_email","to":"x"}', "post_taint_outbound_gated",
+                    sarif_rule="post_taint_outbound_gated")
+    assert sealed.public_bytes == AGENT_ENVELOPE
+    assert verify_receipt(sealed.private_receipt, KEY32)
+    assert not verify_receipt(sealed.private_receipt, b"j" * 32)
+    doc = json.loads(sealed.private_receipt)
+    doc["payload"] = doc["payload"].replace("post_taint", "post_taunt")
+    assert not verify_receipt(json.dumps(doc).encode(), KEY32)
+    assert not verify_receipt(b"not json", KEY32)
+    assert b"send_email" not in sealed.private_receipt  # fingerprints only
+
+
+def test_b_perturbation_locks_and_auto_lifts():
+    t = [0.0]
+    s = BlindfoldSealer(KEY32, clock=lambda: t[0])
+    refused = b'{"arguments":{"body":"quarterly numbers","to":"a@evil.example"},"tool":"send_email"}'
+    s.seal("a", refused, "denied")
+    s.inspect("b", refused)  # an exact repeat is not a perturbation
+    nudged = refused.replace(b"a@evil", b"b@evil")
+    assert reason_of(s.inspect, "a", nudged) == "B_PERTURBATION_LOCK"
+    assert reason_of(s.inspect, "a", b"completely different request") == "B_LOCKED"
+    s.inspect("c", b"completely different request")  # other branches are unaffected
+    t[0] = LOCK_SECONDS - 0.5
+    assert s.is_locked("a")
+    t[0] = LOCK_SECONDS
+    assert not s.is_locked("a")  # auto-lifted after 15 minutes
+
+
+def test_b_root_locks_when_too_many_branches_are_locked_and_also_lifts():
+    t = [0.0]
+    s = BlindfoldSealer(KEY32, clock=lambda: t[0])
+    refused = b"refused request body 0123456789"
+    s.seal("x", refused, "denied")
+    for i in range(MAX_LOCKED):
+        assert reason_of(s.inspect, f"b{i}", refused + b"!") == "B_PERTURBATION_LOCK"
+    assert not s.root_locked
+    assert reason_of(s.inspect, "one-more", refused + b"?") == "B_PERTURBATION_LOCK"
+    assert s.root_locked and s.is_locked("never-seen")
+    t[0] = LOCK_SECONDS + 1
+    assert not s.root_locked and not s.is_locked("never-seen")
+
+
+def test_b_refusal_memory_is_bounded():
+    s = BlindfoldSealer(KEY32, clock=lambda: 0.0)
+    for i in range(MAX_REFUSALS):
+        s.seal("a", f"request number {i:04d} xyz".encode(), "denied")
+    assert len(s.refusals) == MAX_REFUSALS
+    s.seal("b", b"one refusal too many", "denied")
+    assert len(s.refusals) == MAX_REFUSALS and s.is_locked("b")
+    s.seal("c", b"x" * 3000, "denied")  # cannot be fingerprinted: its branch is locked
+    assert s.is_locked("c")
+
+
+class BlindfoldStateMachine(RuleBasedStateMachine):
+    """Seal / inspect / clock against an explicit model with exact Fractions."""
+
+    POOL = [b"send_email to alice: hello there", b"send_email to alicf: hello there",
+            b"send_email to bob: weekly report", b"file.write /ws/a: content one",
+            b"file.write /ws/b: content one", b"totally unrelated request text"]
+
+    def __init__(self):
+        super().__init__()
+        self.t = 0.0
+        self.s = BlindfoldSealer(KEY32, clock=lambda: self.t, lock_seconds=60)
+        self.refused: list[bytes] = []
+        self.locks: dict[str, float] = {}
+
+    def locked(self, b):
+        return self.locks.get(b, -1) > self.t
+
+    @rule(i=st.integers(0, 5), b=st.sampled_from(["a", "b"]))
+    def seal(self, i, b):
+        req = self.POOL[i]
+        self.s.seal(b, req, "denied")
+        if req not in self.refused:
+            self.refused.append(req)
+
+    @rule(i=st.integers(0, 5), b=st.sampled_from(["a", "b"]))
+    def inspect(self, i, b):
+        req = self.POOL[i]
+        if self.locked(b):
+            assert reason_of(self.s.inspect, b, req) == "B_LOCKED"
+            return
+        near = any(Fraction(1, 4) <= jaccard(req, r) < 1 for r in self.refused)
+        if near:
+            assert reason_of(self.s.inspect, b, req) == "B_PERTURBATION_LOCK"
+            self.locks[b] = self.t + 60
+        else:
+            self.s.inspect(b, req)
+
+    @rule(dt=st.sampled_from([1.0, 30.0, 61.0]))
+    def tick(self, dt):
+        self.t += dt
+
+    @invariant()
+    def agrees(self):
+        for b in ("a", "b"):
+            assert self.s.is_locked(b) == self.locked(b)
+        assert len(self.s.refusals) == len(self.refused)
+
+
+TestBlindfold = BlindfoldStateMachine.TestCase
+TestBlindfold.settings = settings(max_examples=60, stateful_step_count=40, deadline=None)
+
+
+# --- Predicate A: reachability_confinement_validator -------------------------------
+
+def a_paths(nodes, start):
+    """Every path (as index lists) from ``start``'s successors to the end of the DAG."""
+    out = []
+
+    def walk(path):
+        last = path[-1]
+        out.append(path)
+        for j in nodes[last].successors:
+            walk(path + [j])
+    for j in nodes[start].successors:
+        walk([j])
+    return out
+
+
+def a_completes(nodes, path, obligations, tainted):
+    """True when following ``path`` and stopping at its end is a valid completion."""
+    rem = obligations
+    for j in path:
+        if tainted and nodes[j].forbidden_if_tainted:
+            return False
+        rem &= ~nodes[j].discharge_mask
+    return nodes[path[-1]].terminal and rem == 0
+
+
+def a_oracle_candidates(nodes, step, obligations, tainted):
+    return {p[0] for p in a_paths(nodes, step) if a_completes(nodes, p, obligations, tainted)}
+
+
+def a_oracle_live(nodes, step, obligations, tainted):
+    return {j for p in a_paths(nodes, step) if a_completes(nodes, p, obligations, tainted) for j in p}
+
+
+SAMPLE = [ANode("start", (1, 2)), ANode("read", (3,)), ANode("web.fetch", (3,)),
+          ANode("approve", (4,), discharge_mask=1), ANode("send_email", (), terminal=True,
+                                                          forbidden_if_tainted=True)]
+
+
+def test_a_policy_validation():
+    for nodes, bits, reason in [
+        ([], 0, "A_NODES"), ([ANode("a", (0,), terminal=True)], 0, "A_NOT_FORWARD"),
+        ([ANode("a", (1, 1)), ANode("b", terminal=True)], 0, "A_NOT_FORWARD"),
+        ([ANode("a")], 0, "A_DEAD_END"), ([ANode("a", terminal=True, discharge_mask=2)], 1, "A_DISCHARGE"),
+        ([ANode("a", terminal=True)], 9, "A_OBLIGATIONS"),
+        ([ANode("a", terminal=True)] * 65, 0, "A_NODES"),
+    ]:
+        assert reason_of(ReachabilityPolicy, nodes, bits) == reason
+
+
+def test_a_terminal_after_a_discharge_is_not_pruned_early():
+    p = CapabilityPruner(ReachabilityPolicy(SAMPLE, 1), obligations=1)
+    assert p.candidates() == ("read", "web.fetch")
+    p.transition("read")
+    assert p.candidates() == ("approve",)
+    assert reason_of(p.terminate_or_deny) == "A_UNFINISHED"
+    p.transition("approve")
+    p.transition("send_email")
+    p.terminate_or_deny()
+
+
+def test_a_taint_prunes_forbidden_paths_and_revocation_is_sticky():
+    p = CapabilityPruner(ReachabilityPolicy(SAMPLE, 1), obligations=1)
+    p.transition("web.fetch")  # reached clean; its output taints the session
+    p.contaminate()
+    assert p.candidates() == () and p.tainted
+    assert reason_of(p.transition, "approve") == "A_UNREACHABLE"
+    assert reason_of(p.transition, "nonexistent") == "A_NOT_IN_POLICY"
+    assert p.revoked_mask & (1 << 4)
+
+
+def test_a_check_is_pure():
+    p = CapabilityPruner(ReachabilityPolicy(SAMPLE, 1), obligations=1)
+    before = (p.step, p.obligations, p.tainted, p.revoked_mask)
+    assert p.check("read") == 1 and p.check(2) == 2
+    assert reason_of(p.check, 2, incoming_taint=True) == "A_UNREACHABLE"  # every path ends forbidden
+    assert (p.step, p.obligations, p.tainted, p.revoked_mask) == before
+
+
+@st.composite
+def dags(draw):
+    n = draw(st.integers(2, 7))
+    bits = draw(st.integers(0, 2))
+    nodes = []
+    for i in range(n):
+        succ = tuple(sorted(draw(st.sets(st.integers(i + 1, n - 1), max_size=3)))) if i < n - 1 else ()
+        terminal = draw(st.booleans()) or not succ
+        nodes.append(ANode(f"t{i % 4}", succ, terminal, draw(st.integers(0, (1 << bits) - 1)),
+                           draw(st.booleans()) if i else False))
+    return nodes, bits
+
+
+@given(dags(), st.data())
+def test_a_tables_match_brute_force_paths(dag, data):
+    nodes, bits = dag
+    policy = ReachabilityPolicy(nodes, bits)
+    for t, r, i in _product((0, 1), range(1 << bits), range(len(nodes))):
+        live = a_oracle_live(nodes, i, r & ~nodes[i].discharge_mask, bool(t))
+        assert {j for j in range(len(nodes)) if (policy.live_paths[t][r & ~nodes[i].discharge_mask][i] >> j) & 1} == live
+
+
+class ReachabilityStateMachine(RuleBasedStateMachine):
+    """Random DAGs and transitions against brute-force path enumeration."""
+
+    @rule(dag=dags(), obligations=st.integers(0, 3))
+    def boot(self, dag, obligations):
+        nodes, bits = dag
+        obligations &= (1 << bits) - 1
+        self.nodes, self.policy = nodes, ReachabilityPolicy(nodes, bits)
+        self.p = CapabilityPruner(self.policy, obligations=obligations)
+        self.step, self.obl, self.tainted = 0, obligations & ~nodes[0].discharge_mask, False
+        self.revoked = set(range(len(nodes))) - a_oracle_live(nodes, 0, self.obl, False)
+
+    def expected(self):
+        return {j for j in a_oracle_candidates(self.nodes, self.step, self.obl, self.tainted)
+                if j not in self.revoked}
+
+    @precondition(lambda self: hasattr(self, "p"))
+    @rule(data=st.data(), taint=st.booleans())
+    def move(self, data, taint):
+        j = data.draw(st.integers(0, len(self.nodes) - 1))
+        tainted = self.tainted or taint
+        ok = j in {k for k in a_oracle_candidates(self.nodes, self.step, self.obl, tainted)
+                   if k not in self.revoked | (set(range(len(self.nodes)))
+                                               - a_oracle_live(self.nodes, self.step, self.obl, tainted)
+                                               if tainted != self.tainted else self.revoked)}
+        assert allows(self.p.transition, j, incoming_taint=taint) == ok
+        if taint and not self.tainted:
+            self.tainted = True
+            self.revoked |= set(range(len(self.nodes))) - a_oracle_live(self.nodes, self.step, self.obl, True)
+        if ok:
+            self.step = j
+            self.obl &= ~self.nodes[j].discharge_mask
+            self.revoked |= set(range(len(self.nodes))) - a_oracle_live(self.nodes, j, self.obl, self.tainted)
+
+    @precondition(lambda self: hasattr(self, "p"))
+    @rule()
+    def finish(self):
+        ok = self.nodes[self.step].terminal and self.obl == 0
+        assert allows(self.p.terminate_or_deny) == ok
+
+    @invariant()
+    def agrees(self):
+        if hasattr(self, "p"):
+            mask = self.p._candidate_mask()
+            assert {j for j in range(len(self.nodes)) if (mask >> j) & 1} == self.expected()
+            assert {j for j in range(len(self.nodes)) if (self.p.revoked_mask >> j) & 1} == self.revoked
+
+
+TestReachability = ReachabilityStateMachine.TestCase
+TestReachability.settings = settings(max_examples=60, stateful_step_count=30, deadline=None)

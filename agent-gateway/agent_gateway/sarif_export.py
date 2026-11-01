@@ -183,6 +183,23 @@ RULES: dict[str, tuple[str, str, tuple[str, ...], str]] = {
                                    "An outbound argument carried a protected or learned value reversed, byte-shifted, "
                                    "XOR-masked, Caesar-shifted, as word initials or as reordered 4-byte blocks, or "
                                    "exceeded the transform check's precharged work budget."),
+    "CAUSALITY_LAUNDERING_DENIED": ("error", "Namespace or status effect outside causality bounds",
+                                    ("AML.T0086",),
+                                    "A branch's file create/unlink/rename, directory or status effect, or an "
+                                    "observation of one, fell outside the bounded label model (path, branch, "
+                                    "pc-stack or capacity limits). Labeled effects taint their observers."),
+    "EVENT_CHANNEL_CAPACITY_DENIED": ("error", "Event-selection channel budget exhausted", ("AML.T0086",),
+                                      "An outbound call was not an eligible event for its sink, or choosing it "
+                                      "would exceed the sink's quarter-bit selection budget while the session "
+                                      "was tainted or held live secret pins."),
+    "BLINDFOLD_PERTURBATION_DENIED": ("warning", "Near-neighbor retry of a refused request", ("AML.T0043",),
+                                      "A request overlapped a recently refused request by 25% or more of its "
+                                      "4-byte grams without repeating it, or came from a branch locked for that "
+                                      "reason. The lock auto-lifts after 15 minutes; review the lead."),
+    "REACHABILITY_CONFINEMENT_DENIED": ("error", "Call outside the workflow's viable paths", ("AML.T0053",),
+                                        "A call was not a successor on a path that can still reach a terminal "
+                                        "with every obligation discharged (and, once tainted, without a "
+                                        "forbidden step), or the workflow tried to stop early."),
     "analyzer_match": ("warning", "Offline analyzer match", (),
                        "A match reported by the offline agentwatch-analyzer."),
 }
@@ -225,6 +242,10 @@ OWASP_ASI: dict[str, tuple[str, ...]] = {
     "FORK_JOIN_LEDGER_DENIED": ("ASI07",),
     "DYNAMIC_INGRESSION_DENIED": ("ASI02",),
     "TRANSFORM_INVARIANT_DENIED": ("ASI02",),
+    "CAUSALITY_LAUNDERING_DENIED": ("ASI06",),
+    "EVENT_CHANNEL_CAPACITY_DENIED": ("ASI07",),
+    "BLINDFOLD_PERTURBATION_DENIED": ("ASI01",),
+    "REACHABILITY_CONFINEMENT_DENIED": ("ASI02",),
 }
 # Rule id -> approximate OWASP Top 10 for LLM Applications (2025) category.
 OWASP_LLM: dict[str, tuple[str, ...]] = {
@@ -259,6 +280,10 @@ OWASP_LLM: dict[str, tuple[str, ...]] = {
     "FORK_JOIN_LEDGER_DENIED": ("LLM10:2025",),
     "DYNAMIC_INGRESSION_DENIED": ("LLM02:2025",),
     "TRANSFORM_INVARIANT_DENIED": ("LLM02:2025",),
+    "CAUSALITY_LAUNDERING_DENIED": ("LLM02:2025",),
+    "EVENT_CHANNEL_CAPACITY_DENIED": ("LLM02:2025",),
+    "BLINDFOLD_PERTURBATION_DENIED": ("LLM01:2025",),
+    "REACHABILITY_CONFINEMENT_DENIED": ("LLM06:2025",),
 }
 # Rule id -> CWE ids and OWASP Top 10 (2021) category, for web-application rules.
 CWE: dict[str, tuple[str, ...]] = {
@@ -298,6 +323,10 @@ CWE: dict[str, tuple[str, ...]] = {
     "FORK_JOIN_LEDGER_DENIED": ("CWE-770", "CWE-362"),
     "DYNAMIC_INGRESSION_DENIED": ("CWE-201", "CWE-522"),
     "TRANSFORM_INVARIANT_DENIED": ("CWE-201", "CWE-1039"),
+    "CAUSALITY_LAUNDERING_DENIED": ("CWE-203", "CWE-385"),
+    "EVENT_CHANNEL_CAPACITY_DENIED": ("CWE-514", "CWE-770"),
+    "BLINDFOLD_PERTURBATION_DENIED": ("CWE-204", "CWE-209"),
+    "REACHABILITY_CONFINEMENT_DENIED": ("CWE-863", "CWE-841"),
 }
 OWASP_WEB: dict[str, tuple[str, ...]] = {
     "PHP_PATH_TRAVERSAL": ("A01:2021",),
@@ -328,6 +357,8 @@ _LOG_KIND_RULES = frozenset({
     "FLOW_MANIFEST_DENIED", "SIMILARITY_LEAK_DENIED", "OBLIGATION_PROTOCOL_DENIED",
     "FS_LABEL_FLOW_DENIED", "ARGUMENT_CONFINEMENT_DENIED", "FORK_JOIN_LEDGER_DENIED",
     "DYNAMIC_INGRESSION_DENIED", "TRANSFORM_INVARIANT_DENIED",
+    "CAUSALITY_LAUNDERING_DENIED", "EVENT_CHANNEL_CAPACITY_DENIED", "BLINDFOLD_PERTURBATION_DENIED",
+    "REACHABILITY_CONFINEMENT_DENIED",
 })
 
 

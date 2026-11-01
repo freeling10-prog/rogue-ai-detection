@@ -104,6 +104,8 @@ import math
 import re
 import time
 import unicodedata
+from collections import deque
+from itertools import count as _count
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
@@ -144,6 +146,10 @@ from .fork_join_vector_validator import (
     FIRE as LEDGER_FIRE, FORK as LEDGER_FORK, SEND as LEDGER_SEND, TAINT as LEDGER_TAINT,
     ZERO as LEDGER_ZERO, Owner as LedgerOwner, Root as LedgerRoot,
 )
+from .blindfold_opaque_fault_validator import BlindfoldSealer
+from .causality_laundering_validator import CausalityValidator
+from .event_channel_capacity_validator import EventChannelBudget, EventManifest
+from .reachability_confinement_validator import CapabilityPruner, ReachabilityPolicy
 from .canonical_argument_confinement import (
     Policy as ArgumentPolicy, command_from_arguments, confine, encode_arguments, loads_strict,
     plain_numbers,
@@ -256,6 +262,24 @@ FORK_JOIN_LEDGER_DENIED = "FORK_JOIN_LEDGER_DENIED"
 DYNAMIC_INGRESSION_DENIED = "DYNAMIC_INGRESSION_DENIED"
 # v12.8: transform-invariant pins take -32076.
 TRANSFORM_INVARIANT_DENIED = "TRANSFORM_INVARIANT_DENIED"
+# v14 reference validators take the next four codes after -32076.
+CAUSALITY_LAUNDERING_DENIED = "CAUSALITY_LAUNDERING_DENIED"
+EVENT_CHANNEL_CAPACITY_DENIED = "EVENT_CHANNEL_CAPACITY_DENIED"
+BLINDFOLD_PERTURBATION_DENIED = "BLINDFOLD_PERTURBATION_DENIED"
+REACHABILITY_CONFINEMENT_DENIED = "REACHABILITY_CONFINEMENT_DENIED"
+# The opaque envelope reuses B's code: every sealed refusal looks the same.
+BLINDFOLD_ENVELOPE = {"ok": False, "allowed": False, "error": "request_refused", "code": -32079,
+                      "message": "request refused"}
+# Typed adapters for Predicate C (namespace effects a trusted broker reports by tool).
+_C_PROBE_TOOLS = frozenset({"file.read", "file.exists", "file.stat", "read_file", "stat_file"})
+_C_LIST_TOOLS = frozenset({"file.list", "list_files", "list_directory"})
+_C_MUTATIONS = {"file.write": "create", "file.create": "create", "write_file": "create",
+                "file.delete": "unlink", "file.unlink": "unlink", "delete_file": "unlink",
+                "file.mkdir": "mkdir", "make_directory": "mkdir",
+                "file.rmdir": "rmdir", "remove_directory": "rmdir",
+                "file.rename": "rename", "file.move": "rename", "move_file": "rename"}
+_C_STATUS_SET = frozenset({"status.set", "set_task_status"})
+_C_STATUS_GET = frozenset({"status.get", "get_task_status"})
 # Descriptor fields the reference profile hashes for a pin (annotations included:
 # annotation-only drift is drift under this policy).
 _REFERENCE_PIN_FIELDS = ("description", "inputSchema", "outputSchema", "annotations", "title")
@@ -265,14 +289,18 @@ _V12_CODES.update({
     SIMILARITY_LEAK_DENIED: -32070, OBLIGATION_PROTOCOL_DENIED: -32071,
     FS_LABEL_FLOW_DENIED: -32072, ARGUMENT_CONFINEMENT_DENIED: -32073,
     FORK_JOIN_LEDGER_DENIED: -32074, DYNAMIC_INGRESSION_DENIED: -32075,
-    TRANSFORM_INVARIANT_DENIED: -32076,
+    TRANSFORM_INVARIANT_DENIED: -32076, CAUSALITY_LAUNDERING_DENIED: -32077,
+    EVENT_CHANNEL_CAPACITY_DENIED: -32078, BLINDFOLD_PERTURBATION_DENIED: -32079,
+    REACHABILITY_CONFINEMENT_DENIED: -32080,
 })
 _V12_ATLAS.update({REGISTRY_PIN_DRIFT: "AML.T0051", REGISTRY_ALIAS_AMBIGUOUS: "AML.T0051",
                    WORKSPACE_EFFECT_DENIED: "AML.T0053", FLOW_MANIFEST_DENIED: "AML.T0051",
                    SIMILARITY_LEAK_DENIED: "AML.T0086", OBLIGATION_PROTOCOL_DENIED: "AML.T0051",
                    FS_LABEL_FLOW_DENIED: "AML.T0086", ARGUMENT_CONFINEMENT_DENIED: "AML.T0053",
                    FORK_JOIN_LEDGER_DENIED: "AML.T0086", DYNAMIC_INGRESSION_DENIED: "AML.T0086",
-                   TRANSFORM_INVARIANT_DENIED: "AML.T0086"})
+                   TRANSFORM_INVARIANT_DENIED: "AML.T0086", CAUSALITY_LAUNDERING_DENIED: "AML.T0086",
+                   EVENT_CHANNEL_CAPACITY_DENIED: "AML.T0086", BLINDFOLD_PERTURBATION_DENIED: "AML.T0043",
+                   REACHABILITY_CONFINEMENT_DENIED: "AML.T0053"})
 _EXEC_TOOL_RE = re.compile(r"(?:^|[._\-])(?:shell|bash|exec|terminal|run_command|run_script)(?:$|[._\-])")
 _DEFAULT_SINK_TOOLS = tuple(sorted(
     name for name, ec in TOOL_EGRESS.items() if ec in (EGRESS_WRITE, EGRESS_SEND, EGRESS_CREDS)
@@ -470,6 +498,14 @@ class PolicyEngine:
         self.fork_ledgers: dict[str, tuple[LedgerOwner, int]] = {}
         self.ingressions: dict[str, Ingression] = {}
         self.transform_indexes: dict[str, TransformIndex] = {}
+        # v14 reference validators (C, E, B, A); inert until attached.
+        self.causality: dict[str, tuple[CausalityValidator, str]] = {}
+        self.event_budgets: dict[str, tuple[EventChannelBudget, EventManifest]] = {}
+        self.blindfolds: dict[str, tuple[BlindfoldSealer, bool]] = {}
+        self.blindfold_receipts: dict[str, deque] = {}
+        self.reachability: dict[str, CapabilityPruner] = {}
+        self._staged_v14: dict[str, list] = {}
+        self._event_ids = _count(1)
         self.poisoned_tools: dict[tuple[str, str], dict] = {}
         self.interpreter = InterpreterExecGuard(allow=self.cfg.workspace_allow)
         core = set(CORE_MCP_SERVERS)
@@ -672,8 +708,59 @@ class PolicyEngine:
             wire_arguments=wire_arguments,
         )
         out = self._ingress_result(session_id, tool_name, arguments, out)
+        out = self._settle_v14(session_id, tool_name, arguments, out)
         out = self._settle_ledger(session_id, tool_name, arguments, out)
+        out = self._seal_refusal(session_id, tool_name, arguments, out)
         return self._attach_capability(session_id, out)
+
+    def _settle_v14(self, session_id: str, tool_name: str, arguments: Optional[dict],
+                    out: dict) -> dict:
+        """Commit (allowed) or abort (denied) what C, E and A staged for this call."""
+        staged = self._staged_v14.pop(session_id, None)
+        if not staged:
+            return out
+        if not out.get("allowed"):
+            for _rule, _commit, abort in staged:
+                if abort is not None:
+                    abort()
+            return out
+        for i, (rule, commit, _abort) in enumerate(staged):
+            try:
+                commit()
+            except ReferenceDenied as exc:
+                for _r, _c, abort in staged[i + 1:]:
+                    if abort is not None:
+                        abort()
+                sess = self.sessions[session_id]
+                step = int(out.get("step_index") or sess.step_index)
+                return self._v12_deny(sess, step, tool_name, dict(arguments or {}), rule,
+                                      {"v14": {"reason": str(exc), "phase": "commit"}})
+        return out
+
+    @staticmethod
+    def _canonical_request(tool_name: str, arguments: Optional[dict]) -> bytes:
+        return json.dumps({"tool": tool_name, "arguments": arguments or {}}, sort_keys=True,
+                          separators=(",", ":"), ensure_ascii=False,
+                          default=str).encode("utf-8", "surrogatepass")
+
+    def _seal_refusal(self, session_id: str, tool_name: str, arguments: Optional[dict],
+                      out: dict) -> dict:
+        """Predicate B: remember each refusal; with an opaque wire, hide its reason.
+
+        The private receipt is kept on the engine for people; the agent sees
+        one constant envelope whatever rule refused it.
+        """
+        attached = self.blindfolds.get(session_id)
+        if attached is None or out.get("allowed"):
+            return out
+        sealer, opaque = attached
+        if out.get("rule_code") != BLINDFOLD_PERTURBATION_DENIED:
+            sealed = sealer.seal(session_id, self._canonical_request(tool_name, arguments),
+                                 str(out.get("error") or "denied")[:128],
+                                 sarif_rule=str(out.get("rule_code") or out.get("error") or "")[:128])
+            self.blindfold_receipts.setdefault(session_id, deque(maxlen=1024)).append(
+                sealed.private_receipt)
+        return dict(BLINDFOLD_ENVELOPE) if opaque else out
 
     def _settle_ledger(self, session_id: str, tool_name: str, arguments: Optional[dict],
                        out: dict) -> dict:
@@ -781,6 +868,17 @@ class PolicyEngine:
             if "ok" not in oob_memo:
                 oob_memo["ok"] = self._try_oob(sess, step, tool_name, args, approval_token)
             return oob_memo["ok"]
+
+        # --- Near-neighbor perturbation quarantine (v14 Predicate B) ---
+        attached = self.blindfolds.get(sess.session_id)
+        if attached is not None:
+            sealer = attached[0]
+            try:
+                sealer.inspect(sess.session_id, self._canonical_request(tool_name, args))
+            except ReferenceDenied as exc:
+                return self._v12_deny(sess, step, tool_name, args, BLINDFOLD_PERTURBATION_DENIED,
+                                      {"blindfold": {"reason": str(exc), "human_review_lead": True,
+                                                     "auto_lift_seconds": sealer.lock_seconds}})
 
         principal = sess.root_parent_key or agent_key
         profile = profile_from_token(sess.capability_token, sensitive_read=sess.sensitive_read)
@@ -1505,6 +1603,181 @@ class PolicyEngine:
         self.transform_indexes[session_id] = index
         return index
 
+    # --- v14 reference validators: C, E, B, A ----------------------------------------
+
+    def attach_causality(self, session_id: str, validator: CausalityValidator,
+                         branch_id: Optional[str] = None) -> CausalityValidator:
+        """Track namespace and status effects of this session as one branch of ``validator``.
+
+        Sessions that share a workspace share one validator. Typed file tools
+        (``file.write`` / ``file.delete`` / ``file.rename`` / ...) record
+        mutations; ``file.read`` / ``file.exists`` / ``file.list`` and
+        ``status.get`` observe labels, and a tainted label taints the session
+        before Predicates A and E authorize the call.
+        """
+        if session_id in self.causality:
+            raise ValueError("session already has a causality branch")
+        branch = branch_id or session_id
+        validator.branch(branch)
+        self.causality[session_id] = (validator, branch)
+        return validator
+
+    def causality_push_pc(self, session_id: str, condition_tainted: bool) -> None:
+        """Trusted control plane: the session enters a decision with this condition label."""
+        validator, branch = self.causality[session_id]
+        validator.push_pc(branch, condition_tainted)
+
+    def causality_pop_pc(self, session_id: str) -> None:
+        validator, branch = self.causality[session_id]
+        validator.pop_pc(branch)
+
+    def attach_event_budget(self, session_id: str, budget: EventChannelBudget,
+                            manifest: EventManifest) -> EventChannelBudget:
+        """Bound the selection channel of this session's outbound calls into one sink.
+
+        Every write, send or credential call must be an eligible tool of
+        ``manifest``; it is charged ``quarter_bits(manifest.combinations)``
+        when the session is tainted or live secret pins exist.
+        """
+        if session_id in self.event_budgets:
+            raise ValueError("session already has an event budget")
+        if type(manifest) is not EventManifest:
+            raise ValueError("manifest must be an EventManifest")
+        self.event_budgets[session_id] = (budget, manifest)
+        return budget
+
+    def attach_blindfold(self, session_id: str, sealer: Optional[BlindfoldSealer] = None,
+                         opaque_wire: bool = False) -> BlindfoldSealer:
+        """Seal this session's refusals and quarantine near-neighbor retries.
+
+        Without ``sealer`` one is built with a receipt key derived from the
+        gateway key and the engine clock. A lock auto-lifts after 15 minutes
+        and is reported as a lead for human review. With ``opaque_wire`` the
+        agent sees ``BLINDFOLD_ENVELOPE`` for every refusal; receipts are in
+        ``blindfold_receipts``.
+        """
+        if session_id in self.blindfolds:
+            raise ValueError("session already has a blindfold")
+        if sealer is None:
+            key = hmac.new(capability.hmac_key(), b"AG-v14B-receipt-key", hashlib.sha256).digest()
+            sealer = BlindfoldSealer(key, clock=self.now)
+        self.blindfolds[session_id] = (sealer, bool(opaque_wire))
+        return sealer
+
+    def attach_reachability(self, session_id: str, policy: ReachabilityPolicy,
+                            obligations: int = 0) -> CapabilityPruner:
+        """Confine this session's calls to paths through ``policy`` that can still finish.
+
+        Node names are tool names; node 0 is the start state. Taint
+        contaminates the pruner before every check.
+        """
+        if session_id in self.reachability:
+            raise ValueError("session already has a reachability policy")
+        pruner = CapabilityPruner(policy, obligations=obligations)
+        self.reachability[session_id] = pruner
+        return pruner
+
+    def reachability_finish(self, session_id: str) -> dict:
+        """Trusted control plane: may this workflow stop here?"""
+        pruner = self.reachability[session_id]
+        sess = self.sessions[session_id]
+        try:
+            pruner.terminate_or_deny()
+        except ReferenceDenied as exc:
+            return self._v12_deny(sess, sess.step_index, "workflow.finish", {},
+                                  REACHABILITY_CONFINEMENT_DENIED,
+                                  {"reachability": {"reason": str(exc), "step": pruner.step}})
+        return {"ok": True, "allowed": True, "terminal": pruner.policy.nodes[pruner.step].name}
+
+    def _v14_prepare(self, sess: SessionState, step: int, tool_name: str, args: dict,
+                     eclass: str) -> Optional[dict]:
+        """C, then A, then E: check now, stage the state change, commit on allow."""
+        staged: list = []
+        sid = sess.session_id
+        attached = self.causality.get(sid)
+        if attached is not None:
+            validator, branch = attached
+            try:
+                staged += self._causality_prepare(sess, validator, branch, tool_name, args)
+            except ReferenceDenied as exc:
+                return self._v12_deny(sess, step, tool_name, args, CAUSALITY_LAUNDERING_DENIED,
+                                      {"causality": {"reason": str(exc), "branch_tainted":
+                                                     validator.is_tainted(branch)}})
+        pruner = self.reachability.get(sid)
+        if pruner is not None:
+            if sess.tainted:
+                pruner.contaminate()
+            try:
+                index = pruner.check(tool_name)
+            except ReferenceDenied as exc:
+                return self._v12_deny(sess, step, tool_name, args, REACHABILITY_CONFINEMENT_DENIED,
+                                      {"reachability": {"reason": str(exc), "step": pruner.step,
+                                                        "tainted": pruner.tainted}})
+            # Taint the call arrives with, read now: taint its own result adds
+            # (an untrusted read) contaminates the pruner before the next call.
+            staged.append((REACHABILITY_CONFINEMENT_DENIED,
+                           lambda i=index, t=bool(sess.tainted): pruner.transition(i, incoming_taint=t),
+                           None))
+        budget_entry = self.event_budgets.get(sid)
+        outbound = (eclass in (EGRESS_WRITE, EGRESS_SEND, EGRESS_CREDS)
+                    or self._sink_stage(tool_name, eclass, args) == EXTERNAL_SINK)
+        if budget_entry is not None and outbound:
+            budget, manifest = budget_entry
+            event_id = f"{sid}:{next(self._event_ids)}"
+            holder, index = self.ingressions.get(sid), self.transform_indexes.get(sid)
+            live = bool((holder is not None and holder.used) or (index is not None and index.used)
+                        or self.deob.has_secrets(sid) or self.similarity is not None)
+            try:
+                budget.reserve(event_id, tool_name, manifest,
+                                        branch_tainted=bool(sess.tainted), live_pins=live)
+            except ReferenceDenied as exc:
+                for _r, _c, abort in staged:
+                    if abort is not None:
+                        abort()
+                return self._v12_deny(sess, step, tool_name, args, EVENT_CHANNEL_CAPACITY_DENIED,
+                                      {"event_channel": {"reason": str(exc), "spent": budget.spent,
+                                                         "limit": budget.max_quarter_bits,
+                                                         "sink": budget.sink_id}})
+            staged.append((EVENT_CHANNEL_CAPACITY_DENIED,
+                           lambda e=event_id: budget.commit(e), lambda e=event_id: budget.abort(e)))
+        if staged:
+            self._staged_v14[sid] = staged
+        return None
+
+    def _causality_prepare(self, sess: SessionState, validator: CausalityValidator, branch: str,
+                           tool_name: str, args: dict) -> list:
+        """Observations apply now (labels only rise); mutations are staged."""
+        if sess.tainted:
+            validator.ingest_untrusted(branch)
+        root = validator.root
+        path = next((args[k] for k in ("path", "file", "directory", "dir")
+                     if isinstance(args.get(k), str)), None)
+        in_root = isinstance(path, str) and (path == root or path.startswith(root + "/"))
+        staged: list = []
+        if tool_name in _C_PROBE_TOOLS and in_root:
+            validator.probe(branch, path)
+        elif tool_name in _C_LIST_TOOLS and (in_root or path is None):
+            validator.list_directory(branch, path if in_root else root)
+        elif tool_name in _C_MUTATIONS and in_root:
+            operation = _C_MUTATIONS[tool_name]
+            dest = None
+            if operation == "rename":
+                dest = next((args[k] for k in ("dest", "destination", "new_path", "to")
+                             if isinstance(args.get(k), str)), None)
+            validator.check_mutation(branch, operation, path, dest)
+            staged.append((CAUSALITY_LAUNDERING_DENIED,
+                           lambda: validator.record_mutation(branch, operation, path, dest), None))
+        elif tool_name in _C_STATUS_SET:
+            target, status = args.get("target"), args.get("status")
+            validator.check_status(branch, target, status)
+            staged.append((CAUSALITY_LAUNDERING_DENIED,
+                           lambda: validator.record_status(branch, target, status), None))
+        elif tool_name in _C_STATUS_GET:
+            validator.observe_status(branch, args.get("target"))
+        if validator.is_tainted(branch) and not sess.tainted:
+            self._taint(sess, "causality_label_observed", source_id="causality")
+        return staged
+
     def _enroll(self, session_id: str, holder: Ingression, fields: list) -> int:
         """D enrollment, extending Z's pins.
 
@@ -1807,6 +2080,10 @@ class PolicyEngine:
                                       {"shell": {"reason": str(exc), "modeled": True,
                                                  "generation": transducer.state.base.generation,
                                                  "via": "fs_transducer"}})
+
+        denial = self._v14_prepare(sess, step, tool_name, args, eclass)
+        if denial is not None:
+            return denial
 
         try:
             ledger_plan = self._fork_join_plan(sess, tool_name, args, eclass)

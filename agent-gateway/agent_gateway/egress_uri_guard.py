@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import ipaddress
 import re
+import unicodedata
 import urllib.parse
 from dataclasses import dataclass, field
 from typing import Any, Iterator, Optional
@@ -184,6 +185,35 @@ def _category(ip: ipaddress._BaseAddress) -> str:
     return "public"
 
 
+# Characters a WHATWG URL parser reads as a host dot, and invisible format
+# characters a human reviewer can't see. Folded before parsing.
+_DOT_VARIANTS = str.maketrans({"\u3002": ".", "\uff0e": ".", "\uff61": "."})
+_INVISIBLE = dict.fromkeys(map(ord, "\u200b\u200c\u200d\u2060\ufeff\u00ad"))
+
+
+def fold_unicode(raw: str) -> str:
+    """NFKC (fullwidth ``：`` becomes ``:``), ideographic dots to ``.``, invisible characters removed."""
+    return unicodedata.normalize("NFKC", raw).translate(_DOT_VARIANTS).translate(_INVISIBLE)
+
+
+def _file_uri_reasons(text: str) -> list[str]:
+    """A file: URI is not network egress; judge its path like any path argument."""
+    from .arg_ast_guard import canonicalize_path
+
+    try:
+        parts = urllib.parse.urlsplit(text)
+    except ValueError:
+        return ["unparseable_file_uri"]
+    if parts.scheme.lower() != "file":
+        return []
+    reasons = []
+    host = (parts.netloc.rsplit("@", 1)[-1].split(":", 1)[0] or "").lower()
+    if host not in ("", "localhost"):
+        reasons.append("file_uri_remote_host")
+    _canon, path_reasons = canonicalize_path(parts.path)
+    return reasons + [f"file_uri_{r}" for r in path_reasons]
+
+
 def _hosts_for(raw: str) -> list[tuple[str, str, str]]:
     """(parser label, host, userinfo) under each parser reading of ``raw``."""
     text = raw.strip()
@@ -222,7 +252,14 @@ def classify(raw: str, lab_allow: frozenset[str] = DEFAULT_LAB_ALLOW) -> UriVerd
     """Canonicalize one URI or host string and decide."""
     worst = UriVerdict("allow", raw=raw[:500])
     rank = {"allow": 0, "hold": 1, "deny": 2}
-    for parser, host_raw, userinfo in _hosts_for(raw):
+    folded = fold_unicode(raw)
+    file_reasons = _file_uri_reasons(folded.strip())
+    if file_reasons:
+        return UriVerdict("deny", raw=raw[:500], category="local_file", reasons=sorted(set(file_reasons)))
+    readings = [(p, h, u, False) for p, h, u in _hosts_for(raw)]
+    if folded != raw:
+        readings += [(p, h, u, True) for p, h, u in _hosts_for(folded)]
+    for parser, host_raw, userinfo, was_folded in readings:
         host = urllib.parse.unquote(host_raw).strip().lower().rstrip(".")
         if not host:
             continue
@@ -257,6 +294,8 @@ def classify(raw: str, lab_allow: frozenset[str] = DEFAULT_LAB_ALLOW) -> UriVerd
             reasons.append("userinfo_hides_internal_host")
         if parser == "whatwg" and internal and "\\" in raw:
             reasons.append("backslash_parser_differential")
+        if was_folded and internal:
+            reasons.append("unicode_confusable_spelling")
         if v.category == "cloud_metadata":
             reasons.append("cloud_metadata_target")
             v.verdict = "deny"
@@ -295,6 +334,19 @@ def iter_uri_candidates(arguments: Any, depth: int = 0, key: str = "") -> Iterat
             return
         for m in _URL_RE.finditer(s):
             yield m.group(0), False
+        if fold_unicode(s) != s:
+            # Find URLs in the folded text, then hand classify() the ORIGINAL
+            # spelling so it can see that folding was needed.
+            folded, origin = [], []
+            for i, ch in enumerate(s):
+                for out in fold_unicode(ch):
+                    folded.append(out)
+                    origin.append(i)
+            text = "".join(folded)
+            for m in _URL_RE.finditer(text):
+                raw_slice = s[origin[m.start()]:origin[m.end() - 1] + 1]
+                if raw_slice != m.group(0):
+                    yield raw_slice, False
     elif isinstance(arguments, int) and not isinstance(arguments, bool) and key in URI_KEYS:
         yield str(arguments), True  # {"host": 2130706433}
 

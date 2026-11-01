@@ -58,6 +58,7 @@ _SHELL_META_RE = re.compile(r"(?:\|\||&&|[;&|`]|\$\(|\$\{|<\(|>\(|\n|\r)")
 _CRLF_RE = re.compile(r"[\r\n]|%0d|%0a| | ", re.I)
 _DANGEROUS_PATH_RE = re.compile(r"\x00|%00")
 _TRAVERSAL_RE = re.compile(r"(?:^|[/\\])\.\.(?:[/\\]|$)")
+_INVISIBLE_RE = re.compile("[\u200b\u200c\u200d\u2060\ufeff\u00ad]")
 
 _SQL_FORBIDDEN = (
     ("into_outfile", re.compile(r"\binto\s+(?:out|dump)file\b", re.I)),
@@ -117,8 +118,16 @@ def canonicalize_path(raw: str) -> tuple[str, list[str]]:
     if re.match(r"^(?:[a-zA-Z]:|//|\\\\)", decoded) or decoded.startswith("\\\\"):
         if decoded.startswith(("//", "\\\\")):
             reasons.append("unc_path")
+    if _INVISIBLE_RE.search(decoded):
+        reasons.append("invisible_character")
+        decoded = _INVISIBLE_RE.sub("", decoded)
+        unified = decoded.replace("\\", "/")
+        low = decoded.lower()
     if _TRAVERSAL_RE.search(unified) or ".." in unified.split("/"):
         reasons.append("directory_traversal")
+    if any(len(p) > 2 and set(p) == {"."} for p in unified.split("/")):
+        # "....//" survives one pass of a naive "../" stripper as "../".
+        reasons.append("dot_run_component")
     # Resolve the traversal to see where it actually lands.
     collapsed = posixpath.normpath(unified)
     norm = collapsed.lower().rstrip("/")

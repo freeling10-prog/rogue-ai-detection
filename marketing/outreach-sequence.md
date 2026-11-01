@@ -1,8 +1,8 @@
 # LA outreach sequence
 
-Three email touches and three LinkedIn touches for companies in [la-targets.md](la-targets.md). The scope and the words you are allowed to use come from [ciso-outreach.md](ciso-outreach.md) and [audit-offer.md](audit-offer.md). Send from `alecagentboundary@gmail.com`. Sign as Alec. Do not invent a title, a domain, or a scheduling link.
+Three email touches and three LinkedIn touches for companies in [la-targets.md](la-targets.md). The scope and the words you are allowed to use come from [ciso-outreach.md](ciso-outreach.md) and [audit-offer.md](audit-offer.md). Send from `alec@room23.net`. Sign as Alec. Do not invent a title, a domain, or a scheduling link.
 
-**Live interactive demo (public, no login):** <https://freeling10-prog.github.io/rogue-ai-detection/> · Source: [github.com/freeling10-prog/rogue-ai-detection](https://github.com/freeling10-prog/rogue-ai-detection) · Book: [alecagentboundary@gmail.com](mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit). This is a real, working GitHub Pages link — you may include it in a touch once the repository is public.
+**Live interactive demo (public, no login):** <https://freeling10-prog.github.io/rogue-ai-detection/> · Source: [github.com/freeling10-prog/rogue-ai-detection](https://github.com/freeling10-prog/rogue-ai-detection) · Book: [alec@room23.net](mailto:alec@room23.net?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit). This is a real, working GitHub Pages link — you may include it in a touch once the repository is public.
 
 Do not send [ciso-outreach.md](ciso-outreach.md) as-is. That file is the scope source. This file is the sequence, with the live call to action filled in.
 
@@ -19,7 +19,7 @@ Call to action, in every touch that asks for a reply:
 
 - Offer page in the repo: `marketing/audit-offer.md`
 - Public repo: `https://github.com/freeling10-prog/rogue-ai-detection`
-- Mailto: `mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit`
+- Mailto: `mailto:alec@room23.net?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit`
 
 They can reply with a tool inventory (names and argument shapes, no secrets, no customer payloads).
 
@@ -57,7 +57,7 @@ The one-page scope is `marketing/audit-offer.md` in https://github.com/freeling1
 If this is the wrong person, a pointer to the right one is enough.
 
 Alec
-alecagentboundary@gmail.com
+alec@room23.net
 
 ### Touch 2 — what the note will and will not say
 
@@ -75,10 +75,10 @@ In the 48 hours after the tool list arrives, the note:
 
 The $6,500 tier adds a lab gateway pass on the tool list and, if you supply an authorized access log, an offline analyzer pass. Beacon, tool-hijack, and timing rules are not available from a normal access log. The note says which rules the log cannot support.
 
-I do not deploy a honeypot on your network. The copy and the price are on `marketing/audit-offer.md`. Reply to this thread, or use mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit. A tool inventory in the reply is enough to start the clock once you say which tier you want.
+I do not deploy a honeypot on your network. The copy and the price are on `marketing/audit-offer.md`. Reply to this thread, or use mailto:alec@room23.net?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit. A tool inventory in the reply is enough to start the clock once you say which tier you want.
 
 Alec
-alecagentboundary@gmail.com
+alec@room23.net
 
 ### Touch 2 (alternate, targets #1–#10) — Apart Collusion Sprint & Live Sample Audit
 
@@ -99,10 +99,10 @@ For Apart Research's AI collusion research sprint we pointed our open-source gat
 
 In that run, 57 of 57 collusion defence checks passed, and 750 benign decisions had 0 false denials at a CPU cost of p50 0.126 ms / p99 0.999 ms per decision (slowest single decision 3.84 ms). Those are our own lab scenarios on one machine, not a benchmark and not a measure of {{company}}'s stack. The command that produced them is on the site if you want to run it yourself.
 
-{{role_hook}} If useful, the $1,800 Tier 1 diagnostic produces the same style of report for the tool list and MCP servers you choose to share. Reply with tool names and argument shapes (no secrets), or use mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit. Not a penetration test, and nothing is installed on your network.
+{{role_hook}} If useful, the $1,800 Tier 1 diagnostic produces the same style of report for the tool list and MCP servers you choose to share. Reply with tool names and argument shapes (no secrets), or use mailto:alec@room23.net?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit. Not a penetration test, and nothing is installed on your network.
 
 Alec
-alecagentboundary@gmail.com
+alec@room23.net
 
 ### Touch 2 payloads, one per target (#1–#10)
 
@@ -126,7 +126,7 @@ In that run 57 of 57 carrier checks passed and 750 benign decisions produced 0 d
 If it is useful, the $1,800 Tier 1 diagnostic produces the same kind of report for the tool list you choose to share. Reply with tool names and argument shapes (no secrets). Nothing is installed on your network, and this is not a penetration test.
 
 Alec
-alecagentboundary@gmail.com
+alec@room23.net
 
 #### #2 Opensteer — carrier B · delegation laundering · trace 05
 
@@ -146,7 +146,7 @@ In that run 57 of 57 carrier checks passed and 750 benign decisions produced 0 d
 If it is useful, the $1,800 Tier 1 diagnostic produces the same kind of report for the tool list you choose to share. Reply with tool names and argument shapes (no secrets). Nothing is installed on your network, and this is not a penetration test.
 
 Alec
-alecagentboundary@gmail.com
+alec@room23.net
 
 #### #3 Paximal — carrier C · encoded smuggling · trace 06
 
@@ -166,7 +166,7 @@ In that run 57 of 57 carrier checks passed and 750 benign decisions produced 0 d
 If it is useful, the $1,800 Tier 1 diagnostic produces the same kind of report for the tool list you choose to share. Reply with tool names and argument shapes (no secrets). Nothing is installed on your network, and this is not a penetration test.
 
 Alec
-alecagentboundary@gmail.com
+alec@room23.net
 
 #### #4 MindFort — carrier B · delegation laundering · trace 05
 
@@ -186,7 +186,7 @@ In that run 57 of 57 carrier checks passed and 750 benign decisions produced 0 d
 If it is useful, the $1,800 Tier 1 diagnostic produces the same kind of report for the tool list you choose to share. Reply with tool names and argument shapes (no secrets). Nothing is installed on your network, and this is not a penetration test.
 
 Alec
-alecagentboundary@gmail.com
+alec@room23.net
 
 #### #5 Voker — carrier A · post-taint side channel · test file, no trace
 
@@ -206,7 +206,7 @@ In that run 57 of 57 carrier checks passed and 750 benign decisions produced 0 d
 If it is useful, the $1,800 Tier 1 diagnostic produces the same kind of report for the tool list you choose to share. Reply with tool names and argument shapes (no secrets). Nothing is installed on your network, and this is not a penetration test.
 
 Alec
-alecagentboundary@gmail.com
+alec@room23.net
 
 #### #6 Superunit — carrier C · encoded smuggling · trace 06
 
@@ -226,7 +226,7 @@ In that run 57 of 57 carrier checks passed and 750 benign decisions produced 0 d
 If it is useful, the $1,800 Tier 1 diagnostic produces the same kind of report for the tool list you choose to share. Reply with tool names and argument shapes (no secrets). Nothing is installed on your network, and this is not a penetration test.
 
 Alec
-alecagentboundary@gmail.com
+alec@room23.net
 
 #### #7 Endstack — carrier C · encoded smuggling (+ SSRF) · trace 06
 
@@ -246,7 +246,7 @@ In that run 57 of 57 carrier checks passed and 750 benign decisions produced 0 d
 If it is useful, the $1,800 Tier 1 diagnostic produces the same kind of report for the tool list you choose to share. Reply with tool names and argument shapes (no secrets). Nothing is installed on your network, and this is not a penetration test.
 
 Alec
-alecagentboundary@gmail.com
+alec@room23.net
 
 #### #8 Keyframe Labs — carrier A · post-taint side channel · test file, no trace
 
@@ -266,7 +266,7 @@ In that run 57 of 57 carrier checks passed and 750 benign decisions produced 0 d
 If it is useful, the $1,800 Tier 1 diagnostic produces the same kind of report for the tool list you choose to share. Reply with tool names and argument shapes (no secrets). Nothing is installed on your network, and this is not a penetration test.
 
 Alec
-alecagentboundary@gmail.com
+alec@room23.net
 
 #### #9 Snap — carrier B · delegation laundering · trace 05
 
@@ -286,7 +286,7 @@ In that run 57 of 57 carrier checks passed and 750 benign decisions produced 0 d
 If it is useful, the $1,800 Tier 1 diagnostic produces the same kind of report for the tool list you choose to share. Reply with tool names and argument shapes (no secrets). Nothing is installed on your network, and this is not a penetration test.
 
 Alec
-alecagentboundary@gmail.com
+alec@room23.net
 
 #### #10 Riot Games — carrier C · encoded smuggling · trace 06
 
@@ -306,7 +306,7 @@ In that run 57 of 57 carrier checks passed and 750 benign decisions produced 0 d
 If it is useful, the $1,800 Tier 1 diagnostic produces the same kind of report for the tool list you choose to share. Reply with tool names and argument shapes (no secrets). Nothing is installed on your network, and this is not a penetration test.
 
 Alec
-alecagentboundary@gmail.com
+alec@room23.net
 
 ### Touch 3 — close the loop
 
@@ -321,7 +321,7 @@ If you do, reply with the tool names and argument shapes (no secrets), where unt
 If the timing is wrong, no reply needed.
 
 Alec
-alecagentboundary@gmail.com
+alec@room23.net
 
 ## LinkedIn
 
@@ -343,7 +343,7 @@ The offer is a written note, not a pen-test and not a certification. $1,800 for 
 
 Page: `marketing/audit-offer.md` in https://github.com/freeling10-prog/rogue-ai-detection
 
-Or email alecagentboundary@gmail.com with the subject "Book 48-Hour Agentic Tool-Boundary Audit". You can reply with the tool inventory.
+Or email alec@room23.net with the subject "Book 48-Hour Agentic Tool-Boundary Audit". You can reply with the tool inventory.
 
 Alec
 

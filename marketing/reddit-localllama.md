@@ -2,7 +2,7 @@
 
 Status: **ready to post after the repository is public.** [LICENSE](../LICENSE) is Apache 2.0 and [NOTICE](../NOTICE) is in the tree. Do not submit this post while the GitHub repository is still private. This file has not been posted. Visibility is changed outside this repository. Do not describe a public release until the repository is actually public.
 
-**Live interactive demo (public, no login):** <https://freeling10-prog.github.io/rogue-ai-detection/> · Source: [github.com/freeling10-prog/rogue-ai-detection](https://github.com/freeling10-prog/rogue-ai-detection) · Book: [alecagentboundary@gmail.com](mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit)
+**Live interactive demo (public, no login):** <https://freeling10-prog.github.io/rogue-ai-detection/> · Source: [github.com/freeling10-prog/rogue-ai-detection](https://github.com/freeling10-prog/rogue-ai-detection) · Book: [alec@room23.net](mailto:alec@room23.net?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit)
 
 Flair: whatever the subreddit uses for projects or research. Do not use a "we detect all agents" claim in the title.
 

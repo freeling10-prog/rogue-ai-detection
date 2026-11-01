@@ -268,7 +268,7 @@ def test_constants_are_the_precommitted_design():
     assert "tools/call" not in Path(R.__file__).read_text(encoding="utf-8")
 
 
-def test_committed_random_snapshot_matches_its_log_and_scores():
+def test_committed_random_snapshot_matches_its_log_and_scores(pr40_classifier):
     sample = HERE / "random_servers.jsonl"
     log_path = HERE / "random_collection_log.json"
     results = HERE / "random_results.json"
@@ -297,7 +297,7 @@ def test_committed_random_snapshot_matches_its_log_and_scores():
         assert fresh[key] == stored[key]
 
 
-def test_committed_labels_recompute_and_name_no_server():
+def test_committed_labels_recompute_and_name_no_server(pr40_classifier):
     path = HERE / "precision_labels.json"
     if not path.is_file():
         pytest.skip("precision labels not written")
@@ -329,3 +329,44 @@ def test_committed_labels_recompute_and_name_no_server():
     for key in ("n_reviewed", "counts", "precision_among_decided",
                 "precision_counting_cant_tell_as_not_plausible", "primary_false_positive_causes"):
         assert summary[key] == stored[key]
+
+
+def test_own_data_search_rule_on_the_hand_checked_servers():
+    """In-sample: the rule was written after reading these 28 cases (docs/wild_mcp_corpus_report.md)."""
+    import hashlib
+
+    labels = json.loads((HERE / "precision_labels.json").read_text(encoding="utf-8"))
+    records = {}
+    for name in ("servers.jsonl", "random_servers.jsonl"):
+        for row in C.S.load_jsonl(HERE / name):
+            records.setdefault(hashlib.sha256(row["server_id"].encode()).hexdigest(), row)
+
+    def flagged() -> dict[str, bool]:
+        out = {}
+        for case in labels["cases"]:
+            tools = [t for t in records[case["server_sha256"]]["tools"] if t.get("name")]
+            out[case["case_id"]] = any(C.S.toxic_path_exists(tools))
+        return out
+
+    with C.S.classifier("pr40"):
+        before = flagged()
+    with C.S.classifier("current"):
+        after = flagged()
+    fp = [c["case_id"] for c in labels["cases"] if c["label"] == "false_positive"]
+    ok = [c["case_id"] for c in labels["cases"] if c["label"] == "plausible"]
+    assert (len(fp), len(ok)) == (10, 18)
+    assert all(before[c] for c in fp + ok)
+    assert all(after[c] for c in ok)
+    assert sorted(c for c in fp if not after[c]) == ["p08", "p09", "p12", "p20", "p24"]
+
+
+def test_classifier_switch_restores_setting():
+    from agent_gateway import toxic_combinations as tc
+
+    before = tc.OWN_DATA_SEARCH
+    with C.S.classifier("pr40"):
+        assert tc.OWN_DATA_SEARCH is False
+    assert tc.OWN_DATA_SEARCH is before
+    with pytest.raises(ValueError):
+        with C.S.classifier("nope"):
+            pass

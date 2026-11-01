@@ -85,6 +85,73 @@ _NAME_RULES = (
 )
 _PARAM_KEYS = frozenset({"query", "q", "search", "url", "uri", "href", "endpoint", "params", "path", "body", "data"})
 
+# Own-data search (wild MCP corpus precision check, PR #40). The word "search"
+# alone made a tool an untrusted external source even when it only searches the
+# server's own records: a curated catalog, its documentation, its CRM, its own
+# site. A tool whose ONLY external-read name signal is "search" is reclassified
+# as internal_read when its name or description shows own-data scope and
+# nothing shows external or third-party content. External evidence always wins,
+# and a search tool with no evidence either way stays external_read (fail closed).
+# OWN_DATA_SEARCH = False restores the PR #40 classifier, which produced the
+# committed wild-corpus artifacts.
+OWN_DATA_SEARCH = True
+_OWN_DATA_NAME_TOKENS = frozenset({"site", "docs", "documentation", "catalog", "kb", "crm", "member", "members",
+                                   "internal", "faq", "help", "inventory"})
+_OWN_DATA_PHRASES = (
+    "documentation", "catalog", "catalogue", "database", "knowledge base", "our", "this site", "the site",
+    "site locales", "every page", "crm", "members", "accounts and contacts", "inventory",
+    "dataset", "data set", "stored", "internal", "/api/",
+)
+_EXTERNAL_PHRASES = (
+    "web", "internet", "online", "url", "http", "news", "blog", "forum", "social", "posts",
+    "tweet", "reddit", "third-party", "third party", "public ", "user-generated", "reviews", "comments",
+    "any domain", "google", "bing", "duckduckgo", "crawl", "scrape", "browse", "download", "feed",
+)
+_EXTERNAL_SCHEMA_KEYS = frozenset({"url", "uri", "href", "link", "endpoint", "domain"})
+
+
+def _mentions(text: str, phrases: Iterable[str], whole_word: bool = False) -> bool:
+    """Phrase match anchored at a word start, so "colour" does not contain "our".
+
+    ``whole_word`` also anchors the end ("dataset" does not match "datasets").
+    Own-data evidence uses whole words; external evidence matches prefixes,
+    so ambiguity falls on the external (fail-closed) side.
+    """
+    for p in phrases:
+        tail = r"(?![a-z0-9])" if whole_word and p[-1].isalnum() else ""
+        if re.search(r"(?<![a-z0-9])" + re.escape(p) + tail, text):
+            return True
+    return False
+
+
+def _norm_tokens(name: str) -> list[str]:
+    spaced = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", name).lower()
+    return [t for t in re.split(r"[^a-z0-9]+", spaced) if t]
+
+
+def own_data_search(tool: dict) -> bool:
+    """True when a "search"-only external read is evidently a search of the server's own data.
+
+    Deterministic and text-only: lowercase substring checks over the name,
+    title and description, plus the top-level input-schema property names.
+    Used by ``tool_class`` after the name rules.
+    """
+    tokens = _norm_tokens(str(tool.get("name") or ""))
+    norm = "_" + "_".join(tokens) + "_"
+    ext_words = dict(_NAME_RULES)["external_read"]
+    if [w for w in ext_words if "_" + w in norm] != ["search"]:
+        return False
+    text = " ".join(str(tool.get(k) or "") for k in ("title", "description")).lower()
+    if _mentions(text, _EXTERNAL_PHRASES):
+        return False
+    schema = tool.get("inputSchema") or tool.get("input_schema") or {}
+    props = schema.get("properties") if isinstance(schema, dict) else None
+    if isinstance(props, dict) and any(str(k).lower() in _EXTERNAL_SCHEMA_KEYS for k in props):
+        return False
+    if any(t in _OWN_DATA_NAME_TOKENS for t in tokens):
+        return True
+    return _mentions(text, _OWN_DATA_PHRASES, whole_word=True)
+
 
 def _label(tool: dict) -> str:
     for key in ("class", "tool_class", "egress_class", "category", "kind"):
@@ -121,6 +188,8 @@ def tool_class(tool: dict) -> str:
                 return "sensitive_read"
             if sensitive and cls == "write":
                 return "credential_use"
+            if cls == "external_read" and OWN_DATA_SEARCH and own_data_search(tool):
+                return "internal_read"
             return cls
     return "credential_use" if sensitive else "write"
 

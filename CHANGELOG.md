@@ -4,6 +4,12 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
+## [Unreleased] - own-data search classifier (1 November 2026)
+
+- `toxic_combinations.own_data_search`: a tool whose only external-read name word is `search` is classed `internal_read` when its name or description shows it searches the server's own data and nothing shows external content; external evidence wins and no evidence stays `external_read`. Fixes the commonest false-positive cause in the PR #40 hand check: 5 of the 10 false positives are no longer flagged and all 18 plausible hits still are (in-sample; see `docs/wild_mcp_corpus_report.md`). The published PR #40 estimates are unchanged.
+- `toxic_combinations.OWN_DATA_SEARCH` switches the rule off. The wild-corpus `score.py` and `compare.py` take `--classifier pr40|current` (default `pr40`, which reproduces the committed artifacts byte for byte), and `precision.py` redraws with `pr40`.
+- Tests: `tests/test_own_data_search.py` (25 cases, own-data search vs untrusted external input). Gateway with `php`: 1,203 passed (1,178 + 25). Corpus: 30 passed (28 + 2 new), Python 3.12.3.
+
 ## [Unreleased] - cross-session file labels and canonical MCP ids on main (1 November 2026)
 
 PR #34 (`dcce56e`, previously only on `volta`) brought onto `main`, which already has the round-2 fixes and v14 predicates C, E, B and A (PR #36, merge `2dbca57`). Both sets are kept. No new credential freeze. The only automated block that freezes a registered key is still the existing 15-minute freeze. These changes fail closed (drop or hold) and hand the lead to the decision log.

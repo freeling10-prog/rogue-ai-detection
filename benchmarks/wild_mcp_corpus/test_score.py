@@ -168,7 +168,7 @@ def test_redact_credential_pattern_and_leave_prose():
     assert counter["findings"] == 0
 
 
-def test_corpus_snapshot_matches_score_file_when_present():
+def test_corpus_snapshot_matches_score_file_when_present(pr40_classifier):
     corpus = HERE / "servers.jsonl"
     committed = HERE / "results.json"
     if not corpus.is_file() or not committed.is_file():

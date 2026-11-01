@@ -38,6 +38,12 @@ TOOL_EGRESS: dict[str, str] = {
     "read_session_note": EGRESS_INTERNAL_READ,
     "lookup_order_status": EGRESS_INTERNAL_READ,
     "read_customer_ticket": EGRESS_EXTERNAL_READ,  # customer content = untrusted ingest
+    # Namespace and status observations (v14 Predicate C adapters)
+    "file.exists": EGRESS_INTERNAL_READ,
+    "file.stat": EGRESS_INTERNAL_READ,
+    "file.list": EGRESS_INTERNAL_READ,
+    "list_files": EGRESS_INTERNAL_READ,
+    "status.get": EGRESS_INTERNAL_READ,
     # Writes / sends
     "file.write": EGRESS_WRITE,
     "save_session_note": EGRESS_WRITE,

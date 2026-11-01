@@ -1,0 +1,822 @@
+# Four bounded deterministic middleware validators
+
+Prepared for Jordan-Taylor, 29 October 2026. Python 3.12 reference architecture.
+
+## Contract and enforcement boundary
+
+These are proposed engineering specifications, informed by the primary sources below. The included runtime modules use only the Python standard library. Hypothesis and pytest are development dependencies.
+
+Three distinctions are essential:
+
+1. A deterministic decision is reproducible given identical policy, canonical inputs, trusted state, normalization version, and keys. Determinism does not make Python scheduling, garbage collection, storage, or network latency bounded.
+2. A static shell analysis cannot establish all effects of arbitrary programs. The reference accepts a literal subset and fails closed outside it. Its filesystem model is not an operating-system sandbox.
+3. Rolling shingles are linear to scan for fixed parameters. General exact LCS is not a linear-time operation; the reference bounds its input and uses bit parallelism.
+
+The common safety specification is:
+
+$$\operatorname{Dispatch}(s,c,t)\Rightarrow
+ R(s,c,t)\land W(s,c,t)\land F(s,c,t)\land I(s,c,t)\land P(s,c,t)\land T(s,c,t)\land S(s,c,t)\land V(s,c,t)\land D(s,c,t)\land Z(s,c,t).$$
+
+R is registry pin validity, W workspace mutation safety, F manifest/flow validity, I outbound identifier admissibility, P bounded workflow-net transition enablement with resource cleanup state settled before outbound steps (section 5), T file label flow: no non-PUBLIC file into an outbound call and no UNTRUSTED file into an execution sink (section 6), S canonical arguments for pinned tools and no operand in an option position for typed commands (section 7), V one conservation ledger for a root session and its forked branches, fenced on vector clocks (section 8), D no outbound string covering a value learned from an earlier tool response (section 9), and Z no outbound string carrying a protected value under a finite transform family within a precharged work budget (section 10). A component that is inapplicable to a typed call contributes true; a missing adapter, unsupported construct, exceeded budget, or unavailable trusted state contributes false. Check every item of JSON-RPC batches, including notifications. JSON-RPC itself is stateless and does not impose batch ordering [1].
+
+Treat the specification as a prefix-closed execution safety policy [8]. This does not prove semantic noninterference, correctness of provider implementations, or absence of every possible data leak.
+
+Use one authoritative session owner and one serialized event log. Its linearization point commits the decision, state revision, consumed capability, and exact dispatch envelope together [9]. A Python RLock protects only one process. Distributed ownership needs leases plus fencing tokens or a linearizable store. Partitioned, stale, or missing state must not create a clean new session.
+
+A dispatch envelope binds session/job ID, fencing epoch, event sequence, request key, qualified method, provider route, schema pin, canonical argument digest, typed resources, manifest commitment, filesystem generation, and matcher/policy versions. Never return an unbound allow boolean and later reparse or reroute the request.
+
+Cold operations: registry parsing/hashing/linting, schema compilation, manifest DAG compilation, trusted filesystem snapshot construction, and shingle index construction. Hot operations: immutable lookups, bounded parsing/resolution, capability admission, identifier matching, and a bounded state commit.
+
+## 1. registry_pin_validator.py
+
+### Invariant and representation
+
+Use authenticated provider identity p and exact local method name m as the key (p,m). Provider identity is assigned by a trusted connector/transport configuration, not accepted from advertisement JSON. JSON-RPC method matching is case-sensitive, and its rpc. prefix is reserved [1].
+
+For session s, pin the canonical descriptor digest D_s(p,m). At dispatch:
+
+$$R(s,c,t)\equiv
+ \operatorname{state}_s(p,m)=\mathrm{PINNED}
+ \land c.\operatorname{pin}=D_s(p,m)
+ \land \operatorname{route}(c)=p.$$
+
+The final dispatcher must bind the approved pin to the exact execution route/version. A provider that changes behavior without advertising a change cannot be detected by metadata hashing. If an upstream cannot honor a pinned contract/version, the guarantee is refusal after observed drift, not detection of every hidden change.
+
+Pin inputSchema, outputSchema, description/title, and all accepted annotations. Even annotation-only drift is drift under this policy. Locally assigned impact classification and connector trust are separate policy, never granted by read-only hints. MCP explicitly treats tool annotations as untrusted unless they originate from trusted servers [15]. For MCP, the logical method identity is (authenticated provider, params.name) on tools/call, not the transport method tools/call alone; normalize the advertised tool record into this module's descriptor profile before enrollment.
+
+### Canonical hashing
+
+RFC 8785 JCS has precise numeric serialization and UTF-16 key-order requirements. Python json.dumps(sort_keys=True) is not a substitute [2]. The included implementation deliberately uses a different, versioned profile: CJSON-DECIMAL-v1.
+
+Define C recursively:
+
+- Decode strict UTF-8; reject duplicate object keys before constructing a dict, lone surrogates, NaN, and infinities.
+- Preserve decoded string code points. Do not normalize schema strings or property names with NFKC/casefold.
+- Encode strings with ordinary JSON escaping, no optional whitespace, and UTF-8 output.
+- Sort object keys by their raw UTF-8 byte sequences. Preserve array order.
+- Parse numbers directly as Decimal. For nonzero x, derive a unique sign, nonzero integer coefficient a with no trailing zeros, and exponent e such that x = sign × a × 10^e. Emit sign + decimal(a) + "e" + decimal(e). Emit every signed zero as 0. Native binary floats are rejected.
+- Bound wire size to 64 KiB, nesting to 32, canonical nodes to 4,096, coefficient digits to 256, exponent magnitude to 4,096, and output to 128 KiB.
+
+Then:
+
+$$D=\operatorname{SHA256}(
+ \text{domain}\parallel 0x00\parallel
+ C(\{p,m,\text{dialect},\text{descriptor},\text{lintVersion},\text{unicodeVersion}\})).$$
+
+The domain includes canonicalizer and schema-resolution profile versions. All digest equality claims assume collision resistance. The digest identifies a canonical representation, not semantic equivalence of arbitrary schemas. Reordering required or allOf arrays may therefore conservatively trigger drift.
+
+For full JSON Schema 2020-12, pin a closed graph of referenced resources: root retrieval URI, dialect, vocabulary support, resolver policy, and every canonical absolute resource URI with its content digest. Preserve $id/base-URI meaning; reject duplicate resource IDs; allow recursion through visited resource IDs instead of recursively expanding references. Resolve $dynamicRef using the compiled pinned evaluation context. Never fetch a remote reference on the hot path. JSON Schema bundling is defined in terms of preserving resource identity and reference semantics [3].
+
+The runnable reference deliberately supports only local JSON Pointer references. It rejects external references, $id, anchors, dynamic references, and percent-encoded reference fragments. It traverses referenced targets with a visited set, including references into nonstandard containers. Full schema validation and supported-vocabulary enforcement remain with the existing schema validator. A broader deployment must implement the closed graph above instead of silently weakening this restriction.
+
+### State transitions
+
+| Entity | Event | Next state |
+|---|---|---|
+| Qualified method | Authorized initial enrollment | PINNED |
+| PINNED method | Identical valid advertisement | PINNED, unchanged digest |
+| PINNED method | Changed/invalid descriptor or removal | REVOKED |
+| REVOKED method | Original descriptor reappears | REVOKED |
+| Sealed session | Previously unpinned method appears | Refuse; new session required |
+| Bare alias | First provider p | UNIQUE(p) |
+| UNIQUE(p) alias | Different provider advertises same name | AMBIGUOUS |
+| AMBIGUOUS alias | Any removal or later advertisement | AMBIGUOUS |
+
+Ambiguous bare aliases never resolve by arrival order, priority, or last-writer wins. Qualified calls remain distinguishable. New snapshots and migrations are explicit control-plane operations. Keep tombstones until session termination.
+
+### Metadata linting
+
+Inspect only a separate display-analysis view: NFKC, casefold, then whitespace folding. Bound each description to 4 KiB. Flag controls and formatting characters, bidi controls, configured role delimiters, code fences, role prefixes, and an explicit finite list of directive phrases. The reference scans descriptor descriptions/titles and schema descriptions/titles/$comment.
+
+The linter is a deterministic syntactic policy. It cannot decide whether arbitrary prose is a malicious instruction, and quoted documentation can legitimately trigger it. Raw annotations must not become trusted instructions. Any additional metadata surfaced to a model needs its own typed lint policy. Preserve the original canonical bytes for pinning; do not hash the lint-normalized view.
+
+### Python architecture and tests
+
+State is a dict[(provider, method), frozen Pin], a dict[method, owner set], a revoked-key set, a generation counter, and a short critical section. Hashing/linting runs outside the hot lookup lock.
+
+Properties: object order and numeric spelling do not affect C; canonical roundtrip is idempotent; array order matters; duplicate keys reject. A RegistryMachine generates advertisements, collisions, removals, and restoration attempts. Its invariant is that a pinned digest never changes, revocation never heals in-session, and an alias never silently retargets.
+
+## 2. workspace_path_validator.py
+
+### Invariant
+
+For filesystem state F, let ProtectedNames be reserved namespace entries and ProtectedObjects their inode identities. Let Effects(c,F) include all writes, truncations, replacements, unlink/link/rename operations, permission changes, and destructive changes to ancestors that alter protected path resolution.
+
+$$W(s,c,t)\equiv
+ \operatorname{Effects}(c,F_t)\cap\operatorname{Protected}(F_t)=\varnothing
+ \land \operatorname{Effects}(c,F_t)\subseteq\operatorname{Workspace}(s).$$
+
+The static analyzer must compute a conservative superset of effects. If it cannot, reject. Ordinary creation of an unrelated child is not considered a destructive mutation of every sibling merely because directory mtime changes.
+
+The reference reserves .mcp.json, AGENTS.md, and CLAUDE.md at any depth; .github/workflows; and explicit IDE/configuration names. It conservatively protects all .git, .claude, .cursor, .vscode, .idea, and .windsurf directories plus .cursorrules, .clinerules and .github/copilot-instructions.md. Protecting all .git also prevents hooks from being redirected through Git configuration. Deployment-specific Git worktrees, alternate gitdirs, hooksPath, IDE rules, and external configuration roots must be registered or disallowed.
+
+### Path resolution
+
+Use the actual operation semantics and a broker-pinned physical cwd:
+
+1. Validate UTF-8/scalar text, NUL, path/component lengths, and workspace root. Reject leading // and unsupported platform semantics.
+2. Walk path components without first collapsing '..'.
+3. On a symlink, splice its target before the remaining suffix. Relative targets start at the symlink's parent. Absolute targets must remain in the workspace.
+4. Process '..' after symlink traversal and reject root escape. Reject a regular file used as a directory.
+5. For creation, permit only a missing final component under a resolved existing parent.
+6. Check visited protected names and the resolved object's device/inode. Conservatively deny mutations of multiply linked files. Check both source and destination for rename, plus replacement destinations and secondary paths.
+
+When cp or mv expands a destination directory into directory/source_basename, retain the complete visited-name trace from resolving that directory. Otherwise expansion through a protected symlink can erase the evidence needed for the namespace check.
+
+The reference uses a complete immutable Snapshot and returns Resolved records. It limits symlink hops to 40, depth to 64, total component steps to 512, component bytes to 255, and uses 2,048 shared work credits for an effect batch. Protected-name classifications are precomputed per immutable snapshot.
+
+Do not Unicode-normalize or URL-decode real POSIX filenames. On a case-insensitive or normalization-insensitive filesystem, use that filesystem's actual name/identity semantics or reject the platform. A Linux lexical policy is not a portable Windows/APFS policy.
+
+### Shell subset and effect extraction
+
+Python shlex is a lexer, not a complete shell parser [4]. The reference uses an explicit bounded scanner preserving whether operators came from quoted text. Its language accepts literal words, quotes, bounded escapes, pipelines, ;, &&, ||, parenthesized groups, and a small set of redirections.
+
+The accepted grammar is structurally:
+
+```text
+sequence := unit ((';' | '&&' | '||' | '|') unit)* [';']
+unit     := simple | '(' sequence ')' redirection*
+simple   := (literal | redirection)+
+```
+
+The implementation rejects unsupported variants even if a more complete POSIX parser could accept them. The scanner distinguishes a quoted '>' argument from a redirection and an adjacent unquoted IO number from an ordinary numeric argument.
+
+| Operation | Reference profile |
+|---|---|
+| >, >>, >|, <> | Record each file as a possible mutation |
+| < | Record a regular-file read |
+| (...) > file | Inspect nested commands and the group-level redirection |
+| tee [-a] [--] files | Every file is an output |
+| cp [--] source destination | Source regular file; expand destination-directory basename |
+| mv [--] source destination | Protect both removal and destination replacement |
+| ln -s [--] target link | Resolve target relative to link parent; protect both |
+| ln without -s | Recognized and denied: hardlink creation disabled |
+| chmod octal files | Nonrecursive regular-file targets only |
+| sed -i script files | One restricted literal substitution; no backup suffix or secondary I/O |
+
+sed -i is an implementation extension, not a portable POSIX interface; GNU documents both in-place and backup behavior [5]. Pin the actual utility implementation/profile.
+
+Reject command substitution, backticks, variables, globs, tilde expansion, process substitution, fd duplication, heredocs, functions, aliases, eval, interpreters, unmodeled options, and arbitrary executables. There is no sound general way to know a command substitution's resulting filename without evaluating its program.
+
+Inspect every redirection: an earlier '> protected' can truncate before a later redirect changes stdout [14]. Conservatively inspect all branches, even those a particular execution may skip. The effect list is a union, not an execution-order AST.
+
+A flat snapshot does not model 'ln -s ...; write-through-link' or rename-then-use. The reference refuses a multi-effect batch containing namespace-changing move/link operations. A fuller executor must interpret and revalidate each namespace transition against a fresh authoritative state.
+
+### Required actual enforcement
+
+Snapshot.check is not sufficient authorization for subprocess.run(raw, shell=True).
+
+Choose either a trusted executor of typed mutation plans, or an OS-isolated shell whose reserved paths cannot be mutated. For a broker:
+
+- Own all namespace mutations and maintain generation/fencing state.
+- Resolve from trusted directory descriptors. Linux openat2 can enforce beneath/no-magic-link/no-symlink constraints; optionally reject mount crossing [6]. A Python stdlib alternative walks components with dir_fd and O_NOFOLLOW, under broker-owned namespace invariants [7].
+- For existing targets, open without O_TRUNC, verify fstat identity/type/link count, then truncate/write through that same descriptor.
+- For creation, use a verified parent and O_CREAT|O_EXCL where appropriate. Bind rename/link/unlink operations to checked parent descriptors.
+- Keep protected ancestors immutable to untrusted actors, reject unknown hardlink aliases, close inherited writable descriptors, and prevent out-of-band mutation.
+
+O_NOFOLLOW on the final component alone does not protect ancestor symlinks. openat2 also does not solve hardlinks or every ancestor-rename race. Pure Python path checking cannot provide a general race-free permission boundary against arbitrary peer writers.
+
+### Tests
+
+Generate '..' prefixes, quoted tokens, multiple redirects, nested groups, alias retargeting, and hardlink identities. WorkspaceMachine changes the filesystem generation and symlink target. Invariants: a fresh protected alias never authorizes mutation, stale-generation tickets reject, and protected inode aliases reject. A private real-filesystem fixture checks the model's symlink/'..' results against POSIX resolution. No shell is executed by the tests.
+
+## 3. lattice_flow_validator.py
+
+### Lattice and propagation
+
+Use contamination order, not an ordering of how much a source is trusted:
+
+$$L=\{\mathrm{VERIFIED}=0,\mathrm{EXTERNAL}=1\},\qquad a\sqcup b=\max(a,b).$$
+
+$$\ell_{t+1}=\ell_t\sqcup\operatorname{origin}(e_t).$$
+
+For DAG node v with predecessors pred(v):
+
+$$\ell(v)=\ell_{\mathrm{session}}\sqcup\ell_{\mathrm{input}}(v)
+ \sqcup\ell_{\mathrm{control}}(v)
+ \sqcup\bigsqcup_{u\in pred(v)}\ell(u).$$
+
+The lattice construction follows the information-flow tradition [10]; this particular two-level policy is deliberately conservative. VERIFIED means approved provenance, not factual correctness.
+
+The trust boundary assigns labels. Tool responses, errors, redirects, restored state, cached artifacts, and control decisions are inputs. Schema-validating or summarizing EXTERNAL data does not remove its label. Children share the session state or inherit/join it through an authenticated mechanism. There is no automatic EXTERNAL-to-VERIFIED transition.
+
+The reference taints at admission of an unverified connector call, before its response arrives, and uses global session taint. This strengthens an ingestion-only rule and avoids an in-flight exposure window.
+
+### Manifest commitment and gating
+
+Compile the initial authorized job specification into an immutable manifest before connector ingestion. A model may propose it, but trusted code and the authorized job policy determine its authority. A digest without controlled provenance or authentication is not authorization.
+
+Each step binds:
+
+- Unique step ID and exact qualified provider/method.
+- Registry/schema pin and locally controlled impact classification.
+- Required predecessors.
+- All resource roles and canonical path patterns.
+- Exact argument digest where non-resource arguments must be fixed.
+- Cardinality, plus deployment-specific budgets/expiry/parameter constraints.
+
+The reference has single-use steps; repetitions need explicitly separate manifest steps. Unknown methods and unextracted resource-bearing fields are denied by typed adapters. The adapter must discover every effect-bearing path from the validated parameter structure; never trust a caller-supplied 'resources' list.
+
+Let Match_M(c) mean that one unused eligible step matches the qualified method, pin, complete role set, paths, and required argument digest. The requested rule is:
+
+$$\operatorname{Allow}(c)\Rightarrow
+ [\ell_{\mathrm{session}}=\mathrm{EXTERNAL}\land\operatorname{High}(c)
+ \Rightarrow \operatorname{Match}_M(c)].$$
+
+The runnable reference enforces the stronger policy Match_M(c) for every admitted step, regardless of label. Existing scope, schema, quota, transition, and workspace checks still apply.
+
+Path patterns are segment-aware: literal equals literal; '*' matches exactly one nonempty segment; terminal '**' matches zero or more segments. No general regex, percent decoding, or fnmatch semantics that let '*' cross '/'. Resources must already be physically canonicalized by the correct adapter. For non-filesystem resources, implement a typed canonical resource grammar instead of pretending every identifier is a filesystem path.
+
+### Runtime transition and concurrency
+
+```text
+NEW -> QUEUED -> DISPATCHED -> DONE | FAILED | UNKNOWN
+```
+
+Admission validates and consumes a step before appending one immutable dispatch record. An identical request key returns the prior receipt without another outbox entry. The same key with different arguments is denied. Only DONE satisfies a predecessor. FAILED and UNKNOWN do not restore spent authority.
+
+At the final dispatch point, recheck relevant pin/fs/fencing revisions under the common session owner. Persist state and outbox together for crash recovery. Downstream idempotency is required to safely reconcile ambiguous remote outcomes; an in-memory ledger does not give exactly-once remote effects.
+
+The reference uses frozen dataclasses, immutable manifest mappings, a dict for step status, an ordered deque outbox, a request ledger, and RLock. It is a local state-machine model; durable outbox storage and distributed fencing are integration requirements.
+
+### Tests
+
+WorkflowMachine generates ingestion, admission, duplicate requests, dispatch, and completion outcomes. Assert monotone taint, no duplicate dispatch, no capability reuse, and predecessor completion. Additional tests alter provider, pin, argument digest, role sets, and path boundaries. Production tests should additionally model owner failover, stale-epoch dispatch, partial batch processing, and crash points around durable enqueue/network acknowledgement.
+
+## 4. shingle_similarity_validator.py
+
+### Normalization and policy
+
+Pin a finite normalization family. Profile nfkc-casefold-filter-fixedpoint-v2 uses two views:
+
+1. Apply NFKC, casefold, NFKC again, then remove Unicode category Cf. Repeat until the value is unchanged, allowing at most four rounds; reject if it does not stabilize.
+2. Starting from the first view, apply the same operation while also removing whitespace and the explicit separators '-_./ '. Again require stability within four rounds.
+
+Filtering may bring a base character and combining mark together. Re-normalization makes both accepted views idempotent; for example, A + zero-width joiner + combining ring and the composed character converge to the same view. Check the 256-code-point bound after every round, and fail closed on any exceeded bound.
+
+Apply the same view to enrollment and queries. Do not claim this handles all Unicode confusables, arbitrary encodings, encryption, or semantic paraphrases. URL/transport decoding, if applicable, belongs in a separately specified bounded adapter. Pin the Unicode version. Reject oversize values rather than truncating them.
+
+Default limits: 16 protected strings, 256 normalized code points per string/query, 1 KiB raw text, two views, k=12, LCS coverage threshold 85%, and minimum matched length min(12, protected length). Reject protected strings shorter than four characters in either view.
+
+For protected p and query q under one normalization, define:
+
+$$G_k(x)=\{x[i:i+k]\mid 0\leq i\leq |x|-k\},\quad k_p=\min(k,|p|).$$
+
+$$\operatorname{Hit}(p,q)\equiv
+ [G_{k_p}(p)\cap G_{k_p}(q)\neq\varnothing]\ \lor\
+ [LCS(p,q)\geq\min(12,|p|)
+ \land 100LCS(p,q)\geq85|p|].$$
+
+$$I(s,c,t)\equiv\neg\exists p,j:\operatorname{Hit}(T_j(p),T_j(q)).$$
+
+This is an exact rule over the declared transformations/thresholds, subject to cryptographic collision assumptions for shingle equality. It is not a claim that every blocked string leaks information or that every possible leak is detected. Common snippets and low-entropy patterns can create false positives.
+
+### Rolling hash and equality
+
+For code points mapped to x_i=ord(c_i)+1, base B and modulus 2^64:
+
+$$h_i=\sum_{j=0}^{k-1}x_{i+j}B^{k-1-j}\bmod2^{64},$$
+$$h_{i+1}=((h_i-x_iB^{k-1})B+x_{i+k})\bmod2^{64}.$$
+
+This follows the fingerprinting approach of Karp and Rabin [11]. The reference separates a set of rolling fingerprints from a dict of keyed SHA-256 shingle digests. A rolling hit triggers keyed confirmation; the polynomial fingerprint alone never establishes equality.
+
+For short protected strings, index their full length. Therefore there can be several k values, bounded by the configured k. A single-length rolling scan is O(N); a fixed set of lengths/views remains O(N) with a larger constant. Python hash-set/dict lookup provides expected constant time, not an adversarial worst-case guarantee. Confirmation costs O(k) per candidate; k is a small fixed bound.
+
+### Subsequence algorithm
+
+Precompute a bit mask M_p[c] with bit i set when p_i=c. For every query character c:
+
+```python
+x = masks.get(c, 0) | state
+state = x & ~(x - ((state << 1) | 1))
+# after the final character:
+length = state.bit_count()
+```
+
+Bit-parallel LCS exploits machine-word parallelism [12]. For P patterns of lengths m_p and query length N, its word-operation cost is O(N × sum_p ceil(m_p/w)). Python big integers are multiword objects; treating each operation as constant time for unbounded strings would be incorrect.
+
+The primary ratio is protected-string coverage LCS(p,q)/|p|, so padding the identifier does not dilute a leak. Symmetric 2L/(|p|+|q|) may be a diagnostic but should not replace coverage for this policy. Use integer comparisons, avoiding float threshold boundaries.
+
+Always run the bounded LCS stage when needed, even if no shingles match. Inserting a character between every protected character can preserve full subsequence coverage while destroying every contiguous k-gram. A safe prefilter is the upper bound LCS <= min(|p|,|q|); a shingle miss is not a safe LCS prefilter.
+
+### Memory and audit
+
+The index stores rolling integers, keyed gram digests, protected-item keyed identifiers, and private LCS masks. The masks encode ordered information and must be treated as sensitive in-memory state. This design promises no plaintext in audit records, not cryptographic secrecy of the matcher process.
+
+Audit content fields use domain-separated HMAC-SHA256 under a private key. Log only identifier_hash, protected_hash, a fixed reason code, and decision; add key/policy versions and numeric metadata in production. Plain SHA-256 of low-entropy configuration values is vulnerable to guessing. Never log raw query/secret strings, matched windows, exception payloads, or debug representations of masks. Keys are not logged.
+
+Memory is O(number of shingles) plus mask storage O(sum_p alphabet_size(p) × ceil(m_p/w)), with Python object overhead. The benchmark records actual retained allocations for the supported maximum-size synthetic set.
+
+### Tests
+
+Compare the rolling recurrence with independently recomputed window hashes. Compare bit-parallel LCS with an independent O(mn) dynamic program. Test symmetry/bounds, no-shingle subsequences, padding, short strings, normalization stability, forced rolling collisions, threshold boundaries, and keyed audit output. SimilarityMachine adds protected patterns and checks that prior blocked queries never become allowed and every registered string remains blocked.
+
+## 5. linear_obligation_validator.py
+
+### Invariant and representation
+
+A session's workflow state is a marking of a bounded Petri net with 16 places P_0..P_15, each holding 0..15 tokens. The marking is packed as 16 unsigned 4-bit nibbles into one integer M with 0 <= M < 2^64. A transition t (keyed by authenticated provider and exact method) carries Pre[t] and Post[t] vectors in the same packed form and an is_external_egress flag set by the trusted manifest compiler. The manifest also fixes the initial marking, a positive weight vector w in (Z+)^16, and obligation_places_mask: whole 0xF nibbles over the places that hold resource cleanup state.
+
+$$P(s,c,t)\equiv
+ \forall i:\ M_t[i]\ge \mathrm{Pre}[c][i]
+ \ \land\ \forall i:\ M_t[i]-\mathrm{Pre}[c][i]+\mathrm{Post}[c][i]\le 15
+ \ \land\ (\mathrm{egress}(c)\Rightarrow M_t\,\&\,\mathrm{mask}_{ob}=0).$$
+
+On admission the successor marking M_t - Pre[c] + Post[c] is committed under the session lock. An unknown method, a bare method name owned by two providers, a stale marking sequence, or a spent bootstrap transition contributes false.
+
+### Cold-path conservation
+
+At manifest compilation every vector must have at most 16 entries in 0..15, every key must be unique, there are 1..64 transitions, and the weights lie in 1..2^16. Every repeatable transition must satisfy the weighted non-minting rule
+
+$$\forall c\in T\setminus T_{boot}:\ \sum_{i=0}^{15} w_i\,(\mathrm{Post}[c][i]-\mathrm{Pre}[c][i])\le 0,$$
+
+so the weighted token count w·M is non-increasing along any firing sequence, apart from the explicitly designated bootstrap transitions T_boot, each of which can fire at most once per session. A manifest that violates the rule is never attached. The manifest commitment is a domain-separated digest over the packed vectors, flags, weights, initial marking, and obligation mask.
+
+### Hot path
+
+Each nibble is spread into an 8-bit lane of a 128-bit integer. With values 0..15, the lane-wise expression (lanes | 0x80…) - Pre has its high bit set in lane i exactly when M[i] >= Pre[i], and no borrow crosses lanes. Given sufficient tokens, lanes - Pre + Post holds values 0..30 per lane, so no carry crosses lanes, and any bit in the upper nibble of a lane means a place above capacity. Each check is a constant number of integer operations over a fixed 16-place width: O(1) in the manifest size. A rejected firing leaves the marking and sequence unchanged.
+
+### Gateway wiring
+
+PolicyEngine.attach_obligation_net(session_id, manifest) attaches a compiled net. The gateway resolves the tool name to a transition and checks it before the outbound-identifier matcher. It fires the transition, fenced on the marking sequence read before the other checks, only after every other reference validator has passed. A denial from a later validator therefore never consumes tokens. Denials use OBLIGATION_PROTOCOL_DENIED (JSON-RPC -32071, approximate ATLAS AML.T0051) and record the reason code, the packed marking in hex, and the sequence. The frozen DispatchEnvelope in common.py has a petri_marking_hex field for binding the marking into the dispatch commitment.
+
+### Tests
+
+Nibble get/set round-trips leave the other 15 places unchanged. The lane-parallel successor is compared with an independent per-place loop over random markings and vectors. Minting, out-of-range, duplicate, malformed-mask, and malformed-weight manifests are rejected. Bootstrap transitions are one-shot, places cannot exceed capacity, and check() is pure. PetriObligationMachine fires random acquire/work/settle/release/egress/probe/grant sequences against a Python model. It asserts nibble bounds, a non-increasing weighted token count outside the one-shot grant, agreement with the model, and that no egress is admitted while a cleanup place is non-zero. tests/test_v12_3_obligation_wiring.py covers the gateway path, the JSON-RPC code, commit-after-all-checks ordering, and the SARIF rule.
+
+## 6. symbolic_fs_transducer.py
+
+### Invariant and representation
+
+W denies mutation of protected paths and inodes but deliberately admits reading them, so a protected or sensitive file can be copied into an ordinary workspace file and the copy attached to an outbound call. Content written while the session is untrusted can likewise be written into a workspace file and later consumed by an execution sink. T closes both flows with a label per file object in the product lattice
+
+$$\mathcal{L}=\{\mathrm{PUBLIC}<\mathrm{SENSITIVE}<\mathrm{PROTECTED}\}\times\{\mathrm{TRUSTED}<\mathrm{UNTRUSTED}\},$$
+
+joined pointwise with max. Labels live in an immutable copy-on-write overlay over W's Snapshot, keyed by inode identity when the model has one and by canonical path otherwise, with a generation counter. A path or inode that W classifies as protected (including a symlink or hard-link alias of one) defaults to (PROTECTED, TRUSTED); every other file defaults to (PUBLIC, TRUSTED).
+
+For a call c with resolved read sources R and write targets E, after W(s,c,t) holds:
+
+$$\ell_{new}=(\mathrm{PUBLIC},\ell_{session})\sqcup\bigsqcup_{r\in R}\ell(r),\qquad \forall w\in E:\ \ell'(w)=\ell(w)\sqcup\ell_{new}$$
+
+$$T(s,c,t)\equiv(\mathrm{egress}(c)\Rightarrow\forall r\in R:\ \ell(r).C=\mathrm{PUBLIC})\ \land\ (\mathrm{exec}(c)\Rightarrow\forall r\in R:\ \ell(r).I=\mathrm{TRUSTED}).$$
+
+The specification text assigns ℓ_new to each target; the implementation joins it into the target's existing label instead, so labels only rise. The model cannot see whether a write completed or replaced the whole file, so lowering a label on overwrite could understate what the file holds, while raising it can only overstate. Append and in-place edit also count the target as a read source. A chmod target is treated as an execution sink because Intent does not carry the mode bits. The whole analyzed command is one unit: W's effect union does not record which pipeline member feeds which, so joining across the command over-approximates the flow and never misses one. ℓ_session is monotone and becomes UNTRUSTED when the gateway marks the session tainted or the broker calls observe_untrusted().
+
+### Hot path
+
+check() runs W's check_all first; a W denial propagates unchanged and nothing changes. It then resolves copy and move sources, looks up at most 64 read labels (one overlay probe per key, O(1) each), applies the sink rules, and builds the successor overlay by copying the mapping, O(|overlay| + |E|). Overlays are capped at 65,536 entries. commit() is fenced on the generation the pending result was computed from. rebase(snapshot) adopts a strictly newer base with the same root, keeps the overlay, and bumps the generation so results computed against the old base cannot commit. Reason codes are fixed strings and carry no paths or content.
+
+### Gateway wiring
+
+PolicyEngine.attach_fs_transducer(session_id, nodes, generation, root) builds a Snapshot from the same trusted broker model as attach_workspace_snapshot. A literal shell command is analyzed into its effect union; its fixed command set never interprets file content and its output returns to the agent, so it is neither an egress nor an execution sink. Any other call is applicable only when a resource argument (uri, resource_uri, resource, path) names a path inside the workspace root: a write tool's paths are write targets, and every other tool's paths are read sources checked against the call's sink stage (outbound for send and credential classes or external parameter boundaries, execution for spawn and shell, exec and script tool names). T is checked right after the shell-effect check. Labels are committed after every other reference validator has passed and before the Petri-net fire, so a later denial never commits labels, and a failed fire after the commit can only overstate a label. Label denials use FS_LABEL_FLOW_DENIED (JSON-RPC -32072, approximate ATLAS AML.T0086) and record the reason code, the axis, the overlay generation, and the session integrity. A denial from the workspace model inside T is reported as WORKSPACE_EFFECT_DENIED with via=fs_transducer.
+
+### Tests
+
+The lattice laws (commutativity, associativity, idempotence, identity, absorption, and order agreeing with join) are checked over all six labels. Further cases cover protected defaults through symlink and hard-link aliases, pipeline joins, session integrity, labels never lowering on overwrite, the egress, execution, and chmod sinks, W and sink denials leaving state unchanged, evaluate() purity and overlay immutability, generation fencing, rebase rules, and reason codes without paths. TransducerMachine runs random copies, pipes, appends, overwrites, taint events, sink reads, chmods, and protected writes against an independent label model and asserts agreement after every step; a deliberately broken join fails it. tests/test_v12_4_fs_label_wiring.py covers the gateway path, the JSON-RPC code, commit-after-all-checks ordering, a broker rebase, and the SARIF rule.
+
+## 7. canonical_argument_confinement.py
+
+### Invariant and representation
+
+Two blind spots are about representation, not meaning. First, an argument object can say the same thing in many byte strings: key order, number spelling (1, 1.0, 10e-1, -0), set element order, duplicate keys, explicit defaults. Each choice can carry bits past checks that look only at meaning. Second, a file name that starts with "-" is read as a flag by cp, tee, sed and the other file utilities. S closes both for the tools a trusted adapter pins.
+
+A pinned Policy P has 1..16 FieldPolicy entries (name, kind in {number, set, text, bool}, scale 0..6 for numbers, an optional canonical default, required). The canonical form C_P sorts keys by their UTF-8 bytes and emits compact UTF-8 JSON. It quantizes numbers to the field's scale with ROUND_HALF_EVEN under a local 40-digit context, writes them in positional notation, and turns -0 into 0. It writes set fields as arrays of distinct strings sorted by their canonical UTF-8 JSON encodings, and omits optional fields whose encoding equals the default. Where Canon_P(x) is "x is accepted by P":
+
+$$S(s,c,t)\equiv \big(\mathrm{pinned}_P(c)\Rightarrow \mathrm{Canon}_P(\mathrm{args}(c))\big)\land\big(\mathrm{typed}(c)\Rightarrow \forall o\in\mathrm{operands}(c):\ o_0\neq\text{-}\big),\qquad C_P(C_P(x))=C_P(x).$$
+
+Input is bounded before parsing: at most 2048 wire bytes, and a quote- and escape-aware scan of the raw bytes allows nesting depth 2 (the object plus one array level). Duplicate keys, unknown fields, missing required fields, non-finite numbers, numbers longer than 48 characters, with more than 24 significant digits or with exponent magnitude above 12, sets above 32 elements or elements above 128 characters, duplicate set elements, invalid UTF-8, and lone surrogates contribute false. A quantized number that would itself fail those limits is refused (NUMBER_RANGE), which keeps C_P idempotent. A default must be its own canonical encoding, or the policy is never built. An optional field with no default keeps one bit: an absent field and, for example, an empty set stay distinct. Pinning a default closes that bit.
+
+confine(Command) accepts cp, mv, tee, ln, chmod and sed with 1..16 operands of 1..256 characters, at most 1024 characters in total, no NUL, and no operand starting with "-" ("./-name" is the explicit spelling). It compiles a fixed argv (utility, *options, "--", *positionals): options come only from typed fields (tee -a, ln -s, sed -i), and chmod's mode and sed's script are positionals placed after "--" ahead of the operands. Each one must match the same literal profile the workspace analyzer accepts. cp, mv and ln take exactly two operands, and ln is symbolic only.
+
+### Hot path
+
+Canonicalization is linear in the wire bytes plus sorting at most 16 keys and at most 32 elements per set. The 40-digit context bounds every quantization. confine is linear in the operand text. Neither keeps state, so there is no commit step.
+
+### Gateway wiring
+
+PolicyEngine.pin_argument_policy(tool_name, policy) and PolicyEngine.pin_command_tool(tool_name) pin a tool one way or the other, never both. S runs first in the reference middleware. A pinned argument object is re-encoded as compact JSON, because the gateway receives arguments already parsed. Duplicate keys and number spelling are therefore collapsed by the HTTP JSON parser before S sees them, and the wire-level checks apply in full to raw bytes a broker passes to Policy.canonicalize. The allow result carries confinement.canonical_arguments and the policy commitment, and those bytes are what a dispatcher forwards. A typed command's arguments must be exactly {utility, operands, mode, script, append}. Its compiled argv goes on the allow result as confinement.argv, and its effects (from the workspace analyzer's command_intents) go through W and T when those are attached. It never falls back to shell-text parsing, because its script field is a sed expression. Denials use ARGUMENT_CONFINEMENT_DENIED (JSON-RPC -32073, approximate ATLAS AML.T0053) and record the reason code, the kind (arguments or command), and the policy commitment.
+
+### Tests
+
+Unit cases cover ROUND_HALF_EVEN boundaries, -0, equivalent spellings sharing one form, set order by encoded bytes, every rejection reason, depth counting that ignores brackets and escaped quotes inside strings, policy validation (including non-canonical defaults), the presence bit, a Hypothesis property for idempotence and order independence, every utility's argv, every confine rejection, the typed-argument adapter, a repr without operands, and a property that operands never reach an option position. Every compiled argv is also accepted by the workspace analyzer. CanonicalArgumentMachine keeps a semantic argument object and re-spells it on every step: key order, number notation including exact halves, set order, explicit defaults, and escaped or raw text. It compares the canonical bytes with an oracle that formats amounts with integer arithmetic, independent of Decimal. Replacing ROUND_HALF_EVEN with ROUND_HALF_UP fails it. tests/test_v12_5_argument_confinement_wiring.py covers the gateway path, the JSON-RPC code, identical bytes for equivalent objects, option injection, typed commands through W and T, results not leaking into later calls, one-way pinning, and the SARIF rule.
+
+## 8. fork_join_vector_validator.py
+
+### Invariant and representation
+
+Per-session budgets and markings assume one session. When a root session forks sub-agent branches and later joins them, a child that gets a fresh, independent quota multiplies the root's budgets, and two branches that dispatch concurrently can both spend one balance. V keeps a root and at most WIDTH = 8 lifetime branches under one immutable ledger. Slot 0 is the root, and slots are never reused. Each branch b has a parent, an active flag, a vector clock c_b in N^8, a taint bit, and a wallet w_b = (denial units, outbound bytes, 16 token places). Token amounts are in units of 1/UNIT of a capability, with UNIT = 256. The root also records the initial wallet I, the consumed denial units and outbound bytes in spent, a positive weight vector, an obligation mask over the 16 places, and an event count. Over the active branches A:
+
+$$\forall k\in\{0,1\}:\ \sum_{b\in A} w_b[k]+\mathrm{spent}[k]=I[k],\qquad \sum_{b\in A}\sum_{i}\omega_i\,w_b[2+i]=\sum_i \omega_i\,I[2+i],\qquad \sum_b c_b[b]=\mathrm{events}+|\mathrm{branches}|-1.$$
+
+An inactive branch holds the zero wallet. Every operation names a slot and the expected value of that branch's own clock component. It needs the branch active, the clock current, and fewer than 65,535 events, and a commit ticks that component.
+
+- fork moves a grant (each entry at most the parent's) into a new child. The child's clock is the parent's after the tick with its own component set to 1, and it inherits the parent's taint.
+- join needs the child active, a direct child of the joining slot, and no active children of its own. It adds the child's wallet back, takes the elementwise maximum of clocks and taint, and deactivates the child for good.
+- fire needs take ≤ the branch's tokens and the weighted sums of take and put to be equal, so no firing mints. A branch holding a fraction below UNIT cannot take a full-token transition until that fraction is joined back.
+- send allows at most 512 bytes per call, needs a remaining denial unit and enough outbound bytes, and needs every active branch in the ledger to hold zero tokens in the obligation places. Cleanup state is settled ledger-wide, not per branch.
+- deny spends one denial unit.
+
+$$V(s,c,t)\equiv \mathrm{active}(b_s)\land \mathrm{clock}_c=c_{b_s}[b_s]\land \mathrm{ops}(c)\ \text{admissible on}\ w_{b_s}\ \text{and the ledger}.$$
+
+### Hot path
+
+Each operation is O(WIDTH × PLACES) at worst; that bound comes from the ledger-wide obligation scan on send. Owner holds the current Root under one lock. check() runs a batch against a snapshot and changes nothing. apply() runs the whole batch fenced on the expected clock and commits it all or nothing, so a dispatch computed from a stale view never commits. Owner validates its transition table at construction: every (take, put) entry must conserve the weighted token count.
+
+### Gateway wiring
+
+PolicyEngine.attach_fork_join(session_id, Root.make(...), transitions) puts a session at slot 0. fork_branch(parent, child, grant) and join_branch(parent, child) are the trusted control plane. A ledger session that calls spawn_subagent forks the child session automatically with an empty grant, so a spawned child starts with no budget unless the control plane gives it one. The forked slot is committed when the spawn passes the reference validators; a spawn denied later in the pipeline still uses a lifetime slot.
+
+The reference middleware plans the call's operations once the label transducer has been checked. Those are a taint mark if the session is tainted, the tool's transition if it has one, a send for outbound calls (send and credential classes or external parameter boundaries), measured as the canonical JSON size of the arguments, and the auto-fork. The plan is checked against the current ledger, then applied, fenced on the clock read at planning time, after every other reference validator has passed and before the Petri-net fire.
+
+Every gateway denial on a ledger session, from any gate, spends one of that branch's denial units, and an exhausted branch cannot send. Branch taint is mirrored into the session whenever the session is loaded, so a child of a tainted branch starts tainted and a join that brings taint back taints the parent. A joined child's later calls are denied (BRANCH_INACTIVE). Denials use FORK_JOIN_LEDGER_DENIED (JSON-RPC -32074, approximate ATLAS AML.T0086) and record the reason code, the slot, the event count, and spent.
+
+### Tests
+
+Unit cases cover Root.make validation; fencing on slot, activity, clock and event budget; fork grants and child clocks; lifetime width with no slot reuse; join rules (not a child, has children, inactive) and the merge; send, deny and fire semantics with weighted conservation and ledger-wide cleanup state; a fraction below UNIT; tampered roots rejected by conserved() and by Owner; and atomic, fenced Owner batches. LedgerMachine forks, joins, fires weighted moves, sends, denies, taints and attempts stale writes on random branches against an independent Python model, and asserts the conservation laws after every step. A fork that mints, or a send that checks cleanup state only on its own branch, fails it. tests/test_v12_6_fork_join_wiring.py covers shared budgets, fractional tokens, ledger-wide cleanup state, denial charging, a stale-clock commit, spawn auto-forks, taint along forks and joins, and the SARIF rule.
+
+## 9. dynamic_ingression_validator.py
+
+### Invariant and representation
+
+The similarity matcher (I) protects only strings pinned when the session starts. A credential, internal host name, or address that first appears in a tool response is unknown to it. D scans each inbound response before the agent sees it, enrolls secret-looking values into a per-session store of SLOTS = 8 values, and denies later outbound strings that cover one.
+
+An inbound batch has at most 32 fields and 4096 UTF-8 bytes. A field marked sensitive is enrolled whole and must be 4..128 bytes. Every maximal run of TOKEN bytes ([A-Za-z0-9_-.@+/=]) is a candidate; a run over 128 bytes fails the batch. A run of 4 or more bytes is enrolled when it matches any of these rules:
+
+- it starts with sk-, ghp_ or AKIA;
+- it ends with .internal or .corp;
+- it has exactly one @, a non-empty left side, and a right side that contains "." and does not start with it;
+- it has high entropy, tested exactly in integers over the byte counts c_x:
+
+$$|b|\ge 24\ \land\ |\{x: c_x>0\}|\ge 16\ \land\ 16\sum_x c_x^2\le |b|^2\iff H_2(b)=-\log_2\sum_x (c_x/|b|)^2\ge 4\ \text{bits/byte}.$$
+
+Since the round-2 fixes there are two stores. Hard values (fields a trusted sensitive-source adapter marks sensitive) fill HARD_SLOTS = 8 and never evict: a batch whose new hard values do not fit fails with D_CAPACITY and enrolls nothing, so no response can push a trusted secret out. Heuristic values fill SOFT_SLOTS = 16 and evict oldest first, never failing a batch. With E the enrolled values and LCS the longest common subsequence:
+
+$$D(s,c,t)\equiv \forall q\in\mathrm{strings}(\mathrm{args}(c)),\ \forall e\in E_s:\ 100\cdot \mathrm{LCS}(e,q) < 85\,|e|,\qquad |q|\le 512\ \text{when}\ E_s\neq\emptyset.$$
+
+Coverage is a subsequence measure, so separators interleaved between the characters, or a few dropped characters, do not hide a value.
+
+### Hot path
+
+Each enrolled value is compiled once into a 256-entry byte bitmask table. The outbound check runs the bit-parallel recurrence x = M[c] | S; S = x & ~(x - ((S << 1) | 1)) over the query. It costs O(|q|) big-integer steps per value, with at most 128-bit masks, 8 values, and 512 query bytes. Enrollment is linear in the batch plus one 256-entry count per run that passes the length gate. Reason codes never carry values, and denial records carry only the matching slot index.
+
+### Gateway wiring
+
+PolicyEngine.attach_ingression(session_id) attaches the store. Inbound scanning happens in evaluate_call after the decision, on every allowed result the agent is about to see. That covers the general allow path and the bespoke ones (scratchpad notes, the internal bus, spawns); a scratchpad note written by another session is scanned when it is read. The gateway's own echo of the method name is not tool output and is skipped. Unicode format characters (category Cf, including the canary watermark's zero-width marks) are removed first, so the visible value is what gets enrolled; the canary guard still tracks the watermark itself.
+
+Short strings returned by a trusted sensitive-source adapter (a sensitive read or a credential store) are enrolled whole as hard values. Key names in a result decide nothing: an untrusted response chooses them. Every string is token-scanned for soft values. A result that cannot be enrolled within bounds (hard D_CAPACITY, D_TEXT, D_TOKEN_SIZE, D_SECRET_SIZE) is withheld, and the call is denied. The MCP wire proxy calls ingest_dynamic_result on every tools/call result before forwarding it and forwards a -32075 error in place of a withheld result.
+
+The outbound check runs in the reference middleware right after the similarity matcher, on every string argument of write, send, and credential-class calls. Denials use DYNAMIC_INGRESSION_DENIED (JSON-RPC -32075, approximate ATLAS AML.T0086) and record the reason code, the direction, the matching slot or the slots used, and whether a result was withheld.
+
+### Tests
+
+Unit cases cover the candidate rules (prefix, host suffix, address shape, and length bounds), the exact entropy boundary at 4 bits, a property that the integer test agrees with floating-point Renyi-2 entropy away from the boundary, maximal token runs, every extraction bound (including UTF-8 bytes rather than characters), all-or-nothing capacity with no eviction, the 85% threshold at 17 of 20 bytes against 16 of 20, query bounds, and a property that the bit-parallel LCS equals an O(mn) dynamic program. A test also shows that oracle detects the classic dropped carry-in mutation. IngressionMachine sends random batches of pooled secrets, noise, and sensitive fields, then exact, spaced, and truncated queries. It checks every decision against the dynamic program and the store against a model. A laxer threshold, or enrollment that keeps whatever fits instead of failing the batch, fails it. tests/test_v12_7_ingression_wiring.py covers enrollment from the general and scratchpad paths, the watermarked secret, outbound denial, withheld results, capacity without eviction, query bounds, the proxy entry point, and the SARIF rule.
+
+## 10. transform_invariant_validator.py
+
+### Invariant and representation
+
+Forward substring and subsequence matchers (I and D) miss a protected value that leaves reversed, shifted by a constant byte (+k mod 256), XOR-masked with one byte, Caesar-shifted, spelled out as the initials of words, or cut into 4-byte blocks and reordered. Each of these transforms has a cheap invariant view:
+
+| Transform of the value | Query view | Pin view |
+|---|---|---|
+| none | q | p |
+| reversal | q | reverse(p) |
+| x -> (x + k) mod 256 | delta(q), successive differences mod 256 | delta(p) |
+| x -> x XOR k | xor_delta(q), successive XORs | xor_delta(p) |
+| Caesar shift, any case | caesar_delta(q), successive differences mod 26 of a lowercased all-letter q | caesar_delta(p) |
+| acrostic | initials(q), the first letter of each word | p |
+| reordered 4-byte blocks | block counts in q | aligned 4-byte chunks of p, with multiplicity |
+
+The additive and XOR views exist for pins of 5 or more bytes, and the alphabetic view for all-letter pins of 5 or more letters. Only whole aligned chunks count as blocks. With L the longest common subsequence:
+
+$$Z(s,c,t)\equiv \forall q,\ \forall p\in P_s:\ \bigwedge_{(u,v)} 100\,L(u,v)<85\,|u|\ \land\ 100\sum_{b} 4\min(n_b(p),n_b(q))<80\,|p|.$$
+
+### Hot path and work budget
+
+TransformPin precomputes a bit-parallel LCS mask table for each pin view, so a check is linear in the query per view. Work is precharged before any view is computed. Each pin costs (6 * ceil(|p|/30) + 4 * blocks(p)) * |q| credits, and a query whose total exceeds 32,768 credits is denied whole (Z_WORK) instead of being checked partly. The index holds at most 24 pins, queries are at most 512 bytes, and pins are 4..128 bytes.
+
+The budget makes long queries expensive. One 128-byte pin with 32 distinct blocks costs 158 credits per query byte, so queries longer than 207 bytes are denied. Eight 16-byte pins cost 22 credits per byte each, so queries longer than 186 bytes are denied. The credits bound the per-byte work, not the fixed cost of building six views per pin: at the limit, 24 short pins are slower than one long pin (see the results table).
+
+### Limits
+
+The family is finite. Compositions of two transforms, keyed ciphers, compression, and multi-byte keys are out of scope; deobfuscate.py covers common encodings. The Caesar view is computed only for a query made entirely of letters, so a Caesar-shifted value inside a sentence is not seen. The direct, reverse, and acrostic views are subsequence measures, so a short letters-only pin can match long natural text. In a synthetic test, 2,000 English sentences of up to 150 bytes were checked against three pins (a credential, a host name, and the 12-letter word Mountainview). 92 of them (4.6%) matched the 12-letter pin through the direct and reverse views, starting at about 70 bytes. The transform-specific views matched none. Pins that contain digits or punctuation, and longer pins, are far less exposed.
+
+### Gateway wiring
+
+PolicyEngine.attach_transform_index(session_id, protected) pins trusted values and every value Predicate D has already learned for the session. While both are attached, each D enrollment extends Z's pins in the same step: Ingression.receive calls TransformIndex.add before it stores anything, so if Z is full, D enrolls nothing and the result is withheld (DYNAMIC_INGRESSION_DENIED, reason Z_CAPACITY). The check runs in the reference middleware after D's outbound check, on every string argument of write, send, and credential-class calls. Denials use TRANSFORM_INVARIANT_DENIED (JSON-RPC -32076, approximate ATLAS AML.T0086) and record the reason code and the pin count.
+
+### Tests
+
+Unit cases cover each view's invariance (properties for +k, XOR k, and Caesar with case), the helper edge cases, which pin views exist and how blocks are counted, bounded atomic adds, each transform being detected, the 80% block threshold, the exact credit boundary, the D commit hook keeping both stores in step, and each decision matching z_oracle. That oracle reimplements every view independently, with regex initials, str-based Caesar, Counter blocks, and the O(mn) LCS. TransformMachine adds pins and sends reversed, +k, XOR k, Caesar, acrostic, block-reversed, plain, and long queries, and requires the exact reason code the oracle gives. Removing the reverse view, or counting a short trailing chunk as a block, fails it. tests/test_v12_8_transform_wiring.py covers static pins, disguised values, synchronization with D, catching up after D, a full index stopping D, the work and size bounds through the gateway, and the SARIF rule.
+
+## Round-2 audit fixes (31 October 2026)
+
+A second red-team pass over sections 1-10 confirmed five defects. Each fix keeps the predicate's invariant and moves state changes behind the whole decision.
+
+- **V, two-phase commit.** `_fork_join_plan` still checks the ledger operations in the reference middleware, but the plan is staged, not applied. `_settle_ledger` applies it in `evaluate_call` only when the call was allowed; a spawn applies it after its quota and collusion checks and before it reserves a slot. A denied call keeps only the denial unit `_deny` charges, and branch taint is still mirrored. Before the fix, seven SSRF-denied `spawn_subagent` calls left seven ghost branches and exhausted WIDTH = 8.
+- **S, strict wire parsing.** `loads_strict(raw)` is the one parser for Flask `/mcp` (raw `request.get_data()`) and the stdio proxy: strict UTF-8 only (no BOM, no UTF-16/32, no NUL), no lone surrogates raw or escaped, no duplicate keys at any depth, no NaN or Infinity, bounded nesting and number tokens, and exact `Decimal` for every non-integer. `/mcp` gives Predicate S the Decimal-preserving argument object (`evaluate_call(wire_arguments=...)`; `Policy.canonicalize` accepts it and re-encodes it with its exact digits), so `9007199254740993.0` canonicalizes to `9007199254740993` instead of collapsing through a binary float. A rejected message gets JSON-RPC -32700 with a fixed reason, never HTTP 500. The proxy forwards a number only if a binary float carries exactly the value checked (`NUMBER_PRECISION` otherwise).
+- **T, identity across rebase.** `FsTransducer.rebase(snapshot, *, aliases=None, path_moves=None)` joins path-keyed labels onto the inode their path now resolves to, joins an old inode's label onto the inode that replaced it (`aliases`, e.g. GNU `sed -i`), and joins an old path's full label (defaults included) onto its new path and inode (`path_moves`). A malformed or unresolvable target fails closed with `LABEL_ALIAS_UNRESOLVABLE` and leaves the state unchanged. The maps must come from the broker that ran the commands. Without an alias, an inode replacement still drops the old inode's label; that is the broker contract, tested as such.
+- **D, hard and soft stores.** `HARD_SLOTS = 8` hold fields a trusted sensitive-source adapter (a sensitive read or a credential store) marks sensitive: never evicted, a ninth distinct value is D_CAPACITY and the result is withheld. `SOFT_SLOTS = 16` hold heuristic finds: oldest evicted first, never D_CAPACITY. Key names in a result no longer mark anything sensitive, because an untrusted response chooses them. Hard values extend Z atomically; soft values enter Z only while it has room. The MCP wire proxy now feeds tool results to D and forwards a -32075 error in place of a withheld result. Residual: a response the attacker controls can rotate earlier heuristic values out of the soft store.
+- **Z, candidate views.** Each pin also precomputes `stride(p, k)` and its inverse for k in 2, 3, 4, matched by the direct LCS (`Z_STRIDE`); matching the pin's variants rather than de-interleaving the query keeps working when the value is embedded in text. Maximal runs of 16 or more hex characters (even length) and of 16 or more standard or URL-safe base64 characters that decode cleanly are decoded once and checked with the direct and reverse LCS (`Z_ENCODED`). Candidate work is precharged on its own budget, `(|strides(p)| + 2) * ceil(|p|/30) * |q|` per pin against `CANDIDATE_CREDITS = 32768`, so the section 10 limits are unchanged. Residual: compositions, nibble swaps, keyed ciphers and compression.
+
+Not changed in this pass, same shape as the V defect: P's Petri-net fire and T's label commit still happen inside the reference middleware, before the downstream gates. T can only over-label on a later denial; P can advance its marking for a call that is then denied.
+
+## 11. causality_laundering_validator.py (Predicate C, v14)
+
+### Invariant and representation
+
+Explicit taint follows data, not control. A branch that creates, deletes or renames a file, or sets a status, depending on untrusted input signals a bit to whoever later observes that name, its directory or the status, and the absence of a name carries the bit as well as its presence [16, 17]. C keeps per root a set of branches, each with `tainted` and a stack of condition labels `pc_stack` pushed by a trusted control plane, and three sticky label maps: `entries` and `directories` (path to label) and `status_labels` (target to label). With `pc(b) = tainted(b) or any(pc_stack(b))`:
+
+$$\text{mutation by }b\text{ on }n:\ \ell(n) := \ell(n)\lor pc(b);\qquad \text{observation of }n\text{ by }o:\ \mathit{tainted}(o) := \mathit{tainted}(o)\lor \ell(n)\lor\bigvee_{a\ \text{ancestor of}\ n}\ell(a).$$
+
+`unlink`, `rmdir` and `rename` keep the source name as a tombstone with its label. A directory listing joins every label at or below the directory. Any labeled ancestor counts, file or directory, because whether `a` exists decides whether `a/b` can. Labels only rise.
+
+### Hot path
+
+A probe joins at most 17 labels (the path and its ancestors); a listing scans at most `MAX_PATHS = 256` labels; `check_mutation` is a pure capacity and path check before any state changes. Bounds: 64 branches, 256 labeled paths, pc stacks of 16, paths of 256 UTF-8 bytes and 16 components below `/workspace`.
+
+### Gateway wiring
+
+`PolicyEngine.attach_causality(session_id, validator, branch_id=None)` makes the session one branch of a shared validator. Typed adapters map `file.write` / `file.create` to create, `file.delete` to unlink, `file.mkdir` / `file.rmdir`, `file.rename` / `file.move` (with `dest`), `file.read` / `file.exists` / `file.stat` to a probe, `file.list` to a listing, and `status.set` / `status.get` to statuses. `causality_push_pc` / `causality_pop_pc` are the control-plane entry points. Observations apply immediately (labels only rise); mutations and status writes are checked in the reference middleware and committed only when the call is allowed. A tainted observation taints the session before Predicates A and E authorize the call, so the laundered bit meets the same post-taint gates as a direct read. Bounds violations deny with CAUSALITY_LAUNDERING_DENIED (-32077, approximate AML.T0086).
+
+### Limits
+
+C sees only the effects its adapters report. Timing of mutations, sizes and contents (Predicate T), paths outside the modeled root, and decisions the control plane does not bracket with `push_pc` are out of scope.
+
+### Tests
+
+Unit cases cover canonical paths, tombstones, sticky labels, ancestor and nested-listing joins, status labels, capacity before mutation and every bound. CausalityStateMachine runs random ingests, pc pushes and pops, mutations, probes and listings against an explicit label model. Wiring tests cover absence laundering across two sessions reaching the post-taint gate, a denied mutation recording nothing, status labels, path bounds, and the C-to-A ordering.
+
+## 12. event_channel_capacity_validator.py (Predicate E, v14)
+
+### Invariant and representation
+
+An agent can signal through which eligible tool it calls and which structural choices it makes, with clean arguments [18, 19]. For an event drawn from a manifest with N combinations, Hartley support bounds the bits an adversary can choose at log2 N. E counts quarter bits exactly in integers:
+
+$$\mathrm{qb}(N)=(N^4-1).\mathrm{bit\_length}()=\lceil 4\log_2 N\rceil\ (N>1),\quad \mathrm{qb}(1)=0;\qquad \text{admit}\iff \mathit{spent}+\mathit{reserved}+c<B,$$
+
+with charge c = qb(N) when the (root, sink) budget is sticky-tainted, the branch is tainted, or live secret pins exist, else 0.
+
+### Hot path and wiring
+
+`reserve` is O(pending) with at most 32 pending and 256 committed ids; `commit` and `abort` are O(1). `PolicyEngine.attach_event_budget(session_id, budget, manifest)` checks every write, send and credential call: the tool must be eligible (E_INELIGIBLE), and the reservation is committed only when the call is allowed and released when a later gate denies it. Denials use EVENT_CHANNEL_CAPACITY_DENIED (-32078, approximate AML.T0086).
+
+### Limits
+
+This is support accounting, not KL divergence or a channel-capacity measurement: it bounds what a sender can choose, not what an observer learns. Releasing a reservation on denial means refusal outcomes are not charged, and timing, argument content and refusal patterns are other channels.
+
+### Tests
+
+A Hypothesis property checks qb against the smallest q with 2^q >= N^4. Unit cases cover manifest bounds, zero charges, sticky taint, the >= capacity edge, replay and ineligible tools. EventCapacityStateMachine reserves, commits and aborts against an explicit ledger. Wiring tests cover charging only with live pins, release on a downstream denial, and ineligible tools.
+
+## 13. blindfold_opaque_fault_validator.py (Predicate B, v14)
+
+### Invariant and representation
+
+Every refusal teaches the caller where the boundary lies, and small perturbations of a refused request search it [20]. B fingerprints a refused canonical request (4..2048 bytes) as its exact set of 4-byte grams G, plus a sorted-gram SHA-256 and a 64-bit SimHash (BLAKE2b, personalization AG-v14B) for the receipt only. A new request with grams G' is a near neighbor of a refusal when
+
+$$4\,|G\cap G'|\ \ge\ |G\cup G'|\quad\land\quad |G\cap G'|<|G\cup G'|,$$
+
+that is, exact Jaccard in [1/4, 1). A near neighbor locks its branch and is denied (B_PERTURBATION_LOCK); an exact repeat is not a perturbation. `seal` returns one constant public envelope and an HMAC-SHA256 receipt (rule, level, request fingerprint, sequence) that `verify_receipt` checks with `hmac.compare_digest`.
+
+### Locks under the standing rules
+
+A lock is the one automated action this project allows: it auto-lifts after 15 minutes and is reported as a lead for human review. Above 64 locked branches the root is locked, on the same auto-lifting timer. Refusal memory holds 32 fingerprints; sealing past that, or a request outside the size bounds, locks its branch.
+
+### Hot path and wiring
+
+`inspect` builds one gram set (at most 2045 grams) and does one intersection per remembered refusal, skipping pairs whose sizes already rule out 25% overlap. SimHash and SHA-256 are computed only when sealing. `PolicyEngine.attach_blindfold(session_id, sealer=None, opaque_wire=False)` inspects at the top of the guard chain and seals every other denial after settlement. With `opaque_wire` the agent sees `BLINDFOLD_ENVELOPE` (JSON-RPC -32079, "request refused") for every refusal; the real rule stays in findings, the decision log and `blindfold_receipts`. Locks deny with BLINDFOLD_PERTURBATION_DENIED (-32079, approximate AML.T0043). The default sealer derives its receipt key from the gateway key.
+
+### Limits
+
+A perturbation below 25% gram overlap is not caught, and an attacker who knows the policy needs no search. A legitimate retry that differs a little from a refused request locks its branch for 15 minutes: that false positive is the price of the rule, mitigated by the auto-lift and the review lead.
+
+### Tests
+
+A Hypothesis property checks `near_neighbor` against exact Fractions. Unit cases cover deterministic fingerprints, receipts and tampering, locks and their auto-lift, the root lock and its lift, and bounded refusal memory. BlindfoldStateMachine seals, inspects and advances a fake clock against a Fraction model. Wiring tests cover the lock and its lift through the gateway, receipts, unattached sessions, and identical opaque envelopes for different rules.
+
+## 14. reachability_confinement_validator.py (Predicate A, v14)
+
+### Invariant and representation
+
+Least privilege per tool does not say which tool may come next, and after untrusted input some continuations should be impossible [21, 22]. A policy is a forward-indexed DAG of at most 64 nodes (successor indices exceed their node's, so index order is topological; node 0 is the start state). A node may discharge obligation bits (at most 8) and may be forbidden when tainted; a node with no successors must be terminal. In reverse topological order the policy precomputes:
+
+$$\mathit{viable}_t[r]\ni i\iff \neg(t\land \mathit{forb}_i)\land\Big((\mathit{term}_i\land r'=0)\lor \exists j\in\mathit{succ}_i:\ j\in\mathit{viable}_t[r']\Big),\quad r'=r\land\lnot d_i,$$
+
+$$\mathit{live}_t[r][i]=\bigcup_{j\in\mathit{succ}_i,\ j\in\mathit{viable}_t[r]}\{j\}\cup\mathit{live}_t[r\land\lnot d_j][j].$$
+
+A child is looked up under the obligations its parent leaves, so a terminal reachable only after an intermediate discharge is not pruned early.
+
+### Hot path
+
+Candidates are `forward[step] & viable[tainted][obligations] & ~revoked`: three ANDs. Revocation is sticky: after every state change every node outside `live[tainted][obligations][step]` joins `revoked`. Boot is O(2^bits * n * out-degree); 64 nodes with 8 obligation bits booted in 0.12 to 0.16 s on the benchmark host across our runs.
+
+### Gateway wiring
+
+`PolicyEngine.attach_reachability(session_id, policy, obligations=0)` confines every call of the session: the tool name must be a candidate node (A_UNREACHABLE) and must be in the policy (A_NOT_IN_POLICY). Session taint, including taint C just propagated, contaminates the pruner before the check. The transition is committed only when the call is allowed, with the taint the call arrived with; taint the call's own result adds contaminates before the next call. `reachability_finish(session_id)` is the control-plane check that the run may stop (A_UNFINISHED). Denials use REACHABILITY_CONFINEMENT_DENIED (-32080, approximate AML.T0053).
+
+### Tests
+
+A Hypothesis property checks `live_paths` against brute-force path enumeration over random DAGs. Unit cases cover policy validation, the discharge-after-intermediate case, taint pruning, sticky revocation and a pure `check`. ReachabilityStateMachine boots random DAGs and moves through them against the brute-force oracle, including the sticky revocation set. Wiring tests cover viable paths, taint pruning a forbidden sink, a denied call not advancing the workflow, and C taint reaching A before it authorizes.
+
+## Validation and deployment criteria
+
+The original reference suite has 64 passing test cases, including four RuleBasedStateMachine classes. Section 5 adds 14 cases to test_validators.py, including PetriObligationMachine, and 6 gateway wiring cases. Section 6 adds 11 cases, including TransducerMachine, and 7 gateway wiring cases. Section 7 adds 82 cases (most of them parametrized), including CanonicalArgumentMachine, and 14 gateway wiring cases. Section 8 adds 10 cases, including LedgerMachine, and 9 gateway wiring cases. Section 9 adds 28 cases, including IngressionMachine, and 9 gateway wiring cases. Section 10 adds 10 cases, including TransformMachine, and 8 gateway wiring cases. The round-2 fixes add 40 regression cases (13 Z, 10 T, 9 S, 5 D, 3 V) and extend IngressionMachine and TransformMachine. Sections 11-14 add 27 cases to test_validators.py, including CausalityStateMachine, EventCapacityStateMachine, BlindfoldStateMachine and ReachabilityStateMachine, and 16 gateway wiring cases in tests/test_v14_wiring.py. Hypothesis generates/shrinks sequences rather than just isolated messages [13]. These tests are executable evidence, not a formal proof of all schedules or operating-system behavior.
+
+benchmark.py records 5,000 samples per case, nearest-rank p99, wall and process CPU clocks, GC enabled, and warm single-process execution. Cold construction is excluded. Path measurements use a trusted in-memory filesystem model. The 16-by-256 matcher case exercises the maximum configured number and length of protected strings, but is one synthetic miss workload; it does not establish the worst case over all alphabets, shingle-length mixes, hash collisions, normalization work, or workloads. benchmark_results.json is the authoritative measured output.
+
+Do not translate a passing microbenchmark into a deployment SLA. Measure actual parsing, contention, rejection-heavy traffic, input distributions, cache misses, GC, batch sizes, broker syscalls, durable commits, crash recovery, and load. A maximum above 5 ms is compatible with p99 below 5 ms; it is not compatible with a hard 5 ms deadline. Set deterministic admission/work budgets; never let timeout or partial analysis become an allow.
+
+The production acceptance conditions are: adapters enumerate all effects; all dispatch paths are mediated; registry/fs/manifest checks share a final fenced authorization boundary; storage preserves sticky taint/revocation/spent steps; OS enforcement covers real filesystem operations; and the target deployment meets the measured latency budget.
+
+### Measured results — 29 October 2026
+
+| Benchmark case | Wall p99 (ms) | Wall maximum (ms) |
+|---|---:|---:|
+| registry: qualified lookup, 256 pins | 0.000721 | 0.585095 |
+| path: parse + snapshot validation, 64 writes | 2.626140 | 13.533400 |
+| flow: fresh EXTERNAL step admission | 0.029465 | 1.267627 |
+| similarity: 16 x 256, 256-char miss, both modes | 3.765636 | 37.809231 |
+| combined: four bounded checks | 4.833856 | 12.030749 |
+
+Python 3.12.14, Linux x86-64, 5,000 samples per case. Combined p99 was 4.833856 ms; the 12.030749 ms combined maximum demonstrates that this is not a hard deadline guarantee. The measured matcher retained 1,426,200 bytes of traced Python allocations. See the JSON results for the complete methodology.
+
+### Measured results — 31 October 2026 (adds the obligation cases)
+
+| Benchmark case | Wall p99 (ms) | Wall maximum (ms) |
+|---|---:|---:|
+| registry: qualified lookup, 256 pins | 0.002004 | 0.048793 |
+| path: parse + snapshot validation, 64 writes | 2.093854 | 9.089749 |
+| flow: fresh EXTERNAL step admission | 0.056480 | 0.122664 |
+| similarity: 16 x 256, 256-char miss, both modes | 5.506425 | 14.532536 |
+| obligation: outbound transition, 16 places x 64 transitions | 0.056841 | 2.109065 |
+| combined: four bounded checks | 8.030680 | 17.220236 |
+| combined: five bounded checks (with obligation) | 7.307601 | 18.571365 |
+
+Python 3.12.3, Linux x86-64, 5,000 samples per case, in a different and slower container than the 29 October run. The unchanged similarity case measured 5.506 ms p99 here against 3.766 ms there, so compare the rows within a table, not across tables. The obligation transition itself measured 0.056841 ms p99. On this host both combined cases exceed the 5 ms reference at p99 (8.031 ms for four checks, 7.308 ms for five). Almost all of that cost comes from the path and similarity checks. The five-check case can read lower than the four-check case because run-to-run variance on this host is larger than the obligation check's cost. benchmark_results.json holds this run.
+
+### Measured results — 31 October 2026 (adds the transducer cases)
+
+| Benchmark case | Wall p99 (ms) | Wall maximum (ms) |
+|---|---:|---:|
+| registry: qualified lookup, 256 pins | 0.001310 | 0.019146 |
+| path: parse + snapshot validation, 64 writes | 1.554548 | 6.242128 |
+| flow: fresh EXTERNAL step admission | 0.035524 | 0.087832 |
+| similarity: 16 x 256, 256-char miss, both modes | 4.112741 | 5.570932 |
+| obligation: outbound transition, 16 places x 64 transitions | 0.026391 | 0.092510 |
+| transducer: 1 read joined into 63 writes, copy-on-write overlay | 0.860511 | 2.734727 |
+| combined: four bounded checks | 5.524086 | 10.616541 |
+| combined: five bounded checks (with obligation) | 5.615334 | 8.698577 |
+| combined: six bounded checks (with transducer) | 6.486561 | 14.034532 |
+
+Python 3.12.3, Linux x86-64, 5,000 samples per case, in another container than either earlier run, so compare rows within this table only. The transducer case measured 0.860511 ms p99; its shell text is parsed once outside the timed region, so it times W's check plus the label work, not parsing. The six-check combined case measured 6.487 ms p99, above the 5 ms reference, and so did the four- and five-check cases on this host (5.524 ms and 5.615 ms). benchmark_results.json holds this run.
+
+### Measured results — 31 October 2026 (adds the argument confinement cases)
+
+| Benchmark case | Wall p99 (ms) | Wall maximum (ms) |
+|---|---:|---:|
+| registry: qualified lookup, 256 pins | 0.001789 | 0.028948 |
+| path: parse + snapshot validation, 64 writes | 1.494277 | 4.803039 |
+| flow: fresh EXTERNAL step admission | 0.029512 | 0.044910 |
+| similarity: 16 x 256, 256-char miss, both modes | 4.294520 | 5.909389 |
+| obligation: outbound transition, 16 places x 64 transitions | 0.029973 | 1.957910 |
+| transducer: 1 read joined into 63 writes, copy-on-write overlay | 0.809063 | 5.509325 |
+| arguments: canonicalize 16 fields, 2048-byte wire | 0.473239 | 0.626497 |
+| command: confine 16 operands | 0.007191 | 0.155770 |
+| combined: four bounded checks | 5.824797 | 23.323409 |
+| combined: five bounded checks (with obligation) | 5.619005 | 14.187225 |
+| combined: six bounded checks (with transducer) | 6.608683 | 15.088489 |
+| combined: seven bounded checks (with canonicalization) | 7.006841 | 28.656578 |
+
+Python 3.12.3, Linux x86-64, 5,000 samples per case, same container as the previous table. The canonicalization case is the full budget: 16 fields, 2048 wire bytes, four 32-element sets in reverse order, and eight numbers quantized at scale 6. It measured 0.473239 ms p99, and confining 16 operands measured 0.007191 ms. Every combined case is above the 5 ms reference at p99 on this host. The maxima include scheduler outliers; the 28.66 ms seven-check maximum is not a deadline. benchmark_results.json holds this run.
+
+### Measured results — 31 October 2026 (adds the fork/join ledger cases)
+
+| Benchmark case | Wall p99 (ms) | Wall maximum (ms) |
+|---|---:|---:|
+| registry: qualified lookup, 256 pins | 0.001332 | 0.030552 |
+| path: parse + snapshot validation, 64 writes | 1.744593 | 5.277180 |
+| flow: fresh EXTERNAL step admission | 0.048727 | 0.071643 |
+| similarity: 16 x 256, 256-char miss, both modes | 4.017664 | 5.239107 |
+| obligation: outbound transition, 16 places x 64 transitions | 0.031539 | 0.588212 |
+| transducer: 1 read joined into 63 writes, copy-on-write overlay | 0.909569 | 6.889158 |
+| arguments: canonicalize 16 fields, 2048-byte wire | 0.614009 | 6.587237 |
+| command: confine 16 operands | 0.016011 | 0.144224 |
+| ledger: fire + send batch, 8 branches x 16 places | 0.111582 | 0.224673 |
+| combined: four bounded checks | 5.632157 | 13.899377 |
+| combined: five bounded checks (with obligation) | 5.770401 | 11.548429 |
+| combined: six bounded checks (with transducer) | 6.748795 | 20.982895 |
+| combined: seven bounded checks (with canonicalization) | 7.264731 | 19.152971 |
+| combined: eight bounded checks (with fork/join ledger) | 7.301175 | 14.358839 |
+
+Python 3.12.3, Linux x86-64, 5,000 samples per case, same container as the previous two tables. The ledger case runs on a full-width ledger, with the root and seven forked branches holding shares of every budget. Each sample applies one fenced batch: a weighted transition and a 512-byte send whose cleanup-state scan covers all 8 branches and 16 places without stopping early. It measured 0.111582 ms p99. Every combined case is above the 5 ms reference at p99 on this host. benchmark_results.json holds this run.
+
+### Measured results — 31 October 2026 (adds the dynamic ingression cases)
+
+| Benchmark case | Wall p99 (ms) | Wall maximum (ms) |
+|---|---:|---:|
+| registry: qualified lookup, 256 pins | 0.001327 | 1.119669 |
+| path: parse + snapshot validation, 64 writes | 1.511991 | 5.036394 |
+| flow: fresh EXTERNAL step admission | 0.031730 | 0.272676 |
+| similarity: 16 x 256, 256-char miss, both modes | 4.261600 | 14.666758 |
+| obligation: outbound transition, 16 places x 64 transitions | 0.031013 | 0.598921 |
+| transducer: 1 read joined into 63 writes, copy-on-write overlay | 0.819434 | 3.863845 |
+| arguments: canonicalize 16 fields, 2048-byte wire | 0.652920 | 3.461686 |
+| command: confine 16 operands | 0.007603 | 0.028858 |
+| ledger: fire + send batch, 8 branches x 16 places | 0.073253 | 1.845644 |
+| ingress: scan 32 fields, 4096-byte response | 1.077864 | 2.834703 |
+| ingress: 512-byte query vs 8 x 128-byte pins | 0.465435 | 2.744064 |
+| combined: four bounded checks | 6.166688 | 12.402833 |
+| combined: five bounded checks (with obligation) | 5.659863 | 12.368818 |
+| combined: six bounded checks (with transducer) | 6.684585 | 11.110117 |
+| combined: seven bounded checks (with canonicalization) | 7.245276 | 11.302802 |
+| combined: eight bounded checks (with fork/join ledger) | 7.369963 | 12.748586 |
+| combined: nine bounded checks (with ingression outbound) | 7.779452 | 19.946084 |
+
+Python 3.12.3, Linux x86-64, 5,000 samples per case, same container as the previous three tables. The inbound case is the full budget: 32 fields and 4096 bytes, where each field is one 128-byte token run that passes the length gate and gets a full entropy count but is not enrolled. It measured 1.077864 ms p99. The outbound case runs a 512-byte miss against 8 enrolled 128-byte values and measured 0.465435 ms p99. Inbound scanning happens once per result, after the decision, so it is not part of the combined dispatch cases. Every combined case is above the 5 ms reference at p99 on this host. benchmark_results.json holds this run.
+
+### Measured results — 31 October 2026 (adds the transform cases)
+
+| Benchmark case | Wall p99 (ms) | Wall maximum (ms) |
+|---|---:|---:|
+| registry: qualified lookup, 256 pins | 0.001600 | 0.033047 |
+| path: parse + snapshot validation, 64 writes | 1.483683 | 5.969009 |
+| flow: fresh EXTERNAL step admission | 0.049086 | 0.199209 |
+| similarity: 16 x 256, 256-char miss, both modes | 4.231456 | 11.104052 |
+| obligation: outbound transition, 16 places x 64 transitions | 0.028210 | 0.101805 |
+| transducer: 1 read joined into 63 writes, copy-on-write overlay | 0.895480 | 4.143730 |
+| arguments: canonicalize 16 fields, 2048-byte wire | 0.572727 | 2.566407 |
+| command: confine 16 operands | 0.012748 | 0.064206 |
+| ledger: fire + send batch, 8 branches x 16 places | 0.111155 | 0.256765 |
+| ingress: scan 32 fields, 4096-byte response | 1.071016 | 3.645928 |
+| ingress: 512-byte query vs 8 x 128-byte pins | 0.447981 | 0.598878 |
+| transform: 207-byte query vs 1 x 128-byte pin (credit limit) | 0.378847 | 0.824949 |
+| transform: 62-byte query vs 24 x 16-byte pins (credit limit) | 1.335440 | 5.821009 |
+| combined: four bounded checks | 6.090766 | 12.244070 |
+| combined: five bounded checks (with obligation) | 5.646579 | 15.062666 |
+| combined: six bounded checks (with transducer) | 6.980858 | 10.701319 |
+| combined: seven bounded checks (with canonicalization) | 7.438478 | 17.137083 |
+| combined: eight bounded checks (with fork/join ledger) | 7.300274 | 17.427649 |
+| combined: nine bounded checks (with ingression outbound) | 7.759864 | 14.114657 |
+| combined: ten bounded checks (with transform pins) | 8.080281 | 17.213474 |
+
+Python 3.12.3, Linux x86-64, 5,000 samples per case, same container as the previous four tables. Both transform cases sit at the precharged credit limit. One 128-byte pin against a 207-byte miss measured 0.378847 ms p99. The full 24 pins of 16 bytes against a 62-byte miss measured 1.335440 ms, because the credits do not charge the fixed per-pin cost of building six views. Every combined case is above the 5 ms reference at p99 on this host. benchmark_results.json holds this run.
+
+### Measured results — 31 October 2026 (round-2 fixes and the v14 cases)
+
+| Benchmark case | Wall p99 (ms) | Wall maximum (ms) |
+|---|---:|---:|
+| registry: qualified lookup, 256 pins | 0.000619 | 0.024992 |
+| path: parse + snapshot validation, 64 writes | 0.891407 | 5.915153 |
+| flow: fresh EXTERNAL step admission | 0.023590 | 0.190088 |
+| similarity: 16 x 256, 256-char miss, both modes | 2.495321 | 6.117469 |
+| obligation: outbound transition, 16 places x 64 transitions | 0.021539 | 0.049458 |
+| transducer: 1 read joined into 63 writes, copy-on-write overlay | 0.564171 | 0.922068 |
+| arguments: canonicalize 16 fields, 2048-byte wire | 0.588817 | 2.504927 |
+| command: confine 16 operands | 0.008164 | 0.046452 |
+| ledger: fire + send batch, 8 branches x 16 places | 0.051779 | 0.131756 |
+| ingress: scan 32 fields, 4096-byte response | 0.845164 | 6.114743 |
+| ingress: 512-byte query vs 8 x 128-byte pins | 0.316118 | 2.529627 |
+| transform: 207-byte query vs 1 x 128-byte pin (credit limit) | 0.681148 | 2.526318 |
+| transform: 62-byte query vs 24 x 16-byte pins (credit limit) | 2.246805 | 3.842182 |
+| combined: four bounded checks | 3.855621 | 7.111469 |
+| combined: five bounded checks (with obligation) | 4.138462 | 7.752261 |
+| combined: six bounded checks (with transducer) | 4.495453 | 10.173232 |
+| combined: seven bounded checks (with canonicalization) | 5.140388 | 7.284006 |
+| combined: eight bounded checks (with fork/join ledger) | 4.824164 | 9.114941 |
+| combined: nine bounded checks (with ingression outbound) | 5.407866 | 19.614240 |
+| combined: ten bounded checks (with transform pins) | 5.669623 | 8.033627 |
+| causality: probe, 16-deep path, 255 labels | 0.014617 | 0.035700 |
+| causality: list root, 255 labels | 0.031104 | 0.084046 |
+| causality: capacity check for one more mutation | 0.003822 | 0.040389 |
+| event channel: reserve + commit, 2**20 combinations | 0.004248 | 0.029850 |
+| blindfold: 2048-byte request vs 32 x 2048-byte refusals | 2.366797 | 5.708061 |
+| reachability: check + transition, 64 nodes x 8 obligation bits | 0.004865 | 0.119293 |
+| combined: fourteen bounded checks (with C, E, B, A) | 8.283602 | 16.742398 |
+
+Python 3.12.3, Linux x86-64, 5,000 samples per case, same container as the previous tables, re-run with the round-2 fixes and the four v14 predicates. Z's candidate views add stride variants and decoded views, so the 24-short-pin transform case rose to 2.247 ms p99. C, E and A cost microseconds at their bounds. B is the costly v14 check at its bounds: one 2048-byte request against 32 remembered 2048-byte refusals measured 2.367 ms p99 after removing SimHash from the inspect path and computing each Jaccard with one set operation. The fourteen-check combined case measured 8.284 ms p99, above the 5 ms reference; every combined case from six checks up is near or above it on this host. ReachabilityPolicy boot for 64 nodes and 8 obligation bits took 116.6 ms in this run (control-plane setup, not per call). benchmark_results.json holds this run.
+
+## Primary sources
+
+1. [JSON-RPC 2.0 specification](https://www.jsonrpc.org/specification).
+2. [RFC 8785: JSON Canonicalization Scheme](https://www.rfc-editor.org/rfc/rfc8785.html), 2020.
+3. [JSON Schema 2020-12 Core, including compound documents](https://json-schema.org/draft/2020-12/json-schema-core).
+4. [Python 3.12 shlex documentation](https://docs.python.org/3.12/library/shlex.html).
+5. [GNU sed command-line options](https://www.gnu.org/software/sed/manual/html_node/Command_002dLine-Options.html).
+6. [Linux openat2(2) manual](https://man7.org/linux/man-pages/man2/openat2.2.html).
+7. [Python 3.12 os documentation](https://docs.python.org/3.12/library/os.html).
+8. [Schneider, Enforceable Security Policies](https://www.cs.cornell.edu/fbs/publications/EnfSecPols.pdf), ACM TISSEC, 2000.
+9. [Herlihy and Wing, Linearizability](https://www.cs.cmu.edu/~wing/publications/HerlihyWing90.pdf), ACM TOPLAS, 1990.
+10. [Denning, A Lattice Model of Secure Information Flow](https://doi.org/10.1145/360051.360056), CACM, 1976.
+11. [Karp and Rabin, Efficient Randomized Pattern-Matching Algorithms](https://doi.org/10.1147/rd.312.0249), IBM JRD, 1987.
+12. [Allison and Dix, A Bit-String Longest-Common-Subsequence Algorithm](https://allisons.org/ll/Publications/1986IPL/), IPL, 1986.
+13. [Hypothesis stateful testing documentation](https://hypothesis.readthedocs.io/en/latest/stateful.html).
+14. [GNU Bash redirection semantics](https://www.gnu.org/s/bash/manual/html_node/Redirections.html) and [command grouping](https://www.gnu.org/s/bash/manual/html_node/Command-Grouping.html).
+15. [Model Context Protocol, Tools, version 2025-06-18](https://modelcontextprotocol.io/specification/2025-06-18/server/tools).
+16. [Xu et al., Memory Provenance Laundering in LLM Agents](https://arxiv.org/abs/2607.29167), arXiv:2607.29167, 2026.
+17. [AGATE: Provenance-Based Runtime Defense Against Compositional Attacks on LLM Agents](https://arxiv.org/abs/2609.30830), arXiv:2609.30830, 2026.
+18. [Huang et al., Whispering Agents: An Event-Driven Covert Communication Protocol for the Internet of Agents](https://arxiv.org/abs/2508.02188), arXiv:2508.02188, 2025.
+19. [Metere, An Application-Layer Multi-Modal Covert-Channel Reference Monitor for LLM Agent Egress](https://arxiv.org/abs/2605.20734), arXiv:2605.20734, 2026.
+20. [Zhu, Zuo and Sun, Blindfold: Keeping the Audit Coin Secret from LLM Agents](https://arxiv.org/abs/2610.37055), arXiv:2610.37055, 2026.
+21. [Shi et al., Progent: Programmable Privilege Control for LLM Agents](https://arxiv.org/abs/2504.11703), arXiv:2504.11703, 2025.
+22. [Reachability-Based Capability Confinement for LLM Agents under Indirect Prompt Injection](https://arxiv.org/abs/2608.30041), arXiv:2608.30041, 2026.

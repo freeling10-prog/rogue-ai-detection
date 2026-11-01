@@ -59,6 +59,40 @@ Safety:
   crosses between agent sessions through notes, files, the bus, or
   delegation is tracked in a provenance graph so a peer cannot complete a
   split toxic chain (``cross_agent_collusion_guard.py``).
+- v12.2: four reference middleware validators stay inert until a trusted
+  adapter attaches state. Descriptor pins, a filesystem snapshot, a workflow
+  manifest, and a similarity matcher then deny with their own rule codes
+  (``registry_pin_validator.py``, ``workspace_path_validator.py``,
+  ``lattice_flow_validator.py``, ``shingle_similarity_validator.py``).
+- v12.3: a fifth reference validator, a bounded 16-place Petri net with
+  weighted token conservation, gates workflow transitions once a trusted
+  adapter attaches a manifest; an outbound step cannot fire while resource
+  cleanup state is unsettled (``linear_obligation_validator.py``).
+- v12.4: a sixth reference validator carries (confidentiality, integrity)
+  labels across file effects in a copy-on-write overlay over the workspace
+  model. A protected file copied into an ordinary one cannot be attached to an
+  outbound call, and a file written while the session is untrusted cannot
+  feed an execution sink (``symbolic_fs_transducer.py``).
+- v12.5: a seventh reference validator canonicalizes a pinned tool's argument
+  object to one byte string (key order, number spelling, set order, defaults)
+  and compiles typed file commands to a fixed argv with ``--`` before every
+  positional, refusing operands that start with ``-``
+  (``canonical_argument_confinement.py``).
+- v12.6: an eighth reference validator puts a root session and the branches
+  it forks under one conservation ledger with vector clocks. A child spends
+  the root's denial, outbound and token budgets instead of fresh ones, stale
+  concurrent dispatches are refused, and taint flows along forks and joins
+  (``fork_join_vector_validator.py``).
+- v12.7: a ninth reference validator learns secrets from tool responses
+  before the agent sees them (sensitive fields, credential prefixes,
+  internal hosts, e-mail addresses, high-entropy tokens) into a
+  non-evicting per-session store, and denies later outbound strings that
+  cover one (``dynamic_ingression_validator.py``).
+- v12.8: a tenth reference validator checks outbound strings against
+  protected and learned values under a finite transform family: reversal,
+  +k and XOR-k byte masks, Caesar shifts, word-initial acrostics and
+  reordered 4-byte blocks, under a precharged work budget
+  (``transform_invariant_validator.py``).
 """
 from __future__ import annotations
 
@@ -69,6 +103,9 @@ import logging
 import math
 import re
 import time
+import unicodedata
+from collections import deque
+from itertools import count as _count
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
@@ -97,6 +134,39 @@ from .workspace_config_guard import WorkspaceConfigGuard
 from .cross_agent_collusion_guard import EXTERNAL_SINK, PRIVILEGED_EXEC, CrossAgentCollusionGuard, artifact_id
 from .interpreter_exec_guard import InterpreterExecGuard
 from .mcp_capability_manifest_guard import McpCapabilityManifestGuard
+# v12.2 reference middleware validators (deterministic, standard-library only).
+from . import common as reference_json
+from .common import Denied as ReferenceDenied
+from .dynamic_ingression_validator import (
+    MAX_SECRET as INGRESS_MAX_SECRET, MIN_SECRET as INGRESS_MIN_SECRET,
+    Field as IngressField, Ingression,
+)
+from .transform_invariant_validator import TransformIndex
+from .fork_join_vector_validator import (
+    FIRE as LEDGER_FIRE, FORK as LEDGER_FORK, SEND as LEDGER_SEND, TAINT as LEDGER_TAINT,
+    ZERO as LEDGER_ZERO, Owner as LedgerOwner, Root as LedgerRoot,
+)
+from .blindfold_opaque_fault_validator import BlindfoldSealer
+from .causality_laundering_validator import CausalityValidator
+from .event_channel_capacity_validator import EventChannelBudget, EventManifest
+from .reachability_confinement_validator import CapabilityPruner, ReachabilityPolicy
+from .canonical_argument_confinement import (
+    Policy as ArgumentPolicy, command_from_arguments, confine, encode_arguments, loads_strict,
+    plain_numbers,
+)
+from .linear_obligation_validator import (
+    ObligationManifest, ObligationNet,
+)
+from .lattice_flow_validator import (
+    Call as FlowCall, Gate as ManifestGate, Label as FlowLabel,
+    MethodPolicy as FlowMethodPolicy, Step as FlowStep,
+)
+from .registry_pin_validator import Registry as PinRegistry, lint_description as pin_lint_description
+from .shingle_similarity_validator import Matcher as ShingleMatcher
+from .symbolic_fs_transducer import FsTransducer, LabelDenied, PendingLabels, path_intents
+from .workspace_path_validator import (
+    Node as FsNode, Snapshot as FsSnapshot, analyze_shell, command_intents,
+)
 from .paths import default_registry_path
 from .registry import Registry
 from .scrub import scrub_obj
@@ -171,6 +241,66 @@ _V12_ATLAS = {"WORKSPACE_CONFIG_WRITE": "AML.T0051", "WORKSPACE_HOOK_TAMPER": "A
               "MCP_SCHEMA_PURPOSE_MISMATCH": "AML.T0051", "MCP_TOOL_NAMESPACE_FLOOD": "AML.T0051",
               "COLLUSION_CROSS_AGENT_LAUNDERING": "AML.T0086", "COLLUSION_SPLIT_TOXIC_CHAIN": "AML.T0086",
               "COLLUSION_CYCLIC_AMPLIFICATION": "AML.T0086"}
+# v12.2 reference middleware validators. Rule codes ride the same decision path,
+# findings list, alert chain and SARIF export as the v11 / v12 / v12.1 guards.
+# -32055..-32059 and -32062..-32065 belong to v12.1; -32060 / -32061 are the
+# sampling errors, so these five take the next free codes.
+REGISTRY_PIN_DRIFT = "REGISTRY_PIN_DRIFT"
+REGISTRY_ALIAS_AMBIGUOUS = "REGISTRY_ALIAS_AMBIGUOUS"
+WORKSPACE_EFFECT_DENIED = "WORKSPACE_EFFECT_DENIED"
+FLOW_MANIFEST_DENIED = "FLOW_MANIFEST_DENIED"
+SIMILARITY_LEAK_DENIED = "SIMILARITY_LEAK_DENIED"
+# v12.3: the Petri-net transition gate takes the next free code after -32070.
+OBLIGATION_PROTOCOL_DENIED = "OBLIGATION_PROTOCOL_DENIED"
+# v12.4: the file label transducer takes the next free code after -32071.
+FS_LABEL_FLOW_DENIED = "FS_LABEL_FLOW_DENIED"
+# v12.5: argument canonicalization and command confinement take -32073.
+ARGUMENT_CONFINEMENT_DENIED = "ARGUMENT_CONFINEMENT_DENIED"
+# v12.6: the fork/join conservation ledger takes -32074.
+FORK_JOIN_LEDGER_DENIED = "FORK_JOIN_LEDGER_DENIED"
+# v12.7: dynamic ingression pins take -32075.
+DYNAMIC_INGRESSION_DENIED = "DYNAMIC_INGRESSION_DENIED"
+# v12.8: transform-invariant pins take -32076.
+TRANSFORM_INVARIANT_DENIED = "TRANSFORM_INVARIANT_DENIED"
+# v14 reference validators take the next four codes after -32076.
+CAUSALITY_LAUNDERING_DENIED = "CAUSALITY_LAUNDERING_DENIED"
+EVENT_CHANNEL_CAPACITY_DENIED = "EVENT_CHANNEL_CAPACITY_DENIED"
+BLINDFOLD_PERTURBATION_DENIED = "BLINDFOLD_PERTURBATION_DENIED"
+REACHABILITY_CONFINEMENT_DENIED = "REACHABILITY_CONFINEMENT_DENIED"
+# The opaque envelope reuses B's code: every sealed refusal looks the same.
+BLINDFOLD_ENVELOPE = {"ok": False, "allowed": False, "error": "request_refused", "code": -32079,
+                      "message": "request refused"}
+# Typed adapters for Predicate C (namespace effects a trusted broker reports by tool).
+_C_PROBE_TOOLS = frozenset({"file.read", "file.exists", "file.stat", "read_file", "stat_file"})
+_C_LIST_TOOLS = frozenset({"file.list", "list_files", "list_directory"})
+_C_MUTATIONS = {"file.write": "create", "file.create": "create", "write_file": "create",
+                "file.delete": "unlink", "file.unlink": "unlink", "delete_file": "unlink",
+                "file.mkdir": "mkdir", "make_directory": "mkdir",
+                "file.rmdir": "rmdir", "remove_directory": "rmdir",
+                "file.rename": "rename", "file.move": "rename", "move_file": "rename"}
+_C_STATUS_SET = frozenset({"status.set", "set_task_status"})
+_C_STATUS_GET = frozenset({"status.get", "get_task_status"})
+# Descriptor fields the reference profile hashes for a pin (annotations included:
+# annotation-only drift is drift under this policy).
+_REFERENCE_PIN_FIELDS = ("description", "inputSchema", "outputSchema", "annotations", "title")
+_V12_CODES.update({
+    REGISTRY_PIN_DRIFT: -32066, REGISTRY_ALIAS_AMBIGUOUS: -32067,
+    WORKSPACE_EFFECT_DENIED: -32068, FLOW_MANIFEST_DENIED: -32069,
+    SIMILARITY_LEAK_DENIED: -32070, OBLIGATION_PROTOCOL_DENIED: -32071,
+    FS_LABEL_FLOW_DENIED: -32072, ARGUMENT_CONFINEMENT_DENIED: -32073,
+    FORK_JOIN_LEDGER_DENIED: -32074, DYNAMIC_INGRESSION_DENIED: -32075,
+    TRANSFORM_INVARIANT_DENIED: -32076, CAUSALITY_LAUNDERING_DENIED: -32077,
+    EVENT_CHANNEL_CAPACITY_DENIED: -32078, BLINDFOLD_PERTURBATION_DENIED: -32079,
+    REACHABILITY_CONFINEMENT_DENIED: -32080,
+})
+_V12_ATLAS.update({REGISTRY_PIN_DRIFT: "AML.T0051", REGISTRY_ALIAS_AMBIGUOUS: "AML.T0051",
+                   WORKSPACE_EFFECT_DENIED: "AML.T0053", FLOW_MANIFEST_DENIED: "AML.T0051",
+                   SIMILARITY_LEAK_DENIED: "AML.T0086", OBLIGATION_PROTOCOL_DENIED: "AML.T0051",
+                   FS_LABEL_FLOW_DENIED: "AML.T0086", ARGUMENT_CONFINEMENT_DENIED: "AML.T0053",
+                   FORK_JOIN_LEDGER_DENIED: "AML.T0086", DYNAMIC_INGRESSION_DENIED: "AML.T0086",
+                   TRANSFORM_INVARIANT_DENIED: "AML.T0086", CAUSALITY_LAUNDERING_DENIED: "AML.T0086",
+                   EVENT_CHANNEL_CAPACITY_DENIED: "AML.T0086", BLINDFOLD_PERTURBATION_DENIED: "AML.T0043",
+                   REACHABILITY_CONFINEMENT_DENIED: "AML.T0053"})
 _EXEC_TOOL_RE = re.compile(r"(?:^|[._\-])(?:shell|bash|exec|terminal|run_command|run_script)(?:$|[._\-])")
 _DEFAULT_SINK_TOOLS = tuple(sorted(
     name for name, ec in TOOL_EGRESS.items() if ec in (EGRESS_WRITE, EGRESS_SEND, EGRESS_CREDS)
@@ -345,6 +475,37 @@ class PolicyEngine:
         self.workspace = WorkspaceConfigGuard(allow=self.cfg.workspace_allow)
         self.cfi = ControlFlowIntegrityGuard()
         self.stego = StegoExfilGuard()
+        # v12.2 reference middleware validators. Each is inert until a trusted
+        # adapter supplies its state, so a session with no pins, snapshot,
+        # manifest, or matcher is unchanged by them.
+        self.pin_registries: dict[str, PinRegistry] = {}
+        self.pin_enrolled: set[tuple[str, str]] = set()
+        self.pin_owners: dict[str, set[str]] = {}
+        self.pin_findings: list[dict] = []
+        self.path_snapshots: dict[str, FsSnapshot] = {}
+        self.flow_gates: dict[str, ManifestGate] = {}
+        self.similarity: Optional[ShingleMatcher] = None
+        self.obligation_nets: dict[str, ObligationNet] = {}
+        self.fs_transducers: dict[str, FsTransducer] = {}
+        self.argument_policies: dict[str, ArgumentPolicy] = {}
+        self.command_tools: set[str] = set()
+        # Per-session result of the last admitted confinement, read by _allow().
+        self._confined: dict[str, dict] = {}
+        # Fork/join ledger plans checked by the reference middleware and staged
+        # until the whole call is allowed (two-phase: prepare there, commit here).
+        self._staged_ledger: dict[str, tuple] = {}
+        # session id -> (ledger owner, branch slot); every branch of a root shares one owner.
+        self.fork_ledgers: dict[str, tuple[LedgerOwner, int]] = {}
+        self.ingressions: dict[str, Ingression] = {}
+        self.transform_indexes: dict[str, TransformIndex] = {}
+        # v14 reference validators (C, E, B, A); inert until attached.
+        self.causality: dict[str, tuple[CausalityValidator, str]] = {}
+        self.event_budgets: dict[str, tuple[EventChannelBudget, EventManifest]] = {}
+        self.blindfolds: dict[str, tuple[BlindfoldSealer, bool]] = {}
+        self.blindfold_receipts: dict[str, deque] = {}
+        self.reachability: dict[str, CapabilityPruner] = {}
+        self._staged_v14: dict[str, list] = {}
+        self._event_ids = _count(1)
         self.poisoned_tools: dict[tuple[str, str], dict] = {}
         self.interpreter = InterpreterExecGuard(allow=self.cfg.workspace_allow)
         core = set(CORE_MCP_SERVERS)
@@ -383,6 +544,7 @@ class PolicyEngine:
             self.sessions[session_id] = s
         if not s.capability_token:
             self._install_fresh_capability(s)
+        self._fork_join_sync(s)
         return s
 
     def _install_fresh_capability(self, sess: SessionState) -> None:
@@ -527,20 +689,133 @@ class PolicyEngine:
         bound_step_index: Optional[int] = None,
         capability_token: Optional[str] = None,
         destination: Optional[str] = None,
+        wire_arguments: Optional[dict] = None,
     ) -> dict:
         """Evaluate one tools/call.
 
         ``destination`` names the outbound channel for the temporal
         accumulator window (the MCP proxy passes ``mcp:<server>``); it
-        defaults to the tool's egress class.
+        defaults to the tool's egress class. ``wire_arguments`` is the same
+        argument object as parsed by ``loads_strict`` (exact ``Decimal``
+        numbers, duplicate keys already refused); when given, Predicate S
+        canonicalizes it instead of re-encoding ``arguments``.
         """
         out = self._evaluate_call(
             agent_key, session_id, tool_name, arguments,
             approval_token=approval_token, delegation_depth=delegation_depth,
             parent_key=parent_key, bound_step_index=bound_step_index,
             capability_token=capability_token, destination=destination,
+            wire_arguments=wire_arguments,
         )
+        out = self._ingress_result(session_id, tool_name, arguments, out)
+        out = self._settle_v14(session_id, tool_name, arguments, out)
+        out = self._settle_ledger(session_id, tool_name, arguments, out)
+        out = self._seal_refusal(session_id, tool_name, arguments, out)
         return self._attach_capability(session_id, out)
+
+    def _settle_v14(self, session_id: str, tool_name: str, arguments: Optional[dict],
+                    out: dict) -> dict:
+        """Commit (allowed) or abort (denied) what C, E and A staged for this call."""
+        staged = self._staged_v14.pop(session_id, None)
+        if not staged:
+            return out
+        if not out.get("allowed"):
+            for _rule, _commit, abort in staged:
+                if abort is not None:
+                    abort()
+            return out
+        for i, (rule, commit, _abort) in enumerate(staged):
+            try:
+                commit()
+            except ReferenceDenied as exc:
+                for _r, _c, abort in staged[i + 1:]:
+                    if abort is not None:
+                        abort()
+                sess = self.sessions[session_id]
+                step = int(out.get("step_index") or sess.step_index)
+                return self._v12_deny(sess, step, tool_name, dict(arguments or {}), rule,
+                                      {"v14": {"reason": str(exc), "phase": "commit"}})
+        return out
+
+    @staticmethod
+    def _canonical_request(tool_name: str, arguments: Optional[dict]) -> bytes:
+        return json.dumps({"tool": tool_name, "arguments": arguments or {}}, sort_keys=True,
+                          separators=(",", ":"), ensure_ascii=False,
+                          default=str).encode("utf-8", "surrogatepass")
+
+    def _seal_refusal(self, session_id: str, tool_name: str, arguments: Optional[dict],
+                      out: dict) -> dict:
+        """Predicate B: remember each refusal; with an opaque wire, hide its reason.
+
+        The private receipt is kept on the engine for people; the agent sees
+        one constant envelope whatever rule refused it.
+        """
+        attached = self.blindfolds.get(session_id)
+        if attached is None or out.get("allowed"):
+            return out
+        sealer, opaque = attached
+        if out.get("rule_code") != BLINDFOLD_PERTURBATION_DENIED:
+            sealed = sealer.seal(session_id, self._canonical_request(tool_name, arguments),
+                                 str(out.get("error") or "denied")[:128],
+                                 sarif_rule=str(out.get("rule_code") or out.get("error") or "")[:128])
+            self.blindfold_receipts.setdefault(session_id, deque(maxlen=1024)).append(
+                sealed.private_receipt)
+        return dict(BLINDFOLD_ENVELOPE) if opaque else out
+
+    def _settle_ledger(self, session_id: str, tool_name: str, arguments: Optional[dict],
+                       out: dict) -> dict:
+        """Commit or discard the fork/join plan staged for this call (Predicate V).
+
+        The plan was checked before the downstream gates ran (SSRF, review
+        hold, spawn quotas, collusion, the release checks). It is applied only
+        when the call was allowed; a denied call keeps just the denial unit
+        ``_deny`` already charged, so denied spawns never leave ghost branches.
+        Branch taint is still mirrored on a denial: taint only rises.
+        """
+        plan = self._staged_ledger.pop(session_id, None)
+        if plan is None:
+            return out
+        if out.get("allowed"):
+            sess = self.sessions[session_id]
+            try:
+                self._fork_join_commit(plan)
+            except ReferenceDenied as exc:
+                step = int(out.get("step_index") or sess.step_index)
+                return self._fork_join_deny(sess, step, tool_name, dict(arguments or {}), exc)
+            return out
+        owner, slot, _expected, ops, _child = plan
+        if any(op[0] == LEDGER_TAINT for op in ops) and not owner.root.branches[slot].taint:
+            try:
+                owner.apply(slot, owner.clock(slot), [(LEDGER_TAINT,)])
+            except ReferenceDenied:
+                pass  # The session itself stays tainted; the next plan retries.
+        return out
+
+    def _ingress_result(self, session_id: str, tool_name: str, arguments: Optional[dict],
+                        out: dict) -> dict:
+        """Enroll every result the agent is about to see, whichever path produced it.
+
+        Runs after the decision, so it covers the general allow path and the
+        bespoke ones (scratchpad notes, the internal bus, spawns) alike. A result
+        that cannot be enrolled within bounds is withheld and the call denied.
+        """
+        holder = self.ingressions.get(session_id)
+        if holder is None or not out.get("allowed") or out.get("result") is None:
+            return out
+        result = out["result"]
+        if isinstance(result, dict):
+            # "tool" is the gateway's own echo of the method name, not tool output.
+            result = {k: v for k, v in result.items() if k != "tool"}
+        try:
+            self._enroll(session_id, holder, self._ingress_fields(tool_name, result))
+        except ReferenceDenied as exc:
+            sess = self.sessions[session_id]
+            return self._v12_deny(sess, out.get("step_index", sess.step_index), tool_name,
+                                  dict(arguments or {}), DYNAMIC_INGRESSION_DENIED,
+                                  {"ingression": {"reason": str(exc), "direction": "inbound",
+                                                  "slots_used": holder.used,
+                                                  "result_withheld": True}})
+        return out
 
     def _evaluate_call(
         self,
@@ -554,6 +829,7 @@ class PolicyEngine:
         bound_step_index: Optional[int] = None,
         capability_token: Optional[str] = None,
         destination: Optional[str] = None,
+        wire_arguments: Optional[dict] = None,
     ) -> dict:
         self.registry.lift_expired(self.now())
         rec = self.registry.get(agent_key)
@@ -592,6 +868,17 @@ class PolicyEngine:
             if "ok" not in oob_memo:
                 oob_memo["ok"] = self._try_oob(sess, step, tool_name, args, approval_token)
             return oob_memo["ok"]
+
+        # --- Near-neighbor perturbation quarantine (v14 Predicate B) ---
+        attached = self.blindfolds.get(sess.session_id)
+        if attached is not None:
+            sealer = attached[0]
+            try:
+                sealer.inspect(sess.session_id, self._canonical_request(tool_name, args))
+            except ReferenceDenied as exc:
+                return self._v12_deny(sess, step, tool_name, args, BLINDFOLD_PERTURBATION_DENIED,
+                                      {"blindfold": {"reason": str(exc), "human_review_lead": True,
+                                                     "auto_lift_seconds": sealer.lock_seconds}})
 
         principal = sess.root_parent_key or agent_key
         profile = profile_from_token(sess.capability_token, sensitive_read=sess.sensitive_read)
@@ -643,6 +930,11 @@ class PolicyEngine:
             cfi = self.cfi.evaluate(sess.session_id, tool_name, args)
             if not cfi.allowed:
                 return self._v12_deny(sess, step, tool_name, args, cfi.rule_code, {"cfi": cfi.as_dict()})
+
+        # --- Reference middleware validators (v12.2) ---------------------------------
+        ref = self._reference_middleware(sess, step, tool_name, args, eclass, wire_arguments)
+        if ref is not None:
+            return ref
 
         # --- Review hold (MCP rug pull, side channel): every call waits for a person ---
         if sess.review_hold and not oob():
@@ -697,6 +989,13 @@ class PolicyEngine:
             col = self._collusion_sink(sess, PRIVILEGED_EXEC)
             if col is not None:
                 return self._v12_deny(sess, step, tool_name, args, col.rule_code, {"collusion": col.as_dict()})
+            # Every gate passed: commit the staged fork before reserving the slot.
+            staged = self._staged_ledger.pop(sess.session_id, None)
+            if staged is not None:
+                try:
+                    self._fork_join_commit(staged)
+                except ReferenceDenied as exc:
+                    return self._fork_join_deny(sess, step, tool_name, args, exc)
             # reserve slot
             self.shared.children_by_parent[root] = n + 1
             sess.children_spawned += 1
@@ -1112,6 +1411,782 @@ class PolicyEngine:
             raise ValueError("capability manifest must be pinned before the session reads untrusted data")
         self.cfi.pin_manifest(manifest)
 
+    # --- v12.2 reference middleware validators ---------------------------------------
+
+    def pin_tool_descriptors(self, server_name: str, tools: list[dict]) -> list[dict]:
+        """Enroll ``(server, tool)`` descriptors in the reference pin registry.
+
+        One :class:`PinRegistry` per provider: the first listing of a server pins
+        every descriptor it advertises and seals that server; a later listing can
+        only confirm, never grow. Drift is sticky - a changed, invalid or removed
+        descriptor revokes the key for the rest of the session (``REVOKED`` never
+        heals), and a bare tool name claimed by two servers is recorded as an
+        ambiguous alias rather than resolved by arrival order.
+
+        Only failures are returned, each already carrying the rule code the
+        caller records as a finding. Enrollment also lints display metadata with
+        the reference linter, so a poisoned description is refused before it is
+        ever served to a model.
+        """
+        verdicts: list[dict] = []
+        for tool in tools or []:
+            if not isinstance(tool, dict):
+                continue
+            name = str(tool.get("name") or "")
+            if not name:
+                continue
+            descriptor = {k: tool[k] for k in _REFERENCE_PIN_FIELDS if k in tool}
+            registry = self.pin_registries.setdefault(server_name, PinRegistry())
+            try:
+                raw = json.dumps(descriptor, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+                registry.register(server_name, name, raw)
+            except ReferenceDenied as exc:
+                # Membership is sticky: a key that was ever enrolled stays
+                # enrolled, so a revoked pin is still gated at call time.
+                verdicts.append({
+                    "ok": False, "code": REGISTRY_PIN_DRIFT, "tool": name, "server_id": server_name,
+                    "reason": str(exc),
+                    "lint": list(pin_lint_description(str(descriptor.get("description") or ""))),
+                })
+                continue
+            registry.seal()
+            self.pin_enrolled.add((server_name, name))
+            owners = self.pin_owners.setdefault(name, set())
+            owners.add(server_name)
+            if len(owners) > 1:
+                verdicts.append({
+                    "ok": False, "code": REGISTRY_ALIAS_AMBIGUOUS, "tool": name,
+                    "server_id": server_name, "owners": sorted(owners),
+                    "reason": "bare alias claimed by several providers",
+                })
+        return verdicts
+
+    def pin_state(self, server_name: str, tool_name: str) -> str:
+        """``PINNED`` / ``REVOKED`` / ``UNPINNED`` for one qualified method."""
+        registry = self.pin_registries.get(server_name)
+        if registry is None or (server_name, tool_name) not in self.pin_enrolled:
+            return "UNPINNED"
+        try:
+            registry.lookup(tool_name, server_name)
+        except ReferenceDenied as exc:
+            return "REVOKED" if str(exc) in {"REVOKED_OR_UNKNOWN", "REGISTRY_NOT_SEALED"} else str(exc)
+        return "PINNED"
+
+    def attach_workspace_snapshot(self, session_id: str, nodes: dict[str, FsNode],
+                                  generation: int = 0, root: str = "/ws") -> FsSnapshot:
+        """Make shell-effect analysis live for one session.
+
+        ``nodes`` is a trusted, complete filesystem model built by the broker -
+        never caller-supplied JSON. Once attached, every shell command the
+        session submits is parsed into a conservative effect union and checked
+        against the model; unmodeled syntax, a protected path, a shared inode or
+        a stale generation is a denial.
+        """
+        snapshot = FsSnapshot(nodes, generation, root)
+        self.path_snapshots[session_id] = snapshot
+        return snapshot
+
+    def pin_workflow_manifest(self, session_id: str, job_id: str, steps: tuple[FlowStep, ...],
+                              policies: dict[tuple[str, str], FlowMethodPolicy]) -> ManifestGate:
+        """Gate a session's calls with a precommitted, single-use-step manifest.
+
+        Once pinned, every call must match one unused step on provider, method,
+        pin, resource roles, path patterns and argument digest. Failed and
+        unknown outcomes never restore spent authority.
+        """
+        gate = ManifestGate(job_id, tuple(steps), dict(policies))
+        self.flow_gates[session_id] = gate
+        return gate
+
+    def configure_similarity_matcher(self, key: bytes, protected: tuple[str, ...],
+                                     **kwargs) -> ShingleMatcher:
+        """Match outbound identifiers against protected strings (shingle + LCS).
+
+        Audit records carry keyed identifier hashes only, never the raw query or
+        the protected string.
+        """
+        self.similarity = ShingleMatcher(key, tuple(protected), **kwargs)
+        return self.similarity
+
+    def attach_obligation_net(self, session_id: str, manifest: ObligationManifest) -> ObligationNet:
+        """Gate a session's calls with a bounded Petri-net workflow manifest.
+
+        The manifest is compiled (bounds plus the weighted non-minting rule)
+        before it is attached. Once attached, every call must be an enabled
+        transition: enough tokens in each input place, no place above 15, and
+        for an outbound step, every resource cleanup place settled to zero.
+        The marking advances only after all other reference validators pass.
+        """
+        net = ObligationNet(manifest)
+        self.obligation_nets[session_id] = net
+        return net
+
+    def attach_fs_transducer(self, session_id: str, nodes: dict[str, FsNode],
+                             generation: int = 0, root: str = "/ws") -> FsTransducer:
+        """Carry (confidentiality, integrity) labels across a session's file effects.
+
+        ``nodes`` is the same trusted broker model ``attach_workspace_snapshot``
+        takes. Protected paths and inodes start PROTECTED; everything else starts
+        PUBLIC / TRUSTED. Shell commands and workspace path arguments are checked
+        by the workspace model first, then labels flow from read sources to write
+        targets. An outbound call may not read a non-PUBLIC file and an execution
+        sink may not read an UNTRUSTED one. Labels are committed only after every
+        other reference validator passes. The broker publishes namespace changes
+        with ``FsTransducer.rebase``.
+        """
+        transducer = FsTransducer(FsSnapshot(nodes, generation, root))
+        self.fs_transducers[session_id] = transducer
+        return transducer
+
+    def pin_argument_policy(self, tool_name: str, policy: ArgumentPolicy) -> ArgumentPolicy:
+        """Canonicalize ``tool_name``'s argument object under a pinned field policy.
+
+        Unknown fields, duplicate keys, non-finite or oversized numbers, nested
+        values beyond one array level and duplicate set elements are denied.
+        An admitted call's allow result carries the canonical bytes, which are
+        what a dispatcher forwards.
+        """
+        if type(policy) is not ArgumentPolicy:
+            raise TypeError("policy must be a canonical_argument_confinement.Policy")
+        if tool_name in self.command_tools:
+            raise ValueError("tool is already pinned as a typed command")
+        self.argument_policies[tool_name] = policy
+        return policy
+
+    def pin_command_tool(self, tool_name: str) -> None:
+        """Treat ``tool_name``'s arguments as a typed file command.
+
+        The arguments must be exactly {utility, operands, mode, script, append}.
+        The command is compiled to a fixed argv with ``--`` before every
+        positional; an operand starting with ``-`` is denied. The compiled
+        effects also go through the workspace model and the label transducer
+        when those are attached.
+        """
+        if tool_name in self.argument_policies:
+            raise ValueError("tool is already pinned to an argument policy")
+        self.command_tools.add(tool_name)
+
+    def attach_ingression(self, session_id: str) -> Ingression:
+        """Learn secrets from this session's tool responses and block them outbound.
+
+        Every tool result the gateway returns to the session is scanned first.
+        Every short string a trusted sensitive-source adapter returns (a
+        sensitive read or a credential store) is enrolled whole in the hard
+        store: 8 values, never evicted; a result that would need a ninth is
+        withheld. Every string is also scanned for credential prefixes,
+        internal host names, e-mail addresses and high-entropy tokens, enrolled
+        in the soft store: 16 values, oldest evicted first, never withheld for
+        capacity. A response that is too large or has an over-long token is
+        withheld. Later outbound strings that cover 85% of an enrolled value
+        are denied.
+        """
+        holder = self.ingressions.get(session_id)
+        if holder is None:
+            holder = self.ingressions[session_id] = Ingression()
+        return holder
+
+    def attach_transform_index(self, session_id: str, protected: tuple[str, ...] = ()) -> TransformIndex:
+        """Check this session's outbound strings for disguised protected values.
+
+        ``protected`` are trusted values to pin now (4..128 UTF-8 bytes each).
+        Values Predicate D has already learned for the session are pinned too,
+        and every later D enrollment extends this index in the same atomic step:
+        if the index is full, D enrolls nothing and the result is withheld.
+        """
+        if session_id in self.transform_indexes:
+            raise ValueError("session already has a transform index")
+        values = tuple(v.encode("utf-8") for v in protected)
+        holder = self.ingressions.get(session_id)
+        if holder is not None:
+            values += holder.values()
+        index = TransformIndex(values)
+        self.transform_indexes[session_id] = index
+        return index
+
+    # --- v14 reference validators: C, E, B, A ----------------------------------------
+
+    def attach_causality(self, session_id: str, validator: CausalityValidator,
+                         branch_id: Optional[str] = None) -> CausalityValidator:
+        """Track namespace and status effects of this session as one branch of ``validator``.
+
+        Sessions that share a workspace share one validator. Typed file tools
+        (``file.write`` / ``file.delete`` / ``file.rename`` / ...) record
+        mutations; ``file.read`` / ``file.exists`` / ``file.list`` and
+        ``status.get`` observe labels, and a tainted label taints the session
+        before Predicates A and E authorize the call.
+        """
+        if session_id in self.causality:
+            raise ValueError("session already has a causality branch")
+        branch = branch_id or session_id
+        validator.branch(branch)
+        self.causality[session_id] = (validator, branch)
+        return validator
+
+    def causality_push_pc(self, session_id: str, condition_tainted: bool) -> None:
+        """Trusted control plane: the session enters a decision with this condition label."""
+        validator, branch = self.causality[session_id]
+        validator.push_pc(branch, condition_tainted)
+
+    def causality_pop_pc(self, session_id: str) -> None:
+        validator, branch = self.causality[session_id]
+        validator.pop_pc(branch)
+
+    def attach_event_budget(self, session_id: str, budget: EventChannelBudget,
+                            manifest: EventManifest) -> EventChannelBudget:
+        """Bound the selection channel of this session's outbound calls into one sink.
+
+        Every write, send or credential call must be an eligible tool of
+        ``manifest``; it is charged ``quarter_bits(manifest.combinations)``
+        when the session is tainted or live secret pins exist.
+        """
+        if session_id in self.event_budgets:
+            raise ValueError("session already has an event budget")
+        if type(manifest) is not EventManifest:
+            raise ValueError("manifest must be an EventManifest")
+        self.event_budgets[session_id] = (budget, manifest)
+        return budget
+
+    def attach_blindfold(self, session_id: str, sealer: Optional[BlindfoldSealer] = None,
+                         opaque_wire: bool = False) -> BlindfoldSealer:
+        """Seal this session's refusals and quarantine near-neighbor retries.
+
+        Without ``sealer`` one is built with a receipt key derived from the
+        gateway key and the engine clock. A lock auto-lifts after 15 minutes
+        and is reported as a lead for human review. With ``opaque_wire`` the
+        agent sees ``BLINDFOLD_ENVELOPE`` for every refusal; receipts are in
+        ``blindfold_receipts``.
+        """
+        if session_id in self.blindfolds:
+            raise ValueError("session already has a blindfold")
+        if sealer is None:
+            key = hmac.new(capability.hmac_key(), b"AG-v14B-receipt-key", hashlib.sha256).digest()
+            sealer = BlindfoldSealer(key, clock=self.now)
+        self.blindfolds[session_id] = (sealer, bool(opaque_wire))
+        return sealer
+
+    def attach_reachability(self, session_id: str, policy: ReachabilityPolicy,
+                            obligations: int = 0) -> CapabilityPruner:
+        """Confine this session's calls to paths through ``policy`` that can still finish.
+
+        Node names are tool names; node 0 is the start state. Taint
+        contaminates the pruner before every check.
+        """
+        if session_id in self.reachability:
+            raise ValueError("session already has a reachability policy")
+        pruner = CapabilityPruner(policy, obligations=obligations)
+        self.reachability[session_id] = pruner
+        return pruner
+
+    def reachability_finish(self, session_id: str) -> dict:
+        """Trusted control plane: may this workflow stop here?"""
+        pruner = self.reachability[session_id]
+        sess = self.sessions[session_id]
+        try:
+            pruner.terminate_or_deny()
+        except ReferenceDenied as exc:
+            return self._v12_deny(sess, sess.step_index, "workflow.finish", {},
+                                  REACHABILITY_CONFINEMENT_DENIED,
+                                  {"reachability": {"reason": str(exc), "step": pruner.step}})
+        return {"ok": True, "allowed": True, "terminal": pruner.policy.nodes[pruner.step].name}
+
+    def _v14_prepare(self, sess: SessionState, step: int, tool_name: str, args: dict,
+                     eclass: str) -> Optional[dict]:
+        """C, then A, then E: check now, stage the state change, commit on allow."""
+        staged: list = []
+        sid = sess.session_id
+        attached = self.causality.get(sid)
+        if attached is not None:
+            validator, branch = attached
+            try:
+                staged += self._causality_prepare(sess, validator, branch, tool_name, args)
+            except ReferenceDenied as exc:
+                return self._v12_deny(sess, step, tool_name, args, CAUSALITY_LAUNDERING_DENIED,
+                                      {"causality": {"reason": str(exc), "branch_tainted":
+                                                     validator.is_tainted(branch)}})
+        pruner = self.reachability.get(sid)
+        if pruner is not None:
+            if sess.tainted:
+                pruner.contaminate()
+            try:
+                index = pruner.check(tool_name)
+            except ReferenceDenied as exc:
+                return self._v12_deny(sess, step, tool_name, args, REACHABILITY_CONFINEMENT_DENIED,
+                                      {"reachability": {"reason": str(exc), "step": pruner.step,
+                                                        "tainted": pruner.tainted}})
+            # Taint the call arrives with, read now: taint its own result adds
+            # (an untrusted read) contaminates the pruner before the next call.
+            staged.append((REACHABILITY_CONFINEMENT_DENIED,
+                           lambda i=index, t=bool(sess.tainted): pruner.transition(i, incoming_taint=t),
+                           None))
+        budget_entry = self.event_budgets.get(sid)
+        outbound = (eclass in (EGRESS_WRITE, EGRESS_SEND, EGRESS_CREDS)
+                    or self._sink_stage(tool_name, eclass, args) == EXTERNAL_SINK)
+        if budget_entry is not None and outbound:
+            budget, manifest = budget_entry
+            event_id = f"{sid}:{next(self._event_ids)}"
+            holder, index = self.ingressions.get(sid), self.transform_indexes.get(sid)
+            live = bool((holder is not None and holder.used) or (index is not None and index.used)
+                        or self.deob.has_secrets(sid) or self.similarity is not None)
+            try:
+                budget.reserve(event_id, tool_name, manifest,
+                                        branch_tainted=bool(sess.tainted), live_pins=live)
+            except ReferenceDenied as exc:
+                for _r, _c, abort in staged:
+                    if abort is not None:
+                        abort()
+                return self._v12_deny(sess, step, tool_name, args, EVENT_CHANNEL_CAPACITY_DENIED,
+                                      {"event_channel": {"reason": str(exc), "spent": budget.spent,
+                                                         "limit": budget.max_quarter_bits,
+                                                         "sink": budget.sink_id}})
+            staged.append((EVENT_CHANNEL_CAPACITY_DENIED,
+                           lambda e=event_id: budget.commit(e), lambda e=event_id: budget.abort(e)))
+        if staged:
+            self._staged_v14[sid] = staged
+        return None
+
+    def _causality_prepare(self, sess: SessionState, validator: CausalityValidator, branch: str,
+                           tool_name: str, args: dict) -> list:
+        """Observations apply now (labels only rise); mutations are staged."""
+        if sess.tainted:
+            validator.ingest_untrusted(branch)
+        root = validator.root
+        path = next((args[k] for k in ("path", "file", "directory", "dir")
+                     if isinstance(args.get(k), str)), None)
+        in_root = isinstance(path, str) and (path == root or path.startswith(root + "/"))
+        staged: list = []
+        if tool_name in _C_PROBE_TOOLS and in_root:
+            validator.probe(branch, path)
+        elif tool_name in _C_LIST_TOOLS and (in_root or path is None):
+            validator.list_directory(branch, path if in_root else root)
+        elif tool_name in _C_MUTATIONS and in_root:
+            operation = _C_MUTATIONS[tool_name]
+            dest = None
+            if operation == "rename":
+                dest = next((args[k] for k in ("dest", "destination", "new_path", "to")
+                             if isinstance(args.get(k), str)), None)
+            validator.check_mutation(branch, operation, path, dest)
+            staged.append((CAUSALITY_LAUNDERING_DENIED,
+                           lambda: validator.record_mutation(branch, operation, path, dest), None))
+        elif tool_name in _C_STATUS_SET:
+            target, status = args.get("target"), args.get("status")
+            validator.check_status(branch, target, status)
+            staged.append((CAUSALITY_LAUNDERING_DENIED,
+                           lambda: validator.record_status(branch, target, status), None))
+        elif tool_name in _C_STATUS_GET:
+            validator.observe_status(branch, args.get("target"))
+        if validator.is_tainted(branch) and not sess.tainted:
+            self._taint(sess, "causality_label_observed", source_id="causality")
+        return staged
+
+    def _enroll(self, session_id: str, holder: Ingression, fields: list) -> int:
+        """D enrollment, extending Z's pins.
+
+        Hard (trusted) values extend Z in the same all-or-nothing step: a full
+        index withholds the result (``Z_CAPACITY``). Soft (heuristic) values are
+        pinned in Z only while it has room, so an untrusted response cannot fill
+        Z and wedge the session either.
+        """
+        index = self.transform_indexes.get(session_id)
+        if index is None:
+            return holder.receive(fields)
+
+        def soft_into_z(values: tuple) -> None:
+            for v in values:
+                try:
+                    index.add((v,))
+                except ReferenceDenied:
+                    return  # Z is full: soft values stay D-only.
+
+        return holder.receive(fields, on_commit=index.add, on_soft=soft_into_z)
+
+    def ingest_dynamic_result(self, agent_key: str, session_id: str, tool_name: str, result: Any) -> int:
+        """Proxy entry point: enroll a real tool result before it reaches the agent.
+
+        Returns how many new values were enrolled (0 when no holder is attached).
+        Raises ``ValueError`` with a fixed reason code when the result must be
+        withheld.
+        """
+        holder = self.ingressions.get(session_id)
+        if holder is None:
+            return 0
+        self.get_session(session_id, agent_key)
+        return self._enroll(session_id, holder, self._ingress_fields(tool_name, result))
+
+    @staticmethod
+    def _ingress_fields(tool_name: str, result: Any) -> list:
+        """Fields as the agent reads them.
+
+        Unicode format characters (category Cf, e.g. the canary watermark's
+        zero-width marks) are removed first: they are invisible, so a copied
+        secret rarely carries them, and enrolling them would dilute coverage.
+        The canary guard tracks the watermark itself.
+
+        Only a trusted sensitive-source adapter (a sensitive read or a
+        credential store) marks fields ``sensitive`` (hard, non-evicting).
+        Key names in a result are attacker-chosen in an untrusted response
+        (``web.fetch``, an MCP server), so they no longer decide anything;
+        every string is still scanned for heuristic (soft) values.
+        """
+        sensitive_tool = tool_name in SENSITIVE_READ_TOOLS or egress_class(tool_name) == EGRESS_CREDS
+        fields = []
+        for _key, value in iter_strings(result):
+            value = "".join(ch for ch in value if unicodedata.category(ch) != "Cf")
+            size = len(value.encode("utf-8", "surrogatepass"))
+            sensitive = sensitive_tool and INGRESS_MIN_SECRET <= size <= INGRESS_MAX_SECRET
+            fields.append(IngressField(value, sensitive))
+        return fields
+
+    def attach_fork_join(self, session_id: str, root: LedgerRoot,
+                         transitions: Optional[dict[str, tuple]] = None) -> LedgerOwner:
+        """Put ``session_id`` at slot 0 of a fork/join conservation ledger.
+
+        ``root`` (``Root.make``) fixes the denial, outbound-byte and token budgets
+        that the root and every branch it forks will share. ``transitions`` maps a
+        tool name to the (take, put) token vectors its call fires; each entry must
+        conserve the weighted token count. Branches are forked and joined with
+        ``fork_branch`` / ``join_branch``, or forked automatically, with an empty
+        grant, when a ledger session spawns a sub-agent.
+        """
+        if session_id in self.fork_ledgers:
+            raise ValueError("session already belongs to a fork/join ledger")
+        owner = LedgerOwner(root, transitions)
+        self.fork_ledgers[session_id] = (owner, 0)
+        return owner
+
+    def fork_branch(self, parent_session: str, child_session: str,
+                    grant: tuple[int, ...] = LEDGER_ZERO) -> int:
+        """Trusted control plane: fork ``child_session`` with ``grant`` moved from its parent."""
+        owner, slot = self.fork_ledgers[parent_session]
+        if child_session in self.fork_ledgers:
+            raise ValueError("child session already belongs to a fork/join ledger")
+        (child,) = owner.apply(slot, owner.clock(slot), [(LEDGER_FORK, tuple(grant))])
+        self.fork_ledgers[child_session] = (owner, child)
+        return child
+
+    def join_branch(self, parent_session: str, child_session: str) -> None:
+        """Trusted control plane: return a child's remaining budget and taint to its parent."""
+        owner, slot = self.fork_ledgers[parent_session]
+        child_owner, child = self.fork_ledgers[child_session]
+        if child_owner is not owner:
+            raise ReferenceDenied("JOIN_OTHER_LEDGER")
+        owner.join(slot, child)
+        parent = self.sessions.get(parent_session)
+        if parent is not None:
+            self._fork_join_sync(parent)
+
+    def _fork_join_sync(self, sess: SessionState) -> None:
+        """Mirror branch taint into the session before any gate looks at it."""
+        ledger = self.fork_ledgers.get(sess.session_id)
+        if ledger is None:
+            return
+        owner, slot = ledger
+        if owner.root.branches[slot].taint and not sess.tainted:
+            sess.mark_tainted("fork_join_branch_taint", source_id="fork_join_ledger")
+
+    def _fork_join_plan(self, sess: SessionState, tool_name: str, args: dict,
+                        eclass: str) -> Optional[tuple]:
+        """(owner, slot, expected clock, ops, child session to bind), checked, or None."""
+        ledger = self.fork_ledgers.get(sess.session_id)
+        if ledger is None:
+            return None
+        owner, slot = ledger
+        ops: list[tuple] = []
+        if sess.tainted and not owner.root.branches[slot].taint:
+            ops.append((LEDGER_TAINT,))
+        transition = owner.transitions.get(tool_name)
+        if transition is not None:
+            ops.append((LEDGER_FIRE, *transition))
+        if (eclass in (EGRESS_SEND, EGRESS_CREDS)
+                or self._sink_stage(tool_name, eclass, args) == EXTERNAL_SINK):
+            body = json.dumps(args, sort_keys=True, separators=(",", ":"),
+                              ensure_ascii=False, default=str)
+            ops.append((LEDGER_SEND, len(body.encode("utf-8", "surrogatepass"))))
+        child_session = None
+        if tool_name == "spawn_subagent" or eclass == EGRESS_SPAWN:
+            child_session = str(args.get("child_session_id") or f"{sess.session_id}:child")
+            if child_session in self.fork_ledgers:
+                if self.fork_ledgers[child_session][0] is not owner:
+                    raise ReferenceDenied("CHILD_IN_OTHER_LEDGER")
+                child_session = None  # Already forked by the control plane.
+            else:
+                ops.append((LEDGER_FORK, LEDGER_ZERO))
+        expected = owner.clock(slot)
+        owner.check(slot, expected, ops)
+        return owner, slot, expected, tuple(ops), child_session
+
+    def _fork_join_commit(self, plan: tuple) -> None:
+        owner, slot, expected, ops, child_session = plan
+        results = owner.apply(slot, expected, ops)
+        if child_session is not None:
+            child = next(r for (op, *_), r in zip(ops, results) if op == LEDGER_FORK)
+            self.fork_ledgers[child_session] = (owner, child)
+
+    def _fork_join_deny(self, sess: SessionState, step: int, tool_name: str, args: dict,
+                        exc: ReferenceDenied) -> dict:
+        owner, slot = self.fork_ledgers[sess.session_id]
+        root = owner.root
+        return self._v12_deny(sess, step, tool_name, args, FORK_JOIN_LEDGER_DENIED,
+                              {"fork_join": {"reason": str(exc), "slot": slot,
+                                             "events": root.events, "spent": list(root.spent)}})
+
+    def _confinement(self, sess: SessionState, step: int, tool_name: str, args: dict,
+                     wire_arguments: Optional[dict] = None) -> tuple[Optional[dict], Optional[tuple]]:
+        """(denial, compiled argv). Both None when no confinement is pinned.
+
+        With ``wire_arguments`` (the strictly parsed object), the policy sees the
+        client's exact numbers; otherwise it re-encodes the already-parsed dict.
+        """
+        self._confined.pop(sess.session_id, None)
+        policy = self.argument_policies.get(tool_name)
+        if policy is not None:
+            try:
+                canonical = policy.canonicalize(
+                    wire_arguments if wire_arguments is not None else encode_arguments(args))
+            except ReferenceDenied as exc:
+                return self._confinement_deny(sess, step, tool_name, args, "arguments", exc,
+                                              policy.commitment), None
+            self._confined[sess.session_id] = {
+                "kind": "arguments", "policy": policy.commitment,
+                "canonical_arguments": canonical.decode("utf-8")}
+            return None, None
+        if tool_name in self.command_tools:
+            try:
+                argv = confine(command_from_arguments(args))
+            except ReferenceDenied as exc:
+                return self._confinement_deny(sess, step, tool_name, args, "command", exc), None
+            self._confined[sess.session_id] = {"kind": "command", "argv": list(argv)}
+            return None, argv
+        return None, None
+
+    def _confinement_deny(self, sess: SessionState, step: int, tool_name: str, args: dict,
+                          kind: str, exc: ReferenceDenied, policy: Optional[str] = None) -> dict:
+        detail = {"reason": str(exc), "kind": kind}
+        if policy is not None:
+            detail["policy"] = policy
+        return self._v12_deny(sess, step, tool_name, args, ARGUMENT_CONFINEMENT_DENIED,
+                              {"confinement": detail})
+
+    def _shell_effects(self, args: dict, argv: Optional[tuple]):
+        """Effect union for a typed command's argv or a literal shell command, or None.
+
+        A typed command never falls back to shell text: its ``script`` field is
+        a sed expression, not a command line.
+        """
+        if argv is not None:
+            return command_intents(list(argv))
+        command = args.get("command") or args.get("cmd") or args.get("script")
+        if isinstance(command, str) and command.strip():
+            return analyze_shell(command)
+        return None
+
+    def _fs_label_plan(self, transducer: FsTransducer, tool_name: str, args: dict,
+                       eclass: str, argv: Optional[tuple] = None) -> Optional[tuple]:
+        """Typed adapter: (intents, cwd, is_egress, is_config_or_exec_sink), or None.
+
+        A literal shell command is analyzed into its effect union. Its fixed
+        command set (cat, tee, cp, mv, ln, chmod, sed, echo) never interprets
+        file content, and its output returns to the agent, so it is neither an
+        egress nor an execution sink; ``chmod`` targets are still checked as
+        execution sinks inside the transducer. Any other call is applicable only
+        when a resource argument names a path inside the workspace root: a write
+        tool's paths are write targets, every other tool's paths are read
+        sources, checked against the call's sink stage.
+        """
+        cwd = args.get("cwd") if isinstance(args.get("cwd"), str) else None
+        effects = self._shell_effects(args, argv)
+        if effects is not None:
+            return effects, cwd, False, False
+        root = transducer.state.base.root
+        paths = tuple(dict.fromkeys(
+            args[k] for k in _RESOURCE_ARGS
+            if isinstance(args.get(k), str) and (args[k] == root or args[k].startswith(root + "/"))))
+        if not paths:
+            return None
+        stage = self._sink_stage(tool_name, eclass, args)
+        if eclass == EGRESS_WRITE and stage is None:
+            return path_intents(writes=paths), cwd, False, False
+        is_egress = stage == EXTERNAL_SINK or eclass in (EGRESS_SEND, EGRESS_CREDS)
+        return path_intents(reads=paths), cwd, is_egress, stage == PRIVILEGED_EXEC
+
+    def _flow_call(self, gate: ManifestGate, tool_name: str, args: dict) -> FlowCall:
+        """Typed adapter: discover the step, its roles and the canonical digest."""
+        try:
+            args_digest = reference_json.digest("flow-args-v1", args)
+        except ReferenceDenied:
+            return FlowCall("", "", "", tool_name, "", (), "")
+        pending = sorted(sid for sid, s in gate.steps.items() if s.method == tool_name
+                         and gate.status(sid) == "NEW")
+        if not pending:
+            # A spent step is still addressable so that an identical request key
+            # resolves to its prior receipt (idempotent replay) instead of a
+            # silent new dispatch.
+            pending = sorted(sid for sid, s in gate.steps.items() if s.method == tool_name)
+        if not pending:
+            return FlowCall("", "", "", tool_name, "", (), args_digest)
+        step = gate.steps[pending[0]]
+        resources = tuple((role, str(args[role])) for role, _ in step.resources
+                          if isinstance(args.get(role), str))
+        request_key = reference_json.digest("flow-request-v1",
+                                            {"step": step.step_id, "args": args})
+        return FlowCall(request_key, step.step_id, step.provider, tool_name, step.pin,
+                        resources, args_digest)
+
+    def _reference_middleware(self, sess: SessionState, step: int, tool_name: str, args: dict,
+                              eclass: str, wire_arguments: Optional[dict] = None) -> Optional[dict]:
+        """Shell effects, manifest admission and outbound identifier matching.
+
+        Returns a denial dict, or None when every applicable validator passed.
+        A validator with no trusted state attached is not applicable and
+        contributes nothing - the v11 / v12 gates above already ran.
+        """
+        denial, argv = self._confinement(sess, step, tool_name, args, wire_arguments)
+        if denial is not None:
+            return denial
+
+        snapshot = self.path_snapshots.get(sess.session_id)
+        if snapshot is not None:
+            try:
+                effects = self._shell_effects(args, argv)
+            except ReferenceDenied as exc:
+                return self._v12_deny(sess, step, tool_name, args, WORKSPACE_EFFECT_DENIED,
+                                      {"shell": {"reason": str(exc), "modeled": False,
+                                                 "generation": snapshot.generation}})
+        if snapshot is not None and effects is not None:
+            cwd = args.get("cwd") if isinstance(args.get("cwd"), str) else None
+            try:
+                snapshot.check_all(effects, cwd)
+            except ReferenceDenied as exc:
+                return self._v12_deny(sess, step, tool_name, args, WORKSPACE_EFFECT_DENIED,
+                                      {"shell": {"reason": str(exc), "modeled": True,
+                                                 "effects": len(effects),
+                                                 "generation": snapshot.generation}})
+
+        transducer = self.fs_transducers.get(sess.session_id)
+        labels: Optional[PendingLabels] = None
+        if transducer is not None:
+            if sess.tainted:
+                transducer.observe_untrusted()
+            try:
+                plan = self._fs_label_plan(transducer, tool_name, args, eclass, argv)
+                if plan is not None:
+                    intents, cwd, is_egress, is_sink = plan
+                    labels = transducer.check(intents, cwd, is_egress=is_egress,
+                                              is_config_or_exec_sink=is_sink)
+            except LabelDenied as exc:
+                return self._fs_label_deny(sess, step, tool_name, args, transducer, exc)
+            except ReferenceDenied as exc:
+                # The workspace model itself refused the effect (Predicate W).
+                return self._v12_deny(sess, step, tool_name, args, WORKSPACE_EFFECT_DENIED,
+                                      {"shell": {"reason": str(exc), "modeled": True,
+                                                 "generation": transducer.state.base.generation,
+                                                 "via": "fs_transducer"}})
+
+        denial = self._v14_prepare(sess, step, tool_name, args, eclass)
+        if denial is not None:
+            return denial
+
+        try:
+            ledger_plan = self._fork_join_plan(sess, tool_name, args, eclass)
+        except ReferenceDenied as exc:
+            return self._fork_join_deny(sess, step, tool_name, args, exc)
+
+        gate = self.flow_gates.get(sess.session_id)
+        if gate is not None:
+            if sess.tainted:
+                gate.ingest(FlowLabel.EXTERNAL)
+            ticket = self._flow_call(gate, tool_name, args)
+            try:
+                receipt = gate.begin(ticket)
+            except ReferenceDenied as exc:
+                return self._v12_deny(sess, step, tool_name, args, FLOW_MANIFEST_DENIED,
+                                      {"flow": {"reason": str(exc), "label": gate.label.name,
+                                                "step": ticket.step_id or None}})
+            # The lab gateway simulates the tool result, so the dispatch completes
+            # here. A real dispatcher takes from the outbox and records the
+            # downstream outcome (DONE / FAILED / UNKNOWN) instead. An idempotent
+            # replay returns the prior receipt and is not completed again.
+            if gate.status(receipt.call.step_id) == "QUEUED":
+                gate.take()
+                gate.complete(receipt, "DONE")
+
+        net = self.obligation_nets.get(sess.session_id)
+        transition = None
+        if net is not None:
+            sequence = net.sequence
+            try:
+                transition = net.resolve(tool_name)
+                net.check(*transition)
+            except ReferenceDenied as exc:
+                return self._obligation_deny(sess, step, tool_name, args, net, exc)
+
+        matcher = self.similarity
+        if matcher is not None and eclass in (EGRESS_WRITE, EGRESS_SEND, EGRESS_CREDS):
+            for _, text in iter_strings(args):
+                if not isinstance(text, str) or not text:
+                    continue
+                try:
+                    decision = matcher.check(text)
+                except ReferenceDenied as exc:
+                    return self._v12_deny(sess, step, tool_name, args, SIMILARITY_LEAK_DENIED,
+                                          {"similarity": {"reason": str(exc), "blocked": True}})
+                if decision.blocked:
+                    return self._v12_deny(sess, step, tool_name, args, SIMILARITY_LEAK_DENIED,
+                                          {"similarity": {"reason": decision.reason,
+                                                          "identifier_hash": decision.identifier_hash,
+                                                          "protected_hash": decision.protected_hash}})
+        holder = self.ingressions.get(sess.session_id)
+        if holder is not None and eclass in (EGRESS_WRITE, EGRESS_SEND, EGRESS_CREDS):
+            for _, text in iter_strings(args):
+                query = text.encode("utf-8", "surrogatepass")
+                try:
+                    holder.outbound(query)
+                except ReferenceDenied as exc:
+                    return self._v12_deny(sess, step, tool_name, args, DYNAMIC_INGRESSION_DENIED,
+                                          {"ingression": {"reason": str(exc), "direction": "outbound",
+                                                          "slot": holder.matching_slot(query),
+                                                          "slots_used": holder.used}})
+        index = self.transform_indexes.get(sess.session_id)
+        if index is not None and eclass in (EGRESS_WRITE, EGRESS_SEND, EGRESS_CREDS):
+            for _, text in iter_strings(args):
+                try:
+                    index.check(text.encode("utf-8", "surrogatepass"))
+                except ReferenceDenied as exc:
+                    return self._v12_deny(sess, step, tool_name, args, TRANSFORM_INVARIANT_DENIED,
+                                          {"transform": {"reason": str(exc), "pins": index.used}})
+        if labels is not None:
+            # Labels only rise, so committing before the Petri-net fire can
+            # overstate a file's label if that fire then fails, never understate it.
+            try:
+                transducer.commit(labels)
+            except LabelDenied as exc:
+                return self._fs_label_deny(sess, step, tool_name, args, transducer, exc)
+        if ledger_plan is not None:
+            # Prepared only. ``_settle_ledger`` commits it, fenced on the branch
+            # clock read here, once the whole call is allowed; a spawn commits it
+            # before reserving its slot.
+            self._staged_ledger[sess.session_id] = ledger_plan
+        if net is not None and transition is not None:
+            # Commit point: fenced on the sequence read before the other checks.
+            try:
+                net.fire(*transition, expected_sequence=sequence)
+            except ReferenceDenied as exc:
+                return self._obligation_deny(sess, step, tool_name, args, net, exc)
+        return None
+
+    def _obligation_deny(self, sess: SessionState, step: int, tool_name: str, args: dict,
+                         net: ObligationNet, exc: ReferenceDenied) -> dict:
+        return self._v12_deny(sess, step, tool_name, args, OBLIGATION_PROTOCOL_DENIED,
+                              {"obligation": {"reason": str(exc), "marking": net.marking_hex,
+                                              "sequence": net.sequence}})
+
+    def _fs_label_deny(self, sess: SessionState, step: int, tool_name: str, args: dict,
+                       transducer: FsTransducer, exc: LabelDenied) -> dict:
+        # Reason codes and labels only: no path or file content in the finding.
+        return self._v12_deny(sess, step, tool_name, args, FS_LABEL_FLOW_DENIED,
+                              {"fs_label": {"reason": str(exc), "axis": exc.axis,
+                                            "generation": transducer.generation,
+                                            "session_integrity": transducer.session_integrity.name}})
+
     def _agent_node(self, sess: SessionState) -> str:
         """Collusion-graph node for one session of one registered agent."""
         rec = self.registry.get(sess.agent_key)
@@ -1176,6 +2251,16 @@ class PolicyEngine:
             if not cv.ok:
                 verdicts.append({"ok": False, "code": cv.code, "tool": cv.tool, "server_id": server_name,
                                  "detail": cv.detail, "first_seen": cv.first_seen})
+        # Reference pin registry: sticky descriptor pins, alias ambiguity, metadata lint.
+        for verdict in self.pin_tool_descriptors(server_name, tools):
+            kind = verdict["code"]
+            finding = {"kind": kind, "session_id": session_id, "server": server_name,
+                       "tool": verdict.get("tool"), "atlas": _V12_ATLAS.get(kind, ""),
+                       "atlas_approximate": True,
+                       **{k: v for k, v in verdict.items() if k not in ("ok", "code")}}
+            self.findings.append(finding)
+            self.pin_findings.append(finding)
+            self._alert(kind, finding)
         for v in verdicts:
             if v["ok"]:
                 continue
@@ -1189,7 +2274,7 @@ class PolicyEngine:
     def check_schema_call(
         self, agent_key: str, session_id: str, server_name: str, tool_name: str, arguments: Optional[dict] = None,
     ) -> Optional[dict]:
-        """Deny a call to a tool whose pinned schema drifted or whose definition is poisoned, or return None."""
+        """Deny a call to a tool whose pinned schema drifted, whose capability profile refused it, or whose definition is poisoned, or return None."""
         cap = self.capability.check_call(server_name, tool_name)
         if not cap.ok and self.registry.get(agent_key):
             sess = self.get_session(session_id, agent_key)
@@ -1197,6 +2282,14 @@ class PolicyEngine:
             out = self._v12_deny(sess, sess.step_index, tool_name, dict(arguments or {}), cap.code,
                                  {"mcp": cap.as_dict()})
             return self._attach_capability(session_id, out)
+        if (server_name, tool_name) in self.pin_enrolled and self.pin_state(server_name, tool_name) == "REVOKED":
+            if self.registry.get(agent_key):
+                sess = self.get_session(session_id, agent_key)
+                sess.step_index += 1
+                out = self._v12_deny(sess, sess.step_index, tool_name, dict(arguments or {}),
+                                     REGISTRY_PIN_DRIFT,
+                                     {"pin": {"server_id": server_name, "state": "REVOKED"}})
+                return self._attach_capability(session_id, out)
         poison = self.poisoned_tools.get((server_name, tool_name))
         if poison is not None and self.registry.get(agent_key):
             sess = self.get_session(session_id, agent_key)
@@ -1305,6 +2398,10 @@ class PolicyEngine:
     def _deny(self, sess: SessionState, step: int, tool_name: str, args: dict, error: str, code: int,
               atlas: str = "") -> dict:
         sess.history.append({"step": step, "tool": tool_name, "ok": False, "error": error})
+        ledger = self.fork_ledgers.get(sess.session_id)
+        if ledger is not None:
+            # Every denial on any branch spends the root's shared denial budget.
+            ledger[0].charge_denial(ledger[1])
         self._alert("policy_deny", {"session_id": sess.session_id, "step": step, "tool": tool_name,
                                     "error": error, "atlas": atlas, "args": scrub_obj(args)})
         out = {
@@ -1359,6 +2456,9 @@ class PolicyEngine:
             out["output_findings"] = output_findings
         if delegation is not None:
             out["delegation"] = delegation
+        confined = self._confined.pop(sess.session_id, None)
+        if confined is not None:
+            out["confinement"] = confined
         return out
 
 
@@ -1414,14 +2514,19 @@ def create_app(cfg: Optional[PepConfig] = None, engine: Optional[PolicyEngine] =
 
     @app.post("/mcp")
     def mcp_rpc():
+        # Raw bytes through the strict parser: no BOM / UTF-16 / lone surrogates /
+        # duplicate keys / NaN, and exact Decimal numbers for Predicate S.
         try:
-            body = request.get_json(force=True, silent=False)
+            body = loads_strict(request.get_data(cache=False))
         except RequestEntityTooLarge:
             raise
-        except Exception:
-            return jsonify({"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "parse error"}}), 400
+        except ReferenceDenied as exc:
+            return jsonify({"jsonrpc": "2.0", "id": None, "error": {
+                "code": -32700, "message": "parse error", "data": {"reason": str(exc)}}}), 400
         if not isinstance(body, dict):
             return jsonify({"jsonrpc": "2.0", "id": None, "error": {"code": -32600, "message": "invalid request"}}), 400
+        wire = body
+        body = plain_numbers(body)
         rid = body.get("id")
         method = body.get("method")
         params = body.get("params") or {}
@@ -1447,6 +2552,9 @@ def create_app(cfg: Optional[PepConfig] = None, engine: Optional[PolicyEngine] =
         if method == "tools/call":
             name = str(params.get("name") or params.get("tool") or "")
             arguments = params.get("arguments") if isinstance(params.get("arguments"), dict) else {}
+            wire_params = wire.get("params") if isinstance(wire.get("params"), dict) else {}
+            wire_arguments = (wire_params.get("arguments")
+                              if isinstance(wire_params.get("arguments"), dict) else {})
             token = params.get("approval_token") or request.headers.get("X-Approval-Token")
             depth = int(params.get("delegation_depth") or 0)
             parent = params.get("parent_key")
@@ -1456,6 +2564,7 @@ def create_app(cfg: Optional[PepConfig] = None, engine: Optional[PolicyEngine] =
                 approval_token=token, delegation_depth=depth, parent_key=parent,
                 bound_step_index=int(bound) if bound is not None else None,
                 capability_token=str(cap_tok) if cap_tok else None,
+                wire_arguments=wire_arguments,
             )
             if not out.get("ok"):
                 return jsonify({"jsonrpc": "2.0", "id": rid, "error": {

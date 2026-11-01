@@ -55,6 +55,8 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+from .canonical_argument_confinement import loads_strict, plain_numbers
+from .common import Denied
 from .pep import PolicyEngine
 from .taint import CORE_MCP_SERVERS
 
@@ -223,9 +225,13 @@ class McpWireProxy:
 
     def handle_line(self, direction: str, line: str) -> FilterResult:
         """Newline-delimited stdio framing: one JSON document per line."""
+        # Strict parse (shared with Flask /mcp): no BOM, strict UTF-8, no lone
+        # surrogates, no duplicate keys, no NaN. Numbers are forwarded only when
+        # a binary float carries exactly the value that was checked.
+        raw = line.encode("utf-8", "surrogatepass") if isinstance(line, str) else line
         try:
-            message = json.loads(line)
-        except (ValueError, TypeError):
+            message = plain_numbers(loads_strict(raw), exact=True)
+        except Denied:
             return FilterResult("invalid", reply=[error_response(None, ERR_PARSE, "parse error")])
         return self.handle(direction, message)
 
@@ -301,6 +307,15 @@ class McpWireProxy:
         decision = "pass"
         if pending.method == "tools/call":
             self.engine.ingest_tool_result(self.agent_key, self.session_id, pending.tool_name, msg.get("result"))
+            # Predicate D learns values from the real result before the agent sees it.
+            try:
+                self.engine.ingest_dynamic_result(self.agent_key, self.session_id, pending.tool_name,
+                                                  msg.get("result"))
+            except ValueError as exc:
+                reason = str(exc)
+                reply = error_response(rid, -32075, "result withheld",
+                                       {"error": "dynamic_ingression_denied", "reason": reason})
+                return FilterResult("withheld", forward=[reply], detail={"reason": reason})
         if pending.method in ("resources/read", "prompts/get") and not self.is_core_server:
             self.engine.mark_untrusted_ingest(
                 self.agent_key, self.session_id, f"mcp.{pending.method}:{self.server_name}",

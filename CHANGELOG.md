@@ -4,6 +4,357 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
+## [Unreleased] - v14 reference validators C, E, B and A (31 October 2026)
+
+Four bounded, stdlib-only predicates on the same decision path, findings,
+SARIF and audit-report counts as R-Z. Each is inert until attached, and C, E
+and A follow the round-2 two-phase rule: check in the reference middleware,
+commit only when the whole call is allowed, abort otherwise.
+
+- `causality_laundering_validator.py`: Predicate C,
+  `CAUSALITY_LAUNDERING_DENIED` (-32077, approximate AML.T0086). Branches with
+  a taint bit and a pc stack; sticky labels on entries, directories
+  (tombstones kept after unlink/rmdir/rename) and statuses. Probes, listings
+  and status reads join labels into the observer, and the engine taints the
+  session before A and E authorize. `attach_causality()`,
+  `causality_push_pc()` / `causality_pop_pc()`; typed adapters for
+  `file.write` / `file.delete` / `file.rename` / `file.mkdir` / `file.rmdir`,
+  `file.read` / `file.exists` / `file.stat` / `file.list`, `status.set` /
+  `status.get`. `file.exists`, `file.stat`, `file.list`, `list_files` and
+  `status.get` are now classed as internal reads in `taint.py`.
+- `event_channel_capacity_validator.py`: Predicate E,
+  `EVENT_CHANNEL_CAPACITY_DENIED` (-32078, approximate AML.T0086). Exact
+  integer `quarter_bits(N) = (N**4 - 1).bit_length()`; `EventManifest`
+  (1..64 tools, at most 8 dimensions of 1..1024, product <= 2**20);
+  `EventChannelBudget` with reserve / commit / abort, sticky taint, 32 pending
+  and 256 committed ids. Charged only while tainted or holding live pins.
+  `attach_event_budget()`; eligible-tool check on every write, send and
+  credential call.
+- `blindfold_opaque_fault_validator.py`: Predicate B,
+  `BLINDFOLD_PERTURBATION_DENIED` (-32079, approximate AML.T0043). Exact
+  4-gram sets, SHA-256 and a BLAKE2b SimHash (receipt telemetry only),
+  near-neighbor lock for Jaccard in [0.25, 1), constant `AGENT_ENVELOPE`,
+  HMAC-signed receipts and `verify_receipt`. `attach_blindfold(opaque_wire=)`;
+  with an opaque wire every refusal is the same -32079 envelope, receipts in
+  `engine.blindfold_receipts`.
+- `reachability_confinement_validator.py`: Predicate A,
+  `REACHABILITY_CONFINEMENT_DENIED` (-32080, approximate AML.T0053). Forward
+  DAG of at most 64 nodes and 8 obligation bits; boot-time `forward`,
+  `viable_paths[t][r]` and `live_paths[t][r][i]` (so a terminal reachable
+  after an intermediate discharge is never pruned early); three-AND hot path;
+  sticky revocation. `attach_reachability()`, `reachability_finish()`.
+- Deviations from the request, by standing rule or conflict:
+  - B's branch and root locks auto-lift after 15 minutes and are recorded
+    as human-review leads; a permanent lock would be automatic blocking.
+  - The opaque envelope reuses -32079 rather than -32080, which A owns;
+    every JSON-RPC code stays unique.
+  - E releases a reservation when a later gate denies the call, so refusal
+    outcomes are not charged.
+  - A records the taint a call arrives with; taint its own result adds
+    contaminates before the next call.
+  - "v14" here names these four predicates. The AgentGate v14 reference
+    package attached in chat specifies B/M/G/K (Birkhoff, declassification,
+    cohort, KL), which is a different set.
+- Tests: 27 new cases in `tests/test_validators.py`, with
+  `CausalityStateMachine`, `EventCapacityStateMachine`,
+  `BlindfoldStateMachine` and `ReachabilityStateMachine`, against
+  brute-force paths, exact Fractions and explicit models. There are 16
+  wiring tests in `tests/test_v14_wiring.py`. Gateway tests 1122 ->
+  **1165**; Hypothesis state machines 19 -> **23**; modules behind
+  `pep.py` 47 -> **51**; reference-validator rule codes 11 -> **15**. All
+  four new machines also ran clean at 300 examples.
+- `benchmarks/benchmark.py`: six v14 cases plus a fourteen-check combined
+  case; `benchmark_results.json` regenerated. B measured 2.37 ms p99 at its
+  bounds and the combined case 8.28 ms p99, above the 5 ms reference.
+- Docs: DESIGN.md and the validator specification gain a round-2 section,
+  sections 11-14 and a results table. README, site `#method` and the lab
+  report are updated.
+
+## [Unreleased] - Round-2 red-team fixes for V, S, T, D and Z (31 October 2026)
+
+Five confirmed findings from the round-2 audit of the R-Z implementation,
+fixed in the recommended order. Gateway tests 1082 -> **1122** (40 new
+regression tests); Hypothesis state machines stay at **19**; the D and Z
+machines were extended to the new behavior and run clean at 300 examples.
+
+- V (`pep.py`): two-phase prepare/commit for the fork/join ledger. The
+  reference middleware stages the checked plan; it is applied only when the
+  whole call is allowed (`_settle_ledger`), and a spawn commits it after its
+  quota and collusion checks, before reserving the slot. A denied call keeps
+  only the denial unit `_deny` charges; branch taint is still mirrored. Seven
+  SSRF-denied `spawn_subagent` calls no longer leave ghost branches that
+  exhaust `WIDTH`.
+- S (`canonical_argument_confinement.py`, `pep.py`, `mcp_proxy.py`): shared
+  `loads_strict(raw)`: no BOM, strict UTF-8 only (UTF-16/32 refused), no NUL,
+  no lone surrogates (raw or escaped), no duplicate keys at any depth, no
+  NaN/Infinity, bounded depth and number tokens; non-integers parse to exact
+  `Decimal`. Flask `/mcp` reads `request.get_data()` through it, returns a
+  JSON-RPC -32700 with a fixed reason (never HTTP 500), and hands Predicate S
+  the Decimal-preserving argument object (`evaluate_call(wire_arguments=)`;
+  `Policy.canonicalize` accepts bytes or that object). The stdio proxy uses
+  the same parser and forwards a number only when a binary float carries
+  exactly the checked value (`NUMBER_PRECISION` otherwise). `mcp_proxy.parse_wire`
+  from PR #34 is not on this branch; reconcile when merging.
+- T (`symbolic_fs_transducer.py`): `rebase(snapshot, *, aliases=, path_moves=)`.
+  Path-keyed labels follow their path onto its published inode; `aliases`
+  carry an old inode's label to its replacement (GNU `sed -i`, `mv`);
+  `path_moves` carry a path's full label to its new path and inode. A
+  malformed or unresolvable target fails closed (`LABEL_ALIAS_UNRESOLVABLE`)
+  with state unchanged. The maps must come from the broker.
+- D (`dynamic_ingression_validator.py`, `pep.py`, `mcp_proxy.py`):
+  `HARD_SLOTS = 8` for fields a trusted sensitive-source adapter marks
+  sensitive (never evicted; a ninth is `D_CAPACITY`) and `SOFT_SLOTS = 16`
+  for heuristic finds (oldest evicted first; never `D_CAPACITY`). Key names in
+  a result no longer mark anything sensitive. Hard values extend Z
+  atomically; soft values enter Z only while it has room. The MCP wire proxy
+  now feeds tool results to D and forwards a -32075 error in place of a
+  withheld result.
+- Z (`transform_invariant_validator.py`): stride-2/3/4 interleavings (pins
+  precompute both directions, so an interleaved value is found inside text)
+  and bounded hex / base64 / URL-safe base64 decoded views of 16+ character
+  runs, reasons `Z_STRIDE` and `Z_ENCODED`, on a second precharged budget
+  (`CANDIDATE_CREDITS`) so existing `Z_WORK` limits are unchanged. Residual:
+  compositions, nibble swaps, keyed ciphers and compression.
+- Tests updated for the new D contract: hard non-eviction, soft FIFO
+  rotation, trusted-only `sensitive`, and Z capacity applying to hard values.
+- Site traces 09 and 10 re-recorded on the fixed code (same verdicts); site,
+  lab report and README counts updated.
+- Not changed here, same pattern as V: P's Petri-net fire and T's label
+  commit still happen inside the reference middleware, before the downstream
+  gates. T only over-labels on a later denial; P can advance its marking for
+  a call that is then denied.
+
+## [Unreleased] - Site and README for the v12.8 tree (31 October 2026)
+
+No gateway code changes. Predicate D (`dynamic_ingression_validator.py`,
+-32075) is unchanged from v12.7 and its sync into Z from v12.8.
+
+- Merged `main` (PR #35): the marketing page is `site/index.html` and the
+  lab report moved to `site/demo/`. This branch's lab-report count updates
+  were carried into `site/demo/index.html`.
+- `site/index.html` `#method`: the ten-predicate validator layer
+  (R, W, F, I, P, T, S, V, D, Z; JSON-RPC -32066 to -32076) with one
+  invariant and the isolated-case p99 from `docs/DESIGN.md` per predicate,
+  plus the combined ten-check p99 (8.08 ms, above the 5 ms reference). A
+  2025-2026 literature crosswalk against CaMeL, FIDES, Progent, ToolGate,
+  Whispering Agents, Memory Provenance Laundering and Blindfold, compared
+  against each paper's abstract; not a systematic review.
+- `site/demo/` `#traces`: two new recorded traces, 09 (D: learned values
+  denied outbound) and 10 (Z: reversed, XOR-masked and block-reordered
+  values, and a D-learned value caught reversed). Recorded by
+  `examples/record_site_traces.py` scenarios 9 and 10 against the real
+  engine, Python 3.12.3, 30 runs each; both decision-log chains verify.
+- Counts for the v12.8 tree: gateway tests **1082** (re-run 31 October,
+  Python 3.12.3, Hypothesis 6.140.0 because PyPI was unreachable for the
+  pinned 6.170.9); Hypothesis state machines **19**; modules behind
+  `pep.py` **47**; reference-validator rule codes **11**; workspace
+  **1604** (1082 + 512 `agent-watch` + 10 `agentwatch-analyzer`; the last
+  two are CI figures, and `agent-watch` ran 510 passed / 4 skipped here).
+- README: badge, headline counts and the "use this count" list.
+
+## [Unreleased] - v12.8 transform-invariant pins (31 October 2026)
+
+- `transform_invariant_validator.py`: Predicate Z. Each pin precomputes
+  bit-parallel LCS masks for its direct, reversed, additive (delta mod 256),
+  exclusive (XOR delta) and alphabetic (Caesar delta) views plus its aligned
+  4-byte block multiset. A query is denied when a view covers 85% of a pin
+  view (`Z_TRANSFORM`, including word-initial acrostics) or holds 80% of the
+  pin's bytes as blocks (`Z_BLOCKS`). Work is precharged; a query over
+  32,768 credits is denied whole (`Z_WORK`). At most 24 pins and 512 query
+  bytes.
+- `dynamic_ingression_validator.py`: `Ingression.receive(fields, on_commit)`
+  runs a hook before storing, so a second store can veto the batch;
+  `Ingression.values()`; `Pattern.make` alias.
+- `pep.py`: `PolicyEngine.attach_transform_index()`. Values Predicate D
+  learns extend Z's pins in the same atomic step (a full index withholds
+  the result with reason `Z_CAPACITY`). The check runs after D's outbound
+  check. Rule code `TRANSFORM_INVARIANT_DENIED` (-32076, approximate
+  AML.T0086) in SARIF (CWE-201, CWE-1039, ASI02, LLM02:2025) and in the
+  audit-report counts.
+- Tests: 10 new cases in `tests/test_validators.py` (including
+  `TransformMachine` and an independent oracle) and
+  `tests/test_v12_8_transform_wiring.py` (8). Gateway tests 1064 ->
+  **1082**; Hypothesis state machines 18 -> **19**.
+- `benchmarks/benchmark.py`: two credit-limit transform cases and a
+  ten-check combined case; `benchmark_results.json` regenerated.
+- Known limits, documented in DESIGN.md section 10: the work budget denies
+  queries over roughly 190-210 bytes with typical pins; Caesar is checked
+  only on all-letter queries; short letters-only pins can match long
+  natural text through the direct and reverse views.
+
+## [Unreleased] - v12.7 dynamic ingression pins (31 October 2026)
+
+- `dynamic_ingression_validator.py`: Predicate D. Inbound tool response
+  fields are scanned before the agent sees them: sensitive fields are
+  enrolled whole, and maximal token runs are enrolled on a credential prefix,
+  an internal host suffix, an e-mail address shape, or exact integer Renyi-2
+  entropy of at least 4 bits per byte. The 8-slot store never evicts; a
+  batch that does not fit fails with D_CAPACITY and enrolls nothing.
+  Outbound strings (512 bytes at most) are denied when a bit-parallel LCS
+  covers 85% of an enrolled value.
+- `pep.py`: `PolicyEngine.attach_ingression()` and `ingest_dynamic_result()`.
+  Every allowed result, including scratchpad notes, the internal bus, and
+  spawns, is enrolled in `evaluate_call` after the decision, with Unicode
+  format characters (the canary watermark) removed; a result that cannot be
+  enrolled is withheld. The outbound check runs after the similarity
+  matcher. Rule code `DYNAMIC_INGRESSION_DENIED` (-32075, approximate
+  AML.T0086) in SARIF (CWE-201, CWE-522, ASI02, LLM02:2025) and in the
+  audit-report counts.
+- Tests: 28 new cases in `tests/test_validators.py` (including
+  `IngressionMachine`) and `tests/test_v12_7_ingression_wiring.py` (9).
+  Gateway tests 1027 -> **1064**; Hypothesis state machines 17 -> **18**.
+- `benchmarks/benchmark.py`: full-budget inbound scan, 8-pin outbound
+  check, and a nine-check combined case; `benchmark_results.json`
+  regenerated.
+
+## [Unreleased] - v12.6 fork/join conservation ledger (31 October 2026)
+
+- `fork_join_vector_validator.py`: Predicate V. A root and at most 8
+  lifetime branches share one immutable ledger of wallets (denial units,
+  outbound bytes, 16 token places in 1/256 units) with vector clocks. Forks
+  move a grant, joins return it and merge clocks and taint, firings conserve
+  the weighted token count, sends are capped at 512 bytes and need cleanup
+  state settled across the whole ledger, and every operation is fenced on
+  the branch's own clock component. `Owner` applies fenced batches all or
+  nothing under one lock; `Root.conserved()` checks the ledger laws.
+- `pep.py`: `PolicyEngine.attach_fork_join()`, `fork_branch()` and
+  `join_branch()`; spawning from a ledger session auto-forks an empty
+  branch. The call's ledger operations are planned after the label
+  transducer check and committed, fenced on the clock, before the Petri-net
+  fire. Every gateway denial on a ledger session spends a shared denial
+  unit, and branch taint is mirrored into sessions. Rule code
+  `FORK_JOIN_LEDGER_DENIED` (-32074, approximate AML.T0086) in SARIF
+  (CWE-770, CWE-362, ASI07, LLM10:2025) and in the audit-report counts.
+- Tests: 10 new cases in `tests/test_validators.py` (including
+  `LedgerMachine`) and `tests/test_v12_6_fork_join_wiring.py` (9).
+  Gateway tests 1008 -> **1027**; Hypothesis state machines 16 -> **17**.
+- `benchmarks/benchmark.py`: full-width ledger batch and an eight-check
+  combined case; `benchmark_results.json` regenerated.
+
+## [Unreleased] - v12.5 argument canonicalization and command confinement (31 October 2026)
+
+- `canonical_argument_confinement.py`: Predicate S. `Policy.canonicalize`
+  maps a flat argument object onto one byte string under a pinned field
+  policy (up to 16 number, set, text and bool fields). Keys are sorted, numbers
+  quantized with ROUND_HALF_EVEN at a fixed scale (-0 -> 0), sets sorted by
+  encoded bytes, and defaults omitted. C_P(C_P(x)) == C_P(x). Wire bytes
+  (2048), raw-byte nesting depth (2), duplicate keys, unknown fields,
+  non-finite and oversized numbers, and duplicate set elements are checked
+  before or during parsing. `confine(Command)` compiles cp, mv, tee, ln,
+  chmod and sed to a fixed argv with `--` before every positional and denies
+  operands that start with `-`.
+- `pep.py`: `PolicyEngine.pin_argument_policy()` and `pin_command_tool()`.
+  S runs first in the reference middleware. The allow result carries the
+  canonical bytes or the compiled argv, and a typed command's effects go
+  through the workspace model and the label transducer. Rule code
+  `ARGUMENT_CONFINEMENT_DENIED` (-32073, approximate AML.T0053) in SARIF
+  (CWE-88, CWE-514, ASI02, LLM05:2025) and in the audit-report counts.
+- Tests: 82 new cases in `tests/test_validators.py` (including
+  `CanonicalArgumentMachine`) and `tests/test_v12_5_argument_confinement_wiring.py`
+  (14). Gateway tests 912 -> **1008**; Hypothesis state machines 15 -> **16**.
+- `benchmarks/benchmark.py`: full-budget canonicalization, 16-operand
+  confinement, and a seven-check combined case; `benchmark_results.json`
+  regenerated.
+- README: the reference validator intro now says eight rule codes,
+  -32066 through -32073.
+
+## [Unreleased] - v12.4 file label transducer (31 October 2026)
+
+- `symbolic_fs_transducer.py`: Predicate T. A (confidentiality, integrity)
+  product lattice (PUBLIC < SENSITIVE < PROTECTED, TRUSTED < UNTRUSTED) per
+  file object, in an immutable copy-on-write overlay over the workspace
+  `Snapshot`. Protected paths and inodes (including symlink and hard-link
+  aliases) start PROTECTED. The workspace check runs first. Labels flow from
+  read sources to write targets joined with the session integrity, only ever
+  rise, and are fenced on an overlay generation. Outbound calls cannot read
+  non-PUBLIC files; execution sinks and chmod cannot use UNTRUSTED ones.
+  `FsTransducer.rebase()` adopts a newer broker snapshot and keeps labels.
+- `pep.py`: `PolicyEngine.attach_fs_transducer()`. Checked right after the
+  shell-effect check and committed after every other reference validator,
+  before the Petri-net fire. Rule code `FS_LABEL_FLOW_DENIED` (-32072,
+  approximate AML.T0086) in SARIF (CWE-201, CWE-829, ASI02, LLM02:2025) and
+  in the audit-report counts.
+- Tests: 11 new cases in `tests/test_validators.py` (including
+  `TransducerMachine`) and `tests/test_v12_4_fs_label_wiring.py` (7).
+  Gateway tests 894 -> **912**; Hypothesis state machines 14 -> **15**.
+- `benchmarks/benchmark.py`: transducer case (1 read joined into 63 writes)
+  and a six-check combined case; `benchmark_results.json` regenerated.
+
+## [Unreleased] - v12.3 Petri-net transition gate (31 October 2026)
+
+- `linear_obligation_validator.py`: a bounded 16-place Petri net with 4-bit
+  places packed into one 64-bit marking. The manifest must pass a weighted
+  non-minting conservation check when it is compiled (bootstrap transitions
+  are one-shot). The per-call check is constant time and covers sufficient
+  tokens, place capacity and resource cleanup state settled before outbound
+  steps. Bare names owned by two providers never resolve.
+- `common.py`: frozen `DispatchEnvelope` with defaulted fields (including
+  `petri_marking_hex`) and a domain-separated `commitment()`. Existing
+  exports unchanged.
+- `pep.py`: `PolicyEngine.attach_obligation_net()`. The transition is checked
+  before the outbound-identifier matcher and fired, fenced on the marking
+  sequence, only after every other reference validator passes. Rule code
+  `OBLIGATION_PROTOCOL_DENIED` (-32071) in SARIF (CWE-691, CWE-772) and in
+  the audit-report counts.
+- Tests: 14 new cases in `tests/test_validators.py` (including
+  `PetriObligationMachine`) and `tests/test_v12_3_obligation_wiring.py` (6).
+  Gateway tests 874 -> **894**; Hypothesis state machines 13 -> **14**.
+- `benchmarks/benchmark.py`: obligation transition case and a five-check
+  combined case. The 31 October run is from a slower container than the
+  29 October one; both tables are in `docs/DESIGN.md`.
+
+## [Unreleased] - v12.2 reference middleware validators (29 October 2026)
+
+- Four deterministic, standard-library validators land in `agent_gateway` as
+  supplied (byte-identical to the reference package apart from relative
+  imports): `common.py` (CJSON-DECIMAL-v1 canonicalizer, deliberately not
+  RFC 8785), `registry_pin_validator.py`, `workspace_path_validator.py`,
+  `lattice_flow_validator.py`, `shingle_similarity_validator.py`.
+- `registry_pin_validator.py`: per-provider descriptor pins over
+  inputSchema / outputSchema / description / title / annotations, one
+  `Registry` per server sealed after its first listing. Sticky revocation
+  (a changed, invalid or removed descriptor stays `REVOKED` for the session),
+  local-Pointer-only schema closure, a display-metadata linter, and abnormal
+  alias tracking that never resolves by arrival order. Rule codes
+  `REGISTRY_PIN_DRIFT` (-32066), `REGISTRY_ALIAS_AMBIGUOUS` (-32067).
+  These are the next free JSON-RPC codes: v12.1 already uses -32055 through
+  -32059 and -32062 through -32065, and -32060 / -32061 stay the sampling errors.
+- `workspace_path_validator.py`: bounded literal-shell analyzer and an
+  immutable filesystem model (symlink splicing before `..`, protected-name
+  and inode checks, work credits, `move`/`symlink` batches refused).
+  `PolicyEngine.attach_workspace_snapshot()` turns it on per session; an
+  unmodeled command, a protected path, a shared inode or a stale generation
+  is `WORKSPACE_EFFECT_DENIED` (-32068). Both Claude Code hooks run the
+  lexical half of the same analyzer, which covers reserved names the v12
+  workspace guard does not model (`.clinerules`, `.idea/`, `.windsurf/`).
+- `lattice_flow_validator.py`: two-level contamination lattice with
+  dispatch-time taint, a precommitted manifest of single-use steps, DAG
+  admission, path patterns and an idempotent request ledger.
+  `PolicyEngine.pin_workflow_manifest()` makes every call match an unused
+  step, else `FLOW_MANIFEST_DENIED` (-32069).
+- `shingle_similarity_validator.py`: rolling shingles plus bounded
+  bit-parallel LCS over two pinned normalization views, keyed audit
+  identifiers only. `PolicyEngine.configure_similarity_matcher()` scans
+  outbound string arguments, else `SIMILARITY_LEAK_DENIED` (-32070).
+- `sarif_export.py` / `audit_report.py`: the five codes as error-level
+  rules with ATLAS, CWE, OWASP Agentic and OWASP LLM tags, counted in the
+  decision-log summary, beside the nine v12.1 rules.
+- `tests/test_validators.py` (64, including four Hypothesis state machines)
+  imported with package-qualified imports and unchanged oracles;
+  `tests/test_v12_2_validator_wiring.py` (14, including the JSON-RPC code
+  assignment that follows v12.1) covers the decision path, both hooks, the
+  SARIF rule set and the inert-until-configured property.
+  Gateway tests 796 -> **874** (33 files); modules behind `pep.py`
+  36 -> **41**; Hypothesis state machines 9 -> **13**; workspace **1396**;
+  CI floor 780 -> **860**. Every validator is inert until a trusted adapter
+  attaches its state, so a session without pins, a snapshot, a manifest, or
+  a matcher keeps the v12.1 decision path.
+- `benchmarks/benchmark.py` and `benchmarks/artifacts/`: the reference
+  microbenchmark and its measured output (5000 samples per case, combined
+  p99 **4.833856 ms** on Python 3.12.14, retained matcher allocations
+  1,426,200 bytes), plus the reference `validation_results.json` and the
+  package manifest under `docs/reference-package/`.
+
 ## [Unreleased] - v12.1 interpreter, first-listing, and collusion guards (29 October 2026)
 
 - `interpreter_exec_guard.py`: inline payloads of `python -c` (parsed with

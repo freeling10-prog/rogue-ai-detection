@@ -161,7 +161,9 @@ section{padding:3.25rem 0;border-top:1px solid var(--rule)}
 .tbl th,.tbl td{text-align:left;padding:.6rem .6rem .6rem 0;border-bottom:1px solid var(--rule);vertical-align:top}
 .tbl th{font-weight:650;color:var(--muted)}
 .tbl td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
-.tbl-scroll{overflow-x:auto;max-width:56rem}
+.tbl-scroll{overflow-x:auto;max-width:60rem}
+#method h3{margin-top:2.25rem}
+#method .prose{margin-bottom:1rem}
 .caveats{max-width:var(--measure);padding-left:1.25rem}
 .caveats li{margin-bottom:.55em}
 
@@ -207,6 +209,7 @@ footer ul{list-style:none;padding:0;margin:0 0 1rem;display:flex;flex-wrap:wrap;
         <li><a href="#findings">Sample findings</a></li>
         <li><a href="#deliverables">Deliverables</a></li>
         <li><a href="#method">Method</a></li>
+        <li><a href="./demo/#traces">Traces</a></li>
         <li><a href="#faq">FAQ</a></li>
       </ul>
     </nav>
@@ -371,7 +374,7 @@ footer ul{list-style:none;padding:0;margin:0 0 1rem;display:flex;flex-wrap:wrap;
           <div><h4>Fix design</h4>
             <p>The broker that ran the command publishes an old-to-new inode map, and labels move with it. Edited files are keyed by path first. The read-write <code>&lt;&gt;</code> redirect is rejected.</p>
             <p class="muted">Residual risk: any utility that replaces an inode without the broker observing it.</p></div>
-          <p class="status">Status: fix designed, not yet merged.</p>
+          <p class="status">Status: fixed on the development branch (broker inode and rename maps on rebase), pending merge to main.</p>
         </div>
       </details>
 
@@ -383,7 +386,7 @@ footer ul{list-style:none;padding:0;margin:0 0 1rem;display:flex;flex-wrap:wrap;
           <div><h4>Fix design</h4>
             <p>Separate evictable soft pins from non-evicting hard pins. Join adjacent fields before enrollment, and check outbound fields concatenated. When hard capacity is reached, raise a human-review lead and forward a redacted body.</p>
             <p class="muted">Residual risk: secrets split non-adjacently with delimiters can still evade; these surface as review leads.</p></div>
-          <p class="status">Status: fix designed, not yet merged.</p>
+          <p class="status">Status: pin-stuffing fixed on the development branch (separate hard and soft stores), pending merge to main. Split secrets: fix designed, not yet merged.</p>
         </div>
       </details>
 
@@ -395,7 +398,7 @@ footer ul{list-style:none;padding:0;margin:0 0 1rem;display:flex;flex-wrap:wrap;
           <div><h4>Fix design</h4>
             <p>Decode hex, base32, base64 and percent-encoding to a fixed point (at most four rounds), de-interleave strides 2 to 4, prefilter on byte histograms, then run the existing checks. Cost is O(n·k).</p>
             <p class="muted">Residual risk, stated plainly: no finite matcher catches arbitrary encodings. What the fix doesn't catch becomes a human-review lead.</p></div>
-          <p class="status">Status: fix designed, not yet merged.</p>
+          <p class="status">Status: stride, hex and base64 forms fixed on the development branch, pending merge to main. Other encodings remain out of scope.</p>
         </div>
       </details>
     </div>
@@ -466,20 +469,67 @@ footer ul{list-style:none;padding:0;margin:0 0 1rem;display:flex;flex-wrap:wrap;
         <tbody>
           <tr><td><code>main</code> @ <code>af43afe</code></td><td>Gateway through v12.1</td><td class="n">796 collected</td></tr>
           <tr><td>PR #33 head (unmerged)</td><td>Validators R, W, F, I</td><td class="n">874 collected</td></tr>
-          <tr><td>Development branch @ <code>4425bdd</code> (unmerged)</td><td>Full validator set R–Z</td><td class="n">1,082 collected; 1,076 passed, 6 skipped</td></tr>
+          <tr><td>Development branch @ <code>4425bdd</code> (unmerged)</td><td>Full validator set R–Z</td><td class="n">1,082 collected; 1,076 passed, 6 skipped. Re-run 31 Oct with <code>php</code> present: 1,082 passed</td></tr>
+          <tr><td>Development branch with v14 C, E, B, A (unmerged)</td><td>R–Z with round-2 fixes, plus C, E, B, A</td><td class="n">1,165 passed (31 Oct, Python 3.12.3)</td></tr>
+          <tr><td>Development branch with round-2 audit fixes (unmerged)</td><td>R–Z plus fixes to V, S, T, D and Z</td><td class="n">1,122 passed (31 Oct, Python 3.12.3)</td></tr>
           <tr><td>Development branch with fixes (unmerged)</td><td>Full validator set R–Z plus the <a href="https://github.com/freeling10-prog/rogue-ai-detection/pull/34">PR #34</a> fixes</td><td class="n">1,094 collected; 1,088 passed, 6 skipped (PHP parity)</td></tr>
-          <tr><td><code>agent-watch</code></td><td>Log detector and localhost honeypot</td><td class="n">514 collected</td></tr>
+          <tr><td><code>agent-watch</code></td><td>Log detector and localhost honeypot</td><td class="n">514 collected; 510 passed, 4 skipped on the 31 Oct re-run</td></tr>
           <tr><td>v14 reference package</td><td>Four bounded reference validators</td><td class="n">33 passed, per its own validation record (not re-run)</td></tr>
         </tbody>
       </table>
     </div>
+
+    <h3 id="layer-h">The validator layer: R ∧ W ∧ F ∧ I ∧ P ∧ T ∧ S ∧ V ∧ D ∧ Z ∧ C ∧ E ∧ B ∧ A</h3>
+    <p class="prose">Fourteen bounded, deterministic predicates in the Python 3.12 standard library. A call is admitted only if every attached predicate admits it; each one is inert until a trusted adapter attaches its state, and state is committed only after all of them pass. Denials use JSON-RPC codes <code>-32066</code> through <code>-32080</code>. The p99 column is the isolated benchmark case for that predicate (wall time, 5,000 samples, one Linux container, re-run 31 October 2026 with the round-2 fixes and v14), not a production figure.</p>
+    <div class="tbl-scroll">
+      <table class="tbl">
+        <caption>Reference validators in the v14 tree</caption>
+        <thead><tr><th scope="col">Predicate</th><th scope="col">Code</th><th scope="col">Invariant it enforces</th><th scope="col">p99 (ms)</th></tr></thead>
+        <tbody>
+          <tr><td>R <code>registry_pin_validator.py</code></td><td class="n">-32066, -32067</td><td>A changed, invalid or removed tool descriptor stays revoked. A bare tool name claimed by two servers is never resolved by arrival order.</td><td class="n">0.001</td></tr>
+          <tr><td>W <code>workspace_path_validator.py</code></td><td class="n">-32068</td><td>Shell syntax outside the model fails closed. No write reaches a protected name or an inode alias of one. Executes nothing.</td><td class="n">0.891</td></tr>
+          <tr><td>F <code>lattice_flow_validator.py</code></td><td class="n">-32069</td><td>Contamination only rises. Each precommitted workflow step runs at most once, in DAG order.</td><td class="n">0.024</td></tr>
+          <tr><td>I <code>shingle_similarity_validator.py</code></td><td class="n">-32070</td><td>Outbound text whose longest common subsequence covers 85% of a pinned value is denied, under two pinned normalizations.</td><td class="n">2.495</td></tr>
+          <tr><td>P <code>linear_obligation_validator.py</code></td><td class="n">-32071</td><td>A 16-place Petri net never mints tokens; no egress while a cleanup place is non-zero.</td><td class="n">0.022</td></tr>
+          <tr><td>T <code>symbolic_fs_transducer.py</code></td><td class="n">-32072</td><td>File labels only rise within a session; non-public data never feeds egress and untrusted data never feeds execution. Labels don't yet survive a new session (sample finding above).</td><td class="n">0.564</td></tr>
+          <tr><td>S <code>canonical_argument_confinement.py</code></td><td class="n">-32073</td><td>Equivalent argument objects reduce to identical bytes, so spelling can't carry hidden bits. No operand reaches an option position.</td><td class="n">0.589</td></tr>
+          <tr><td>V <code>fork_join_vector_validator.py</code></td><td class="n">-32074</td><td>Forked subagents spend one conserved root budget, fenced by vector clocks; taint flows along forks and joins.</td><td class="n">0.052</td></tr>
+          <tr><td>D <code>dynamic_ingression_validator.py</code></td><td class="n">-32075</td><td>Secrets first seen in a tool result are enrolled before the agent sees them. Trusted credential values are never evicted; heuristic finds rotate oldest first, so an untrusted response can't lock the store. Outbound text covering 85% of one is denied.</td><td class="n">0.845 in, 0.316 out</td></tr>
+          <tr><td>Z <code>transform_invariant_validator.py</code></td><td class="n">-32076</td><td>Pins match under a finite transform family (reversal, +k, XOR-k, Caesar, acrostic, 4-byte blocks, stride-2/3/4 interleavings) and inside hex and base64 runs. D's trusted enrollments extend Z atomically. Over-budget queries are denied whole.</td><td class="n">2.247</td></tr>
+          <tr><td>C <code>causality_laundering_validator.py</code></td><td class="n">-32077</td><td>A file created, deleted or renamed, or a status set, on a branch whose decision depended on untrusted data carries that label, tombstones included; whoever probes, lists or reads it is tainted before the call is authorized.</td><td class="n">0.031</td></tr>
+          <tr><td>E <code>event_channel_capacity_validator.py</code></td><td class="n">-32078</td><td>Which eligible tool and structural options a call picks can carry at most a budgeted number of bits per sink, counted exactly in quarter bits while the session is tainted or holds live secrets. Support accounting, not KL divergence.</td><td class="n">0.004</td></tr>
+          <tr><td>B <code>blindfold_opaque_fault_validator.py</code></td><td class="n">-32079</td><td>Refusals can be sealed into one identical envelope with a signed private receipt. A retry within 25&ndash;99% 4-gram overlap of a refusal locks that branch; the lock lifts itself after 15 minutes and goes to human review.</td><td class="n">2.367</td></tr>
+          <tr><td>A <code>reachability_confinement_validator.py</code></td><td class="n">-32080</td><td>A call must be a next step on a workflow path that can still finish with every obligation discharged and, once tainted, no forbidden step. Revoked steps stay revoked.</td><td class="n">0.005</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="prose muted">With all fourteen attached, the combined dispatch case measured 8.28 ms at p99 (5.67 ms for the first ten), above the 5 ms reference on that host. B is the costly one at its bounds: a 2048-byte request against 32 remembered refusals. A finite matcher catches only the transforms it models; see the encoding sample finding above.</p>
+
+    <h3 id="crosswalk-h">2025–2026 literature crosswalk</h3>
+    <p class="prose">How the validator layer relates to seven recent papers, compared against each paper's abstract or overview as of 31 October 2026. This is not a systematic review.</p>
+    <div class="tbl-scroll">
+      <table class="tbl">
+        <caption>AgentGate against recent work</caption>
+        <thead><tr><th scope="col">Work</th><th scope="col">What it does</th><th scope="col">How AgentGate relates</th></tr></thead>
+        <tbody>
+          <tr><td><a href="https://arxiv.org/abs/2503.18813">CaMeL</a>, Debenedetti et al., arXiv:2503.18813</td><td>Separates trusted control flow from untrusted data with a custom interpreter and capabilities on values.</td><td>AgentGate gates at the tool boundary and doesn't rewrite the agent's planning. It doesn't provide CaMeL's control/data separation; F and S are the closest pieces.</td></tr>
+          <tr><td><a href="https://www.microsoft.com/en-us/research/publication/securing-ai-agents-with-information-flow-control/">FIDES</a>, Costa et al., Microsoft Research, arXiv:2505.23643</td><td>A planner tracks confidentiality and integrity labels, enforces policy deterministically, and hides low-integrity results in variables.</td><td>T applies the same kind of (confidentiality, integrity) labels to the file effects of shell commands and file tools, a different surface from planner variables.</td></tr>
+          <tr><td><a href="https://arxiv.org/abs/2504.11703">Progent</a>, Shi et al., arXiv:2504.11703</td><td>A policy language for tool-level privilege control, enforced deterministically at runtime.</td><td>Same enforcement point. AgentGate uses fixed predicates rather than a policy language; A adds path-qualified pruning over a workflow DAG, and V one conserved budget across forked subagents.</td></tr>
+          <tr><td><a href="https://preview.aclanthology.org/ingest-acl/2026.findings-acl.470/">ToolGate</a>, Liu et al., Findings of ACL 2026</td><td>Hoare-style pre- and postcondition contracts over a typed symbolic state gate each tool call.</td><td>P's Petri net is a comparable pre/post gate over a bounded marking; S canonicalizes arguments before any check sees them.</td></tr>
+          <tr><td><a href="https://arxiv.org/abs/2508.02188">Whispering Agents</a>, Huang et al., arXiv:2508.02188</td><td>A covert channel hidden in agent dialogue through storage, timing and behavior; the paper reports its tested detectors couldn't find it.</td><td>E budgets exactly this selection channel per sink, and S removes spelling freedom from arguments. E bounds what a sender can choose; it doesn't detect that protocol.</td></tr>
+          <tr><td><a href="https://arxiv.org/abs/2607.29167">Memory Provenance Laundering</a>, Xu et al., arXiv:2607.29167</td><td>Memory consolidation can erase a low-trust source; a middleware firewall keeps platform provenance and gates risky calls on it.</td><td>C applies the same idea to file names and statuses, tombstones included. T's cross-session file-label gap is the same class of problem; a persistent label store is the fix in progress.</td></tr>
+          <tr><td><a href="https://arxiv.org/abs/2610.37055">Blindfold</a>, Zhu et al., arXiv:2610.37055</td><td>Randomized audit certificates are biased if the agent can observe the audit coin, including through timing.</td><td>B seals refusals into one envelope so their reasons don't leak, and quarantines near-neighbor retries. AgentGate doesn't run randomized audits, and its own timing as a side channel hasn't been evaluated.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="prose muted">Of these seven, none describes labels on the file effects of shell commands (T), canonical argument bytes with <code>--</code> operand confinement (S), or a budget conserved across forked subagents (V). That is a statement about these seven papers, not the whole literature, and T's cross-session gap is closer to the provenance work above than to a solved problem.</p>
 
     <ul class="caveats">
       <li><strong>This is a reference design, not a deployed product.</strong> AgentGate is not a penetration test, a certification, a production WAF or an OS sandbox, and we make no detection-rate claims.</li>
       <li><strong>Evaluation cohorts are synthetic and written by the same author</strong> as the detectors. They show the code does what it says on those cases. They don't measure recall against an unknown adversary.</li>
       <li><strong>Benchmarks use test doubles.</strong> In the v14 reference package, the combined timing runs real code for some validators and stand-ins for the rest, so it is not a full-pipeline latency figure. In-memory cases measured below 2 ms at p99. The durable SQLite path measured 2.9 ms at p99, which exceeds that objective.</li>
       <li><strong>We can't promise a false-positive rate on natural text.</strong> A benign message can be an anagram of a protected one, so no distribution-free bound exists. A 10,000-message synthetic smoke test produced zero hits, which is a fixture result, not a corpus study.</li>
-      <li><strong>Property-based tests find counterexamples. They are not proofs.</strong> The <code>agent-watch</code> README claims 512 passed and 2 skipped, and the changelog claims 19 Hypothesis state machines; we have not independently re-verified either.</li>
+      <li><strong>Property-based tests find counterexamples. They are not proofs.</strong> The gateway suite has 23 Hypothesis state machines (counted in the test files on 31 October). The 31 October re-run used Hypothesis 6.140.0 rather than the pinned 6.170.9.</li>
       <li>MITRE ATLAS technique IDs in reports are approximate mappings.</li>
     </ul>
   </div>

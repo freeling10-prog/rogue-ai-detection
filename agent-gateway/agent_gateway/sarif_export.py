@@ -138,10 +138,72 @@ RULES: dict[str, tuple[str, str, tuple[str, ...], str]] = {
     "COLLUSION_CYCLIC_AMPLIFICATION": ("error", "Cross-agent ping-pong on one artifact", ("AML.T0086",),
                                        "Agents passed the same artifact back and forth more than the hand-off limit "
                                        "without approval."),
+    # v12.2 reference middleware validators.
+    "REGISTRY_PIN_DRIFT": ("error", "Descriptor pin revoked", ("AML.T0051",),
+                           "A pinned provider descriptor changed, failed metadata lint, or disappeared: the pin is "
+                           "revoked for the rest of the session and calls to it are refused."),
+    "REGISTRY_ALIAS_AMBIGUOUS": ("error", "Ambiguous tool alias", ("AML.T0051",),
+                                 "Two providers advertised the same bare tool name. The alias never resolves by "
+                                 "arrival order or last-writer-wins; qualified calls stay distinguishable."),
+    "WORKSPACE_EFFECT_DENIED": ("error", "Protected path in a modelled shell effect", ("AML.T0053",),
+                                "A literal-subset shell command had an effect on a reserved namespace entry or a "
+                                "shared inode, or used syntax outside the modelled subset (fail closed)."),
+    "FLOW_MANIFEST_DENIED": ("error", "Call outside the pinned workflow manifest", ("AML.T0051",),
+                             "A call did not match an unused precommitted manifest step on provider, method, pin, "
+                             "resource roles, path pattern, or argument digest."),
+    "SIMILARITY_LEAK_DENIED": ("error", "Protected string in an outbound identifier", ("AML.T0086",),
+                               "An outbound argument shared a rolling shingle or dense subsequence coverage with a "
+                               "protected string under the pinned normalization profile."),
+    "OBLIGATION_PROTOCOL_DENIED": ("error", "Workflow transition not enabled by the Petri-net marking", ("AML.T0051",),
+                                   "A call was not an enabled transition of the attached workflow net: missing input "
+                                   "tokens, a place above capacity, or an outbound step with unsettled resource "
+                                   "cleanup state."),
+    "FS_LABEL_FLOW_DENIED": ("error", "File label flow into an outbound or execution sink", ("AML.T0086",),
+                             "A file whose tracked label was above PUBLIC fed an outbound call, or a file written "
+                             "while the session was untrusted fed an execution sink, under the workspace label "
+                             "transducer."),
+    "ARGUMENT_CONFINEMENT_DENIED": ("error", "Tool arguments outside the pinned canonical or command profile",
+                                    ("AML.T0053",),
+                                    "A pinned tool's argument object could not be canonicalized under its field "
+                                    "policy (unknown or duplicate field, non-finite or oversized number, nesting, "
+                                    "duplicate set element), or a typed file command had an operand that would be "
+                                    "read as an option or fell outside the command profile."),
+    "FORK_JOIN_LEDGER_DENIED": ("error", "Forked branch outside the shared conservation ledger", ("AML.T0086",),
+                                "A root session or one of its forked branches tried to spend denial, outbound or "
+                                "token budget it does not hold, dispatched on a stale vector clock, used an "
+                                "inactive or exhausted branch, or sent while cleanup state was held anywhere in "
+                                "the ledger."),
+    "DYNAMIC_INGRESSION_DENIED": ("error", "Secret learned from a tool response in an outbound call", ("AML.T0086",),
+                                  "An outbound argument covered a value the gateway enrolled from an earlier tool "
+                                  "response (sensitive field, credential prefix, internal host, e-mail address or "
+                                  "high-entropy token), or a response was withheld because it could not be "
+                                  "enrolled within bounds."),
+    "TRANSFORM_INVARIANT_DENIED": ("error", "Protected value under a simple transform in an outbound call",
+                                   ("AML.T0086",),
+                                   "An outbound argument carried a protected or learned value reversed, byte-shifted, "
+                                   "XOR-masked, Caesar-shifted, as word initials or as reordered 4-byte blocks, or "
+                                   "exceeded the transform check's precharged work budget."),
+    "CAUSALITY_LAUNDERING_DENIED": ("error", "Namespace or status effect outside causality bounds",
+                                    ("AML.T0086",),
+                                    "A branch's file create/unlink/rename, directory or status effect, or an "
+                                    "observation of one, fell outside the bounded label model (path, branch, "
+                                    "pc-stack or capacity limits). Labeled effects taint their observers."),
+    "EVENT_CHANNEL_CAPACITY_DENIED": ("error", "Event-selection channel budget exhausted", ("AML.T0086",),
+                                      "An outbound call was not an eligible event for its sink, or choosing it "
+                                      "would exceed the sink's quarter-bit selection budget while the session "
+                                      "was tainted or held live secret pins."),
+    "BLINDFOLD_PERTURBATION_DENIED": ("warning", "Near-neighbor retry of a refused request", ("AML.T0043",),
+                                      "A request overlapped a recently refused request by 25% or more of its "
+                                      "4-byte grams without repeating it, or came from a branch locked for that "
+                                      "reason. The lock auto-lifts after 15 minutes; review the lead."),
+    "REACHABILITY_CONFINEMENT_DENIED": ("error", "Call outside the workflow's viable paths", ("AML.T0053",),
+                                        "A call was not a successor on a path that can still reach a terminal "
+                                        "with every obligation discharged (and, once tainted, without a "
+                                        "forbidden step), or the workflow tried to stop early."),
     "analyzer_match": ("warning", "Offline analyzer match", (),
                        "A match reported by the offline agentwatch-analyzer."),
 }
-# Rule id -> approximate OWASP Top 10 for Agentic Applications category (v11, v12, and v12.1 rules).
+# Rule id -> approximate OWASP Top 10 for Agentic Applications category (v11, v12, v12.1, and v12.2 rules).
 OWASP_ASI: dict[str, tuple[str, ...]] = {
     "schema_drift_denied": ("ASI04",),
     "tool_shadowing_denied": ("ASI04",),
@@ -169,6 +231,21 @@ OWASP_ASI: dict[str, tuple[str, ...]] = {
     "COLLUSION_CROSS_AGENT_LAUNDERING": ("ASI07", "ASI03"),
     "COLLUSION_SPLIT_TOXIC_CHAIN": ("ASI07", "ASI08"),
     "COLLUSION_CYCLIC_AMPLIFICATION": ("ASI08",),
+    "REGISTRY_PIN_DRIFT": ("ASI04",),
+    "REGISTRY_ALIAS_AMBIGUOUS": ("ASI04",),
+    "WORKSPACE_EFFECT_DENIED": ("ASI05",),
+    "FLOW_MANIFEST_DENIED": ("ASI01",),
+    "SIMILARITY_LEAK_DENIED": ("ASI02",),
+    "OBLIGATION_PROTOCOL_DENIED": ("ASI01",),
+    "FS_LABEL_FLOW_DENIED": ("ASI02",),
+    "ARGUMENT_CONFINEMENT_DENIED": ("ASI02",),
+    "FORK_JOIN_LEDGER_DENIED": ("ASI07",),
+    "DYNAMIC_INGRESSION_DENIED": ("ASI02",),
+    "TRANSFORM_INVARIANT_DENIED": ("ASI02",),
+    "CAUSALITY_LAUNDERING_DENIED": ("ASI06",),
+    "EVENT_CHANNEL_CAPACITY_DENIED": ("ASI07",),
+    "BLINDFOLD_PERTURBATION_DENIED": ("ASI01",),
+    "REACHABILITY_CONFINEMENT_DENIED": ("ASI02",),
 }
 # Rule id -> approximate OWASP Top 10 for LLM Applications (2025) category.
 OWASP_LLM: dict[str, tuple[str, ...]] = {
@@ -192,6 +269,21 @@ OWASP_LLM: dict[str, tuple[str, ...]] = {
     "COLLUSION_CROSS_AGENT_LAUNDERING": ("LLM02:2025", "LLM06:2025"),
     "COLLUSION_SPLIT_TOXIC_CHAIN": ("LLM06:2025",),
     "COLLUSION_CYCLIC_AMPLIFICATION": ("LLM10:2025",),
+    "REGISTRY_PIN_DRIFT": ("LLM03:2025",),
+    "REGISTRY_ALIAS_AMBIGUOUS": ("LLM03:2025",),
+    "WORKSPACE_EFFECT_DENIED": ("LLM06:2025",),
+    "FLOW_MANIFEST_DENIED": ("LLM01:2025",),
+    "SIMILARITY_LEAK_DENIED": ("LLM02:2025",),
+    "OBLIGATION_PROTOCOL_DENIED": ("LLM06:2025",),
+    "FS_LABEL_FLOW_DENIED": ("LLM02:2025",),
+    "ARGUMENT_CONFINEMENT_DENIED": ("LLM05:2025",),
+    "FORK_JOIN_LEDGER_DENIED": ("LLM10:2025",),
+    "DYNAMIC_INGRESSION_DENIED": ("LLM02:2025",),
+    "TRANSFORM_INVARIANT_DENIED": ("LLM02:2025",),
+    "CAUSALITY_LAUNDERING_DENIED": ("LLM02:2025",),
+    "EVENT_CHANNEL_CAPACITY_DENIED": ("LLM02:2025",),
+    "BLINDFOLD_PERTURBATION_DENIED": ("LLM01:2025",),
+    "REACHABILITY_CONFINEMENT_DENIED": ("LLM06:2025",),
 }
 # Rule id -> CWE ids and OWASP Top 10 (2021) category, for web-application rules.
 CWE: dict[str, tuple[str, ...]] = {
@@ -220,6 +312,21 @@ CWE: dict[str, tuple[str, ...]] = {
     "COLLUSION_CROSS_AGENT_LAUNDERING": ("CWE-441", "CWE-201"),
     "COLLUSION_SPLIT_TOXIC_CHAIN": ("CWE-441", "CWE-863"),
     "COLLUSION_CYCLIC_AMPLIFICATION": ("CWE-834",),
+    "REGISTRY_PIN_DRIFT": ("CWE-345", "CWE-494"),
+    "REGISTRY_ALIAS_AMBIGUOUS": ("CWE-706",),
+    "WORKSPACE_EFFECT_DENIED": ("CWE-59",),
+    "FLOW_MANIFEST_DENIED": ("CWE-807", "CWE-285"),
+    "SIMILARITY_LEAK_DENIED": ("CWE-201",),
+    "OBLIGATION_PROTOCOL_DENIED": ("CWE-691", "CWE-772"),
+    "FS_LABEL_FLOW_DENIED": ("CWE-201", "CWE-829"),
+    "ARGUMENT_CONFINEMENT_DENIED": ("CWE-88", "CWE-514"),
+    "FORK_JOIN_LEDGER_DENIED": ("CWE-770", "CWE-362"),
+    "DYNAMIC_INGRESSION_DENIED": ("CWE-201", "CWE-522"),
+    "TRANSFORM_INVARIANT_DENIED": ("CWE-201", "CWE-1039"),
+    "CAUSALITY_LAUNDERING_DENIED": ("CWE-203", "CWE-385"),
+    "EVENT_CHANNEL_CAPACITY_DENIED": ("CWE-514", "CWE-770"),
+    "BLINDFOLD_PERTURBATION_DENIED": ("CWE-204", "CWE-209"),
+    "REACHABILITY_CONFINEMENT_DENIED": ("CWE-863", "CWE-841"),
 }
 OWASP_WEB: dict[str, tuple[str, ...]] = {
     "PHP_PATH_TRAVERSAL": ("A01:2021",),
@@ -246,6 +353,12 @@ _LOG_KIND_RULES = frozenset({
     "INTERPRETER_PROTECTED_WRITE", "INTERPRETER_OBFUSCATED_PIPE", "INTERPRETER_DANGEROUS_PRIMITIVE",
     "MCP_FIRST_SEEN_OVERPRIVILEGED", "MCP_SCHEMA_PURPOSE_MISMATCH", "MCP_TOOL_NAMESPACE_FLOOD",
     "COLLUSION_CROSS_AGENT_LAUNDERING", "COLLUSION_SPLIT_TOXIC_CHAIN", "COLLUSION_CYCLIC_AMPLIFICATION",
+    "REGISTRY_PIN_DRIFT", "REGISTRY_ALIAS_AMBIGUOUS", "WORKSPACE_EFFECT_DENIED",
+    "FLOW_MANIFEST_DENIED", "SIMILARITY_LEAK_DENIED", "OBLIGATION_PROTOCOL_DENIED",
+    "FS_LABEL_FLOW_DENIED", "ARGUMENT_CONFINEMENT_DENIED", "FORK_JOIN_LEDGER_DENIED",
+    "DYNAMIC_INGRESSION_DENIED", "TRANSFORM_INVARIANT_DENIED",
+    "CAUSALITY_LAUNDERING_DENIED", "EVENT_CHANNEL_CAPACITY_DENIED", "BLINDFOLD_PERTURBATION_DENIED",
+    "REACHABILITY_CONFINEMENT_DENIED",
 })
 
 

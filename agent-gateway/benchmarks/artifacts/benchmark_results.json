@@ -1,0 +1,228 @@
+{
+  "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+  "platform": "Linux-6.18.44-fc-v185-x86_64-with-glibc2.39",
+  "gc_enabled": true,
+  "samples_per_case": 5000,
+  "matcher_tracemalloc_retained_bytes": 1426368,
+  "matcher_tracemalloc_peak_bytes": 1427605,
+  "reachability_policy_boot_ms_64_nodes_8_bits": 116.608268,
+  "methodology": "Sequential warm-process microbenchmark; deterministic synthetic inputs; wall and process CPU clocks; setup excluded; GC left enabled. Path uses a trusted in-memory model. No filesystem I/O, network, durable commit, cross-process lock contention, or distributed failover is measured.",
+  "results": [
+    {
+      "name": "registry: qualified lookup, 256 pins",
+      "samples": 5000,
+      "wall_p50_ms": 0.00044,
+      "wall_p99_ms": 0.000619,
+      "wall_max_ms": 0.024992,
+      "cpu_p99_ms": 0.00133
+    },
+    {
+      "name": "path: parse + snapshot validation, 64 writes",
+      "samples": 5000,
+      "wall_p50_ms": 0.55061,
+      "wall_p99_ms": 0.891407,
+      "wall_max_ms": 5.915153,
+      "cpu_p99_ms": 0.886416
+    },
+    {
+      "name": "flow: fresh EXTERNAL step admission",
+      "samples": 5000,
+      "wall_p50_ms": 0.009313,
+      "wall_p99_ms": 0.02359,
+      "wall_max_ms": 0.190088,
+      "cpu_p99_ms": 0.024322
+    },
+    {
+      "name": "similarity: 16 x 256, 256-char miss, both modes",
+      "samples": 5000,
+      "wall_p50_ms": 1.692246,
+      "wall_p99_ms": 2.495321,
+      "wall_max_ms": 6.117469,
+      "cpu_p99_ms": 2.431491
+    },
+    {
+      "name": "obligation: outbound transition, 16 places x 64 transitions",
+      "samples": 5000,
+      "wall_p50_ms": 0.005886,
+      "wall_p99_ms": 0.021539,
+      "wall_max_ms": 0.049458,
+      "cpu_p99_ms": 0.026337
+    },
+    {
+      "name": "transducer: 1 read joined into 63 writes, copy-on-write overlay",
+      "samples": 5000,
+      "wall_p50_ms": 0.3224,
+      "wall_p99_ms": 0.564171,
+      "wall_max_ms": 0.922068,
+      "cpu_p99_ms": 0.564757
+    },
+    {
+      "name": "arguments: canonicalize 16 fields, 2048-byte wire",
+      "samples": 5000,
+      "wall_p50_ms": 0.211723,
+      "wall_p99_ms": 0.588817,
+      "wall_max_ms": 2.504927,
+      "cpu_p99_ms": 0.584722
+    },
+    {
+      "name": "command: confine 16 operands",
+      "samples": 5000,
+      "wall_p50_ms": 0.002425,
+      "wall_p99_ms": 0.008164,
+      "wall_max_ms": 0.046452,
+      "cpu_p99_ms": 0.00933
+    },
+    {
+      "name": "ledger: fire + send batch, 8 branches x 16 places",
+      "samples": 5000,
+      "wall_p50_ms": 0.026544,
+      "wall_p99_ms": 0.051779,
+      "wall_max_ms": 0.131756,
+      "cpu_p99_ms": 0.052469
+    },
+    {
+      "name": "ingress: scan 32 fields, 4096-byte response",
+      "samples": 5000,
+      "wall_p50_ms": 0.462425,
+      "wall_p99_ms": 0.845164,
+      "wall_max_ms": 6.114743,
+      "cpu_p99_ms": 0.835355
+    },
+    {
+      "name": "ingress: 512-byte query vs 8 x 128-byte pins",
+      "samples": 5000,
+      "wall_p50_ms": 0.167989,
+      "wall_p99_ms": 0.316118,
+      "wall_max_ms": 2.529627,
+      "cpu_p99_ms": 0.304481
+    },
+    {
+      "name": "transform: 207-byte query vs 1 x 128-byte pin (credit limit)",
+      "samples": 5000,
+      "wall_p50_ms": 0.360911,
+      "wall_p99_ms": 0.681148,
+      "wall_max_ms": 2.526318,
+      "cpu_p99_ms": 0.678926
+    },
+    {
+      "name": "transform: 62-byte query vs 24 x 16-byte pins (credit limit)",
+      "samples": 5000,
+      "wall_p50_ms": 1.176183,
+      "wall_p99_ms": 2.246805,
+      "wall_max_ms": 3.842182,
+      "cpu_p99_ms": 2.250056
+    },
+    {
+      "name": "combined: four bounded checks",
+      "samples": 5000,
+      "wall_p50_ms": 2.118637,
+      "wall_p99_ms": 3.855621,
+      "wall_max_ms": 7.111469,
+      "cpu_p99_ms": 3.782819
+    },
+    {
+      "name": "combined: five bounded checks (with obligation)",
+      "samples": 5000,
+      "wall_p50_ms": 2.23268,
+      "wall_p99_ms": 4.138462,
+      "wall_max_ms": 7.752261,
+      "cpu_p99_ms": 4.014115
+    },
+    {
+      "name": "combined: six bounded checks (with transducer)",
+      "samples": 5000,
+      "wall_p50_ms": 2.672282,
+      "wall_p99_ms": 4.495453,
+      "wall_max_ms": 10.173232,
+      "cpu_p99_ms": 4.473782
+    },
+    {
+      "name": "combined: seven bounded checks (with canonicalization)",
+      "samples": 5000,
+      "wall_p50_ms": 2.957531,
+      "wall_p99_ms": 5.140388,
+      "wall_max_ms": 7.284006,
+      "cpu_p99_ms": 5.09304
+    },
+    {
+      "name": "combined: eight bounded checks (with fork/join ledger)",
+      "samples": 5000,
+      "wall_p50_ms": 2.832856,
+      "wall_p99_ms": 4.824164,
+      "wall_max_ms": 9.114941,
+      "cpu_p99_ms": 4.730972
+    },
+    {
+      "name": "combined: nine bounded checks (with ingression outbound)",
+      "samples": 5000,
+      "wall_p50_ms": 3.147939,
+      "wall_p99_ms": 5.407866,
+      "wall_max_ms": 19.61424,
+      "cpu_p99_ms": 5.273511
+    },
+    {
+      "name": "combined: ten bounded checks (with transform pins)",
+      "samples": 5000,
+      "wall_p50_ms": 3.532464,
+      "wall_p99_ms": 5.669623,
+      "wall_max_ms": 8.033627,
+      "cpu_p99_ms": 5.606081
+    },
+    {
+      "name": "causality: probe, 16-deep path, 255 labels",
+      "samples": 5000,
+      "wall_p50_ms": 0.006649,
+      "wall_p99_ms": 0.014617,
+      "wall_max_ms": 0.0357,
+      "cpu_p99_ms": 0.01798
+    },
+    {
+      "name": "causality: list root, 255 labels",
+      "samples": 5000,
+      "wall_p50_ms": 0.01707,
+      "wall_p99_ms": 0.031104,
+      "wall_max_ms": 0.084046,
+      "cpu_p99_ms": 0.03186
+    },
+    {
+      "name": "causality: capacity check for one more mutation",
+      "samples": 5000,
+      "wall_p50_ms": 0.001557,
+      "wall_p99_ms": 0.003822,
+      "wall_max_ms": 0.040389,
+      "cpu_p99_ms": 0.004534
+    },
+    {
+      "name": "event channel: reserve + commit, 2**20 combinations",
+      "samples": 5000,
+      "wall_p50_ms": 0.001974,
+      "wall_p99_ms": 0.004248,
+      "wall_max_ms": 0.02985,
+      "cpu_p99_ms": 0.005099
+    },
+    {
+      "name": "blindfold: 2048-byte request vs 32 x 2048-byte refusals",
+      "samples": 5000,
+      "wall_p50_ms": 1.477598,
+      "wall_p99_ms": 2.366797,
+      "wall_max_ms": 5.708061,
+      "cpu_p99_ms": 2.177949
+    },
+    {
+      "name": "reachability: check + transition, 64 nodes x 8 obligation bits",
+      "samples": 5000,
+      "wall_p50_ms": 0.001167,
+      "wall_p99_ms": 0.004865,
+      "wall_max_ms": 0.119293,
+      "cpu_p99_ms": 0.00566
+    },
+    {
+      "name": "combined: fourteen bounded checks (with C, E, B, A)",
+      "samples": 5000,
+      "wall_p50_ms": 4.964936,
+      "wall_p99_ms": 8.283602,
+      "wall_max_ms": 16.742398,
+      "cpu_p99_ms": 7.984935
+    }
+  ]
+}

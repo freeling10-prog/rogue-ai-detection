@@ -205,8 +205,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--list", type=Path, default=HERE / "servers.jsonl")
     parser.add_argument("--uniform", type=Path, default=HERE / "random_servers.jsonl")
     parser.add_argument("--out", type=Path, default=HERE / "comparison.json")
+    parser.add_argument("--classifier", choices=S.CLASSIFIERS, default="pr40")
     args = parser.parse_args(argv)
-    result = compare_records(S.load_jsonl(args.list), S.load_jsonl(args.uniform))
+    with S.classifier(args.classifier):
+        result = compare_records(S.load_jsonl(args.list), S.load_jsonl(args.uniform))
     args.out.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     sys.stdout.write(render_markdown(result))
     return 0

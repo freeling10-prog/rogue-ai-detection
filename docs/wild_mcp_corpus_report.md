@@ -249,6 +249,35 @@ Two name-rule behaviors showed up often enough to name. The matcher treats a key
 - The 400-tool prefix still applies to the list-order server that exceeds it. The reviewer judged that prefix, not tools past it.
 - Purpose mismatch remains conditional on not already being overprivileged. Declared scopes were not scored. Thirteen of the fourteen validators still need a call, a session, or a filesystem.
 
+## Own-data search rule (after PR #40, not part of the published estimate)
+
+The hand check's commonest false-positive cause was a search tool over the server's own records (a curated catalog, its documentation, its CRM, its own site) classed as untrusted external input because its name contains `search`. `toxic_combinations.own_data_search` now reclassifies such a tool as `internal_read`, deterministically:
+
+- It applies only when `search` is the tool name's only external-read word, and no declared label, sensitive word or gateway table entry decides the class first.
+- Any external marker in the title or description (web, internet, online, URL, HTTP, news, blog, forum, social, posts, third-party, public, reviews, comments, Google, crawl, scrape, browse, download, feed, and others) keeps it `external_read`, and so does a `url`, `uri`, `href`, `link`, `endpoint` or `domain` input property.
+- Otherwise it needs own-data evidence: a name token (`site`, `docs`, `catalog`, `kb`, `crm`, `members`, `help`, `inventory`, ...) or a whole-word description phrase (catalog, documentation, database, knowledge base, our, this site, CRM, dataset, stored, internal, `/api/`, ...).
+- With no evidence either way it stays `external_read` (fail closed).
+
+On the 28 hand-checked servers, flagged meaning a toxic 2-hop or 3-hop path:
+
+| | Before (011b6f6) | After |
+|---|---|---|
+| False positives still flagged | 10/10 | 5/10 |
+| Plausible still flagged | 18/18 | 18/18 |
+
+Eliminated: p08, p09, p12, p20, p24. Still flagged: p02 (transit stop search with no own-data marker; stays external by design), p26 (description mentions a URL and a feed), and the three whose cause is something else (p01, p06 name-rule reads; p10 a gateway-table mismatch).
+
+On the full snapshots, as a sensitivity only:
+
+| Snapshot | 2-hop before → after | 3-hop before → after |
+|---|---|---|
+| Uniform sample (250) | 121 → 118 | 46 → 43 |
+| List-order slice (150) | 79 → 76 | 74 → 72 |
+
+Caveats. The rule was written after reading these 28 cases, and the same single reviewer's labels are used to score it, so 5 of 10 is an in-sample figure, not a precision estimate. A fresh hand check on servers not used to write the rule is needed before any new precision number is quoted. Word lists can misfire in both directions; for example, the rule now treats Naver's `search_books` ("Naver book catalog") as own-data search, which is debatable. The published PR #40 estimates above are unchanged.
+
+The committed artifacts were made with the PR #40 classifier, so `score.py` and `compare.py` default to `--classifier pr40` and reproduce them byte for byte; pass `--classifier current` for the figures in this section. `precision.py` always redraws with `pr40`, because the labelled draw depends on which servers that classifier flagged. `test_sample.py::test_own_data_search_rule_on_the_hand_checked_servers` pins the 5-of-10 and 18-of-18 result.
+
 ## Reproduction
 
 From the repository root, Python 3.12, standard library plus the gateway tree (no extra packages for the scorer; pytest is only for the tests):

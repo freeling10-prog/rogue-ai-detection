@@ -27,6 +27,7 @@ decides that a scope is over-broad.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import json
 import re
@@ -488,13 +489,36 @@ def load_jsonl(path: Path) -> list[dict]:
     return rows
 
 
+# The committed artifacts (results.json, random_results.json, precision_*.json,
+# comparison.json) were produced by the PR #40 classifier, before the own-data
+# search rule. "pr40" reproduces them; "current" scores with the rule.
+CLASSIFIERS = ("pr40", "current")
+
+
+@contextlib.contextmanager
+def classifier(name: str):
+    """Score with the named tool classifier, restoring the previous setting after."""
+    if name not in CLASSIFIERS:
+        raise ValueError(f"unknown classifier {name!r}")
+    from agent_gateway import toxic_combinations as tc
+
+    old = tc.OWN_DATA_SEARCH
+    tc.OWN_DATA_SEARCH = name == "current"
+    try:
+        yield
+    finally:
+        tc.OWN_DATA_SEARCH = old
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Score a wild MCP corpus JSONL")
     parser.add_argument("corpus", type=Path, nargs="?", default=HERE / "servers.jsonl")
     parser.add_argument("--out", type=Path, default=None)
+    parser.add_argument("--classifier", choices=CLASSIFIERS, default="pr40")
     args = parser.parse_args(argv)
     raw = args.corpus.read_bytes()
-    result = score_records(load_jsonl(args.corpus))
+    with classifier(args.classifier):
+        result = score_records(load_jsonl(args.corpus))
     result["corpus_file"] = args.corpus.name
     result["corpus_sha256"] = hashlib.sha256(raw).hexdigest()
     result["corpus_servers"] = raw.count(b"\n")

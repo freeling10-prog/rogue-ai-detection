@@ -350,9 +350,12 @@ def main(argv: list[str] | None = None) -> int:
     labels = load_json(args.labels)
     listed = S.load_jsonl(args.list)
     uniform = S.load_jsonl(args.uniform)
-    drawn = draw_review_cases(listed, uniform, labels.get("seed", PRECISION_SEED), labels.get("per_stratum", PER_STRATUM))
-    merged = attach_labels(drawn, labels["cases"])
-    verified = verify_labels(merged, records_by_hash(listed + uniform))
+    # The labelled draw was made with the PR #40 classifier; the draw depends on it.
+    with S.classifier("pr40"):
+        drawn = draw_review_cases(listed, uniform, labels.get("seed", PRECISION_SEED),
+                                  labels.get("per_stratum", PER_STRATUM))
+        merged = attach_labels(drawn, labels["cases"])
+        verified = verify_labels(merged, records_by_hash(listed + uniform))
     summary = precision_summary(verified)
     summary["seed"] = labels.get("seed", PRECISION_SEED)
     summary["per_stratum"] = labels.get("per_stratum", PER_STRATUM)

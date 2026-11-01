@@ -154,6 +154,21 @@ section{padding:3.25rem 0;border-top:1px solid var(--rule)}
 .tier h3{margin-bottom:.2em}
 .tier .amt{font:800 1.5rem/1.2 var(--sans);letter-spacing:-.02em;margin:0 0 .5rem}
 .tier p:last-child,.tier ul:last-child{margin-bottom:0}
+.services .tier{display:flex;flex-direction:column;min-width:0}
+.services .when{font:650 .8rem/1.3 var(--sans);letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:0 0 .35rem}
+.services .per{font-size:.7em;font-weight:650;letter-spacing:0}
+.services .tier ul{padding-left:1.15rem;margin:0 0 .75rem}
+.services .tier li{margin-bottom:.35em}
+.services .limits{color:var(--muted);font-size:.98rem;margin:0 0 .9rem}
+.services .actions{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:auto}
+.services .tier > .btn{margin-top:auto;align-self:flex-start}
+.tier-flag{grid-column:1 / -1}
+.credit{max-width:52rem;margin-top:1.25rem;padding:1rem 1.15rem;border:1px solid var(--rule);border-radius:8px;background:var(--surface)}
+.credit p:last-child{margin-bottom:0}
+@media (max-width:40rem){
+  .services .actions{flex-direction:column}
+  .services .tier > .btn,.services .actions .btn{align-self:stretch;text-align:center}
+}
 
 /* Numbers table */
 .tbl{width:100%;border-collapse:collapse;font-family:var(--sans);font-size:.92rem;margin:0 0 1.5rem}
@@ -208,6 +223,7 @@ footer ul{list-style:none;padding:0;margin:0 0 1rem;display:flex;flex-wrap:wrap;
         <li><a href="#coverage">Coverage</a></li>
         <li><a href="#findings">Sample findings</a></li>
         <li><a href="#deliverables">Deliverables</a></li>
+        <li><a href="#services">Services</a></li>
         <li><a href="#method">Method</a></li>
         <li><a href="./demo/#traces">Traces</a></li>
         <li><a href="#faq">FAQ</a></li>
@@ -229,7 +245,7 @@ footer ul{list-style:none;padding:0;margin:0 0 1rem;display:flex;flex-wrap:wrap;
         <p class="price"><strong>$4,500</strong> fixed price, or <strong>$6,500</strong> with instrumentation</p>
       </div>
       <div class="cta-row">
-        <a class="btn" href="mailto:fleckalec@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit">Email to book an audit</a>
+        <a class="btn" href="mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit">Email to book an audit</a>
         <a class="btn btn-quiet" href="#findings">See sample findings</a>
       </div>
     </div>
@@ -432,6 +448,124 @@ footer ul{list-style:none;padding:0;margin:0 0 1rem;display:flex;flex-wrap:wrap;
         <p>The audit, plus a localhost lab gateway pass, an offline analyzer run on a log you authorize, and canary and deception configuration for your environment.</p>
       </div>
     </div>
+    <p>Those two are the top of a fixed-price ladder. The rungs under them are in <a href="#services">Services</a>.</p>
+  </div>
+</section>
+
+<!-- ================= 5b. SERVICES ================= -->
+<section id="services" aria-labelledby="pricing">
+  <div class="wrap">
+    <div class="intro">
+      <h2 id="pricing">Services</h2>
+      <p>Fixed prices, delivered by one person as a PDF, source files, or a pull request you review. Nothing is deployed on your hosts. Not a penetration test, not a certification, and not legal advice. No client list is published.</p>
+      <p>The usual path is a $149 check, then a $450 build or a $950 review, then the $1,500 drop-in, then the $4,500 audit, then $395 a month or the $2,500 quarterly refresh. The $1,800 exposure diagnostic, the +$2,500 integration blueprint, and the +$750 briefing call are unchanged.</p>
+    </div>
+    <div class="tiers services">
+      <article class="tier" id="quick-check">
+        <p class="when">24 hours</p>
+        <h3>MCP Permission Quick Check</h3>
+        <p class="amt">$149</p>
+        <p>For a team running one to five MCP servers in Cursor, Claude Code, or Claude Desktop.</p>
+        <ul>
+          <li>Review of up to 5 configs you send (<code>mcp.json</code> or <code>claude_desktop_config.json</code>), secrets removed. Max 60 tools.</li>
+          <li>Each tool classed as read, write, send, or credential use.</li>
+          <li>Flags for plaintext tokens, over-broad scopes, and tools that read untrusted content and can also write or send.</li>
+          <li>A one-page PDF with the top 5 fixes ranked.</li>
+        </ul>
+        <p class="limits">Config and tool-manifest review only. No code review, no runtime testing, no access to your systems, and no fixes applied. Add-ons: +$49 per extra 5 servers; +$99 for a 20-minute call.</p>
+        <a class="btn" href="mailto:alecagentboundary@gmail.com?subject=Book%20MCP%20Permission%20Quick%20Check&amp;body=Offer%3A%20MCP%20Permission%20Quick%20Check%20%24149">Book the Quick Check</a>
+      </article>
+      <article class="tier" id="starter-build">
+        <p class="when">4 business days</p>
+        <h3>Starter MCP Server Build</h3>
+        <p class="amt">$450</p>
+        <p>One internal API or database, with read-only defaults.</p>
+        <ul>
+          <li>An MCP server in Python or TypeScript for one system. Stdio, plus Streamable HTTP if you ask.</li>
+          <li>Up to 4 tools. At most 1 write tool, behind an explicit confirmation argument.</li>
+          <li>API-key or bearer-token auth through environment variables.</li>
+          <li>Allow-listed endpoints or tables, input schemas, output caps, and secret redaction in logs.</li>
+          <li>Tests for each tool and the deny paths. A README for Claude Desktop, Cursor, and Claude Code.</li>
+          <li>1 revision within 7 days of delivery.</li>
+        </ul>
+        <p class="limits">Out of scope unless you add it: OAuth, multi-tenant auth, hosting, more than 4 tools, more than 1 write, and delete, refund, or bulk-export tools. Production credentials are never used. Add-ons: extra read tool +$60 (up to 8 tools); extra confirmation-gated write +$100; OAuth 2.1 for one provider +$300; Dockerfile and deploy guide (you deploy) +$150; 48-hour rush +$150; extra revision +$75. A policy wrap and hash-chained audit log is the $750 build.</p>
+        <a class="btn" href="mailto:alecagentboundary@gmail.com?subject=Book%20Starter%20MCP%20Server%20Build&amp;body=Offer%3A%20Starter%20MCP%20Server%20Build%20%24450%0ASystem%3A%20">Book the Starter Build</a>
+      </article>
+      <article class="tier" id="hardened-build">
+        <p class="when">48 hours</p>
+        <h3>Hardened MCP Server Build</h3>
+        <p class="amt">$750</p>
+        <p>The same one-system build, when you need writes and an audit trail. $350 at kickoff, $400 when the acceptance tests pass.</p>
+        <ul>
+          <li>One system (Postgres, Stripe, HubSpot, Slack, or an internal REST API) on the reference blueprint, wrapped in allow / deny rules.</li>
+          <li>Sensitive-field redaction and a SHA-256 hash-chained audit log.</li>
+          <li>A pytest acceptance suite, delivered as a pull request. Nothing is deployed on your hosts.</li>
+        </ul>
+        <p class="limits">The clock starts with a test or staging instance, never production credentials, and the tool list. Delete, refund, cancel, drop, truncate, and bulk export stay denied unless you approve one in writing, and an approved one still needs a per-call confirmation token.</p>
+        <a class="btn" href="mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Hardened%20MCP%20Server%20Build&amp;body=Package%3A%20%24750%2048-Hour%20Hardened%20MCP%20Server%20Build%0ASystem%3A%20">Book the Hardened Build</a>
+      </article>
+      <article class="tier" id="security-review">
+        <p class="when">3 business days</p>
+        <h3>MCP Server Security Review</h3>
+        <p class="amt">$950</p>
+        <p>$1,500 for two servers. An outside look at a server you built, adopted, or ship.</p>
+        <ul>
+          <li>Code and tool descriptions, read the way the model reads them: injection, over-broad tools, validation, path, URL, and SQL arguments, secrets, and auth.</li>
+          <li>A loopback lab run on test data. Never your production.</li>
+          <li>Findings ranked by severity, each with a concrete fix, plus a SARIF 2.1.0 file.</li>
+          <li>A 30-minute walkthrough, and one re-test of fixed high or critical findings within 30 days.</li>
+        </ul>
+        <p class="limits">Up to 15 tools per server. No live production test, no infrastructure pentest, no social engineering, and no compliance attestation. Fixes are recommendations. Add-ons: up to 5 findings as a pull request +$400; extra server +$550; 48-hour rush +$250.</p>
+        <a class="btn" href="mailto:alecagentboundary@gmail.com?subject=Book%20MCP%20Server%20Security%20Review&amp;body=Offer%3A%20MCP%20Server%20Security%20Review%0AServers%3A%20one%20(%24950)%20or%20two%20(%241%2C500)">Book the Security Review</a>
+      </article>
+      <article class="tier" id="drop-in">
+        <p class="when">5 business days</p>
+        <h3>Agent-Gateway Guardrail Drop-In</h3>
+        <p class="amt">$1,500</p>
+        <p>A deterministic policy layer and a tamper-evident log in front of MCP servers you already run.</p>
+        <ul>
+          <li>Configured for up to 3 servers / 30 tools and one agent harness: allow and deny lists, path, URI, and SQL checks, and rules for an untrusted read that can reach a write or a send.</li>
+          <li>Log-only by default. It enforces only deterministic rules the client approves in writing, and only the client switches those rules on.</li>
+          <li>A SHA-256 hash-chained decision log with a verify command, and a CI job that fails on policy regressions.</li>
+          <li>A pull request and a runbook. Your team merges and deploys. A 30-minute handover, then 14 days of config fixes.</li>
+        </ul>
+        <p class="limits">No custom validator beyond configuration, no production on-call, and no SIEM integration. Add-ons: extra server +$300; a custom validator +$400; a log-shipping guide +$250. The integration blueprint remains +$2,500.</p>
+        <a class="btn" href="mailto:alecagentboundary@gmail.com?subject=Book%20Agent-Gateway%20Guardrail%20Drop-In&amp;body=Offer%3A%20Agent-Gateway%20Guardrail%20Drop-In%20%241%2C500">Book the Drop-In</a>
+      </article>
+      <article class="tier" id="boundary-watch">
+        <p class="when">Monthly</p>
+        <h3>Boundary Watch</h3>
+        <p class="amt">$395<span class="per"> / month</span></p>
+        <p>For a team that already bought a build, a review, a drop-in, or an audit, and keeps adding tools.</p>
+        <ul>
+          <li>A monthly re-run of the audit and SARIF export, delivered within 3 business days of the updated list.</li>
+          <li>Review of up to 5 new or changed tools. No rollover.</li>
+          <li>One small policy or code change, at most 2 hours, and a one-page summary.</li>
+          <li>Email support, with a reply within 2 business days.</li>
+        </ul>
+        <p class="limits">No on-call. Month to month, cancel anytime; 2 months recommended. Add-on: extra 5 tools +$150. A quarterly written-note refresh remains $2,500 per quarter.</p>
+        <a class="btn" href="mailto:alecagentboundary@gmail.com?subject=Book%20Boundary%20Watch&amp;body=Offer%3A%20Boundary%20Watch%20%24395%2Fmonth">Book Boundary Watch</a>
+      </article>
+      <article class="tier tier-flag" id="flagship-audit">
+        <p class="when">48 hours · flagship</p>
+        <h3>48-Hour Tool-Boundary Audit</h3>
+        <p class="amt">$4,500</p>
+        <p>$6,500 with lab instrumentation, then $2,500 per quarter if you continue. A written note for a security reviewer, from a tool list you send.</p>
+        <ul>
+          <li>$4,500: the full note, a loopback policy set for your tool list, CI regression machines, and a hash-chained log. Files and a pull request your team merges.</li>
+          <li>$6,500: the same note, plus a lab gateway pass on <code>127.0.0.1</code> with simulated backends, and an offline analyzer pass on an authorized log you supply.</li>
+        </ul>
+        <p class="limits">Not a penetration test, not a red team of your users, not a certification, and not legal advice. Same-author lab limits are in <a href="#method">Method</a>. ATLAS ids on the note are approximate. Production credentials are not accepted, and the gateway is not installed on your hosts. The $1,800 Tier 1 diagnostic stays a separate booking.</p>
+        <div class="actions">
+          <a class="btn" href="mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit&amp;body=Tier%3A%20%244%2C500%20Fixed%20Tool-Boundary%20Note">Book the $4,500 audit</a>
+          <a class="btn btn-quiet" href="mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit%20with%20Instrumentation&amp;body=Tier%3A%20%246%2C500%20Note%20%2B%20Lab%20Instrumentation">Book the $6,500 audit</a>
+        </div>
+      </article>
+    </div>
+    <aside class="credit">
+      <p><strong>Credit toward the audit.</strong> 100% of a Quick Check fee and 50% of a Security Review or Drop-In fee credits toward the flagship audit ($4,500, or $6,500 with instrumentation) if that audit is booked within 30 days. The earlier work is reused in the audit.</p>
+    </aside>
+    <p>Full terms: <a href="https://github.com/freeling10-prog/rogue-ai-detection/blob/main/marketing/audit-offer.md">audit-offer.md</a>. The Apache-2.0 code stays free either way.</p>
   </div>
 </section>
 
@@ -515,7 +649,7 @@ footer ul{list-style:none;padding:0;margin:0 0 1rem;display:flex;flex-wrap:wrap;
           <tr><td><a href="https://arxiv.org/abs/2503.18813">CaMeL</a>, Debenedetti et al., arXiv:2503.18813</td><td>Separates trusted control flow from untrusted data with a custom interpreter and capabilities on values.</td><td>AgentGate gates at the tool boundary and doesn't rewrite the agent's planning. It doesn't provide CaMeL's control/data separation; F and S are the closest pieces.</td></tr>
           <tr><td><a href="https://www.microsoft.com/en-us/research/publication/securing-ai-agents-with-information-flow-control/">FIDES</a>, Costa et al., Microsoft Research, arXiv:2505.23643</td><td>A planner tracks confidentiality and integrity labels, enforces policy deterministically, and hides low-integrity results in variables.</td><td>T applies the same kind of (confidentiality, integrity) labels to the file effects of shell commands and file tools, a different surface from planner variables.</td></tr>
           <tr><td><a href="https://arxiv.org/abs/2504.11703">Progent</a>, Shi et al., arXiv:2504.11703</td><td>A policy language for tool-level privilege control, enforced deterministically at runtime.</td><td>Same enforcement point. AgentGate uses fixed predicates rather than a policy language; A adds path-qualified pruning over a workflow DAG, and V one conserved budget across forked subagents.</td></tr>
-          <tr><td><a href="https://preview.aclanthology.org/ingest-acl/2026.findings-acl.470/">ToolGate</a>, Liu et al., Findings of ACL 2026</td><td>Hoare-style pre- and postcondition contracts over a typed symbolic state gate each tool call.</td><td>P's Petri net is a comparable pre/post gate over a bounded marking; S canonicalizes arguments before any check sees them.</td></tr>
+          <tr><td><a href="https://aclanthology.org/2026.findings-acl.470/">ToolGate</a>, Liu et al., Findings of ACL 2026</td><td>Hoare-style pre- and postcondition contracts over a typed symbolic state gate each tool call.</td><td>P's Petri net is a comparable pre/post gate over a bounded marking; S canonicalizes arguments before any check sees them.</td></tr>
           <tr><td><a href="https://arxiv.org/abs/2508.02188">Whispering Agents</a>, Huang et al., arXiv:2508.02188</td><td>A covert channel hidden in agent dialogue through storage, timing and behavior; the paper reports its tested detectors couldn't find it.</td><td>E budgets exactly this selection channel per sink, and S removes spelling freedom from arguments. E bounds what a sender can choose; it doesn't detect that protocol.</td></tr>
           <tr><td><a href="https://arxiv.org/abs/2607.29167">Memory Provenance Laundering</a>, Xu et al., arXiv:2607.29167</td><td>Memory consolidation can erase a low-trust source; a middleware firewall keeps platform provenance and gates risky calls on it.</td><td>C applies the same idea to file names and statuses, tombstones included. T persists file-effect labels in a hash-chained sidecar so a later session on the same workspace loads them. The state directory is trusted storage.</td></tr>
           <tr><td><a href="https://arxiv.org/abs/2610.37055">Blindfold</a>, Zhu et al., arXiv:2610.37055</td><td>Randomized audit certificates are biased if the agent can observe the audit coin, including through timing.</td><td>B seals refusals into one envelope so their reasons don't leak, and quarantines near-neighbor retries. AgentGate doesn't run randomized audits, and its own timing as a side channel hasn't been evaluated.</td></tr>
@@ -572,7 +706,7 @@ footer ul{list-style:none;padding:0;margin:0 0 1rem;display:flex;flex-wrap:wrap;
   <div class="wrap prose">
     <h2 id="close-h">Find out where your agents' tool boundary leaks, in 48 hours</h2>
     <p>Tell us what your agents do and which MCP servers they talk to. We'll reply with scope and a start time.</p>
-    <p><a class="btn" href="mailto:fleckalec@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit">Email to book an audit</a></p>
+    <p><a class="btn" href="mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit">Email to book an audit</a></p>
   </div>
 </section>
 
@@ -584,7 +718,7 @@ footer ul{list-style:none;padding:0;margin:0 0 1rem;display:flex;flex-wrap:wrap;
     <ul>
       <li><a href="https://github.com/freeling10-prog/rogue-ai-detection">Source on GitHub</a></li>
       <li><a href="./demo/">Old demo</a></li>
-      <li><a href="mailto:fleckalec@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit">fleckalec@gmail.com</a></li>
+      <li><a href="mailto:alecagentboundary@gmail.com?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit">alecagentboundary@gmail.com</a></li>
     </ul>
     <p>© AgentGate. The AgentGate reference gateway is open source under Apache 2.0.</p>
   </div>

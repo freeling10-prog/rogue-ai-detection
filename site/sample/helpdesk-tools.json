@@ -1,0 +1,23 @@
+{
+  "_note": "Synthetic tool list for the sample Quick Check. Fictional server and company; not a client, not a real product.",
+  "tools": [
+    {"name": "search_help_articles", "description": "Search the published help-center articles that Client A's support staff write.",
+     "inputSchema": {"type": "object", "properties": {"query": {"type": "string"}, "limit": {"type": "integer"}}, "required": ["query"]}},
+    {"name": "search_tickets", "description": "Search support tickets by keyword, status, or requester. Returns subject and the first customer message.",
+     "inputSchema": {"type": "object", "properties": {"query": {"type": "string"}, "status": {"type": "string"}, "limit": {"type": "integer"}}, "required": ["query"]}},
+    {"name": "get_ticket", "description": "Read one ticket thread, including every message the customer sent.",
+     "inputSchema": {"type": "object", "properties": {"ticket_id": {"type": "string"}}, "required": ["ticket_id"]}},
+    {"name": "fetch_attachment", "description": "Download a file linked from a ticket and return its text.",
+     "inputSchema": {"type": "object", "properties": {"url": {"type": "string"}}, "required": ["url"]}},
+    {"name": "get_customer", "description": "Look up a customer record: name, email, plan, and billing contact.",
+     "inputSchema": {"type": "object", "properties": {"customer_id": {"type": "string"}}, "required": ["customer_id"]}},
+    {"name": "get_integration_token", "description": "Return the API token for a connected integration so other tools can call it.",
+     "inputSchema": {"type": "object", "properties": {"integration": {"type": "string"}}, "required": ["integration"]}},
+    {"name": "update_ticket", "description": "Change a ticket's status, assignee, or tags, or add an internal note.",
+     "inputSchema": {"type": "object", "properties": {"ticket_id": {"type": "string"}, "note": {"type": "string"}, "status": {"type": "string"}}, "required": ["ticket_id"]}},
+    {"name": "send_reply", "description": "Email a reply to any address on the ticket.",
+     "inputSchema": {"type": "object", "properties": {"ticket_id": {"type": "string"}, "to": {"type": "string"}, "body": {"type": "string"}}, "required": ["ticket_id", "body"]}},
+    {"name": "post_slack_message", "description": "Post a message to a Slack channel.",
+     "inputSchema": {"type": "object", "properties": {"channel": {"type": "string"}, "text": {"type": "string"}}, "required": ["channel", "text"]}}
+  ]
+}

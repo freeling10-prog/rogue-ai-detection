@@ -1,0 +1,10 @@
+{
+  "committed": false,
+  "compact_jsonl_sha256": "cca727086f402f5f6cfca322c8eca210109f7b233511115f1db2dbd305755206",
+  "endpoint": "https://registry.modelcontextprotocol.io/v0.1/servers?version=latest&limit=100",
+  "latest_documents": 40100,
+  "reason": "The latest-version listing was paged to completion and counted. No document contained a tools array, so the 16MB compact listing is not part of the scored corpus and is not committed. Re-running collect.py regenerates it.",
+  "retrieval_date": "2026-11-01",
+  "with_repository_url": 25889,
+  "with_tools_field": 0
+}

@@ -1,0 +1,45 @@
+{
+  "counts": {
+    "client_config_files": 24,
+    "official_registry_latest": 40100,
+    "official_registry_with_repository": 25889,
+    "official_registry_with_tools_field": 0,
+    "reference_servers": 7,
+    "registry_linked_manifests": 1,
+    "servers_jsonl_rows": 158,
+    "smithery_servers": 150,
+    "smithery_tools": 6856,
+    "smithery_tools_with_input_schema": 6856
+  },
+  "redaction": {
+    "credential_shaped_findings": 0,
+    "note": "Zero strings matched canary_watermark.CREDENTIAL_PATTERNS, URL-query credentials, or KEY=/TOKEN= assignments. Eight string values under secret-like keys (including OAuth client ids and header values) were replaced with [REDACTED:precautionary] without being tested or used. The committed files contain no raw matched secret.",
+    "precautionary_redactions_in_committed_files": 8
+  },
+  "reference_commit": "194cc86e3ae6400958555bd4116849d822d69263",
+  "reference_stats": {
+    "fetch_errors": 0,
+    "files": 36,
+    "servers": 7
+  },
+  "reference_tree_url": "https://github.com/modelcontextprotocol/servers/tree/194cc86e3ae6400958555bd4116849d822d69263",
+  "retrieval_date": "2026-11-01",
+  "selection": {
+    "client_configs": "first 120 distinct GitHub repository URLs in registry order; mcp.json, .mcp.json, claude_desktop_config.json, and .cursor/mcp.json on branch main. JSON objects with mcpServers or servers were kept. One file that listed tool names without schemas was moved into servers.jsonl. One JSON file that was neither was not retained.",
+    "not_random": true,
+    "official_registry": "every latest-version document was counted (see official_registry_census.json) and not scored, because none contained a tools array",
+    "reference_repo": "every src/ server at the pinned commit whose source text yielded a tool name; schemas were not translated",
+    "smithery": "first 150 detail documents with at least one named tool, pageSize 50, API order, skipping unlisted and inactive. 272 list rows were examined, 1 detail had no tools, 0 detail errors, 6 pages."
+  },
+  "sha256": {
+    "client_configs.jsonl": "ad30984d76291dbb5589428266a5de3ff5583a21b84dd0d3899479adce9af03f",
+    "official_registry_compact_jsonl_not_committed": "cca727086f402f5f6cfca322c8eca210109f7b233511115f1db2dbd305755206",
+    "servers.jsonl": "379d0776e934a1e107974c66b1cfabfb87334ef7dab033cfca3fe0d7f4b920a0"
+  },
+  "smithery_stats": {
+    "detail_errors": 0,
+    "listed": 272,
+    "no_tools": 1,
+    "pages": 6
+  }
+}

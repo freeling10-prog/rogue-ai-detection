@@ -4,6 +4,60 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
+## [Unreleased] - Round-2 red-team fixes for V, S, T, D and Z (31 October 2026)
+
+Five confirmed findings from the round-2 audit of the R-Z implementation,
+fixed in the recommended order. Gateway tests 1082 -> **1122** (40 new
+regression tests); Hypothesis state machines stay at **19**; the D and Z
+machines were extended to the new behavior and run clean at 300 examples.
+
+- V (`pep.py`): two-phase prepare/commit for the fork/join ledger. The
+  reference middleware stages the checked plan; it is applied only when the
+  whole call is allowed (`_settle_ledger`), and a spawn commits it after its
+  quota and collusion checks, before reserving the slot. A denied call keeps
+  only the denial unit `_deny` charges; branch taint is still mirrored. Seven
+  SSRF-denied `spawn_subagent` calls no longer leave ghost branches that
+  exhaust `WIDTH`.
+- S (`canonical_argument_confinement.py`, `pep.py`, `mcp_proxy.py`): shared
+  `loads_strict(raw)`: no BOM, strict UTF-8 only (UTF-16/32 refused), no NUL,
+  no lone surrogates (raw or escaped), no duplicate keys at any depth, no
+  NaN/Infinity, bounded depth and number tokens; non-integers parse to exact
+  `Decimal`. Flask `/mcp` reads `request.get_data()` through it, returns a
+  JSON-RPC -32700 with a fixed reason (never HTTP 500), and hands Predicate S
+  the Decimal-preserving argument object (`evaluate_call(wire_arguments=)`;
+  `Policy.canonicalize` accepts bytes or that object). The stdio proxy uses
+  the same parser and forwards a number only when a binary float carries
+  exactly the checked value (`NUMBER_PRECISION` otherwise). `mcp_proxy.parse_wire`
+  from PR #34 is not on this branch; reconcile when merging.
+- T (`symbolic_fs_transducer.py`): `rebase(snapshot, *, aliases=, path_moves=)`.
+  Path-keyed labels follow their path onto its published inode; `aliases`
+  carry an old inode's label to its replacement (GNU `sed -i`, `mv`);
+  `path_moves` carry a path's full label to its new path and inode. A
+  malformed or unresolvable target fails closed (`LABEL_ALIAS_UNRESOLVABLE`)
+  with state unchanged. The maps must come from the broker.
+- D (`dynamic_ingression_validator.py`, `pep.py`, `mcp_proxy.py`):
+  `HARD_SLOTS = 8` for fields a trusted sensitive-source adapter marks
+  sensitive (never evicted; a ninth is `D_CAPACITY`) and `SOFT_SLOTS = 16`
+  for heuristic finds (oldest evicted first; never `D_CAPACITY`). Key names in
+  a result no longer mark anything sensitive. Hard values extend Z
+  atomically; soft values enter Z only while it has room. The MCP wire proxy
+  now feeds tool results to D and forwards a -32075 error in place of a
+  withheld result.
+- Z (`transform_invariant_validator.py`): stride-2/3/4 interleavings (pins
+  precompute both directions, so an interleaved value is found inside text)
+  and bounded hex / base64 / URL-safe base64 decoded views of 16+ character
+  runs, reasons `Z_STRIDE` and `Z_ENCODED`, on a second precharged budget
+  (`CANDIDATE_CREDITS`) so existing `Z_WORK` limits are unchanged. Residual:
+  compositions, nibble swaps, keyed ciphers and compression.
+- Tests updated for the new D contract: hard non-eviction, soft FIFO
+  rotation, trusted-only `sensitive`, and Z capacity applying to hard values.
+- Site traces 09 and 10 re-recorded on the fixed code (same verdicts); site,
+  lab report and README counts updated.
+- Not changed here, same pattern as V: P's Petri-net fire and T's label
+  commit still happen inside the reference middleware, before the downstream
+  gates. T only over-labels on a later denial; P can advance its marking for
+  a call that is then denied.
+
 ## [Unreleased] - Site and README for the v12.8 tree (31 October 2026)
 
 No gateway code changes. Predicate D (`dynamic_ingression_validator.py`,

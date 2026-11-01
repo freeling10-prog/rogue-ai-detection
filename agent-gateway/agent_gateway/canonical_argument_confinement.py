@@ -61,7 +61,7 @@ SED_RE = re.compile(r"s/[A-Za-z0-9 _-]+/[A-Za-z0-9 _-]*/g?")
 
 # --- Structured argument canonicalization ------------------------------------------
 
-def _depth_scan(wire: bytes) -> None:
+def _depth_scan(wire: bytes, limit: int = MAX_DEPTH) -> None:
     """Quote- and escape-aware nesting depth over raw bytes, before any parse."""
     depth = 0
     quoted = escaped = False
@@ -77,7 +77,7 @@ def _depth_scan(wire: bytes) -> None:
             quoted = True
         elif byte in (0x5B, 0x7B):  # [ {
             depth += 1
-            if depth > MAX_DEPTH:
+            if depth > limit:
                 raise Denied("WIRE_DEPTH")
         elif byte in (0x5D, 0x7D):
             depth -= 1
@@ -127,6 +127,137 @@ def _loads(wire: bytes | str):
                           parse_int=_number, parse_constant=_constant)
     except (json.JSONDecodeError, RecursionError, ArithmeticError):
         raise Denied("INVALID_JSON") from None
+
+
+# --- Strict wire parsing for whole JSON-RPC messages ---------------------------------
+
+MAX_REQUEST = 1 << 20
+MAX_REQUEST_DEPTH = 32
+_BOMS = (b"\xef\xbb\xbf", b"\xff\xfe", b"\xfe\xff")
+
+
+MAX_WIRE_NUMBER = 64
+
+
+def _int(token: str) -> int:
+    if len(token) > MAX_WIRE_NUMBER:
+        raise Denied("NUMBER_LIMIT")
+    return int(token)
+
+
+def _wire_decimal(token: str) -> Decimal:
+    """Exact decimal for any number token; per-field limits are Predicate S's job."""
+    if len(token) > MAX_WIRE_NUMBER:
+        raise Denied("NUMBER_LIMIT")
+    return Decimal(token)
+
+
+def _no_lone_surrogates(value) -> None:
+    """A JSON escape can name half a surrogate pair; no UTF-8 encoder accepts it."""
+    stack = [value]
+    while stack:
+        v = stack.pop()
+        if type(v) is str:
+            if any("\ud800" <= ch <= "\udfff" for ch in v):
+                raise Denied("LONE_SURROGATE")
+        elif type(v) is dict:
+            stack.extend(v.keys())
+            stack.extend(v.values())
+        elif type(v) is list:
+            stack.extend(v)
+
+
+def loads_strict(raw: bytes, *, max_bytes: int = MAX_REQUEST):
+    """Parse one JSON-RPC message from its raw bytes, the way every hop must agree on.
+
+    Rejects a byte-order mark, any encoding other than strict UTF-8 (UTF-16 and
+    UTF-32 included), NUL bytes, lone surrogates (raw or escaped), duplicate keys
+    at any depth, ``NaN`` / ``Infinity``, nesting deeper than
+    ``MAX_REQUEST_DEPTH`` and over-long number tokens. Integers become ``int``;
+    every other number becomes an exact ``Decimal``, never a binary float, so
+    precision a downstream parser would keep is not silently collapsed here.
+    Raises ``Denied`` with a fixed reason code.
+    """
+    if not isinstance(raw, (bytes, bytearray)):
+        raise Denied("WIRE_TYPE")
+    raw = bytes(raw)
+    if len(raw) > max_bytes:
+        raise Denied("WIRE_LIMIT")
+    if raw.startswith(_BOMS):
+        raise Denied("WIRE_BOM")
+    if b"\x00" in raw:
+        raise Denied("WIRE_ENCODING")
+    try:
+        text = raw.decode("utf-8", "strict")
+    except UnicodeError:
+        raise Denied("WIRE_ENCODING") from None
+    _depth_scan(raw, MAX_REQUEST_DEPTH)
+    try:
+        value = json.loads(text, object_pairs_hook=_pairs, parse_float=_wire_decimal,
+                           parse_int=_int, parse_constant=_constant)
+    except (json.JSONDecodeError, RecursionError, ArithmeticError):
+        raise Denied("INVALID_JSON") from None
+    _no_lone_surrogates(value)
+    return value
+
+
+def plain_numbers(value, *, exact: bool = False):
+    """Copy of a strictly parsed value with ``Decimal`` replaced by int / float.
+
+    Integral decimals become ``int`` exactly. Others become ``float``; with
+    ``exact=True`` a decimal that does not survive the round trip through a
+    binary float (``0.12500000000000001``) is refused (``NUMBER_PRECISION``),
+    so a hop that forwards the message never forwards a different number than
+    it checked.
+    """
+    if type(value) is Decimal:
+        if value == value.to_integral_value():
+            return int(value)
+        f = float(value)
+        if exact and Decimal(repr(f)) != value:
+            raise Denied("NUMBER_PRECISION")
+        return f
+    if type(value) is dict:
+        return {k: plain_numbers(v, exact=exact) for k, v in value.items()}
+    if type(value) is list:
+        return [plain_numbers(v, exact=exact) for v in value]
+    return value
+
+
+def encode_parsed(value) -> bytes:
+    """Re-encode a ``loads_strict`` argument object without losing any number.
+
+    ``Decimal`` keeps its exact digits; a binary ``float`` is refused
+    (``FLOAT_PRECISION``) because it was not strictly parsed.
+    """
+    def enc(v) -> str:
+        if v is None:
+            return "null"
+        if v is True:
+            return "true"
+        if v is False:
+            return "false"
+        if type(v) is int:
+            return str(v)
+        if type(v) is Decimal:
+            if not v.is_finite():
+                raise Denied("NONFINITE")
+            return str(v)
+        if type(v) is float:
+            raise Denied("FLOAT_PRECISION")
+        if type(v) is str:
+            return json.dumps(v, ensure_ascii=False)
+        if type(v) is list:
+            return "[" + ",".join(enc(x) for x in v) + "]"
+        if type(v) is dict:
+            return "{" + ",".join(json.dumps(k, ensure_ascii=False) + ":" + enc(x)
+                                  for k, x in v.items()) + "}"
+        raise Denied("ARGUMENT_TYPE")
+    _no_lone_surrogates(value)
+    try:
+        return enc(value).encode("utf-8")
+    except RecursionError:
+        raise Denied("WIRE_DEPTH") from None
 
 
 def _utf8_json(value: str) -> bytes:
@@ -225,7 +356,14 @@ class Policy:
              "default": None if f.default is None else f.default.decode("utf-8")}
             for f in sorted(fields, key=lambda f: f.name.encode("utf-8"))]))
 
-    def canonicalize(self, wire: bytes | str) -> bytes:
+    def canonicalize(self, wire: bytes | str | dict) -> bytes:
+        """Canonical bytes for raw wire bytes, or for a ``loads_strict`` object.
+
+        A parsed object is re-encoded with its exact ``Decimal`` digits and then
+        checked like raw bytes, so size, depth and number limits apply either way.
+        """
+        if type(wire) is dict:
+            wire = encode_parsed(wire)
         value = _loads(wire)
         if type(value) is not dict:
             raise Denied("NOT_OBJECT")

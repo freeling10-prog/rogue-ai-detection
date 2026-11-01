@@ -145,7 +145,8 @@ from .fork_join_vector_validator import (
     ZERO as LEDGER_ZERO, Owner as LedgerOwner, Root as LedgerRoot,
 )
 from .canonical_argument_confinement import (
-    Policy as ArgumentPolicy, command_from_arguments, confine, encode_arguments,
+    Policy as ArgumentPolicy, command_from_arguments, confine, encode_arguments, loads_strict,
+    plain_numbers,
 )
 from .linear_obligation_validator import (
     ObligationManifest, ObligationNet,
@@ -255,11 +256,6 @@ FORK_JOIN_LEDGER_DENIED = "FORK_JOIN_LEDGER_DENIED"
 DYNAMIC_INGRESSION_DENIED = "DYNAMIC_INGRESSION_DENIED"
 # v12.8: transform-invariant pins take -32076.
 TRANSFORM_INVARIANT_DENIED = "TRANSFORM_INVARIANT_DENIED"
-# Result keys whose short values are enrolled whole as secrets.
-_SENSITIVE_RESULT_KEYS = frozenset({
-    "secret", "password", "passwd", "token", "api_key", "apikey", "access_key",
-    "secret_key", "private_key", "client_secret", "credential", "credentials",
-})
 # Descriptor fields the reference profile hashes for a pin (annotations included:
 # annotation-only drift is drift under this policy).
 _REFERENCE_PIN_FIELDS = ("description", "inputSchema", "outputSchema", "annotations", "title")
@@ -467,6 +463,9 @@ class PolicyEngine:
         self.command_tools: set[str] = set()
         # Per-session result of the last admitted confinement, read by _allow().
         self._confined: dict[str, dict] = {}
+        # Fork/join ledger plans checked by the reference middleware and staged
+        # until the whole call is allowed (two-phase: prepare there, commit here).
+        self._staged_ledger: dict[str, tuple] = {}
         # session id -> (ledger owner, branch slot); every branch of a root shares one owner.
         self.fork_ledgers: dict[str, tuple[LedgerOwner, int]] = {}
         self.ingressions: dict[str, Ingression] = {}
@@ -654,21 +653,56 @@ class PolicyEngine:
         bound_step_index: Optional[int] = None,
         capability_token: Optional[str] = None,
         destination: Optional[str] = None,
+        wire_arguments: Optional[dict] = None,
     ) -> dict:
         """Evaluate one tools/call.
 
         ``destination`` names the outbound channel for the temporal
         accumulator window (the MCP proxy passes ``mcp:<server>``); it
-        defaults to the tool's egress class.
+        defaults to the tool's egress class. ``wire_arguments`` is the same
+        argument object as parsed by ``loads_strict`` (exact ``Decimal``
+        numbers, duplicate keys already refused); when given, Predicate S
+        canonicalizes it instead of re-encoding ``arguments``.
         """
         out = self._evaluate_call(
             agent_key, session_id, tool_name, arguments,
             approval_token=approval_token, delegation_depth=delegation_depth,
             parent_key=parent_key, bound_step_index=bound_step_index,
             capability_token=capability_token, destination=destination,
+            wire_arguments=wire_arguments,
         )
         out = self._ingress_result(session_id, tool_name, arguments, out)
+        out = self._settle_ledger(session_id, tool_name, arguments, out)
         return self._attach_capability(session_id, out)
+
+    def _settle_ledger(self, session_id: str, tool_name: str, arguments: Optional[dict],
+                       out: dict) -> dict:
+        """Commit or discard the fork/join plan staged for this call (Predicate V).
+
+        The plan was checked before the downstream gates ran (SSRF, review
+        hold, spawn quotas, collusion, the release checks). It is applied only
+        when the call was allowed; a denied call keeps just the denial unit
+        ``_deny`` already charged, so denied spawns never leave ghost branches.
+        Branch taint is still mirrored on a denial: taint only rises.
+        """
+        plan = self._staged_ledger.pop(session_id, None)
+        if plan is None:
+            return out
+        if out.get("allowed"):
+            sess = self.sessions[session_id]
+            try:
+                self._fork_join_commit(plan)
+            except ReferenceDenied as exc:
+                step = int(out.get("step_index") or sess.step_index)
+                return self._fork_join_deny(sess, step, tool_name, dict(arguments or {}), exc)
+            return out
+        owner, slot, _expected, ops, _child = plan
+        if any(op[0] == LEDGER_TAINT for op in ops) and not owner.root.branches[slot].taint:
+            try:
+                owner.apply(slot, owner.clock(slot), [(LEDGER_TAINT,)])
+            except ReferenceDenied:
+                pass  # The session itself stays tainted; the next plan retries.
+        return out
 
     def _ingress_result(self, session_id: str, tool_name: str, arguments: Optional[dict],
                         out: dict) -> dict:
@@ -708,6 +742,7 @@ class PolicyEngine:
         bound_step_index: Optional[int] = None,
         capability_token: Optional[str] = None,
         destination: Optional[str] = None,
+        wire_arguments: Optional[dict] = None,
     ) -> dict:
         self.registry.lift_expired(self.now())
         rec = self.registry.get(agent_key)
@@ -799,7 +834,7 @@ class PolicyEngine:
                 return self._v12_deny(sess, step, tool_name, args, cfi.rule_code, {"cfi": cfi.as_dict()})
 
         # --- Reference middleware validators (v12.2) ---------------------------------
-        ref = self._reference_middleware(sess, step, tool_name, args, eclass)
+        ref = self._reference_middleware(sess, step, tool_name, args, eclass, wire_arguments)
         if ref is not None:
             return ref
 
@@ -856,6 +891,13 @@ class PolicyEngine:
             col = self._collusion_sink(sess, PRIVILEGED_EXEC)
             if col is not None:
                 return self._v12_deny(sess, step, tool_name, args, col.rule_code, {"collusion": col.as_dict()})
+            # Every gate passed: commit the staged fork before reserving the slot.
+            staged = self._staged_ledger.pop(sess.session_id, None)
+            if staged is not None:
+                try:
+                    self._fork_join_commit(staged)
+                except ReferenceDenied as exc:
+                    return self._fork_join_deny(sess, step, tool_name, args, exc)
             # reserve slot
             self.shared.children_by_parent[root] = n + 1
             sess.children_spawned += 1
@@ -1429,14 +1471,16 @@ class PolicyEngine:
     def attach_ingression(self, session_id: str) -> Ingression:
         """Learn secrets from this session's tool responses and block them outbound.
 
-        Every tool result the gateway returns to the session is scanned first:
-        short values under secret-like keys, and every short string a sensitive
-        read returns, are enrolled whole; other strings are scanned for
-        credential prefixes, internal host names, e-mail addresses and
-        high-entropy tokens. The store holds 8 values and never evicts. A
-        response that is too large, has an over-long token, or would need a
-        ninth slot is withheld. Later outbound strings that cover 85% of an
-        enrolled value are denied.
+        Every tool result the gateway returns to the session is scanned first.
+        Every short string a trusted sensitive-source adapter returns (a
+        sensitive read or a credential store) is enrolled whole in the hard
+        store: 8 values, never evicted; a result that would need a ninth is
+        withheld. Every string is also scanned for credential prefixes,
+        internal host names, e-mail addresses and high-entropy tokens, enrolled
+        in the soft store: 16 values, oldest evicted first, never withheld for
+        capacity. A response that is too large or has an over-long token is
+        withheld. Later outbound strings that cover 85% of an enrolled value
+        are denied.
         """
         holder = self.ingressions.get(session_id)
         if holder is None:
@@ -1462,9 +1506,25 @@ class PolicyEngine:
         return index
 
     def _enroll(self, session_id: str, holder: Ingression, fields: list) -> int:
-        """D enrollment, extending Z's pins in the same all-or-nothing step."""
+        """D enrollment, extending Z's pins.
+
+        Hard (trusted) values extend Z in the same all-or-nothing step: a full
+        index withholds the result (``Z_CAPACITY``). Soft (heuristic) values are
+        pinned in Z only while it has room, so an untrusted response cannot fill
+        Z and wedge the session either.
+        """
         index = self.transform_indexes.get(session_id)
-        return holder.receive(fields, on_commit=None if index is None else index.add)
+        if index is None:
+            return holder.receive(fields)
+
+        def soft_into_z(values: tuple) -> None:
+            for v in values:
+                try:
+                    index.add((v,))
+                except ReferenceDenied:
+                    return  # Z is full: soft values stay D-only.
+
+        return holder.receive(fields, on_commit=index.add, on_soft=soft_into_z)
 
     def ingest_dynamic_result(self, agent_key: str, session_id: str, tool_name: str, result: Any) -> int:
         """Proxy entry point: enroll a real tool result before it reaches the agent.
@@ -1487,14 +1547,19 @@ class PolicyEngine:
         zero-width marks) are removed first: they are invisible, so a copied
         secret rarely carries them, and enrolling them would dilute coverage.
         The canary guard tracks the watermark itself.
+
+        Only a trusted sensitive-source adapter (a sensitive read or a
+        credential store) marks fields ``sensitive`` (hard, non-evicting).
+        Key names in a result are attacker-chosen in an untrusted response
+        (``web.fetch``, an MCP server), so they no longer decide anything;
+        every string is still scanned for heuristic (soft) values.
         """
         sensitive_tool = tool_name in SENSITIVE_READ_TOOLS or egress_class(tool_name) == EGRESS_CREDS
         fields = []
-        for key, value in iter_strings(result):
+        for _key, value in iter_strings(result):
             value = "".join(ch for ch in value if unicodedata.category(ch) != "Cf")
             size = len(value.encode("utf-8", "surrogatepass"))
-            named = key.rsplit(".", 1)[-1].casefold() in _SENSITIVE_RESULT_KEYS
-            sensitive = (named or sensitive_tool) and INGRESS_MIN_SECRET <= size <= INGRESS_MAX_SECRET
+            sensitive = sensitive_tool and INGRESS_MIN_SECRET <= size <= INGRESS_MAX_SECRET
             fields.append(IngressField(value, sensitive))
         return fields
 
@@ -1591,14 +1656,19 @@ class PolicyEngine:
                               {"fork_join": {"reason": str(exc), "slot": slot,
                                              "events": root.events, "spent": list(root.spent)}})
 
-    def _confinement(self, sess: SessionState, step: int, tool_name: str,
-                     args: dict) -> tuple[Optional[dict], Optional[tuple]]:
-        """(denial, compiled argv). Both None when no confinement is pinned."""
+    def _confinement(self, sess: SessionState, step: int, tool_name: str, args: dict,
+                     wire_arguments: Optional[dict] = None) -> tuple[Optional[dict], Optional[tuple]]:
+        """(denial, compiled argv). Both None when no confinement is pinned.
+
+        With ``wire_arguments`` (the strictly parsed object), the policy sees the
+        client's exact numbers; otherwise it re-encodes the already-parsed dict.
+        """
         self._confined.pop(sess.session_id, None)
         policy = self.argument_policies.get(tool_name)
         if policy is not None:
             try:
-                canonical = policy.canonicalize(encode_arguments(args))
+                canonical = policy.canonicalize(
+                    wire_arguments if wire_arguments is not None else encode_arguments(args))
             except ReferenceDenied as exc:
                 return self._confinement_deny(sess, step, tool_name, args, "arguments", exc,
                                               policy.commitment), None
@@ -1689,14 +1759,14 @@ class PolicyEngine:
                         resources, args_digest)
 
     def _reference_middleware(self, sess: SessionState, step: int, tool_name: str, args: dict,
-                              eclass: str) -> Optional[dict]:
+                              eclass: str, wire_arguments: Optional[dict] = None) -> Optional[dict]:
         """Shell effects, manifest admission and outbound identifier matching.
 
         Returns a denial dict, or None when every applicable validator passed.
         A validator with no trusted state attached is not applicable and
         contributes nothing - the v11 / v12 gates above already ran.
         """
-        denial, argv = self._confinement(sess, step, tool_name, args)
+        denial, argv = self._confinement(sess, step, tool_name, args, wire_arguments)
         if denial is not None:
             return denial
 
@@ -1814,12 +1884,10 @@ class PolicyEngine:
             except LabelDenied as exc:
                 return self._fs_label_deny(sess, step, tool_name, args, transducer, exc)
         if ledger_plan is not None:
-            # Fenced on the branch clock read before the other checks: a concurrent
-            # dispatch on the same branch, or a denial charged meanwhile, is stale.
-            try:
-                self._fork_join_commit(ledger_plan)
-            except ReferenceDenied as exc:
-                return self._fork_join_deny(sess, step, tool_name, args, exc)
+            # Prepared only. ``_settle_ledger`` commits it, fenced on the branch
+            # clock read here, once the whole call is allowed; a spawn commits it
+            # before reserving its slot.
+            self._staged_ledger[sess.session_id] = ledger_plan
         if net is not None and transition is not None:
             # Commit point: fenced on the sequence read before the other checks.
             try:
@@ -2169,14 +2237,19 @@ def create_app(cfg: Optional[PepConfig] = None, engine: Optional[PolicyEngine] =
 
     @app.post("/mcp")
     def mcp_rpc():
+        # Raw bytes through the strict parser: no BOM / UTF-16 / lone surrogates /
+        # duplicate keys / NaN, and exact Decimal numbers for Predicate S.
         try:
-            body = request.get_json(force=True, silent=False)
+            body = loads_strict(request.get_data(cache=False))
         except RequestEntityTooLarge:
             raise
-        except Exception:
-            return jsonify({"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "parse error"}}), 400
+        except ReferenceDenied as exc:
+            return jsonify({"jsonrpc": "2.0", "id": None, "error": {
+                "code": -32700, "message": "parse error", "data": {"reason": str(exc)}}}), 400
         if not isinstance(body, dict):
             return jsonify({"jsonrpc": "2.0", "id": None, "error": {"code": -32600, "message": "invalid request"}}), 400
+        wire = body
+        body = plain_numbers(body)
         rid = body.get("id")
         method = body.get("method")
         params = body.get("params") or {}
@@ -2202,6 +2275,9 @@ def create_app(cfg: Optional[PepConfig] = None, engine: Optional[PolicyEngine] =
         if method == "tools/call":
             name = str(params.get("name") or params.get("tool") or "")
             arguments = params.get("arguments") if isinstance(params.get("arguments"), dict) else {}
+            wire_params = wire.get("params") if isinstance(wire.get("params"), dict) else {}
+            wire_arguments = (wire_params.get("arguments")
+                              if isinstance(wire_params.get("arguments"), dict) else {})
             token = params.get("approval_token") or request.headers.get("X-Approval-Token")
             depth = int(params.get("delegation_depth") or 0)
             parent = params.get("parent_key")
@@ -2211,6 +2287,7 @@ def create_app(cfg: Optional[PepConfig] = None, engine: Optional[PolicyEngine] =
                 approval_token=token, delegation_depth=depth, parent_key=parent,
                 bound_step_index=int(bound) if bound is not None else None,
                 capability_token=str(cap_tok) if cap_tok else None,
+                wire_arguments=wire_arguments,
             )
             if not out.get("ok"):
                 return jsonify({"jsonrpc": "2.0", "id": rid, "error": {

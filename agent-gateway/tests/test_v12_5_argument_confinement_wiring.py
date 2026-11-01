@@ -140,3 +140,74 @@ def test_sarif_declares_the_confinement_rule() -> None:
         {"kind": ARGUMENT_CONFINEMENT_DENIED, "tool": "file.copy", "session": "s1", "detail": "denied"}]}})
     assert validate_sarif(doc) == []
     assert doc["runs"][0]["results"][0]["ruleId"] == ARGUMENT_CONFINEMENT_DENIED
+
+
+# --- Round-2 red-team: strict raw-wire parsing on Flask /mcp and the stdio proxy ------
+
+from agent_gateway.mcp_proxy import CLIENT_TO_SERVER, McpWireProxy  # noqa: E402
+from agent_gateway.pep import create_app  # noqa: E402
+
+PRICE_POLICY = Policy((
+    FieldPolicy("order_id", "number", required=True),
+    FieldPolicy("amount", "number", scale=2),
+))
+
+
+def http(engine: PolicyEngine):
+    engine.pin_argument_policy("lookup_order_status", PRICE_POLICY)
+    app = create_app(engine.cfg, engine=engine)
+    app.config["TESTING"] = True
+    return app.test_client()
+
+
+def call_bytes(arguments: bytes) -> bytes:
+    return (b'{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"lookup_order_status",'
+            b'"session_id":"wire","agent_key":"' + KEY_A.encode() + b'","arguments":' + arguments + b'}}')
+
+
+def post(client, raw: bytes):
+    return client.post("/mcp", data=raw, content_type="application/json")
+
+
+@pytest.mark.parametrize("raw, reason", [
+    (call_bytes(b'{"order_id":1,"order_id":2}'), "DUPLICATE_KEY"),
+    (b"\xef\xbb\xbf" + call_bytes(b'{"order_id":1}'), "WIRE_BOM"),
+    (call_bytes(b'{"order_id":1}').decode().encode("utf-16-le"), "WIRE_ENCODING"),
+    (call_bytes(b'{"order_id":1,"note":"\\ud800"}'), "LONE_SURROGATE"),
+    (call_bytes(b'{"order_id":NaN}'), "NONFINITE"),
+])
+def test_mcp_refuses_ambiguous_wire_bytes_with_a_clean_jsonrpc_error(engine, raw, reason) -> None:
+    rv = post(http(engine), raw)
+    assert rv.status_code == 400  # never 500
+    err = rv.get_json()["error"]
+    assert err["code"] == -32700 and err["data"]["reason"] == reason
+
+
+def test_lone_surrogate_never_reaches_the_audit_chain(engine) -> None:
+    client = http(engine)
+    rv = post(client, call_bytes(b'{"order_id":1,"note":"\\udfff tail"}'))
+    assert rv.status_code == 400
+    rv = post(client, call_bytes(b'{"order_id":1}'))
+    assert rv.status_code == 200 and rv.get_json()["result"]["allowed"] is True
+
+
+def test_mcp_canonicalizes_the_exact_number_the_client_sent(engine) -> None:
+    rv = post(http(engine), call_bytes(b'{"order_id":9007199254740993.0}'))
+    assert rv.status_code == 200
+    out = rv.get_json()["result"]
+    # As a binary float this collapses to ...992; S sees the exact digits.
+    assert out["confinement"]["canonical_arguments"] == '{"order_id":9007199254740993}'
+
+
+def test_mcp_number_beyond_policy_precision_is_denied_by_s(engine) -> None:
+    rv = post(http(engine), call_bytes(b'{"order_id":1,"amount":0.12500000000000001}'))
+    err = rv.get_json()["error"]
+    assert err["code"] == -32073 and err["data"]["error"] == ARGUMENT_CONFINEMENT_DENIED.lower()
+
+
+def test_stdio_proxy_shares_the_strict_parser(engine) -> None:
+    proxy = McpWireProxy(engine, KEY_A, "wire-proxy", "core")
+    for raw in (call_bytes(b'{"order_id":1,"order_id":2}'), call_bytes(b'{"order_id":0.12500000000000001}'),
+                b"\xef\xbb\xbf" + call_bytes(b'{"order_id":1}')):
+        result = proxy.handle_line(CLIENT_TO_SERVER, raw.decode("utf-8"))
+        assert result.decision == "invalid" and result.reply[0]["error"]["code"] == -32700

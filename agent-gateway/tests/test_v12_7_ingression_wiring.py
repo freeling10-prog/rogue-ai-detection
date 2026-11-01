@@ -77,20 +77,33 @@ def test_watermarked_secret_is_enrolled_as_the_agent_reads_it(engine: PolicyEngi
     assert detail["reason"] == "D_MATCH"
 
 
-def test_capacity_is_all_or_nothing_and_never_evicts(engine: PolicyEngine) -> None:
-    holder = engine.attach_ingression("s-cap")
-    nine = " ".join(f"sk-key{i:02d}" for i in range(9))
-    out = denied(read_note(engine, "s-cap", nine))
-    assert out == {"reason": "D_CAPACITY", "direction": "inbound", "slots_used": 0,
-                   "result_withheld": True}
-    assert holder.used == 0
+def read_secret(engine: PolicyEngine, session: str, body: str) -> dict:
+    """A trusted sensitive-source read (credential store): its strings are hard pins."""
+    engine.cfg.lab_fixture_outputs["read_internal_secrets"] = body
+    return engine.evaluate_call(KEY_A, session, "read_internal_secrets", {})
 
-    assert read_note(engine, "s-cap", " ".join(f"sk-key{i:02d}" for i in range(8)))["allowed"] is True
-    assert denied(read_note(engine, "s-cap", "fresh sk-newkey9"))["reason"] == "D_CAPACITY"
-    assert holder.used == 8
-    assert denied(send(engine, "s-cap", "sk-key00"))["reason"] == "D_MATCH"
-    # A repeated value needs no new slot.
-    assert read_note(engine, "s-cap", "again sk-key03")["allowed"] is True
+
+def test_hard_capacity_is_all_or_nothing_and_never_evicts(engine: PolicyEngine) -> None:
+    holder = engine.attach_ingression("s-cap")
+    # read_internal_secrets returns the fixture body plus one constant secret string:
+    # 7 bodies + the shared secret fill the 8 hard slots.
+    for i in range(7):
+        assert read_secret(engine, "s-cap", f"vault-entry-{i:02d}")["allowed"] is True
+    assert holder.hard_used == 8
+    out = denied(read_secret(engine, "s-cap", "vault-entry-99"))
+    assert out["reason"] == "D_CAPACITY" and out["result_withheld"] is True
+    assert holder.hard_used == 8
+    assert denied(send(engine, "s-cap", "vault-entry-00"))["reason"] == "D_MATCH"
+
+
+def test_untrusted_flood_rotates_soft_slots_and_cannot_brick_credentials(engine: PolicyEngine) -> None:
+    holder = engine.attach_ingression("s-flood")
+    flood = " ".join(f"ghp_dummy{i:03d}" for i in range(8)) + " " + " ".join(
+        f"user{i}@x.io" for i in range(9))
+    assert read_note(engine, "s-flood", flood)["allowed"] is True  # never D_CAPACITY
+    assert holder.hard_used == 0 and holder.soft_used == 16
+    assert read_secret(engine, "s-flood", "vault-entry-ok")["allowed"] is True
+    assert holder.hard_used == 2
 
 
 def test_unscannable_responses_are_withheld(engine: PolicyEngine) -> None:
@@ -110,13 +123,41 @@ def test_outbound_strings_are_bounded_once_anything_is_enrolled(engine: PolicyEn
 
 def test_proxy_entry_point(engine: PolicyEngine) -> None:
     assert engine.ingest_dynamic_result(KEY_A, "s-proxy", "web.fetch", {"body": "sk-abc12345"}) == 0
-    engine.attach_ingression("s-proxy")
+    holder = engine.attach_ingression("s-proxy")
+    # Key names in an untrusted response are attacker-chosen: "api_key" is not hard.
     assert engine.ingest_dynamic_result(KEY_A, "s-proxy", "web.fetch",
-                                        {"body": "use sk-abc12345", "api_key": "short-key"}) == 2
-    with pytest.raises(ValueError, match="D_CAPACITY"):
-        engine.ingest_dynamic_result(KEY_A, "s-proxy", "web.fetch",
-                                     {"body": " ".join(f"sk-more{i}" for i in range(7))})
-    assert denied(send(engine, "s-proxy", "short-key"))["reason"] == "D_MATCH"
+                                        {"body": "use sk-abc12345", "api_key": "short-key"}) == 1
+    assert holder.hard_used == 0 and holder.soft_used == 1
+    assert engine.ingest_dynamic_result(KEY_A, "s-proxy", "web.fetch",
+                                        {"body": " ".join(f"sk-more{i}" for i in range(30))}) == 16
+    assert holder.hard_used == 0 and holder.soft_used == 16
+    assert send(engine, "s-proxy", "short-key")["allowed"] is True
+    assert denied(send(engine, "s-proxy", "sk-more29"))["reason"] == "D_MATCH"
+    # A trusted credential store still marks its strings hard.
+    assert engine.ingest_dynamic_result(KEY_A, "s-proxy", "credentials.get", {"secret": "vault-pw-1"}) == 1
+    assert holder.hard_used == 1
+
+
+def test_mcp_wire_proxy_feeds_d_and_withholds_on_hard_capacity(engine: PolicyEngine) -> None:
+    from agent_gateway.mcp_proxy import CLIENT_TO_SERVER, SERVER_TO_CLIENT, McpWireProxy
+    holder = engine.attach_ingression("s-wire")
+    proxy = McpWireProxy(engine, KEY_A, "s-wire", "core")
+
+    def call(rid: int, tool: str, result: dict):
+        proxy.handle(CLIENT_TO_SERVER, {"jsonrpc": "2.0", "id": rid, "method": "tools/call",
+                                        "params": {"name": tool, "arguments": {}}})
+        return proxy.handle(SERVER_TO_CLIENT, {"jsonrpc": "2.0", "id": rid, "result": result})
+
+    r = call(1, "lookup_order_status", {"note": "reach billing-db.internal"})
+    assert r.forward and "result" in r.forward[0]
+    assert holder.soft_used == 1
+    for i in range(8):
+        call(10 + i, "credentials.get", {"secret": f"vault-pw-{i}"})
+    assert holder.hard_used == 8
+    r = call(30, "credentials.get", {"secret": "vault-pw-9"})
+    assert r.decision == "withheld"
+    assert r.forward[0]["error"]["code"] == -32075 and "result" not in r.forward[0]
+    assert r.forward[0]["error"]["data"]["reason"] == "D_CAPACITY"
 
 
 def test_sarif_declares_the_ingression_rule() -> None:

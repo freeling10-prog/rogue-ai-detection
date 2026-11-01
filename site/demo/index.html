@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AgentGate — Technical Report &amp; Reference Implementation</title>
-<meta name="description" content="A loopback policy enforcement point for AI agent tool calls. Deterministic inline checks against three multi-agent collusion carriers, with no model calls on the decision path. 57/57 carrier checks and 262 gateway tests at the sprint snapshot; 1,082 gateway tests in the v12.8 tree; same-author lab results stated with their limits.">
+<meta name="description" content="A loopback policy enforcement point for AI agent tool calls. Deterministic inline checks against three multi-agent collusion carriers, with no model calls on the decision path. 57/57 carrier checks and 262 gateway tests at the sprint snapshot; 1,122 gateway tests in the v12.8 tree with the round-2 audit fixes; same-author lab results stated with their limits.">
 <meta name="color-scheme" content="light">
 <meta property="og:title" content="AgentGate — Deterministic Guardrails Against Multi-Agent Collusion Carriers">
-<meta property="og:description" content="Technical report and reference implementation. 262 gateway tests at the sprint snapshot (784 across the workspace; 1,082 gateway tests in the v12.8 tree), 57/57 collusion carrier checks, CPU p50 0.126 ms / p99 0.999 ms per decision (max 3.84 ms). Same-author lab checks, not a benchmark.">
+<meta property="og:description" content="Technical report and reference implementation. 262 gateway tests at the sprint snapshot (784 across the workspace; 1,122 gateway tests in the v12.8 tree), 57/57 collusion carrier checks, CPU p50 0.126 ms / p99 0.999 ms per decision (max 3.84 ms). Same-author lab checks, not a benchmark.">
 <meta property="og:type" content="article">
 <link rel="icon" href="favicon.svg">
 <link rel="preload" href="fonts/newsreader-var.woff2" as="font" type="font/woff2" crossorigin>
@@ -116,12 +116,12 @@
       <table class="tbl" id="post-sprint-table">
         <thead><tr><th>Measure, v12.8 tree</th><th class="num">Value</th><th>Note</th></tr></thead>
         <tbody>
-          <tr><td>Gateway tests passing</td><td class="num">1082</td><td>262 at the snapshot, plus 127 v11, 68 v11.1 (Claude Code hook, MCP blueprint), 49 PHP Defense Guard, 146 v12 evasion-guard, 144 v12.1, 78 v12.2, 20 v12.3, 18 v12.4, 96 v12.5, 19 v12.6, 37 v12.7 and 18 v12.8 tests. The six PHP-parity tests skip on a machine without <code>php</code>.</td></tr>
+          <tr><td>Gateway tests passing</td><td class="num">1122</td><td>262 at the snapshot, plus 127 v11, 68 v11.1 (Claude Code hook, MCP blueprint), 49 PHP Defense Guard, 146 v12 evasion-guard, 144 v12.1, 78 v12.2, 20 v12.3, 18 v12.4, 96 v12.5, 19 v12.6, 37 v12.7, 18 v12.8 and 40 round-2 red-team regression tests. The six PHP-parity tests skip on a machine without <code>php</code>.</td></tr>
           <tr><td>Group D, v11 guards</td><td class="num">124&#8239;/&#8239;124</td><td>Six test files; reported separately from A&nbsp;/&nbsp;B&nbsp;/&nbsp;C.</td></tr>
           <tr><td>Stateful Hypothesis machines</td><td class="num">19</td><td>9 after v12.1 (memory provenance, temporal accumulator, control-flow integrity, cross-agent collusion), then 4 with v12.2 and one each for v12.3 to v12.8.</td></tr>
           <tr><td>Modules behind <code>pep.py</code></td><td class="num">47</td><td>22 at the snapshot; 26 after v11; 29 with v11.1 and the PHP Defense Guard; 33 after v12; 36 after v12.1; 41 after v12.2; one more for each of v12.3 to v12.8.</td></tr>
           <tr><td>Reference-validator rule codes</td><td class="num">11</td><td>JSON-RPC <code>-32066</code> through <code>-32076</code> for R, W, F, I, P, T, S, V, D and Z (R has two). See <a href="../#method">the validator layer</a>.</td></tr>
-          <tr><td>Tests passing, workspace</td><td class="num">1604</td><td>1082 <code>agent-gateway</code> · 512 <code>agent-watch</code> (514 collected, 2 skipped in CI; 510 passed and 4 skipped on the 31 October machine) · 10 <code>agentwatch-analyzer</code> (CI figure, not re-run on 31 October).</td></tr>
+          <tr><td>Tests passing, workspace</td><td class="num">1644</td><td>1122 <code>agent-gateway</code> · 512 <code>agent-watch</code> (514 collected, 2 skipped in CI; 510 passed and 4 skipped on the 31 October machine) · 10 <code>agentwatch-analyzer</code> (CI figure, not re-run on 31 October).</td></tr>
         </tbody>
       </table>
       </div>

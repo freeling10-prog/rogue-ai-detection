@@ -24,13 +24,32 @@ Work is bounded before any view is computed: every pin is charged
 total exceeds ``CREDITS`` is denied (``Z_WORK``) rather than checked partially.
 At most ``MAX_PATTERNS`` pins and ``MAX_QUERY`` query bytes.
 
-This is a FINITE family. Compositions of two transforms, keyed ciphers,
-compression and arbitrary encodings are out of scope; ``deobfuscate.py``
-covers common encodings. Every denial raises ``Denied`` with a fixed reason
+Round-2 additions (candidate views), on a second precharged budget so the
+original ``Z_WORK`` limits are unchanged:
+
+* stride interleavings: each pin also precomputes ``stride(v, k)`` (bytes
+  ``v[0::k] + v[1::k] + ...``) and its inverse for ``k`` in 2, 3, 4, matched
+  by the direct LCS. Matching the pin's variants rather than de-interleaving
+  the query keeps working when the interleaved value is embedded in text;
+* encodings: maximal runs of at least 16 hex characters (even length) and of
+  at least 16 standard or URL-safe base64 characters that decode cleanly are
+  decoded once, and each decoded view is checked with the direct and reverse
+  LCS.
+
+Every candidate check charges ``ceil(len / 30)`` per byte per pattern; a
+query whose candidate work exceeds ``CANDIDATE_CREDITS`` is denied whole
+(``Z_WORK``).
+
+This is still a FINITE family. Compositions of two transforms (an encoded
+stride, a stride of an encoding), nibble swaps, keyed ciphers, compression
+and other encodings are out of scope; ``deobfuscate.py`` covers common
+encodings for canaries. Every denial raises ``Denied`` with a fixed reason
 code; pin values never appear in reason codes.
 """
 from __future__ import annotations
 
+import base64
+import binascii
 from dataclasses import dataclass, field
 from threading import RLock
 
@@ -45,6 +64,11 @@ MAX_PIN = 128
 TRANSFORM_PERCENT = 85
 BLOCK_PERCENT = 80
 BLOCK = 4
+STRIDES = (2, 3, 4)
+MIN_ENCODED = 16
+CANDIDATE_CREDITS = 32768
+_HEX = frozenset(b"0123456789abcdefABCDEF")
+_B64 = frozenset(b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=-_")
 
 
 def delta(b: bytes) -> bytes:
@@ -78,6 +102,64 @@ def initials(b: bytes) -> bytes:
     return bytes(out)
 
 
+def stride(b: bytes, k: int) -> bytes:
+    """``b[0::k] + b[1::k] + ... + b[k-1::k]``: the k-way decimation interleave."""
+    return b"".join(b[r::k] for r in range(k))
+
+
+def unstride(b: bytes, k: int) -> bytes:
+    """Inverse of ``stride``: ``unstride(stride(b, k), k) == b``."""
+    out = bytearray(len(b))
+    pos = 0
+    for r in range(k):
+        count = len(range(r, len(b), k))
+        out[r::k] = b[pos:pos + count]
+        pos += count
+    return bytes(out)
+
+
+def _runs(q: bytes, alphabet: frozenset):
+    start = None
+    for i, c in enumerate(q):
+        if c in alphabet:
+            if start is None:
+                start = i
+        elif start is not None:
+            yield q[start:i]
+            start = None
+    if start is not None:
+        yield q[start:]
+
+
+def decoded_views(q: bytes) -> tuple[bytes, ...]:
+    """Bounded decodings of hex and base64 runs in ``q``; total length <= len(q).
+
+    A hex run must be at least ``MIN_ENCODED`` characters and of even length.
+    A base64 run (standard or URL-safe alphabet) must be at least
+    ``MIN_ENCODED`` characters and decode with no invalid characters once
+    padded. Each run is decoded once; nothing is decoded recursively.
+    """
+    views: list[bytes] = []
+    for run in _runs(q, _HEX):
+        if len(run) >= MIN_ENCODED and len(run) % 2 == 0:
+            views.append(bytes.fromhex(run.decode("ascii")))
+    for run in _runs(q, _B64):
+        body = run.rstrip(b"=")
+        if len(body) < MIN_ENCODED or b"=" in body:
+            continue
+        padded = body + b"=" * (-len(body) % 4)
+        for altchars in (None, b"-_"):
+            if altchars is None and (b"-" in body or b"_" in body):
+                continue
+            if altchars is not None and (b"+" in body or b"/" in body):
+                continue
+            try:
+                views.append(base64.b64decode(padded, altchars=altchars, validate=True))
+            except (binascii.Error, ValueError):
+                pass
+    return tuple(v for v in views if v)
+
+
 def _covers(pattern: Pattern, view: bytes, percent: int) -> bool:
     return 100 * pattern.lcs(view) >= percent * len(pattern.raw)
 
@@ -90,6 +172,7 @@ class TransformPin:
     exclusive: Pattern | None
     alphabetic: Pattern | None
     blocks: tuple[tuple[bytes, int], ...] = field(repr=False)
+    strides: tuple[Pattern, ...] = field(default=(), repr=False)
 
     @classmethod
     def make(cls, p: Pattern) -> TransformPin:
@@ -106,10 +189,17 @@ class TransformPin:
             exclusive=Pattern.make(xor_delta(b)) if len(b) >= 5 else None,
             alphabetic=Pattern.make(caesar) if len(caesar) >= 4 else None,
             blocks=tuple(counts.items()),
+            strides=tuple(Pattern.make(v) for v in dict.fromkeys(
+                f(b, k) for k in STRIDES for f in (stride, unstride)) if v != b),
         )
 
     def cost(self, query_length: int) -> int:
         return (6 * ((len(self.direct.raw) + 29) // 30) + 4 * len(self.blocks)) * query_length
+
+    def candidate_cost(self, query_length: int) -> int:
+        """Stride variants over the query, plus direct and reverse over decoded views."""
+        words = (len(self.direct.raw) + 29) // 30
+        return (len(self.strides) + 2) * words * query_length
 
 
 class TransformIndex:
@@ -151,6 +241,8 @@ class TransformIndex:
             raise Denied("Z_QUERY_SIZE")
         if sum(p.cost(len(q)) for p in pins) > CREDITS:
             raise Denied("Z_WORK")
+        if sum(p.candidate_cost(len(q)) for p in pins) > CANDIDATE_CREDITS:
+            raise Denied("Z_WORK")
         a, x, ac, ca = delta(q), xor_delta(q), initials(q), caesar_delta(q)
         for p in pins:
             for pattern, view in ((p.direct, q), (p.reverse, q), (p.additive, a),
@@ -160,3 +252,13 @@ class TransformIndex:
             covered = sum(BLOCK * min(count, q.count(chunk)) for chunk, count in p.blocks)
             if p.blocks and 100 * covered >= BLOCK_PERCENT * len(p.direct.raw):
                 raise Denied("Z_BLOCKS")
+        # Candidate views, charged above against CANDIDATE_CREDITS.
+        for p in pins:
+            for pattern in p.strides:
+                if _covers(pattern, q, TRANSFORM_PERCENT):
+                    raise Denied("Z_STRIDE")
+        decoded = decoded_views(q)
+        for p in pins:
+            for view in decoded:
+                if _covers(p.direct, view, TRANSFORM_PERCENT) or _covers(p.reverse, view, TRANSFORM_PERCENT):
+                    raise Denied("Z_ENCODED")

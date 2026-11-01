@@ -18,9 +18,17 @@ Enrollment, per ``receive`` batch:
   4 bits per byte, tested exactly in integers:
   ``16 * sum(count**2) <= len**2``.
 
-The store has ``SLOTS`` entries and never evicts. A batch that would need a
-ninth distinct value fails closed (``D_CAPACITY``) and enrolls nothing, so a
-response cannot flush an earlier secret out of the store.
+Two stores, so an untrusted response cannot brick enrollment (round-2 audit):
+
+* ``HARD_SLOTS`` (8) hold fields marked ``sensitive`` - set only by trusted
+  sensitive-source adapters (credential stores, sensitive reads). They never
+  evict. A batch that would need a ninth distinct hard value fails closed
+  (``D_CAPACITY``) and enrolls nothing, so no response can flush a trusted
+  secret out.
+* ``SOFT_SLOTS`` (16) hold heuristic detections (prefix, host suffix, e-mail,
+  entropy). When full they evict deterministically, oldest first, and never
+  raise ``D_CAPACITY``. Residual: a response the attacker controls can rotate
+  earlier heuristic values out; trusted secrets belong in the hard store.
 
 Outbound check: each enrolled value is a 256-entry byte bitmask table. A
 bit-parallel LCS recurrence over the query computes the longest common
@@ -39,7 +47,9 @@ from threading import RLock
 
 from .common import Denied
 
-SLOTS = 8
+HARD_SLOTS = 8
+SOFT_SLOTS = 16
+SLOTS = HARD_SLOTS  # v12.7 name: the non-evicting capacity
 MAX_TEXT = 4096
 MAX_SECRET = 128
 MIN_SECRET = 4
@@ -125,10 +135,20 @@ def token_runs(b: bytes):
 
 def extract(fields) -> tuple[bytes, ...]:
     """Distinct values to enroll from one inbound batch, in first-seen order."""
+    hard, soft = extract_split(fields)
+    return tuple(dict.fromkeys(hard + soft))
+
+
+def extract_split(fields) -> tuple[tuple[bytes, ...], tuple[bytes, ...]]:
+    """(hard, soft) distinct values from one batch, each in first-seen order.
+
+    A value marked sensitive anywhere in the batch is hard, never also soft.
+    """
     fields = tuple(fields)
     if len(fields) > MAX_FIELDS:
         raise Denied("D_FIELDS")
-    found: dict[bytes, None] = {}
+    hard: dict[bytes, None] = {}
+    soft: dict[bytes, None] = {}
     total = 0
     for f in fields:
         if type(f) is not Field or type(f.value) is not str or type(f.sensitive) is not bool:
@@ -143,50 +163,80 @@ def extract(fields) -> tuple[bytes, ...]:
         if f.sensitive:
             if not MIN_SECRET <= len(raw) <= MAX_SECRET:
                 raise Denied("D_SECRET_SIZE")
-            found.setdefault(raw, None)
+            hard.setdefault(raw, None)
         for run in token_runs(raw):
             if len(run) > MAX_SECRET:
                 raise Denied("D_TOKEN_SIZE")
             if candidate(run):
-                found.setdefault(run, None)
-    return tuple(found)
+                soft.setdefault(run, None)
+    return tuple(hard), tuple(v for v in soft if v not in hard)
 
 
 class Ingression:
     """ONE session's enrolled values; every change is serialized under the lock."""
 
     def __init__(self):
-        self._patterns: tuple[Pattern, ...] = ()
+        self._hard: tuple[Pattern, ...] = ()
+        self._soft: tuple[Pattern, ...] = ()
         self._lock = RLock()
+
+    @property
+    def _patterns(self) -> tuple[Pattern, ...]:
+        """Every enrolled pattern: hard first (oldest first), then soft."""
+        return self._hard + self._soft
 
     @property
     def used(self) -> int:
         with self._lock:
-            return len(self._patterns)
+            return len(self._hard) + len(self._soft)
+
+    @property
+    def hard_used(self) -> int:
+        with self._lock:
+            return len(self._hard)
+
+    @property
+    def soft_used(self) -> int:
+        with self._lock:
+            return len(self._soft)
 
     def values(self) -> tuple[bytes, ...]:
-        """Enrolled values, oldest first. Sensitive: for trusted holders only."""
+        """Enrolled values, hard then soft. Sensitive: for trusted holders only."""
         with self._lock:
             return tuple(p.raw for p in self._patterns)
 
-    def receive(self, fields, on_commit=None) -> int:
-        """Enroll a batch all or nothing. Returns how many new values were enrolled.
+    def receive(self, fields, on_commit=None, on_soft=None) -> int:
+        """Enroll a batch. Returns how many new values were enrolled.
 
-        ``on_commit(new_values)`` runs under the lock after every check has
-        passed and before anything is stored. If it raises, nothing is stored,
-        so a second store fed from this one (Predicate Z) never runs ahead of it
-        or behind it.
+        Hard values are all or nothing: a batch that would overflow
+        ``HARD_SLOTS`` stores nothing (``D_CAPACITY``). Soft values never fail:
+        the soft store keeps the newest ``SOFT_SLOTS``, evicting oldest first.
+
+        ``on_commit(new_hard)`` runs under the lock after every check has passed
+        and before anything is stored. If it raises, nothing is stored, so a
+        second store fed from this one (Predicate Z) never runs ahead of the
+        hard store or behind it. ``on_soft(new_soft)`` is told about new soft
+        values after they are stored; it must not raise.
         """
-        values = extract(fields)
+        hard, soft = extract_split(fields)
         with self._lock:
-            known = {p.raw for p in self._patterns}
-            new = [v for v in values if v not in known]
-            if len(self._patterns) + len(new) > SLOTS:
+            known_hard = {p.raw for p in self._hard}
+            new_hard = [v for v in hard if v not in known_hard]
+            if len(self._hard) + len(new_hard) > HARD_SLOTS:
                 raise Denied("D_CAPACITY")
-            if on_commit is not None and new:
-                on_commit(tuple(new))
-            self._patterns = self._patterns + tuple(Pattern.compile(v) for v in new)
-            return len(new)
+            if on_commit is not None and new_hard:
+                on_commit(tuple(new_hard))
+            self._hard = self._hard + tuple(Pattern.compile(v) for v in new_hard)
+            # A value now hard leaves the soft store; known soft values keep their age.
+            hard_now = known_hard | set(new_hard)
+            kept = tuple(p for p in self._soft if p.raw not in hard_now)
+            known_soft = {p.raw for p in kept}
+            new_soft = [v for v in soft if v not in hard_now and v not in known_soft]
+            self._soft = (kept + tuple(Pattern.compile(v) for v in new_soft))[-SOFT_SLOTS:]
+            stored_soft = [v for v in new_soft if v in {p.raw for p in self._soft}]
+            if on_soft is not None and stored_soft:
+                on_soft(tuple(stored_soft))
+            return len(new_hard) + len(stored_soft)
 
     def outbound(self, q: bytes) -> None:
         """Deny a query that covers an enrolled value; returns None when clean."""

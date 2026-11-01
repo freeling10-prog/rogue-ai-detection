@@ -76,15 +76,24 @@ def test_attaching_after_d_catches_up(engine: PolicyEngine) -> None:
         engine.attach_transform_index("s-late")
 
 
-def test_a_full_index_stops_d_from_enrolling(engine: PolicyEngine) -> None:
+def test_a_full_index_stops_d_from_enrolling_hard_values(engine: PolicyEngine) -> None:
     holder = engine.attach_ingression("s-full")
-    index = engine.attach_transform_index("s-full", tuple(f"static-pin-{i:02d}" for i in range(22)))
-    out = read(engine, "s-full", RESPONSE)  # three new values, room for two
+    index = engine.attach_transform_index("s-full", tuple(f"static-pin-{i:02d}" for i in range(23)))
+    engine.cfg.lab_fixture_outputs["read_internal_secrets"] = "vault-entry-01"
+    out = engine.evaluate_call(KEY_A, "s-full", "read_internal_secrets", {})  # two hard values, room for one
     assert out["allowed"] is False and out["rule_code"] == DYNAMIC_INGRESSION_DENIED
     assert out["ingression"]["reason"] == "Z_CAPACITY" and out["ingression"]["result_withheld"]
-    assert holder.used == 0 and index.used == 22
-    assert read(engine, "s-full", "key sk-only-one2")["allowed"] is True
-    assert holder.used == 1 and index.used == 23
+    assert holder.hard_used == 0 and index.used == 23
+
+
+def test_soft_values_fill_z_only_while_it_has_room(engine: PolicyEngine) -> None:
+    holder = engine.attach_ingression("s-room")
+    index = engine.attach_transform_index("s-room", tuple(f"static-pin-{i:02d}" for i in range(22)))
+    out = read(engine, "s-room", RESPONSE)  # three soft values, room for two in Z
+    assert out["allowed"] is True  # an untrusted response never wedges the session
+    assert holder.soft_used == 3 and index.used == 24
+    # Z took the first two soft values (the host, the address); the key stays D-only.
+    assert reason(send(engine, "s-room", "billing-db.internal"[::-1])) == "Z_TRANSFORM"
 
 
 def test_work_budget_and_query_size(engine: PolicyEngine) -> None:

@@ -114,3 +114,67 @@ def test_sarif_declares_the_fs_label_rule() -> None:
         {"kind": FS_LABEL_FLOW_DENIED, "tool": "send_email", "session": "s1", "detail": "denied"}]}})
     assert validate_sarif(doc) == []
     assert doc["runs"][0]["results"][0]["ruleId"] == FS_LABEL_FLOW_DENIED
+
+
+# --- Round-2 red-team: labels follow inode replacement and renames across rebase -----
+
+import pytest  # noqa: E402
+
+from agent_gateway.symbolic_fs_transducer import LabelDenied  # noqa: E402
+
+
+def test_unborn_copy_renamed_by_the_broker_keeps_its_label(engine: PolicyEngine) -> None:
+    t = engine.attach_fs_transducer("s-move", filesystem())
+    assert shell(engine, "s-move", "cp .mcp.json out/new")["allowed"] is True
+    # The broker materializes the file under another name (e.g. a later mv).
+    published = {**filesystem(), "/ws/out/renamed": Node("file", (1, 9))}
+    t.rebase(Snapshot(published, 1), path_moves={"/ws/out/new": "/ws/out/renamed"})
+    out = send(engine, "s-move", "/ws/out/renamed")
+    assert out["allowed"] is False and out["rule_code"] == FS_LABEL_FLOW_DENIED
+    assert t.label_at("out/renamed").confidentiality is Confidentiality.PROTECTED
+
+
+def test_unborn_path_label_is_carried_onto_its_published_inode(engine: PolicyEngine) -> None:
+    t = engine.attach_fs_transducer("s-born", filesystem())
+    assert shell(engine, "s-born", "cp .mcp.json out/new")["allowed"] is True
+    t.rebase(Snapshot({**filesystem(), "/ws/out/new": Node("file", (1, 9))}, 1))
+    assert t.state.overlay[("inode", 1, 9)].confidentiality is Confidentiality.PROTECTED
+
+
+def test_sed_in_place_inode_replacement_does_not_launder(engine: PolicyEngine) -> None:
+    t = engine.attach_fs_transducer("s-sed", filesystem())
+    assert shell(engine, "s-sed", "cp .mcp.json out/a")["allowed"] is True
+    assert send(engine, "s-sed", "/ws/out/a")["rule_code"] == FS_LABEL_FLOW_DENIED
+    assert shell(engine, "s-sed", "sed -i s/zz/zz/ out/a")["allowed"] is True
+    # GNU sed -i writes a temp file and renames it over out/a: new inode (1, 99).
+    replaced = {**filesystem(), "/ws/out/a": Node("file", (1, 99))}
+    t.rebase(Snapshot(replaced, 1), aliases={(1, 1): (1, 99)})
+    out = send(engine, "s-sed", "/ws/out/a")
+    assert out["allowed"] is False and out["rule_code"] == FS_LABEL_FLOW_DENIED
+
+
+def test_undeclared_inode_replacement_is_the_broker_contract(engine: PolicyEngine) -> None:
+    # Documented residual: without the broker's alias map the old inode's label
+    # has nothing to follow. The alias map is not optional for a real broker.
+    t = engine.attach_fs_transducer("s-sed-noalias", filesystem())
+    assert shell(engine, "s-sed-noalias", "cp .mcp.json out/a")["allowed"] is True
+    t.rebase(Snapshot({**filesystem(), "/ws/out/a": Node("file", (1, 99))}, 1))
+    assert t.label_at("out/a").confidentiality is Confidentiality.PUBLIC
+
+
+@pytest.mark.parametrize("kwargs", [
+    {"aliases": {(1, 1): (7, 7)}},                      # target inode not modeled
+    {"aliases": {(1, 1): "1:99"}},                      # malformed
+    {"aliases": {(1, 1): (0, 0)}},                      # the no-inode sentinel
+    {"path_moves": {"/ws/out/new": "/ws/out/absent"}},  # target path not published
+    {"path_moves": {"/ws/out/new": "/elsewhere/x"}},    # outside the root
+    {"path_moves": {"/ws/out/new": "/ws/out"}},         # a directory
+])
+def test_unresolvable_alias_or_move_fails_closed_and_changes_nothing(engine, kwargs) -> None:
+    t = engine.attach_fs_transducer("s-bad", filesystem())
+    assert shell(engine, "s-bad", "cp .mcp.json out/a")["allowed"] is True
+    before = (t.generation, dict(t.state.overlay), t.state.base.generation)
+    with pytest.raises(LabelDenied) as exc:
+        t.rebase(Snapshot({**filesystem(), "/ws/out/a": Node("file", (1, 99))}, 1), **kwargs)
+    assert str(exc.value) == "LABEL_ALIAS_UNRESOLVABLE"
+    assert (t.generation, dict(t.state.overlay), t.state.base.generation) == before

@@ -129,3 +129,42 @@ def test_sarif_declares_the_fork_join_rule() -> None:
         {"kind": FORK_JOIN_LEDGER_DENIED, "tool": "send_email", "session": "s1", "detail": "denied"}]}})
     assert validate_sarif(doc) == []
     assert doc["runs"][0]["results"][0]["ruleId"] == FORK_JOIN_LEDGER_DENIED
+
+
+# --- Round-2 red-team: two-phase prepare/commit on spawn_subagent ---------------------
+
+METADATA = "http://169.254.169.254/latest/meta-data/"
+
+
+def test_downstream_denied_spawns_leave_no_ghost_branches(engine: PolicyEngine) -> None:
+    owner = engine.attach_fork_join("root", Root.make(tokens=(0,) * 16))
+    for i in range(7):
+        out = engine.evaluate_call(KEY_A, "root", "spawn_subagent",
+                                   {"child_session_id": f"ghost{i}", "url": METADATA})
+        assert out["allowed"] is False and out["error"] == "ssrf_boundary_violation", out
+    assert len(owner.root.branches) == 1
+    assert not any(f"ghost{i}" in engine.fork_ledgers for i in range(7))
+    out = engine.evaluate_call(KEY_A, "root", "spawn_subagent",
+                               {"child_api_key": "k", "child_session_id": "kid"})
+    assert out["ok"] is True
+    assert engine.fork_ledgers["kid"] == (owner, 1) and len(owner.root.branches) == 2
+    assert owner.root.conserved()
+
+
+def test_denied_call_charges_only_the_denial_unit(engine: PolicyEngine) -> None:
+    owner = engine.attach_fork_join("root", Root.make(denials=3, outbound=4096, tokens=(0,) * 16))
+    before = owner.root.branches[0].wallet
+    out = engine.evaluate_call(KEY_A, "root", "send_webhook", {"url": METADATA, "payload": "x" * 100})
+    assert out["allowed"] is False
+    after = owner.root.branches[0].wallet
+    assert after[0] == before[0] - 1  # one denial unit
+    assert after[1] == before[1]      # no outbound bytes for a call that never left
+
+
+def test_denied_call_still_mirrors_branch_taint(engine: PolicyEngine) -> None:
+    owner = engine.attach_fork_join("root", Root.make(tokens=(0,) * 16))
+    engine.get_session("root", KEY_A)
+    engine.mark_untrusted_ingest(KEY_A, "root", "fixture")
+    out = engine.evaluate_call(KEY_A, "root", "send_webhook", {"url": METADATA, "payload": "x"})
+    assert out["allowed"] is False
+    assert owner.root.branches[0].taint == 1

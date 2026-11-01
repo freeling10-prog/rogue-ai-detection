@@ -1505,7 +1505,8 @@ TestLedger.settings = settings(max_examples=60, stateful_step_count=50, deadline
 import math as _math
 
 from agent_gateway.dynamic_ingression_validator import (
-    MAX_QUERY, SLOTS, TOKEN, Field, Ingression, Pattern, candidate, extract, high_entropy,
+    HARD_SLOTS, MAX_QUERY, SLOTS, SOFT_SLOTS, TOKEN, Field, Ingression, Pattern, candidate, extract,
+    extract_split, high_entropy,
     token_runs)
 
 TOKEN_ALPHABET = bytes(sorted(TOKEN))
@@ -1581,24 +1582,54 @@ def test_extract_bounds_and_sensitive_fields():
     assert d_reason(extract, [Field("é" * 2048), Field("x")]) == "D_TEXT"  # bytes, not chars
 
 
-def test_capacity_is_all_or_nothing():
+def hard(*values: str) -> list:
+    return [Field(v, sensitive=True) for v in values]
+
+
+def test_hard_capacity_is_all_or_nothing_and_never_evicts():
     holder = Ingression()
-    assert holder.receive([Field(" ".join(f"sk-{i:04d}" for i in range(4)))]) == 4
-    before = holder._patterns
-    assert d_reason(holder.receive, [Field(" ".join(f"sk-{i:04d}" for i in range(4, 9)))]) == "D_CAPACITY"
-    assert holder._patterns is before and holder.used == 4
-    assert holder.receive([Field("sk-0000 sk-0001")]) == 0  # known values need no slot
-    assert holder.receive([Field(" ".join(f"sk-{i:04d}" for i in range(4, 8)))]) == 4
-    assert d_reason(holder.receive, [Field("sk-9999")]) == "D_CAPACITY"
-    assert holder.used == SLOTS
+    assert SLOTS == HARD_SLOTS == 8 and SOFT_SLOTS == 16
+    assert holder.receive(hard(*(f"pw-{i:04d}" for i in range(4)))) == 4
+    before = holder._hard
+    assert d_reason(holder.receive, hard(*(f"pw-{i:04d}" for i in range(4, 9)))) == "D_CAPACITY"
+    assert holder._hard is before and holder.hard_used == 4
+    assert holder.receive(hard("pw-0000", "pw-0001")) == 0  # known values need no slot
+    assert holder.receive(hard(*(f"pw-{i:04d}" for i in range(4, 8)))) == 4
+    assert d_reason(holder.receive, hard("pw-9999")) == "D_CAPACITY"
+    assert holder.hard_used == HARD_SLOTS
     holder.outbound(b"unrelated")
-    assert d_reason(holder.outbound, b"sk-0000") == "D_MATCH"  # nothing was evicted
+    assert d_reason(holder.outbound, b"pw-0000") == "D_MATCH"  # nothing was evicted
+
+
+def test_soft_store_rotates_fifo_and_never_bricks_the_hard_store():
+    holder = Ingression()
+    assert holder.receive(hard("pw-trusted")) == 1
+    flood = " ".join(f"ghp_dummy{i:03d}" for i in range(40))  # attacker-chosen tokens
+    assert holder.receive([Field(flood)]) == SOFT_SLOTS  # never D_CAPACITY
+    assert holder.soft_used == SOFT_SLOTS and holder.hard_used == 1
+    assert [p.raw for p in holder._soft] == [f"ghp_dummy{i:03d}".encode() for i in range(24, 40)]
+    # Deterministic: the oldest soft values left first; the trusted secret stayed.
+    assert d_reason(holder.outbound, b"pw-trusted") == "D_MATCH"
+    assert holder.receive([Field("ops@example.com")]) == 1
+    assert holder._soft[-1].raw == b"ops@example.com" and holder._soft[0].raw == b"ghp_dummy025"
+    # A trusted credential read after the flood still enrolls.
+    assert holder.receive(hard("AKIAREALREALREAL")) == 1 and holder.hard_used == 2
+
+
+def test_a_value_marked_sensitive_is_hard_not_soft():
+    assert extract_split([Field("sk-abcd1234", sensitive=True), Field("use sk-abcd1234 now")]) == (
+        (b"sk-abcd1234",), ())
+    holder = Ingression()
+    holder.receive([Field("sk-abcd1234")])
+    assert holder.soft_used == 1
+    holder.receive(hard("sk-abcd1234"))  # promoted: leaves the soft store
+    assert holder.hard_used == 1 and holder.soft_used == 0
 
 
 def test_outbound_threshold_and_bounds():
     holder = Ingression()
     holder.outbound(b"x" * (MAX_QUERY + 1))  # nothing enrolled: no bound to apply
-    holder.receive([Field("abcdefghijklmnopqrst", sensitive=True)])  # 20 bytes
+    holder.receive([Field("abcdefghijklmnopqrst", sensitive=True)])  # 20 bytes, hard
     assert d_reason(holder.outbound, b"abcdefghijklmnopq") == "D_MATCH"  # 17/20 = 85%
     holder.outbound(b"abcdefghijklmnop")  # 16/20 = 80%
     assert d_reason(holder.outbound, b"a-b-c-d-e-f-g-h-i-j-k-l-m-n-o-p-q-r-s-t") == "D_MATCH"
@@ -1627,44 +1658,53 @@ def test_dp_oracle_detects_a_mutated_recurrence():
 
 
 class IngressionMachine(RuleBasedStateMachine):
-    """Random enrollment batches and outbound queries against a model and a DP oracle."""
+    """Random enrollment batches and outbound queries against a model and a DP oracle.
+
+    The model keeps hard values (non-evicting, all or nothing) and soft values
+    (FIFO, newest SOFT_SLOTS) separately, as the round-2 audit fix requires.
+    """
 
     POOL = [f"sk-pool{i:02d}x" for i in range(12)] + ["db{0}.internal".format(i) for i in range(3)]
+    HARD = ["pw-alpha", "pw-bravo", "pw-charlie"] + [f"pw-x{i}" for i in range(9)]
 
     def __init__(self):
         super().__init__()
         self.holder = Ingression()
-        self.model: list[bytes] = []
+        self.hard: list[bytes] = []
+        self.soft: list[bytes] = []
 
-    @rule(picks=st.lists(st.integers(0, 14), max_size=5), noise=st.booleans(),
-          sensitive=st.sampled_from([None, "pw-alpha", "pw-bravo", "pw-charlie"]))
+    @rule(picks=st.lists(st.integers(0, 14), max_size=20), noise=st.booleans(),
+          sensitive=st.lists(st.integers(0, 11), max_size=3))
     def receive(self, picks, noise, sensitive):
         values = [self.POOL[i] for i in picks]
         fields = [Field(" ".join(values) + (" plain words here" if noise else ""))]
-        if sensitive:
-            fields.append(Field(sensitive, sensitive=True))
-        expected = list(dict.fromkeys(v.encode() for v in values + ([sensitive] if sensitive else [])))
-        new = [v for v in expected if v not in self.model]
-        before = self.holder.used
-        ok = len(self.model) + len(new) <= SLOTS
+        hard_values = [self.HARD[i] for i in sensitive]
+        fields += [Field(v, sensitive=True) for v in hard_values]
+        new_hard = [v for v in dict.fromkeys(x.encode() for x in hard_values) if v not in self.hard]
+        ok = len(self.hard) + len(new_hard) <= HARD_SLOTS
         assert allows(self.holder.receive, fields) == ok
-        if ok:
-            self.model.extend(new)
-        else:
-            assert self.holder.used == before
+        if not ok:
+            return
+        self.hard.extend(new_hard)
+        soft = [x for x in self.soft if x not in self.hard]
+        for v in dict.fromkeys(x.encode() for x in values):
+            if v not in self.hard and v not in soft:
+                soft.append(v)
+        self.soft = soft[-SOFT_SLOTS:]
 
-    @rule(i=st.integers(0, 17), mode=st.sampled_from(["exact", "spaced", "drop1", "drop2", "drop4"]))
+    @rule(i=st.integers(0, 26), mode=st.sampled_from(["exact", "spaced", "drop1", "drop2", "drop4"]))
     def outbound(self, i, mode):
-        base = (self.POOL + ["pw-alpha", "pw-bravo", "pw-charlie"])[i].encode()
+        base = (self.POOL + self.HARD)[i].encode()
         query = {"exact": base, "spaced": b" ".join(bytes([c]) for c in base),
                  "drop1": base[1:], "drop2": base[:-2], "drop4": base[2:-2]}[mode]
-        expected = any(100 * dp_lcs(v, query) >= 85 * len(v) for v in self.model)
+        expected = any(100 * dp_lcs(v, query) >= 85 * len(v) for v in self.hard + self.soft)
         assert allows(self.holder.outbound, query) == (not expected)
 
     @invariant()
     def store_matches_model(self):
-        assert [p.raw for p in self.holder._patterns] == self.model
-        assert len(self.model) <= SLOTS
+        assert [p.raw for p in self.holder._hard] == self.hard
+        assert [p.raw for p in self.holder._soft] == self.soft
+        assert len(self.hard) <= HARD_SLOTS and len(self.soft) <= SOFT_SLOTS
 
 
 TestIngression = IngressionMachine.TestCase
@@ -1673,6 +1713,8 @@ TestIngression.settings = settings(max_examples=60, stateful_step_count=40, dead
 
 # --- Predicate Z: transform_invariant_validator ---------------------------------------
 
+import base64
+import binascii
 import re as _re
 from collections import Counter as _Counter
 
@@ -1702,6 +1744,10 @@ def z_oracle(pins: list[bytes], q: bytes):
 
     if sum((6 * -(-len(p) // 30) + 4 * len(chunks(p))) * len(q) for p in pins) > CREDITS:
         return "Z_WORK"
+    if sum((len({v for k in (2, 3, 4) for v in (b"".join(p[r::k] for r in range(k)),)} | {
+            bytes(p[sorted(range(len(p)), key=lambda j, k=k: (j % k, j)).index(i)] for i in range(len(p)))
+            for k in (2, 3, 4)} - {p}) + 2) * -(-len(p) // 30) * len(q) for p in pins) > CREDITS:
+        return "Z_WORK"  # candidate budget, precharged before any view (round 2)
     d = bytes((q[i + 1] - q[i]) % 256 for i in range(len(q) - 1))
     x = bytes(q[i + 1] ^ q[i] for i in range(len(q) - 1))
     ac = bytes(m[0] for m in _re.findall(rb"[A-Za-z]+", q))
@@ -1724,6 +1770,46 @@ def z_oracle(pins: list[bytes], q: bytes):
         covered = sum(4 * min(n, q.count(c)) for c, n in chunks(p).items())
         if chunks(p) and 100 * covered >= 80 * len(p):
             return "Z_BLOCKS"
+    # Round-2 candidate views, computed independently of the module.
+    def interleave(b, k):  # b[0::k] + b[1::k] + ...
+        return b"".join(b[r::k] for r in range(k))
+
+    def deinterleave(b, k):  # positions of interleave(range(n)) give the inverse
+        order = interleave(bytes(range(len(b))), k) if len(b) < 256 else None
+        out = [0] * len(b)
+        for src, dst in enumerate(order):
+            out[dst] = b[src]
+        return bytes(out)
+
+    variants = {p: {v for k in (2, 3, 4) for v in (interleave(p, k), deinterleave(p, k)) if v != p}
+                for p in pins}
+    decoded = []
+    for m in _re.finditer(rb"[0-9a-fA-F]+", q):
+        if len(m.group()) >= 16 and len(m.group()) % 2 == 0:
+            decoded.append(binascii.unhexlify(m.group()))
+    for m in _re.finditer(rb"[A-Za-z0-9+/=_-]+", q):
+        body = m.group().rstrip(b"=")
+        if len(body) < 16 or b"=" in body:
+            continue
+        for alt in (b"+/", b"-_"):
+            other = b"-_" if alt == b"+/" else b"+/"
+            if any(c in body for c in other):
+                continue
+            std = body.translate(bytes.maketrans(alt, b"+/")) + b"=" * (-len(body) % 4)
+            try:
+                decoded.append(binascii.a2b_base64(std, strict_mode=True))
+            except binascii.Error:
+                pass
+    words = lambda p: -(-len(p) // 30)  # noqa: E731
+    if sum((len(variants[p]) + 2) * words(p) * len(q) for p in pins) > CREDITS:
+        return "Z_WORK"
+    for p in pins:
+        if any(100 * dp_lcs(v, q) >= 85 * len(v) for v in variants[p]):
+            return "Z_STRIDE"
+    for p in pins:
+        for view in decoded:
+            if view and any(100 * dp_lcs(pat, view) >= 85 * len(pat) for pat in (p, p[::-1])):
+                return "Z_ENCODED"
     return None
 
 
@@ -1815,11 +1901,14 @@ def test_work_budget_is_exact_and_precharged():
 def test_d_commit_hook_keeps_both_stores_in_step():
     holder = Ingression()
     index = TransformIndex([f"pin-{i:04d}".encode() for i in range(MAX_PATTERNS - 1)])
-    assert z_reason(holder.receive, [Field("sk-aaaa sk-bbbb")], index.add) == "Z_CAPACITY"
+    hard_ab = [Field("sk-aaaa", sensitive=True), Field("sk-bbbb", sensitive=True)]
+    assert z_reason(holder.receive, hard_ab, index.add) == "Z_CAPACITY"
     assert holder.used == 0 and index.used == MAX_PATTERNS - 1
-    assert holder.receive([Field("sk-aaaa")], index.add) == 1
+    assert holder.receive([Field("sk-aaaa", sensitive=True)], index.add) == 1
     assert holder.values() == (b"sk-aaaa",) and index.used == MAX_PATTERNS
-    assert holder.receive([Field("sk-aaaa again")], index.add) == 0  # nothing new: hook not needed
+    assert holder.receive([Field("sk-aaaa", sensitive=True)], index.add) == 0  # nothing new
+    # Soft values never reach the atomic hook: a full Z cannot wedge D.
+    assert holder.receive([Field("sk-cccc sk-dddd")], index.add) == 2 and index.used == MAX_PATTERNS
 
 
 class TransformMachine(RuleBasedStateMachine):
@@ -1842,7 +1931,8 @@ class TransformMachine(RuleBasedStateMachine):
         assert [p.direct.raw for p in self.index.pins] == self.pins
 
     @rule(i=st.integers(0, 30), k=st.integers(1, 255),
-          kind=st.sampled_from(["reverse", "add", "xor", "caesar", "acrostic", "blocks", "plain", "long"]),
+          kind=st.sampled_from(["reverse", "add", "xor", "caesar", "acrostic", "blocks", "plain", "long",
+                                "stride", "hex", "b64", "b64url"]),
           pad=st.sampled_from([b"", b"ref: ", b"see attached; "]))
     def query(self, i, k, kind, pad):
         p = self.pins[i % len(self.pins)] if self.pins else b"nothing-pinned"
@@ -1860,6 +1950,14 @@ class TransformMachine(RuleBasedStateMachine):
                                 for c in p)
         elif kind == "blocks":
             q = pad + b"".join(reversed([p[j:j + 4] for j in range(0, len(p), 4)]))
+        elif kind == "stride":
+            q = pad + b"".join(p[r::k % 3 + 2] for r in range(k % 3 + 2))
+        elif kind == "hex":
+            q = pad + p.hex().encode()
+        elif kind == "b64":
+            q = pad + base64.b64encode(p)
+        elif kind == "b64url":
+            q = pad + base64.urlsafe_b64encode(p).rstrip(b"=")
         elif kind == "plain":
             q = pad + b"weekly summary for the team"
         else:
@@ -1874,3 +1972,34 @@ class TransformMachine(RuleBasedStateMachine):
 
 TestTransform = TransformMachine.TestCase
 TestTransform.settings = settings(max_examples=60, stateful_step_count=40, deadline=None)
+
+
+# --- Round-2 red-team: Z stride and encoding witnesses ---------------------------------
+
+R2_SECRET = b"sk-proj-AbCdEfGhIjKlMnOpQrStUvWx"
+
+
+@pytest.mark.parametrize("query, reason", [
+    (R2_SECRET.hex().encode(), "Z_ENCODED"),
+    (b"payload=" + R2_SECRET.hex().encode() + b"; ok", "Z_ENCODED"),
+    (base64.b64encode(R2_SECRET), "Z_ENCODED"),
+    (base64.urlsafe_b64encode(R2_SECRET).rstrip(b"="), "Z_ENCODED"),
+    (R2_SECRET[0::2] + R2_SECRET[1::2], "Z_STRIDE"),
+    (R2_SECRET[0::3] + R2_SECRET[1::3] + R2_SECRET[2::3], "Z_STRIDE"),
+    (b"id " + R2_SECRET[0::4] + R2_SECRET[1::4] + R2_SECRET[2::4] + R2_SECRET[3::4], "Z_STRIDE"),
+])
+def test_round2_witnesses_are_denied(query, reason):
+    index = TransformIndex([R2_SECRET])
+    assert z_reason(index.check, query) == reason
+    assert z_oracle([R2_SECRET], query) == reason
+
+
+@pytest.mark.parametrize("benign", [
+    b"hello world, the order shipped today", b"status=shipped", b"abcdef0123456789",
+    b"commit 4425bdd947eaa69b387f1fcbf06407c01eef630d", b"550e8400-e29b-41d4-a716-446655440000",
+    b"VGhpcyBpcyBhIGJlbmlnbiBzZW50ZW5jZS4=",  # base64 of an unrelated sentence
+])
+def test_round2_candidate_views_leave_benign_text_alone(benign):
+    index = TransformIndex([R2_SECRET, b"ghp_0123456789abcdef", b"billing-db.internal"])
+    index.check(benign)
+    assert z_oracle([R2_SECRET, b"ghp_0123456789abcdef", b"billing-db.internal"], benign) is None

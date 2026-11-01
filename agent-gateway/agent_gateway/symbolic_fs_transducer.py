@@ -270,14 +270,90 @@ class FsTransducer:
         with self._lock:
             return self.commit(self.check(intents, cwd, **sinks))
 
-    def rebase(self, snapshot: Snapshot) -> None:
-        """Adopt a newer broker-published base; labels carry over."""
+    def rebase(self, snapshot: Snapshot, *, aliases=None, path_moves=None) -> None:
+        """Adopt a newer broker-published base; labels carry over and follow identity.
+
+        Three carries, each a join (labels never lower):
+
+        * a ``("path", p)`` label whose path now resolves to a modeled inode is
+          copied onto that inode key, so an unborn file keeps its label once it
+          is published;
+        * ``aliases`` maps an old inode to the inode that replaced it (GNU
+          ``sed -i`` and ``mv`` swap inodes): the old inode's label is joined
+          onto the new one;
+        * ``path_moves`` maps an old canonical path to the path it was renamed
+          or materialized at: the old path's full label (defaults included) is
+          joined onto the new path and the inode it resolves to.
+
+        ``aliases`` and ``path_moves`` must come from the broker that ran the
+        commands, never from the agent. A declared target that is malformed or
+        does not resolve to a modeled object in ``snapshot`` fails closed
+        (``LABEL_ALIAS_UNRESOLVABLE``) and nothing changes.
+        """
         with self._lock:
-            base = self._state.base
+            state = self._state
+            base = state.base
             if not isinstance(snapshot, Snapshot) or snapshot.root != base.root:
                 raise LabelDenied("REBASE_ROOT", "state")
             if snapshot.generation <= base.generation:
                 raise LabelDenied("STALE_FILESYSTEM_GENERATION", "state")
+            aliases = dict(aliases or {})
+            path_moves = dict(path_moves or {})
+            if len(aliases) + len(path_moves) > MAX_OVERLAY:
+                raise LabelDenied("LABEL_OVERLAY_LIMIT", "state")
+            old = state.overlay
+            overlay = dict(old)
+
+            def carry(key: tuple, label: FileLabel) -> None:
+                if label != BOTTOM:
+                    overlay[key] = overlay.get(key, BOTTOM).join(label)
+
+            def inode_key(inode) -> tuple:
+                if (type(inode) is not tuple or len(inode) != 2
+                        or any(type(x) is not int or x < 0 for x in inode) or inode == _NO_INODE):
+                    raise LabelDenied("LABEL_ALIAS_UNRESOLVABLE", "state")
+                return ("inode",) + inode
+
+            def resolve_new(path) -> Resolved:
+                if type(path) is not str or not path.startswith(snapshot.root + "/"):
+                    raise LabelDenied("LABEL_ALIAS_UNRESOLVABLE", "state")
+                try:
+                    resolved = snapshot.resolve(path)
+                except Denied:
+                    raise LabelDenied("LABEL_ALIAS_UNRESOLVABLE", "state") from None
+                if resolved.node is None or resolved.node.kind != "file":
+                    raise LabelDenied("LABEL_ALIAS_UNRESOLVABLE", "state")
+                return resolved
+
+            # Unborn (or path-keyed) labels follow their path onto its new inode.
+            for key, label in old.items():
+                if key[0] != "path":
+                    continue
+                try:
+                    resolved = snapshot.resolve(key[1])
+                except Denied:
+                    continue
+                if resolved.node is not None and resolved.node.inode != _NO_INODE:
+                    carry(object_key(resolved), label)
+
+            modeled = {n.inode for n in snapshot.nodes.values() if n.inode != _NO_INODE}
+            for old_inode, new_inode in aliases.items():
+                old_key, new_key = inode_key(old_inode), inode_key(new_inode)
+                if new_inode not in modeled:
+                    raise LabelDenied("LABEL_ALIAS_UNRESOLVABLE", "state")
+                carry(new_key, old.get(old_key, BOTTOM))
+
+            for old_path, new_path in path_moves.items():
+                if type(old_path) is not str or not old_path.startswith(base.root + "/"):
+                    raise LabelDenied("LABEL_ALIAS_UNRESOLVABLE", "state")
+                label = old.get(("path", old_path), BOTTOM)
+                try:
+                    label = label.join(state.label_of(base.resolve(old_path)))
+                except Denied:
+                    pass  # Unborn in the old model: its path key is all there is.
+                target = resolve_new(new_path)
+                carry(("path", target.path), label)
+                carry(object_key(target), label)
+
             # The bump fences any result computed against the old base.
-            self._state = TransducerSnapshot(snapshot, self._state.overlay,
-                                             self._state.generation + 1)
+            self._state = TransducerSnapshot(snapshot, overlay, state.generation + 1)

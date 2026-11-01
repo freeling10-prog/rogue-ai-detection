@@ -246,7 +246,7 @@ footer ul{list-style:none;padding:0;margin:0 0 1rem;display:flex;flex-wrap:wrap;
         <li class="bad"><span class="who">Session B</span><span class="bar" aria-hidden="true"></span>
           <span class="what"><code>send_email</code> with <code>data.json</code> attached.<span class="verdict">Wrong: allowed, should be held for review</span></span></li>
       </ol>
-      <figcaption id="gate-cap">Simplified trace of a critical finding from our audit of our own open-source gateway, now fixed in <a href="https://github.com/freeling10-prog/rogue-ai-detection/pull/34">PR #34</a> and pending merge to main. Every step passed its local check; the failure only shows across sessions.</figcaption>
+      <figcaption id="gate-cap">Simplified trace of a critical finding from our audit of our own open-source gateway. Fixed on main (<a href="https://github.com/freeling10-prog/rogue-ai-detection/pull/34">PR #34</a>). Every step passed its local check; the failure only shows across sessions.</figcaption>
     </figure>
   </div>
 </div>
@@ -328,7 +328,7 @@ footer ul{list-style:none;padding:0;margin:0 0 1rem;display:flex;flex-wrap:wrap;
   <div class="wrap">
     <div class="intro">
       <h2 id="findings-h">The kind of thing we find</h2>
-      <p>These five findings come from a red-team audit of our own gateway on 31 October 2026, not from a client engagement. Each was reproduced against the code. The two critical findings are fixed and include a short trace. The high findings are described by bug class until their fixes merge. Working exploit code is not published.</p>
+      <p>These five findings come from a red-team audit of our own gateway on 31 October 2026, not from a client engagement. Each was reproduced against the code. The two critical findings include a short trace. The high findings state what is on main and what is still open. Working exploit code is not published.</p>
     </div>
 
     <div class="findings">
@@ -345,7 +345,7 @@ footer ul{list-style:none;padding:0;margin:0 0 1rem;display:flex;flex-wrap:wrap;
           <div><h4>Fix</h4>
             <p>File labels now persist across sessions in an append-only, hash-chained store. With a directory bound, a file with no record that is not older than the store epoch is untrusted.</p>
             <p class="muted">Residual risk: network filesystems without stable inodes need a path-and-hash fallback.</p></div>
-          <p class="status">Status: fixed in <a href="https://github.com/freeling10-prog/rogue-ai-detection/pull/34">PR #34</a>, pending merge to main.</p>
+          <p class="status">Status: fixed on main (<a href="https://github.com/freeling10-prog/rogue-ai-detection/pull/34">PR #34</a>).</p>
         </div>
       </details>
 
@@ -362,7 +362,7 @@ footer ul{list-style:none;padding:0;margin:0 0 1rem;display:flex;flex-wrap:wrap;
           <div><h4>Fix</h4>
             <p>Request ids stay null, string, or int, with no coercion between those forms. A response whose id is not in flight is not forwarded, malformed and reused ids are rejected, and every response that reaches the model is scanned, including errors.</p>
             <p class="muted">Residual risk: a peer that stringifies an id has that response dropped rather than inspected. Pin one codec so ids are not rewritten between hops.</p></div>
-          <p class="status">Status: fixed in <a href="https://github.com/freeling10-prog/rogue-ai-detection/pull/34">PR #34</a>, pending merge to main.</p>
+          <p class="status">Status: fixed on main (<a href="https://github.com/freeling10-prog/rogue-ai-detection/pull/34">PR #34</a>).</p>
         </div>
       </details>
 
@@ -374,7 +374,7 @@ footer ul{list-style:none;padding:0;margin:0 0 1rem;display:flex;flex-wrap:wrap;
           <div><h4>Fix design</h4>
             <p>The broker that ran the command publishes an old-to-new inode map, and labels move with it. Edited files are keyed by path first. The read-write <code>&lt;&gt;</code> redirect is rejected.</p>
             <p class="muted">Residual risk: any utility that replaces an inode without the broker observing it.</p></div>
-          <p class="status">Status: fixed on the development branch (broker inode and rename maps on rebase), pending merge to main.</p>
+          <p class="status">Status: fixed on main (broker inode and rename maps on rebase).</p>
         </div>
       </details>
 
@@ -386,7 +386,7 @@ footer ul{list-style:none;padding:0;margin:0 0 1rem;display:flex;flex-wrap:wrap;
           <div><h4>Fix design</h4>
             <p>Separate evictable soft pins from non-evicting hard pins. Join adjacent fields before enrollment, and check outbound fields concatenated. When hard capacity is reached, raise a human-review lead and forward a redacted body.</p>
             <p class="muted">Residual risk: secrets split non-adjacently with delimiters can still evade; these surface as review leads.</p></div>
-          <p class="status">Status: pin-stuffing fixed on the development branch (separate hard and soft stores), pending merge to main. Split secrets: fix designed, not yet merged.</p>
+          <p class="status">Status: pin-stuffing fixed on main (separate hard and soft stores). Split secrets: fix designed, not yet merged.</p>
         </div>
       </details>
 
@@ -398,7 +398,7 @@ footer ul{list-style:none;padding:0;margin:0 0 1rem;display:flex;flex-wrap:wrap;
           <div><h4>Fix design</h4>
             <p>Decode hex, base32, base64 and percent-encoding to a fixed point (at most four rounds), de-interleave strides 2 to 4, prefilter on byte histograms, then run the existing checks. Cost is O(n·k).</p>
             <p class="muted">Residual risk, stated plainly: no finite matcher catches arbitrary encodings. What the fix doesn't catch becomes a human-review lead.</p></div>
-          <p class="status">Status: stride, hex and base64 forms fixed on the development branch, pending merge to main. Other encodings remain out of scope.</p>
+          <p class="status">Status: stride, hex and base64 forms fixed on main. Other encodings remain out of scope.</p>
         </div>
       </details>
     </div>
@@ -464,16 +464,16 @@ footer ul{list-style:none;padding:0;margin:0 0 1rem;display:flex;flex-wrap:wrap;
 
     <div class="tbl-scroll">
       <table class="tbl">
-        <caption>Gateway test suites (recorded 31 Oct 2026)</caption>
+        <caption>Gateway test suites (31 Oct records, re-measured 1 Nov 2026)</caption>
         <thead><tr><th scope="col">Code revision</th><th scope="col">Contents</th><th scope="col">Tests</th></tr></thead>
         <tbody>
           <tr><td><code>main</code> @ <code>af43afe</code></td><td>Gateway through v12.1</td><td class="n">796 collected</td></tr>
-          <tr><td>PR #33 head (unmerged)</td><td>Validators R, W, F, I</td><td class="n">874 collected</td></tr>
-          <tr><td>Development branch @ <code>4425bdd</code> (unmerged)</td><td>Full validator set R–Z</td><td class="n">1,082 collected; 1,076 passed, 6 skipped. Re-run 31 Oct with <code>php</code> present: 1,082 passed</td></tr>
-          <tr><td>Development branch with v14 C, E, B, A (unmerged)</td><td>R–Z with round-2 fixes, plus C, E, B, A</td><td class="n">1,165 passed (31 Oct, Python 3.12.3)</td></tr>
-          <tr><td>Development branch with round-2 audit fixes (unmerged)</td><td>R–Z plus fixes to V, S, T, D and Z</td><td class="n">1,122 passed (31 Oct, Python 3.12.3)</td></tr>
-          <tr><td>Development branch with fixes (unmerged)</td><td>Full validator set R–Z plus the <a href="https://github.com/freeling10-prog/rogue-ai-detection/pull/34">PR #34</a> fixes</td><td class="n">1,094 collected; 1,088 passed, 6 skipped (PHP parity)</td></tr>
-          <tr><td><code>agent-watch</code></td><td>Log detector and localhost honeypot</td><td class="n">514 collected; 510 passed, 4 skipped on the 31 Oct re-run</td></tr>
+          <tr><td>PR #33, now on <code>main</code></td><td>Validators R, W, F, I</td><td class="n">874 collected</td></tr>
+          <tr><td><code>4425bdd</code>, now on <code>main</code> (before round-2)</td><td>Full validator set R–Z</td><td class="n">1,082 collected; 1,076 passed, 6 skipped. Re-run 31 Oct with <code>php</code> present: 1,082 passed</td></tr>
+          <tr><td>Round-2 audit fixes, on <code>main</code> via PR #36</td><td>R–Z plus fixes to V, S, T, D and Z</td><td class="n">1,122 passed (31 Oct record, Python 3.12.3)</td></tr>
+          <tr><td><code>main</code> @ <code>2dbca57</code> (PR #36)</td><td>R–Z with round-2 fixes, plus C, E, B, A</td><td class="n">1,165 collected; 1,159 passed, 6 skipped (1 Nov, Python 3.12.3, no <code>php</code>). The 31 Oct record counted this suite as 1,165 passed</td></tr>
+          <tr><td>This branch: <a href="https://github.com/freeling10-prog/rogue-ai-detection/pull/34">PR #34</a> onto <code>main</code></td><td>PR #36 tree plus cross-session labels and canonical MCP ids</td><td class="n">1,178 collected; 1,172 passed, 6 skipped (1 Nov, Python 3.12.3, no <code>php</code>; the skips are PHP parity)</td></tr>
+          <tr><td><code>agent-watch</code></td><td>Log detector and localhost honeypot</td><td class="n">514 collected. 1 Nov, with <code>requirements-dev.txt</code>: 512 passed, 2 skipped. The 31 Oct machine: 510 passed, 4 skipped</td></tr>
           <tr><td>v14 reference package</td><td>Four bounded reference validators</td><td class="n">33 passed, per its own validation record (not re-run)</td></tr>
         </tbody>
       </table>
@@ -491,7 +491,7 @@ footer ul{list-style:none;padding:0;margin:0 0 1rem;display:flex;flex-wrap:wrap;
           <tr><td>F <code>lattice_flow_validator.py</code></td><td class="n">-32069</td><td>Contamination only rises. Each precommitted workflow step runs at most once, in DAG order.</td><td class="n">0.024</td></tr>
           <tr><td>I <code>shingle_similarity_validator.py</code></td><td class="n">-32070</td><td>Outbound text whose longest common subsequence covers 85% of a pinned value is denied, under two pinned normalizations.</td><td class="n">2.495</td></tr>
           <tr><td>P <code>linear_obligation_validator.py</code></td><td class="n">-32071</td><td>A 16-place Petri net never mints tokens; no egress while a cleanup place is non-zero.</td><td class="n">0.022</td></tr>
-          <tr><td>T <code>symbolic_fs_transducer.py</code></td><td class="n">-32072</td><td>File labels only rise within a session; non-public data never feeds egress and untrusted data never feeds execution. Labels don't yet survive a new session (sample finding above).</td><td class="n">0.564</td></tr>
+          <tr><td>T <code>symbolic_fs_transducer.py</code></td><td class="n">-32072</td><td>File labels only rise; non-public data never feeds egress and untrusted data never feeds execution. Committed labels persist in a hash-chained sidecar, and a broker rebase carries them onto a replacement inode or a renamed path.</td><td class="n">0.564</td></tr>
           <tr><td>S <code>canonical_argument_confinement.py</code></td><td class="n">-32073</td><td>Equivalent argument objects reduce to identical bytes, so spelling can't carry hidden bits. No operand reaches an option position.</td><td class="n">0.589</td></tr>
           <tr><td>V <code>fork_join_vector_validator.py</code></td><td class="n">-32074</td><td>Forked subagents spend one conserved root budget, fenced by vector clocks; taint flows along forks and joins.</td><td class="n">0.052</td></tr>
           <tr><td>D <code>dynamic_ingression_validator.py</code></td><td class="n">-32075</td><td>Secrets first seen in a tool result are enrolled before the agent sees them. Trusted credential values are never evicted; heuristic finds rotate oldest first, so an untrusted response can't lock the store. Outbound text covering 85% of one is denied.</td><td class="n">0.845 in, 0.316 out</td></tr>
@@ -517,12 +517,12 @@ footer ul{list-style:none;padding:0;margin:0 0 1rem;display:flex;flex-wrap:wrap;
           <tr><td><a href="https://arxiv.org/abs/2504.11703">Progent</a>, Shi et al., arXiv:2504.11703</td><td>A policy language for tool-level privilege control, enforced deterministically at runtime.</td><td>Same enforcement point. AgentGate uses fixed predicates rather than a policy language; A adds path-qualified pruning over a workflow DAG, and V one conserved budget across forked subagents.</td></tr>
           <tr><td><a href="https://preview.aclanthology.org/ingest-acl/2026.findings-acl.470/">ToolGate</a>, Liu et al., Findings of ACL 2026</td><td>Hoare-style pre- and postcondition contracts over a typed symbolic state gate each tool call.</td><td>P's Petri net is a comparable pre/post gate over a bounded marking; S canonicalizes arguments before any check sees them.</td></tr>
           <tr><td><a href="https://arxiv.org/abs/2508.02188">Whispering Agents</a>, Huang et al., arXiv:2508.02188</td><td>A covert channel hidden in agent dialogue through storage, timing and behavior; the paper reports its tested detectors couldn't find it.</td><td>E budgets exactly this selection channel per sink, and S removes spelling freedom from arguments. E bounds what a sender can choose; it doesn't detect that protocol.</td></tr>
-          <tr><td><a href="https://arxiv.org/abs/2607.29167">Memory Provenance Laundering</a>, Xu et al., arXiv:2607.29167</td><td>Memory consolidation can erase a low-trust source; a middleware firewall keeps platform provenance and gates risky calls on it.</td><td>C applies the same idea to file names and statuses, tombstones included. T's cross-session file-label gap is the same class of problem; a persistent label store is the fix in progress.</td></tr>
+          <tr><td><a href="https://arxiv.org/abs/2607.29167">Memory Provenance Laundering</a>, Xu et al., arXiv:2607.29167</td><td>Memory consolidation can erase a low-trust source; a middleware firewall keeps platform provenance and gates risky calls on it.</td><td>C applies the same idea to file names and statuses, tombstones included. T persists file-effect labels in a hash-chained sidecar so a later session on the same workspace loads them. The state directory is trusted storage.</td></tr>
           <tr><td><a href="https://arxiv.org/abs/2610.37055">Blindfold</a>, Zhu et al., arXiv:2610.37055</td><td>Randomized audit certificates are biased if the agent can observe the audit coin, including through timing.</td><td>B seals refusals into one envelope so their reasons don't leak, and quarantines near-neighbor retries. AgentGate doesn't run randomized audits, and its own timing as a side channel hasn't been evaluated.</td></tr>
         </tbody>
       </table>
     </div>
-    <p class="prose muted">Of these seven, none describes labels on the file effects of shell commands (T), canonical argument bytes with <code>--</code> operand confinement (S), or a budget conserved across forked subagents (V). That is a statement about these seven papers, not the whole literature, and T's cross-session gap is closer to the provenance work above than to a solved problem.</p>
+    <p class="prose muted">Of these seven, none describes labels on the file effects of shell commands (T), canonical argument bytes with <code>--</code> operand confinement (S), or a budget conserved across forked subagents (V). That is a statement about these seven papers, not the whole literature. T now persists labels across sessions; a replacement chain that hashes cleanly is not caught, which is the same class of residual as the provenance work above.</p>
 
     <ul class="caveats">
       <li><strong>This is a reference design, not a deployed product.</strong> AgentGate is not a penetration test, a certification, a production WAF or an OS sandbox, and we make no detection-rate claims.</li>

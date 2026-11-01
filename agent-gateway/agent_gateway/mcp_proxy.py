@@ -38,11 +38,24 @@ Intercepted methods:
   scanned by ``tool_output_scanner.py`` before it reaches the client. A
   finding taints the session, attenuates the ``agw1.`` token, and the result
   is forwarded with invisible Unicode removed.
-- ``sampling/createMessage`` (server-initiated request): rejected while the
-  session is tainted, held for review, or lacks the root-keyed
-  ``grant:sampling=`` caveat in its ``agw1.`` token.
+- ``sampling/createMessage`` and ``elicitation/create`` (server-initiated):
+  the params are scanned before they can reach the model. Sampling is
+  rejected while the session is tainted, held for review, or lacks the
+  root-keyed ``grant:sampling=`` caveat. Elicitation is not forwarded when
+  the scan finds injection or the session is already tainted; nothing here
+  freezes a credential.
+- ``resources/list``, ``resources/subscribe``, ``prompts/list``, and server
+  notifications are scanned the same way. A result or error whose id is not
+  the canonical id of an in-flight request is not forwarded.
 
-Every other method and notification passes through unchanged.
+JSON-RPC ids are null, string, or int, with no coercion between those forms.
+``"7"``, ``7``, and ``7.0`` are not the same id. ``handle_line`` parses with
+``loads_strict`` (the Flask ``/mcp`` parser): a leading BOM, duplicate object
+keys, lone surrogates, NUL, non-UTF-8, non-finite numbers, and a number a
+binary float cannot carry exactly are rejected at -32700. A batch is rejected
+whole. An id that is already in flight is rejected and the original request
+stays pending. Elicitation and other held server requests use -32081, not
+-32077, which is Predicate C.
 
 OOB approval for a held call travels in ``params._meta``:
 ``{"agentgate/approval_token": "...", "agentgate/bound_step_index": N}``.
@@ -53,6 +66,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import Any, Optional
 
 from .canonical_argument_confinement import loads_strict, plain_numbers
@@ -74,8 +88,67 @@ ERR_INVALID = -32600
 GATED_CLIENT_METHODS = frozenset({"tools/call", "resources/read", "prompts/get"})
 INTERCEPTED_METHODS = frozenset({
     "tools/list", "tools/call", "resources/read", "prompts/get", "sampling/createMessage",
+    "elicitation/create", "resources/list", "resources/subscribe", "prompts/list",
+})
+# Non-core listings and reads carry another server's bytes into the session.
+_UNTRUSTED_RESULTS = frozenset({
+    "resources/read", "resources/list", "resources/subscribe", "resources/templates/list",
+    "prompts/get", "prompts/list",
 })
 _PSEUDO_TOOL = {"resources/read": "mcp.resources/read", "prompts/get": "mcp.prompts/get"}
+# -32077 is Predicate C (CAUSALITY_LAUNDERING_DENIED) on main. Elicitation
+# keeps its own code so a held server request is not reported as causality.
+ERR_ELICITATION = -32081
+
+
+class WireReject(Exception):
+    def __init__(self, code: int, detail: str):
+        super().__init__(detail)
+        self.code = code
+        self.detail = detail
+
+
+def canonical_id(rid: Any) -> tuple:
+    """One id form: null, string, or int. No bool, float, or coercion."""
+    if rid is None:
+        return ("null",)
+    if isinstance(rid, bool) or not isinstance(rid, (str, int)):
+        raise WireReject(ERR_INVALID, "id must be null, string, or int")
+    if isinstance(rid, str):
+        if any(0xD800 <= ord(ch) <= 0xDFFF for ch in rid):
+            raise WireReject(ERR_INVALID, "lone surrogate")
+        return ("str", rid)
+    return ("int", rid)
+
+
+def _reject_surrogates(obj: Any, depth: int = 0) -> None:
+    if depth > 32:
+        raise WireReject(ERR_INVALID, "invalid request")
+    if isinstance(obj, str):
+        if any(0xD800 <= ord(ch) <= 0xDFFF for ch in obj):
+            raise WireReject(ERR_INVALID, "lone surrogate")
+    elif isinstance(obj, dict):
+        for key, value in obj.items():
+            if isinstance(key, str):
+                _reject_surrogates(key, depth + 1)
+            _reject_surrogates(value, depth + 1)
+    elif isinstance(obj, (list, tuple)):
+        for value in obj:
+            _reject_surrogates(value, depth + 1)
+
+
+# ``loads_strict`` reasons that the wire-canonical tests name explicitly.
+# The code stays -32700, the same parse error Flask ``/mcp`` returns.
+_WIRE_PARSE_MESSAGES = {
+    "WIRE_BOM": "bom",
+    "DUPLICATE_KEY": "duplicate key",
+    "LONE_SURROGATE": "lone surrogate",
+}
+
+
+def _wire_parse_message(exc: Denied) -> str:
+    reason = exc.args[0] if exc.args else ""
+    return _WIRE_PARSE_MESSAGES.get(reason, "parse error")
 
 
 def canonical(obj: Any) -> bytes:
@@ -176,8 +249,8 @@ class McpWireProxy:
             self.capability_token = tok
 
     @staticmethod
-    def _key(rid: Any) -> str:
-        return json.dumps(rid, sort_keys=True, default=str)
+    def _key(rid: Any) -> tuple:
+        return canonical_id(rid)
 
     @staticmethod
     def _strip_meta(msg: dict) -> dict:
@@ -204,19 +277,22 @@ class McpWireProxy:
     # --- entry points ---------------------------------------------------------
 
     def handle(self, direction: str, message: Any) -> FilterResult:
-        """Filter one decoded JSON-RPC message or batch."""
+        """Filter one decoded JSON-RPC message.
+
+        A batch is rejected whole. Callers that still have the wire bytes
+        should use ``handle_line``, which also rejects a BOM, duplicate keys,
+        and lone surrogates.
+        """
         if isinstance(message, list):
-            if not message:
-                return FilterResult("invalid", reply=[error_response(None, ERR_INVALID, "empty batch")])
-            agg = FilterResult("batch")
-            for item in message:
-                res = self.handle(direction, item)
-                agg.forward.extend(res.forward)
-                agg.reply.extend(res.reply)
-            return agg
+            return FilterResult("invalid", reply=[error_response(None, ERR_INVALID, "batch rejected")])
         if not isinstance(message, dict) or message.get("jsonrpc") != JSONRPC:
-            rid = message.get("id") if isinstance(message, dict) else None
-            return FilterResult("invalid", reply=[error_response(rid, ERR_INVALID, "invalid request")])
+            return FilterResult("invalid", reply=[error_response(None, ERR_INVALID, "invalid request")])
+        try:
+            _reject_surrogates(message)
+            if "id" in message:
+                canonical_id(message.get("id"))
+        except WireReject as exc:
+            return FilterResult("invalid", reply=[error_response(None, exc.code, exc.detail)])
         if direction == CLIENT_TO_SERVER:
             return self._from_client(message)
         if direction == SERVER_TO_CLIENT:
@@ -224,30 +300,62 @@ class McpWireProxy:
         raise ValueError(f"unknown direction: {direction}")
 
     def handle_line(self, direction: str, line: str) -> FilterResult:
-        """Newline-delimited stdio framing: one JSON document per line."""
-        # Strict parse (shared with Flask /mcp): no BOM, strict UTF-8, no lone
-        # surrogates, no duplicate keys, no NaN. Numbers are forwarded only when
-        # a binary float carries exactly the value that was checked.
-        raw = line.encode("utf-8", "surrogatepass") if isinstance(line, str) else line
-        try:
-            message = plain_numbers(loads_strict(raw), exact=True)
-        except Denied:
+        """Newline-delimited stdio framing: one JSON document per line.
+
+        The bytes go through ``loads_strict`` and ``plain_numbers(exact=True)``,
+        the same parser as Flask ``/mcp``. That rejects a BOM, any encoding
+        other than strict UTF-8, NUL, lone surrogates, duplicate keys, NaN,
+        and a number a binary float cannot carry exactly. A JSON-RPC batch is
+        rejected whole. An id that was a non-integer token (``7.0``) is
+        rejected before integral decimals collapse to ``int``, so it is not
+        id ``7``.
+        """
+        if isinstance(line, str):
+            if line.startswith("\ufeff"):
+                return FilterResult("invalid", reply=[error_response(None, ERR_PARSE, "bom")])
+            raw = line.encode("utf-8", "surrogatepass")
+        elif isinstance(line, (bytes, bytearray)):
+            raw = bytes(line)
+        else:
             return FilterResult("invalid", reply=[error_response(None, ERR_PARSE, "parse error")])
+        try:
+            parsed = loads_strict(raw)
+        except Denied as exc:
+            return FilterResult("invalid", reply=[error_response(None, ERR_PARSE, _wire_parse_message(exc))])
+        if isinstance(parsed, list):
+            return FilterResult("invalid", reply=[error_response(None, ERR_INVALID, "batch rejected")])
+        if not isinstance(parsed, dict):
+            return FilterResult("invalid", reply=[error_response(None, ERR_INVALID, "invalid request")])
+        if "id" in parsed and type(parsed["id"]) is Decimal:
+            return FilterResult(
+                "invalid",
+                reply=[error_response(None, ERR_INVALID, "id must be null, string, or int")],
+            )
+        try:
+            message = plain_numbers(parsed, exact=True)
+        except Denied as exc:
+            return FilterResult("invalid", reply=[error_response(None, ERR_PARSE, _wire_parse_message(exc))])
         return self.handle(direction, message)
 
     # --- client -> server -----------------------------------------------------
 
     def _from_client(self, msg: dict) -> FilterResult:
         method = msg.get("method")
-        rid = msg.get("id")
+        has_id = "id" in msg
+        rid = msg.get("id") if has_id else None
         if method is None:
             # A response from the client (e.g. to sampling/createMessage).
-            self._server_pending.pop(self._key(rid), None)
+            if not has_id:
+                return FilterResult("invalid", reply=[error_response(None, ERR_INVALID, "response missing id")])
+            if self._server_pending.pop(self._key(rid), None) is None:
+                return FilterResult("unmatched", reply=[error_response(rid, ERR_INVALID, "unmatched response id")])
             return FilterResult("pass", forward=[msg])
         params = msg.get("params") if isinstance(msg.get("params"), dict) else {}
+        if has_id and self._key(rid) in self._pending:
+            return FilterResult("deny", reply=[error_response(rid, ERR_INVALID, "id reuse")])
         if method in GATED_CLIENT_METHODS:
             return self._gate_client_call(msg, method, params)
-        if rid is not None:
+        if has_id:
             self._pending[self._key(rid)] = _Pending(method=str(method), params=params)
         return FilterResult("pass", forward=[self._strip_meta(msg)])
 
@@ -283,8 +391,8 @@ class McpWireProxy:
         if not out.get("ok"):
             reply = error_response(rid, out.get("code", -32000),
                                    out.get("message") or str(out.get("error")), self._deny_data(out))
-            return FilterResult("deny", reply=[reply] if rid is not None else [], detail=out)
-        if rid is not None:
+            return FilterResult("deny", reply=[reply] if "id" in msg else [], detail=out)
+        if "id" in msg:
             self._pending[self._key(rid)] = _Pending(method=method, params=params, tool_name=tool)
         return FilterResult("allow", forward=[self._strip_meta(msg)], detail=out)
 
@@ -292,20 +400,29 @@ class McpWireProxy:
 
     def _from_server(self, msg: dict) -> FilterResult:
         method = msg.get("method")
-        rid = msg.get("id")
+        has_id = "id" in msg
+        rid = msg.get("id") if has_id else None
         if method is not None:
             if method == "sampling/createMessage":
                 return self._gate_sampling(msg)
-            if rid is not None:
-                self._server_pending[self._key(rid)] = str(method)
-            return FilterResult("pass", forward=[msg])
+            if method == "elicitation/create":
+                return self._gate_elicitation(msg)
+            if str(method).startswith("notifications/"):
+                return self._inspect_notification(msg)
+            return self._inspect_server_request(msg)
+        if not has_id or ("result" in msg) == ("error" in msg):
+            # A response needs an id and exactly one of result or error.
+            return FilterResult("invalid", reply=[error_response(
+                rid if has_id else None, ERR_INVALID, "invalid response")])
         pending = self._pending.pop(self._key(rid), None)
-        if pending is None or "result" not in msg:
-            return FilterResult("pass", forward=[msg])
-        if pending.method == "tools/list":
-            return self._on_tools_list(msg)
+        if pending is None:
+            # Different id spelling ("7" vs 7) is not a match and is not forwarded.
+            return FilterResult("unmatched", reply=[error_response(rid, ERR_INVALID, "unmatched response id")])
+        if pending.method == "tools/list" and "result" in msg:
+            return self._scan_delivery(self._on_tools_list(msg), "tools/list")
         decision = "pass"
-        if pending.method == "tools/call":
+        field = "result" if "result" in msg else "error"
+        if pending.method == "tools/call" and field == "result":
             self.engine.ingest_tool_result(self.agent_key, self.session_id, pending.tool_name, msg.get("result"))
             # Predicate D learns values from the real result before the agent sees it.
             try:
@@ -316,34 +433,118 @@ class McpWireProxy:
                 reply = error_response(rid, -32075, "result withheld",
                                        {"error": "dynamic_ingression_denied", "reason": reason})
                 return FilterResult("withheld", forward=[reply], detail={"reason": reason})
-        if pending.method in ("resources/read", "prompts/get") and not self.is_core_server:
+        if pending.method in _UNTRUSTED_RESULTS and not self.is_core_server and field == "result":
             self.engine.mark_untrusted_ingest(
                 self.agent_key, self.session_id, f"mcp.{pending.method}:{self.server_name}",
             )
             decision = "tainted"
-        if pending.method in ("tools/call", "resources/read", "prompts/get"):
-            # Scan before the result reaches the agent loop; forward it with invisible characters removed.
-            scanned = self.engine.scan_tool_output(
-                self.agent_key, self.session_id, pending.tool_name or pending.method, msg.get("result"),
-            )
-            if scanned["findings"]:
-                self.capability_token = self.engine.sessions[self.session_id].capability_token
-                return FilterResult("injection_flagged", forward=[{**msg, "result": scanned["result"]}],
-                                    detail={"findings": scanned["findings"]})
-        return FilterResult(decision, forward=[msg])
+        return self._scan_delivery(FilterResult(decision, forward=[msg]),
+                                   pending.tool_name or pending.method, field)
+
+    def _scan_delivery(self, result: FilterResult, tool_name: str, field: Optional[str] = None) -> FilterResult:
+        """Scan a server payload that can reach the model. Unreadable payloads are not forwarded."""
+        if not result.forward:
+            return result
+        msg = result.forward[0]
+        if not isinstance(msg, dict):
+            return FilterResult("invalid", reply=[error_response(None, ERR_INVALID, "invalid response")])
+        if field is None:
+            field = "result" if "result" in msg else "error" if "error" in msg else None
+        if field is None or field not in msg:
+            return result
+        scanned = self.engine.scan_tool_output(
+            self.agent_key, self.session_id, tool_name, msg.get(field),
+            include_sinks=tool_name != "tools/list",
+        )
+        if not scanned["findings"]:
+            return result
+        self.capability_token = self.engine.sessions[self.session_id].capability_token
+        decision = result.decision if result.decision not in ("pass", "pinned", "tainted", "allow") else "injection_flagged"
+        detail = dict(result.detail)
+        detail["findings"] = scanned["findings"]
+        return FilterResult(decision, forward=[{**msg, field: scanned["result"]}],
+                            reply=list(result.reply), detail=detail)
+
+    def _inspect_notification(self, msg: dict) -> FilterResult:
+        scanned = self.engine.scan_tool_output(
+            self.agent_key, self.session_id, str(msg.get("method") or "notification"), msg.get("params"),
+        )
+        if scanned["findings"]:
+            self.capability_token = self.engine.sessions[self.session_id].capability_token
+            self.engine._alert("mcp_notification_held", {
+                "session_id": self.session_id, "server": self.server_name,
+                "atlas": "AML.T0051", "atlas_approximate": True,
+            })
+            return FilterResult("injection_flagged", detail={"findings": scanned["findings"]})
+        return FilterResult("pass", forward=[msg])
+
+    def _inspect_server_request(self, msg: dict) -> FilterResult:
+        if "id" not in msg:
+            return FilterResult("invalid", reply=[error_response(None, ERR_INVALID, "request missing id")])
+        rid = msg.get("id")
+        if self._key(rid) in self._server_pending:
+            return FilterResult("deny", reply=[error_response(rid, ERR_INVALID, "id reuse")])
+        scanned = self.engine.scan_tool_output(
+            self.agent_key, self.session_id, str(msg.get("method") or ""), msg.get("params"),
+        )
+        if scanned["findings"]:
+            self.capability_token = self.engine.sessions[self.session_id].capability_token
+            return FilterResult("deny", reply=[error_response(rid, ERR_ELICITATION, "server_request_held")],
+                                detail={"findings": scanned["findings"]})
+        self._server_pending[self._key(rid)] = str(msg.get("method") or "")
+        return FilterResult("pass", forward=[msg])
+
+    def _gate_elicitation(self, msg: dict) -> FilterResult:
+        """Server-initiated elicitation. Injection and a tainted session are not forwarded."""
+        if "id" not in msg:
+            return FilterResult("invalid", reply=[error_response(None, ERR_INVALID, "request missing id")])
+        rid = msg.get("id")
+        if self._key(rid) in self._server_pending:
+            return FilterResult("deny", reply=[error_response(rid, ERR_INVALID, "id reuse")])
+        params = msg.get("params") if isinstance(msg.get("params"), dict) else {}
+        scanned = self.engine.scan_tool_output(
+            self.agent_key, self.session_id, "elicitation/create", params,
+        )
+        sess = self.engine.sessions.get(self.session_id)
+        blocked = bool(scanned["findings"]) or (
+            sess is not None and (sess.tainted or bool(sess.review_hold) or not sess.allow_egress))
+        if blocked:
+            if sess is not None:
+                self.capability_token = sess.capability_token
+            self.engine._alert("elicitation_rejected", {
+                "session_id": self.session_id, "server": self.server_name,
+                "atlas": "AML.T0051", "atlas_approximate": True,
+            })
+            return FilterResult("deny", reply=[error_response(rid, ERR_ELICITATION, "elicitation_rejected")],
+                                detail={"findings": scanned["findings"]})
+        self._server_pending[self._key(rid)] = "elicitation/create"
+        return FilterResult("allow", forward=[msg])
 
     def _gate_sampling(self, msg: dict) -> FilterResult:
+        if "id" not in msg:
+            return FilterResult("invalid", reply=[error_response(None, ERR_INVALID, "request missing id")])
         rid = msg.get("id")
+        if self._key(rid) in self._server_pending:
+            return FilterResult("deny", reply=[error_response(rid, ERR_INVALID, "id reuse")])
         params = msg.get("params") if isinstance(msg.get("params"), dict) else {}
+        # A finding taints the session. Do not re-present the pre-scan token:
+        # that token still allows egress, and adopting it would be an upgrade.
+        scanned = self.engine.scan_tool_output(
+            self.agent_key, self.session_id, "sampling/createMessage", params,
+        )
+        if scanned["findings"]:
+            self._unpresented = None
+            token = None
+        else:
+            token = self._cap()
         out = self.engine.evaluate_sampling(
-            self.agent_key, self.session_id, params, capability_token=self._cap(),
+            self.agent_key, self.session_id, params, capability_token=token,
         )
         self._track(out)
         if not out.get("ok"):
             reply = error_response(rid, out.get("code", -32000), str(out.get("error")), self._deny_data(out))
-            return FilterResult("deny", reply=[reply] if rid is not None else [], detail=out)
-        if rid is not None:
-            self._server_pending[self._key(rid)] = "sampling/createMessage"
+            return FilterResult("deny", reply=[reply], detail=out)
+        self._server_pending[self._key(rid)] = "sampling/createMessage"
         return FilterResult("allow", forward=[msg], detail=out)
 
     def _on_tools_list(self, msg: dict) -> FilterResult:

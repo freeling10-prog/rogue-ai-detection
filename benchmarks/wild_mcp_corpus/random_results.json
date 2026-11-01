@@ -1,0 +1,424 @@
+{
+  "applied": [
+    {
+      "hits": 8,
+      "id": "R_cold_path",
+      "letter": "R",
+      "meaning": "make_pin denies the published descriptor (first reason only)",
+      "n": 250,
+      "prevalence": "0.032000",
+      "source": "registry_pin_validator.make_pin",
+      "stratum": "smithery_uniform",
+      "wilson95": [
+        "0.016302",
+        "0.061862"
+      ]
+    },
+    {
+      "hits": 121,
+      "id": "toxic_2hop",
+      "letter": null,
+      "meaning": "at least one unprotected external_read \u2192 read \u2192 sink path",
+      "n": 250,
+      "prevalence": "0.484000",
+      "source": "toxic_combinations.analyze totals.toxic_2hop",
+      "stratum": "smithery_uniform",
+      "wilson95": [
+        "0.422764",
+        "0.545720"
+      ]
+    },
+    {
+      "hits": 46,
+      "id": "toxic_3hop",
+      "letter": null,
+      "meaning": "at least one unprotected external_read \u2192 read \u2192 read \u2192 sink path",
+      "n": 250,
+      "prevalence": "0.184000",
+      "source": "toxic_combinations.analyze totals.toxic_3hop",
+      "stratum": "smithery_uniform",
+      "wilson95": [
+        "0.140876",
+        "0.236689"
+      ]
+    },
+    {
+      "hits": 31,
+      "id": "MCP_FIRST_SEEN_OVERPRIVILEGED",
+      "letter": null,
+      "meaning": "unverified profile (the guard's default) refuses a credential or exec parameter",
+      "n": 250,
+      "prevalence": "0.124000",
+      "source": "mcp_capability_manifest_guard.register_listing",
+      "stratum": "smithery_uniform",
+      "wilson95": [
+        "0.088748",
+        "0.170632"
+      ]
+    },
+    {
+      "hits": 0,
+      "id": "MCP_SCHEMA_PURPOSE_MISMATCH",
+      "letter": null,
+      "meaning": "a read-like tool name declares a side-effecting parameter; first-match, after overprivileged",
+      "n": 250,
+      "prevalence": "0.000000",
+      "source": "mcp_capability_manifest_guard.register_listing",
+      "stratum": "smithery_uniform",
+      "wilson95": [
+        "0.000000",
+        "0.015133"
+      ]
+    },
+    {
+      "hits": 11,
+      "id": "MCP_TOOL_NAMESPACE_FLOOD",
+      "letter": null,
+      "meaning": "more than 32 named tools in the listing",
+      "n": 250,
+      "prevalence": "0.044000",
+      "source": "mcp_capability_manifest_guard.register_listing",
+      "stratum": "smithery_uniform",
+      "wilson95": [
+        "0.024744",
+        "0.077058"
+      ]
+    },
+    {
+      "hits": 1,
+      "id": "MCP_DESCRIPTION_POISONING",
+      "letter": null,
+      "meaning": "scan_definition finds a hidden-instruction marker; checked before shadowing",
+      "n": 250,
+      "prevalence": "0.004000",
+      "source": "mcp_rugpull_guard.register_listing",
+      "stratum": "smithery_uniform",
+      "wilson95": [
+        "0.000706",
+        "0.022306"
+      ]
+    },
+    {
+      "hits": 67,
+      "id": "MCP_TOOL_SHADOWING",
+      "letter": null,
+      "meaning": "normalized name is a core built-in; one server at a time, so no cross-server hits",
+      "n": 250,
+      "prevalence": "0.268000",
+      "source": "mcp_rugpull_guard.register_listing",
+      "stratum": "smithery_uniform",
+      "wilson95": [
+        "0.216911",
+        "0.326111"
+      ]
+    }
+  ],
+  "applied_note": "Server-level. A hit means at least one tool on that server tripped the check. Wilson bounds are the 95% score interval for that observed count under an iid Bernoulli model. This corpus is not a random sample, so the interval is not a confidence interval for all public MCP servers.",
+  "class_prevalence": [
+    {
+      "class": "external_read",
+      "hits": 137,
+      "id": "class:external_read",
+      "n": 250,
+      "prevalence": "0.548000",
+      "source": "toxic_combinations.tool_class",
+      "stratum": "smithery_uniform",
+      "wilson95": [
+        "0.486045",
+        "0.608503"
+      ]
+    },
+    {
+      "class": "internal_read",
+      "hits": 203,
+      "id": "class:internal_read",
+      "n": 250,
+      "prevalence": "0.812000",
+      "source": "toxic_combinations.tool_class",
+      "stratum": "smithery_uniform",
+      "wilson95": [
+        "0.758983",
+        "0.855574"
+      ]
+    },
+    {
+      "class": "sensitive_read",
+      "hits": 4,
+      "id": "class:sensitive_read",
+      "n": 250,
+      "prevalence": "0.016000",
+      "source": "toxic_combinations.tool_class",
+      "stratum": "smithery_uniform",
+      "wilson95": [
+        "0.006239",
+        "0.040410"
+      ]
+    },
+    {
+      "class": "write",
+      "hits": 228,
+      "id": "class:write",
+      "n": 250,
+      "prevalence": "0.912000",
+      "source": "toxic_combinations.tool_class",
+      "stratum": "smithery_uniform",
+      "wilson95": [
+        "0.870362",
+        "0.941169"
+      ]
+    },
+    {
+      "class": "send",
+      "hits": 21,
+      "id": "class:send",
+      "n": 250,
+      "prevalence": "0.084000",
+      "source": "toxic_combinations.tool_class",
+      "stratum": "smithery_uniform",
+      "wilson95": [
+        "0.055596",
+        "0.124995"
+      ]
+    },
+    {
+      "class": "credential_use",
+      "hits": 7,
+      "id": "class:credential_use",
+      "n": 250,
+      "prevalence": "0.028000",
+      "source": "toxic_combinations.tool_class",
+      "stratum": "smithery_uniform",
+      "wilson95": [
+        "0.013628",
+        "0.056658"
+      ]
+    }
+  ],
+  "corpus_file": "random_servers.jsonl",
+  "corpus_servers": 250,
+  "corpus_sha256": "e027c0fcd2fd913f8bbb7c2ecd465036727b34101d74b3e4a5faff513fa3b5a3",
+  "diagnostics_published_schemas_only": {
+    "analyzer_cap_note": "toxic_combinations.load_inventory keeps the first 400 named tools. Servers above that cap are scored on that prefix, which is what analyze() does.",
+    "capability_note": "MCP_FIRST_SEEN_OVERPRIVILEGED is the guard's result with no server profile. An unverified server is granted neither credential nor exec parameters, so any such parameter is a hit. That is the policy default, not a confirmed vulnerability.",
+    "classification_basis": {
+      "declared": 0,
+      "default": 2445,
+      "egress_table": 2,
+      "name_rule": 1840,
+      "sensitive_table": 0
+    },
+    "default_branch_sensitivity": {
+      "n": 0,
+      "note": "Tools on the default branch of tool_class were removed and the same node and path rules were applied. This is a sensitivity check, not a predicate.",
+      "stratum": "smithery_list_order",
+      "toxic_2hop_without_default_branch_tools": 0,
+      "toxic_3hop_without_default_branch_tools": 0
+    },
+    "published_servers_over_400_tools": 0,
+    "r_cold_path_tool_reasons": {
+      "METADATA_LINT": 1,
+      "TEXT_LIMIT": 2,
+      "UNRESOLVED_REF": 13
+    },
+    "read_only_hint_true": 0,
+    "read_only_hint_true_and_classed_sink": 0,
+    "smithery_use_count": null,
+    "tool_class_counts": {
+      "credential_use": 14,
+      "external_read": 667,
+      "internal_read": 846,
+      "send": 50,
+      "sensitive_read": 5,
+      "write": 2705
+    },
+    "tool_class_note": "Unrecognised names are write, or credential_use when the name matches a sensitive word. MCP readOnlyHint is not an input to tool_class.",
+    "tools": 4287,
+    "tools_with_input_schema": 4287
+  },
+  "predicates_14": [
+    {
+      "id": "R",
+      "module": "registry_pin_validator.py",
+      "static": "cold path only (lint, local schema profile, method name, digest)"
+    },
+    {
+      "id": "W",
+      "module": "workspace_path_validator.py",
+      "needs": "a concrete path or command and a filesystem snapshot",
+      "static": "no"
+    },
+    {
+      "id": "F",
+      "module": "lattice_flow_validator.py",
+      "needs": "a workflow manifest and a call",
+      "static": "no"
+    },
+    {
+      "id": "I",
+      "module": "shingle_similarity_validator.py",
+      "needs": "protected strings and an outbound argument",
+      "static": "no"
+    },
+    {
+      "id": "P",
+      "module": "linear_obligation_validator.py",
+      "needs": "a Petri-net workflow and a transition",
+      "static": "no"
+    },
+    {
+      "id": "T",
+      "module": "symbolic_fs_transducer.py",
+      "needs": "file operations and labels",
+      "static": "no"
+    },
+    {
+      "id": "S",
+      "module": "canonical_argument_confinement.py",
+      "needs": "a concrete argument object",
+      "static": "no"
+    },
+    {
+      "id": "V",
+      "module": "fork_join_vector_validator.py",
+      "needs": "a live fork/join session",
+      "static": "no"
+    },
+    {
+      "id": "D",
+      "module": "dynamic_ingression_validator.py",
+      "needs": "a tool result and a later outbound string",
+      "static": "no"
+    },
+    {
+      "id": "Z",
+      "module": "transform_invariant_validator.py",
+      "needs": "protected values and an outbound string",
+      "static": "no"
+    },
+    {
+      "id": "C",
+      "module": "causality_laundering_validator.py",
+      "needs": "observed filesystem effects",
+      "static": "no"
+    },
+    {
+      "id": "E",
+      "module": "event_channel_capacity_validator.py",
+      "needs": "a live event stream",
+      "static": "no"
+    },
+    {
+      "id": "B",
+      "module": "blindfold_opaque_fault_validator.py",
+      "needs": "a request and remembered refusals",
+      "static": "no"
+    },
+    {
+      "id": "A",
+      "module": "reachability_confinement_validator.py",
+      "needs": "an authored workflow DAG",
+      "static": "no"
+    }
+  ],
+  "schema": "agentgate.wild-mcp-corpus-score/1",
+  "skipped": [
+    {
+      "id": "W",
+      "module": "workspace_path_validator.py",
+      "reason": "Needs a concrete path or command and a filesystem snapshot. Not applied."
+    },
+    {
+      "id": "F",
+      "module": "lattice_flow_validator.py",
+      "reason": "Needs a workflow manifest and a call. Not applied."
+    },
+    {
+      "id": "I",
+      "module": "shingle_similarity_validator.py",
+      "reason": "Needs protected strings and an outbound argument. Not applied."
+    },
+    {
+      "id": "P",
+      "module": "linear_obligation_validator.py",
+      "reason": "Needs a Petri-net workflow and a transition. Not applied."
+    },
+    {
+      "id": "T",
+      "module": "symbolic_fs_transducer.py",
+      "reason": "Needs file operations and labels. Not applied."
+    },
+    {
+      "id": "S",
+      "module": "canonical_argument_confinement.py",
+      "reason": "Needs a concrete argument object. Not applied."
+    },
+    {
+      "id": "V",
+      "module": "fork_join_vector_validator.py",
+      "reason": "Needs a live fork/join session. Not applied."
+    },
+    {
+      "id": "D",
+      "module": "dynamic_ingression_validator.py",
+      "reason": "Needs a tool result and a later outbound string. Not applied."
+    },
+    {
+      "id": "Z",
+      "module": "transform_invariant_validator.py",
+      "reason": "Needs protected values and an outbound string. Not applied."
+    },
+    {
+      "id": "C",
+      "module": "causality_laundering_validator.py",
+      "reason": "Needs observed filesystem effects. Not applied."
+    },
+    {
+      "id": "E",
+      "module": "event_channel_capacity_validator.py",
+      "reason": "Needs a live event stream. Not applied."
+    },
+    {
+      "id": "B",
+      "module": "blindfold_opaque_fault_validator.py",
+      "reason": "Needs a request and remembered refusals. Not applied."
+    },
+    {
+      "id": "A",
+      "module": "reachability_confinement_validator.py",
+      "reason": "Needs an authored workflow DAG. Not applied."
+    },
+    {
+      "id": "R_hot_path",
+      "module": null,
+      "reason": "Pin equality, sticky revocation, and alias ambiguity need an earlier pin or a second provider."
+    },
+    {
+      "id": "MCP_DEFINITION_DRIFT",
+      "module": null,
+      "reason": "mcp_rugpull_guard drift compares a new fingerprint to a pin. One listing has no pin."
+    },
+    {
+      "id": "SCHEMA_DRIFT_DENIED",
+      "module": null,
+      "reason": "schema_integrity_guard drift needs a second registration of the same tool."
+    },
+    {
+      "id": "TOOL_SHADOWING_DENIED_CROSS_SERVER",
+      "module": null,
+      "reason": "schema_integrity_guard distance-1 shadowing is for servers co-installed in one session. It was not run across unrelated corpus rows."
+    },
+    {
+      "id": "over_broad_scopes",
+      "module": null,
+      "reason": "No gateway function decides that a declared OAuth scope is over-broad. Scopes were only recorded."
+    },
+    {
+      "id": "untrusted_read_plus_write_or_send",
+      "module": null,
+      "reason": "No function flags mere co-occurrence of an untrusted read and a write or send. The coded rule is toxic_combinations, which also requires an internal or sensitive read and a free-text sink channel with no agw1 boundary."
+    }
+  ],
+  "strata": {
+    "smithery_uniform": 250
+  }
+}

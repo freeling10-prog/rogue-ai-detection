@@ -1,0 +1,1677 @@
+{
+  "api_order_use_count": {
+    "adjacent_pairs": 20757,
+    "nonincreasing": 20757,
+    "share": "1.000000"
+  },
+  "decisions": [
+    {
+      "draw_position": 0,
+      "frame_index": 20554,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 1,
+      "frame_index": 3429,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 2,
+      "frame_index": 11132,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 3,
+      "frame_index": 8597,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 4,
+      "frame_index": 20301,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 5,
+      "frame_index": 3289,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 6,
+      "frame_index": 16111,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 7,
+      "frame_index": 1125,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 8,
+      "frame_index": 4143,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 9,
+      "frame_index": 13101,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 10,
+      "frame_index": 9475,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 11,
+      "frame_index": 17709,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 12,
+      "frame_index": 14110,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 13,
+      "frame_index": 19927,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 14,
+      "frame_index": 6444,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 15,
+      "frame_index": 7082,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 16,
+      "frame_index": 14604,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 17,
+      "frame_index": 13550,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 18,
+      "frame_index": 14689,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 19,
+      "frame_index": 8683,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 20,
+      "frame_index": 7545,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 21,
+      "frame_index": 3906,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 22,
+      "frame_index": 7844,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 23,
+      "frame_index": 7686,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 24,
+      "frame_index": 9425,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 25,
+      "frame_index": 8895,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 26,
+      "frame_index": 12060,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 27,
+      "frame_index": 10871,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 28,
+      "frame_index": 772,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 29,
+      "frame_index": 20476,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 30,
+      "frame_index": 3816,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 31,
+      "frame_index": 10092,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 32,
+      "frame_index": 4442,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 33,
+      "frame_index": 125,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 34,
+      "frame_index": 18133,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 35,
+      "frame_index": 9366,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 36,
+      "frame_index": 4782,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 37,
+      "frame_index": 15156,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 38,
+      "frame_index": 9487,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 39,
+      "frame_index": 14796,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 40,
+      "frame_index": 14265,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 41,
+      "frame_index": 2724,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 42,
+      "frame_index": 15383,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 43,
+      "frame_index": 9334,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 44,
+      "frame_index": 8004,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 45,
+      "frame_index": 1537,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 46,
+      "frame_index": 19138,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 47,
+      "frame_index": 6592,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 48,
+      "frame_index": 8622,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 49,
+      "frame_index": 4459,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 50,
+      "frame_index": 20480,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 51,
+      "frame_index": 13577,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 52,
+      "frame_index": 5799,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 53,
+      "frame_index": 16083,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 54,
+      "frame_index": 17511,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 55,
+      "frame_index": 1252,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 56,
+      "frame_index": 265,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 57,
+      "frame_index": 4022,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 58,
+      "frame_index": 7611,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 59,
+      "frame_index": 5669,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 60,
+      "frame_index": 16916,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 61,
+      "frame_index": 5058,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 62,
+      "frame_index": 19267,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 63,
+      "frame_index": 12418,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 64,
+      "frame_index": 2057,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 65,
+      "frame_index": 19343,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 66,
+      "frame_index": 13152,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 67,
+      "frame_index": 2351,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 68,
+      "frame_index": 5756,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 69,
+      "frame_index": 11470,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 70,
+      "frame_index": 19712,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 71,
+      "frame_index": 9925,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 72,
+      "frame_index": 11649,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 73,
+      "frame_index": 7185,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 74,
+      "frame_index": 14310,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 75,
+      "frame_index": 5343,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 76,
+      "frame_index": 6153,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 77,
+      "frame_index": 18895,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 78,
+      "frame_index": 8508,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 79,
+      "frame_index": 11371,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 80,
+      "frame_index": 2537,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 81,
+      "frame_index": 13886,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 82,
+      "frame_index": 14635,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 83,
+      "frame_index": 15094,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 84,
+      "frame_index": 18849,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 85,
+      "frame_index": 14394,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 86,
+      "frame_index": 20526,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 87,
+      "frame_index": 3155,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 88,
+      "frame_index": 4365,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 89,
+      "frame_index": 5982,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 90,
+      "frame_index": 18474,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 91,
+      "frame_index": 15066,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 92,
+      "frame_index": 1848,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 93,
+      "frame_index": 17895,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 94,
+      "frame_index": 13080,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 95,
+      "frame_index": 8203,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 96,
+      "frame_index": 8083,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 97,
+      "frame_index": 18859,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 98,
+      "frame_index": 17923,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 99,
+      "frame_index": 2126,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 100,
+      "frame_index": 1444,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 101,
+      "frame_index": 11300,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 102,
+      "frame_index": 13721,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 103,
+      "frame_index": 5736,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 104,
+      "frame_index": 14461,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 105,
+      "frame_index": 18263,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 106,
+      "frame_index": 1116,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 107,
+      "frame_index": 415,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 108,
+      "frame_index": 4025,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 109,
+      "frame_index": 20005,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 110,
+      "frame_index": 15752,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 111,
+      "frame_index": 10881,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 112,
+      "frame_index": 2366,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 113,
+      "frame_index": 10337,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 114,
+      "frame_index": 831,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 115,
+      "frame_index": 6100,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 116,
+      "frame_index": 5125,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 117,
+      "frame_index": 16468,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 118,
+      "frame_index": 18678,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 119,
+      "frame_index": 11859,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 120,
+      "frame_index": 13178,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 121,
+      "frame_index": 15471,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 122,
+      "frame_index": 18856,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 123,
+      "frame_index": 7149,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 124,
+      "frame_index": 20422,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 125,
+      "frame_index": 8836,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 126,
+      "frame_index": 7602,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 127,
+      "frame_index": 20552,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 128,
+      "frame_index": 12101,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 129,
+      "frame_index": 16432,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 130,
+      "frame_index": 16543,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 131,
+      "frame_index": 295,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 132,
+      "frame_index": 3576,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 133,
+      "frame_index": 16367,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 134,
+      "frame_index": 18129,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 135,
+      "frame_index": 10243,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 136,
+      "frame_index": 15784,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 137,
+      "frame_index": 3819,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 138,
+      "frame_index": 5382,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 139,
+      "frame_index": 632,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 140,
+      "frame_index": 9241,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 141,
+      "frame_index": 847,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 142,
+      "frame_index": 13289,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 143,
+      "frame_index": 9953,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 144,
+      "frame_index": 19062,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 145,
+      "frame_index": 13459,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 146,
+      "frame_index": 13005,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 147,
+      "frame_index": 4046,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 148,
+      "frame_index": 8648,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 149,
+      "frame_index": 154,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 150,
+      "frame_index": 10500,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 151,
+      "frame_index": 15711,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 152,
+      "frame_index": 4250,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 153,
+      "frame_index": 5534,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 154,
+      "frame_index": 19442,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 155,
+      "frame_index": 14511,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 156,
+      "frame_index": 12731,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 157,
+      "frame_index": 9072,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 158,
+      "frame_index": 2488,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 159,
+      "frame_index": 6354,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 160,
+      "frame_index": 8363,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 161,
+      "frame_index": 10474,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 162,
+      "frame_index": 17611,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 163,
+      "frame_index": 14657,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 164,
+      "frame_index": 15617,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 165,
+      "frame_index": 7158,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 166,
+      "frame_index": 16915,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 167,
+      "frame_index": 5792,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 168,
+      "frame_index": 2370,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 169,
+      "frame_index": 1558,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 170,
+      "frame_index": 5339,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 171,
+      "frame_index": 3400,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 172,
+      "frame_index": 14774,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 173,
+      "frame_index": 2990,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 174,
+      "frame_index": 4756,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 175,
+      "frame_index": 6848,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 176,
+      "frame_index": 14783,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 177,
+      "frame_index": 12632,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 178,
+      "frame_index": 9104,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 179,
+      "frame_index": 6633,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 180,
+      "frame_index": 17975,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 181,
+      "frame_index": 15892,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 182,
+      "frame_index": 4285,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 183,
+      "frame_index": 4805,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 184,
+      "frame_index": 11531,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 185,
+      "frame_index": 15646,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 186,
+      "frame_index": 5959,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 187,
+      "frame_index": 6899,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 188,
+      "frame_index": 2906,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 189,
+      "frame_index": 20158,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 190,
+      "frame_index": 12361,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 191,
+      "frame_index": 7091,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 192,
+      "frame_index": 2858,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 193,
+      "frame_index": 9832,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 194,
+      "frame_index": 17068,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 195,
+      "frame_index": 2559,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 196,
+      "frame_index": 11885,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 197,
+      "frame_index": 3775,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 198,
+      "frame_index": 5680,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 199,
+      "frame_index": 17728,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 200,
+      "frame_index": 5619,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 201,
+      "frame_index": 1436,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 202,
+      "frame_index": 17023,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 203,
+      "frame_index": 17036,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 204,
+      "frame_index": 4210,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 205,
+      "frame_index": 9427,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 206,
+      "frame_index": 1209,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 207,
+      "frame_index": 11854,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 208,
+      "frame_index": 19353,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 209,
+      "frame_index": 825,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 210,
+      "frame_index": 6194,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 211,
+      "frame_index": 4775,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 212,
+      "frame_index": 964,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 213,
+      "frame_index": 15448,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 214,
+      "frame_index": 9833,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 215,
+      "frame_index": 4781,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 216,
+      "frame_index": 15524,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 217,
+      "frame_index": 4395,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 218,
+      "frame_index": 6545,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 219,
+      "frame_index": 4881,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 220,
+      "frame_index": 14716,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 221,
+      "frame_index": 5618,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 222,
+      "frame_index": 9406,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 223,
+      "frame_index": 3934,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 224,
+      "frame_index": 9706,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 225,
+      "frame_index": 13904,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 226,
+      "frame_index": 10579,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 227,
+      "frame_index": 11554,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 228,
+      "frame_index": 17500,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 229,
+      "frame_index": 304,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 230,
+      "frame_index": 17783,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 231,
+      "frame_index": 13717,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 232,
+      "frame_index": 4507,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 233,
+      "frame_index": 17276,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 234,
+      "frame_index": 3563,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 235,
+      "frame_index": 17988,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 236,
+      "frame_index": 15431,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 237,
+      "frame_index": 15934,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 238,
+      "frame_index": 6643,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 239,
+      "frame_index": 7760,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 240,
+      "frame_index": 15578,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 241,
+      "frame_index": 8344,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 242,
+      "frame_index": 3886,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 243,
+      "frame_index": 14231,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 244,
+      "frame_index": 18953,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 245,
+      "frame_index": 17188,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 246,
+      "frame_index": 17676,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 247,
+      "frame_index": 16799,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 248,
+      "frame_index": 11901,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 249,
+      "frame_index": 18791,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 250,
+      "frame_index": 9769,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 251,
+      "frame_index": 3564,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 252,
+      "frame_index": 18150,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 253,
+      "frame_index": 17848,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 254,
+      "frame_index": 2804,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 255,
+      "frame_index": 7566,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 256,
+      "frame_index": 4670,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 257,
+      "frame_index": 13799,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 258,
+      "frame_index": 4952,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 259,
+      "frame_index": 4842,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 260,
+      "frame_index": 20128,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 261,
+      "frame_index": 10323,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 262,
+      "frame_index": 1935,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 263,
+      "frame_index": 476,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 264,
+      "frame_index": 9030,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 265,
+      "frame_index": 8102,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 266,
+      "frame_index": 12595,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 267,
+      "frame_index": 18059,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 268,
+      "frame_index": 19239,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 269,
+      "frame_index": 14032,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 270,
+      "frame_index": 11044,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 271,
+      "frame_index": 9449,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 272,
+      "frame_index": 18131,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 273,
+      "frame_index": 11414,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 274,
+      "frame_index": 18880,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 275,
+      "frame_index": 12465,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 276,
+      "frame_index": 7834,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 277,
+      "frame_index": 10657,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 278,
+      "frame_index": 12222,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 279,
+      "frame_index": 13536,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 280,
+      "frame_index": 8839,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 281,
+      "frame_index": 6034,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 282,
+      "frame_index": 7741,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 283,
+      "frame_index": 8585,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 284,
+      "frame_index": 4452,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 285,
+      "frame_index": 13629,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 286,
+      "frame_index": 17035,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 287,
+      "frame_index": 4053,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 288,
+      "frame_index": 14224,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 289,
+      "frame_index": 14931,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 290,
+      "frame_index": 20519,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 291,
+      "frame_index": 17934,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 292,
+      "frame_index": 2313,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 293,
+      "frame_index": 18178,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 294,
+      "frame_index": 11591,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 295,
+      "frame_index": 5783,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 296,
+      "frame_index": 8829,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 297,
+      "frame_index": 17255,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 298,
+      "frame_index": 19324,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 299,
+      "frame_index": 13811,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 300,
+      "frame_index": 2205,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 301,
+      "frame_index": 15421,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 302,
+      "frame_index": 18874,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 303,
+      "frame_index": 9891,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 304,
+      "frame_index": 10246,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 305,
+      "frame_index": 3740,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 306,
+      "frame_index": 6493,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 307,
+      "frame_index": 12564,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 308,
+      "frame_index": 16403,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 309,
+      "frame_index": 6868,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 310,
+      "frame_index": 9501,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 311,
+      "frame_index": 4706,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 312,
+      "frame_index": 19441,
+      "outcome": "no_named_tool"
+    },
+    {
+      "draw_position": 313,
+      "frame_index": 14250,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 314,
+      "frame_index": 14821,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 315,
+      "frame_index": 7007,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 316,
+      "frame_index": 11708,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 317,
+      "frame_index": 3464,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 318,
+      "frame_index": 7600,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 319,
+      "frame_index": 5208,
+      "outcome": "kept"
+    },
+    {
+      "draw_position": 320,
+      "frame_index": 12425,
+      "outcome": "kept"
+    }
+  ],
+  "draw": {
+    "discarded_note": "Detail fetches past the target-th success in a batch are not recorded and are not in the sample.",
+    "examined": 321,
+    "kept": 250,
+    "outcomes": {
+      "kept": 250,
+      "no_named_tool": 71
+    },
+    "redaction": {
+      "by_kind": {},
+      "credential_shaped_findings": 0,
+      "precautionary_env_redactions": 0
+    },
+    "rng": "CPython 3.12 random.Random.shuffle (Fisher-Yates)",
+    "sample_seed": 20261101,
+    "stopped_early": false,
+    "target_n": 250
+  },
+  "finished_at_utc": "2026-11-01T04:38:43.806565+00:00",
+  "frame": {
+    "duplicate": 0,
+    "eligible": 20758,
+    "inactive": 0,
+    "missing_name": 0,
+    "rows": 20758,
+    "unlisted": 0
+  },
+  "frame_file_sha256": "163115476ced8f78ed10820ebaa5adf669f8b6199ab8b6bd6abb85feb7a3f4dc",
+  "frame_homepage_redaction": {
+    "by_kind": {},
+    "credential_shaped_findings": 0,
+    "precautionary_env_redactions": 0
+  },
+  "frame_sha256_names": "0ed267dd8592944ad82883fc4cf70c35ddacac2913bbfc7677ed0e4142e85c5c",
+  "list": {
+    "docs_url": "https://smithery.ai/docs/api-reference/servers/list-all-servers",
+    "enum_seed": 20261101,
+    "list_url": "https://registry.smithery.ai/servers",
+    "page_row_counts_head": [
+      100,
+      100,
+      100
+    ],
+    "page_row_counts_tail": [
+      100,
+      100,
+      58
+    ],
+    "page_size_reported": 100,
+    "page_size_requested": 100,
+    "rows_retrieved": 20758,
+    "total_count_reported": 20758,
+    "total_pages": 208
+  },
+  "no_mcp_connection": "Only registry.smithery.ai list and detail documents were fetched. deploymentUrl was not requested and was not stored.",
+  "population": "Simple random sample of Smithery-listed servers that published at least one named tool with a JSON object inputSchema on the retrieval date, after excluding unlisted rows, inactive rows, empty names, and case-folded duplicate names. Not a sample of all public MCP servers, and not a sample of Smithery servers that published no tool schema.",
+  "retrieval_date": "2026-11-01",
+  "retrieved_at_utc": "2026-11-01T04:37:21.979608+00:00",
+  "sha256": {
+    "random_servers.jsonl": "e027c0fcd2fd913f8bbb7c2ecd465036727b34101d74b3e4a5faff513fa3b5a3",
+    "smithery_frame.jsonl": "163115476ced8f78ed10820ebaa5adf669f8b6199ab8b6bd6abb85feb7a3f4dc"
+  },
+  "stratum": "smithery_uniform"
+}

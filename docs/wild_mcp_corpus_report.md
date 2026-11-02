@@ -249,6 +249,31 @@ Two name-rule behaviors showed up often enough to name. The matcher treats a key
 - The 400-tool prefix still applies to the list-order server that exceeds it. The reviewer judged that prefix, not tools past it.
 - Purpose mismatch remains conditional on not already being overprivileged. Declared scopes were not scored. Thirteen of the fourteen validators still need a call, a session, or a filesystem.
 
+## v3. Opt-in own-data lookup rule (PR #42)
+
+The v2 precision check found that **8 of the 10** false positives had, as their only untrusted source, a search over the server's own index. `score.own_data_lookup` is a deterministic rule that reclassifies such a tool from `external_read` to `internal_read`. It reads only the published listing, and it fires only when all of these hold:
+
+1. `tool_class` reached `external_read` through the name rule or the egress table, not a declared label.
+2. `search` is the only external-read token in the name.
+3. No input property is URL- or host-shaped.
+4. The description names no open or third-party content (web, URLs, links, posts, news, reviews, comments, articles, papers, feeds, media).
+5. Either the description names a bounded own record set (catalog, database, documentation, directory, CRM, accounts, contacts, members, inventory, index, stations, stops, "our", internal), or the tool is an ID resolver: it mentions IDs, identifiers, slugs or keys and names a sibling tool in the same listing.
+
+`score_server` does not apply the rule, so every v1 and v2 figure above is unchanged. The refined flag is `toxic_2hop_own_data_refined`, measured by `own_data_check.py` into `own_data_rule_check.json` (case ids only, no server names).
+
+| On the 28 hand-checked servers | Result |
+|---|---|
+| False positives eliminated | **5 / 10** (p02, p08, p09, p10, p12) |
+| Plausible hits preserved | **18 / 18** |
+| Precision among servers still flagged | 18/23 (0.782609), Wilson 0.580965–0.903360 |
+| Relabelled tools vs the PR #40 reviewer | 11 the reviewer had corrected to `internal_read`; 3 the reviewer had agreed were `external_read` (on two servers that stay flagged) |
+
+Not fixed: the 2 false positives on the internal-read side (`readable` matching `read`, public-API lookups), which this rule does not touch by design. Also not fixed: 3 own-data searches whose one-liners name no scope marker, or that mention a feed or URL. An earlier draft that also accepted the word "records" cleared two plausible hits, so "records" was removed.
+
+Corpus-wide `toxic_2hop`, before and after the rule: list-order **79 → 65** of 150, uniform **121 → 118** of 250.
+
+**Caveats.** This check is in-sample: the rule was written after reading these same 28 cases, so 5/10 and 18/18 are not out-of-sample estimates. The labels come from one rater (the project author). A remaining flag is still a static reading of a published listing, not a confirmed vulnerability.
+
 ## Reproduction
 
 From the repository root, Python 3.12, standard library plus the gateway tree (no extra packages for the scorer; pytest is only for the tests):
@@ -267,7 +292,9 @@ PYTHONPATH=. python3 benchmarks/wild_mcp_corpus/compare.py
 PYTHONPATH=. python3 benchmarks/wild_mcp_corpus/precision.py
 
 PYTHONPATH=. python3 -m pytest benchmarks/wild_mcp_corpus/test_score.py \
-  benchmarks/wild_mcp_corpus/test_sample.py -q
+  benchmarks/wild_mcp_corpus/test_sample.py \
+  benchmarks/wild_mcp_corpus/test_own_data_rule.py -q
+python3 benchmarks/wild_mcp_corpus/own_data_check.py   # rewrites own_data_rule_check.json
 ```
 
 `collect.py` rebuilds a new convenience sample from the live registry, Smithery, the pinned reference commit, and registry-linked config files. It does not call tools. `sample_random.py` rebuilds the uniform frame and the size-250 draw from the live index. Neither script connects to a deployment. Expect different Smithery rows after 2026-11-01. The shuffle is CPython 3.12 `random.Random.shuffle`. The official-registry compact JSONL is produced by `collect.py` and then omitted from this commit; the census file explains that.

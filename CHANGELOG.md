@@ -4,6 +4,24 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
+## [Unreleased] - PR #42 shell hardening, staged collusion, parser differentials, own-data rule (2 November 2026)
+
+- `workspace_path_validator.py`:
+  - `Snapshot._guard` (protected names and inodes on the walk, for non-mutating effects) and `_resolve_nofollow` (unlink semantics: the final symlink is not followed).
+  - `remove` now unlinks the leaf, so removing an unprotected symlink no longer touches its target. `symlink` into an existing directory resolves the child name.
+  - Read-side confinement (protected reads, copy sources and symlink targets) is behind `check(..., confine_reads=True)`. The default stays off because the v12.4 label transducer reads protected files on purpose, to label them and deny at egress. Making it unconditional broke 24 existing tests.
+  - `analyze_shell(text, snapshot=None, cwd=None)` is unchanged without a snapshot. With one, it runs `snapshot.check_all(effect, cwd, confine_reads=True)`.
+  - New `StagedCollusionGuard` (reference model) covers five carriers: multi-file concatenation, chmod outside {600, 644, 700, 755}, filename-encoded payloads, cross-agent append-log signalling, and cross-agent staged copies. Paths are canonicalized through the `Snapshot`.
+  - `rm` is still an unmodeled command, so `rm .git/link` is denied by the parser (`UNMODELED_COMMAND`). The model-level `remove` check is tested directly.
+- `egress_uri_guard.py`:
+  - Each URI is also classified after NFKC plus the IDNA dot mapping (U+3002, U+FF0E, U+FF61). An internal target that is visible only after folding is denied (`unicode_normalization_differential`), including in free text.
+  - Host-less `file:` URIs are denied when the path traverses or is sensitive (`file:///etc/passwd`). `file:///lab/readme.md` stays allowed.
+- `arg_ast_guard.py`:
+  - `canonicalize_path` flags `nested_traversal_sequence` (`....//`, which becomes `../` after one naive strip) and `invisible_format_character` (Unicode `Cf`, e.g. U+200D), and analyzes the NFKC form.
+- `benchmarks/wild_mcp_corpus/score.py`: opt-in `own_data_lookup` / `toxic_2hop_own_data_refined`. `score_server` is unchanged, so the v1 and v2 figures reproduce. On the 28 PR #40 servers (in-sample, one rater) it eliminates **5 of 10** false positives and keeps **18 of 18** plausible hits. Corpus-wide `toxic_2hop` goes **79 → 65** (list-order) and **121 → 118** (uniform). See `own_data_rule_check.json` and the v3 section of `docs/wild_mcp_corpus_report.md`.
+- `docs/outreach_snippet_review.md`: draft one-line notes on five round 1 leads for manual review. Only Onplana publishes tool names, and none of the five publishes input schemas. None is a customer.
+- Tests: `tests/test_pr42_shell_collusion.py` (37) and `tests/test_pr42_parser_differentials.py` (30). Gateway, Python 3.12.3, 2 November 2026: **1,245 collected; 1,239 passed, 6 skipped** without `php` (the skips are the PHP parity tests), and **1,245 passed** with `php` (the same machine gave 1,178 passed before this change). `agent-watch`: **512 passed, 2 skipped**; `agentwatch-analyzer`: **10 passed** (both unchanged). Corpus (`benchmarks/wild_mcp_corpus`): **42 passed** (28 before, plus 14 in `test_own_data_rule.py`).
+
 ## [Unreleased] - cross-session file labels and canonical MCP ids on main (1 November 2026)
 
 PR #34 (`dcce56e`, previously only on `volta`) brought onto `main`, which already has the round-2 fixes and v14 predicates C, E, B and A (PR #36, merge `2dbca57`). Both sets are kept. No new credential freeze. The only automated block that freezes a registered key is still the existing 15-minute freeze. These changes fail closed (drop or hold) and hand the lead to the decision log.

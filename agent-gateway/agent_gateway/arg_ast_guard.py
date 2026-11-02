@@ -10,8 +10,11 @@ Three families:
 
 - **Path canonicalization** on path-like arguments: directory traversal
   (``../``, ``..\\``, URL-encoded ``%2e%2e%2f``, double-encoded, Unicode
-  overlong), NUL bytes, UNC / device paths, and absolute paths outside the
-  allowed roots (``/etc``, ``/proc``, ``~/.ssh`` ...).
+  overlong), nested sequences that become traversal after one naive
+  ``../`` strip (``....//``), NUL bytes, UNC / device paths, invisible
+  Unicode format characters (``/etc/pass\u200dwd``), NFKC compatibility
+  spellings, and absolute paths outside the allowed roots (``/etc``,
+  ``/proc``, ``~/.ssh`` ...).
 - **Command and header injection**: unapproved shell metacharacter chaining
   (``;``, ``&&``, ``||``, ``|``, backtick, ``$()``, ``${}``, newline) in
   command / exec arguments, and CRLF header splitting in header-like
@@ -28,6 +31,7 @@ from __future__ import annotations
 
 import posixpath
 import re
+import unicodedata
 import urllib.parse
 from dataclasses import dataclass
 from typing import Any, Iterator, Optional
@@ -110,7 +114,14 @@ def canonicalize_path(raw: str) -> tuple[str, list[str]]:
     decoded = _fully_unquote(raw)
     if decoded != raw and _DANGEROUS_PATH_RE.search(decoded):
         reasons.append("encoded_nul_byte")
+    stripped = "".join(ch for ch in decoded if unicodedata.category(ch) != "Cf")
+    if stripped != decoded:
+        reasons.append("invisible_format_character")
+    # Analyze the compatibility-folded form (fullwidth solidus, dots, ...).
+    decoded = unicodedata.normalize("NFKC", stripped)
     unified = decoded.replace("\\", "/")
+    if not _TRAVERSAL_RE.search(unified) and _TRAVERSAL_RE.search(unified.replace("../", "")):
+        reasons.append("nested_traversal_sequence")
     low = decoded.lower()
     if any(w in low.replace("/", "\\") for w in _WINDOWS_SENSITIVE):
         reasons.append("windows_system_path")

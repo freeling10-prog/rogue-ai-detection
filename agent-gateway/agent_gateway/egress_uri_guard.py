@@ -15,6 +15,13 @@ decision. Covered spellings:
 - cloud metadata names and addresses (``169.254.169.254``,
   ``metadata.google.internal``, ``fd00:ec2::254``, ``100.100.100.200``,
   ``169.254.170.2``)
+- Unicode compatibility spellings (``http\uff1a//127\u30020\u30020\u30021/``):
+  the string is also read after NFKC plus the IDNA dot mapping (U+3002,
+  U+FF0E, U+FF61 to ``.``); an internal target reached only through that
+  folding is denied as ``unicode_normalization_differential``
+- ``file://`` URIs with no host (or ``localhost``) whose path traverses or
+  lands on a sensitive system path (``file:///etc/passwd``); ordinary local
+  resource URIs such as ``file:///lab/readme.md`` are left alone
 
 Nothing is resolved: the guard makes no DNS or network call, so a public
 name that later resolves to an internal address (DNS rebinding) is out of
@@ -36,9 +43,12 @@ from __future__ import annotations
 
 import ipaddress
 import re
+import unicodedata
 import urllib.parse
 from dataclasses import dataclass, field
 from typing import Any, Iterator, Optional
+
+from .arg_ast_guard import canonicalize_path
 
 ATLAS_SSRF = "AML.T0053"
 DEFAULT_LAB_ALLOW = frozenset({"127.0.0.1", "localhost", "::1"})
@@ -70,6 +80,8 @@ METADATA_IPS = frozenset({
 })
 _NAT64 = ipaddress.ip_network("64:ff9b::/96")
 _CGNAT = ipaddress.ip_network("100.64.0.0/10")
+_IDNA_DOTS = str.maketrans({"\u3002": ".", "\uff0e": ".", "\uff61": "."})
+_FILE_URI_RE = re.compile(r"(?i)^file:(?://([^/?#]*))?(/[^?#]*)?")
 _LOCAL_SUFFIXES = (".localhost", ".local", ".internal", ".intranet", ".corp", ".home.arpa", ".lan")
 
 
@@ -218,8 +230,52 @@ def _hosts_for(raw: str) -> list[tuple[str, str, str]]:
     return out
 
 
+def unicode_fold(text: str) -> str:
+    """NFKC plus the WHATWG/IDNA label-separator mapping (stdlib only)."""
+    return unicodedata.normalize("NFKC", text).translate(_IDNA_DOTS)
+
+
+def _file_uri_verdict(raw: str) -> Optional[UriVerdict]:
+    """Deny a host-less ``file:`` URI whose path traverses or is sensitive."""
+    m = _FILE_URI_RE.match(raw.strip())
+    if not m:
+        return None
+    host = (m.group(1) or "").lower()
+    if host not in ("", "localhost"):
+        return None  # A remote host is classified like any other host.
+    path = m.group(2) or ""
+    _canon, reasons = canonicalize_path(path)
+    if not reasons:
+        return None
+    return UriVerdict("deny", raw=raw[:500], host=host, canonical=_canon[:200],
+                      category="local_file",
+                      reasons=["local_file_scheme"] + [f"file_{r}" for r in reasons])
+
+
 def classify(raw: str, lab_allow: frozenset[str] = DEFAULT_LAB_ALLOW) -> UriVerdict:
-    """Canonicalize one URI or host string and decide."""
+    """Canonicalize one URI or host string and decide.
+
+    The raw string and its Unicode-folded reading are both classified; an
+    internal target visible only after folding is a parser differential.
+    """
+    verdict = _classify(raw, lab_allow)
+    folded = unicode_fold(raw)
+    if folded != raw and verdict.verdict != "deny":
+        alt = _classify(folded, lab_allow)
+        # Non-canonical spelling of an internal target: deny even if the
+        # folded literal is lab-allowlisted (same rule as dword / hex forms).
+        if alt.verdict != "allow" or alt.category != "public":
+            alt.raw = raw[:500]
+            alt.reasons.append("unicode_normalization_differential")
+            alt.verdict = "deny"
+            return alt
+    return verdict
+
+
+def _classify(raw: str, lab_allow: frozenset[str]) -> UriVerdict:
+    file_verdict = _file_uri_verdict(raw)
+    if file_verdict is not None:
+        return file_verdict
     worst = UriVerdict("allow", raw=raw[:500])
     rank = {"allow": 0, "hold": 1, "deny": 2}
     for parser, host_raw, userinfo in _hosts_for(raw):
@@ -293,8 +349,24 @@ def iter_uri_candidates(arguments: Any, depth: int = 0, key: str = "") -> Iterat
         if leaf in URI_KEYS and s.strip():
             yield s.strip(), True
             return
+        seen = set()
         for m in _URL_RE.finditer(s):
+            seen.add(m.group(0))
             yield m.group(0), False
+        # Per-character fold keeps a map back to the raw span, so classify()
+        # sees the original spelling and can flag the differential.
+        folded, origin = [], []
+        for i, ch in enumerate(s):
+            piece = unicode_fold(ch)
+            folded.append(piece)
+            origin.extend([i] * len(piece))
+        text = "".join(folded)
+        if text != s:
+            for m in _URL_RE.finditer(text):
+                raw = s[origin[m.start()]:origin[m.end() - 1] + 1]
+                if raw not in seen:
+                    seen.add(raw)
+                    yield raw, False
     elif isinstance(arguments, int) and not isinstance(arguments, bool) and key in URI_KEYS:
         yield str(arguments), True  # {"host": 2130706433}
 

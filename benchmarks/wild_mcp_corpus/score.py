@@ -212,6 +212,133 @@ def classification_basis(tool: dict) -> str:
     return "default"
 
 
+# ---------------------------------------------------------------------------
+# Own-data lookup rule (PR #42). Opt-in: ``score_server`` does not apply it,
+# so the committed PR #39 / #40 results stay reproducible byte for byte.
+#
+# PR #40's hand check found that 8 of its 10 false positives had, as their only
+# untrusted source, a search over the server's OWN index (a catalog, CRM,
+# station list, filings database, API docs). ``tool_class`` classes any name
+# with a ``search`` token as ``external_read``. This rule reclassifies such a
+# tool as ``internal_read`` only when every condition below holds. It reads the
+# published listing only (name, description, schema); it is a static heuristic,
+# not a statement about what a deployment actually returns.
+# ---------------------------------------------------------------------------
+OWN_DATA_RULE_ID = "own_data_lookup/1"
+_LOOKUP_WORDS = ("search",)
+_EXTERNAL_NAME_WORDS = ("fetch", "http", "browse", "browser", "web", "url", "crawl",
+                        "scrape", "download", "rss", "news", "blog", "social", "feed")
+_URL_PARAM_WORDS = ("url", "uri", "href", "link", "host", "domain", "website", "site", "endpoint", "feed")
+# Content that third parties author or that points outward: the reason a
+# search result is untrusted input in the first place.
+_OPEN_CONTENT_RE = re.compile(
+    r"\b(?:web|internet|online|urls?|links?|websites?|webpages?|posts?|news|blogs?|forums?|"
+    r"communit(?:y|ies)|social|reviews?|comments?|user[- ]generated|articles?|papers?|"
+    r"preprints?|feeds?|videos?|images?|any public|third[- ]party|external)\b",
+    re.I,
+)
+# A bounded record set that the server itself holds or curates.
+_OWN_SCOPE_RE = re.compile(
+    r"\b(?:catalog(?:ue)?|database|documentation|docs|directory|crm|accounts?|contacts?|"
+    r"members?|inventory|index|knowledge base|stations?|stops?|our|internal)\b",
+    re.I,
+)
+_ID_WORD_RE = re.compile(r"\b(?:ids?|identifiers?|slugs?|keys?)\b", re.I)
+
+
+def _names_sibling(desc: str, siblings: frozenset[str], own_name: str) -> bool:
+    """The description names another tool of the same listing, as a whole word."""
+    for name in siblings:
+        if name != own_name and len(name) >= 4 and re.search(
+                r"(?<![A-Za-z0-9_\-])" + re.escape(name) + r"(?![A-Za-z0-9_\-])", desc):
+            return True
+    return False
+
+
+def _prop_names(schema: object) -> list[str]:
+    if not isinstance(schema, dict):
+        return []
+    props = schema.get("properties")
+    return [str(k) for k in props] if isinstance(props, dict) else []
+
+
+def own_data_lookup(tool: dict, siblings: frozenset[str] = frozenset()) -> bool:
+    """True when ``tool`` looks like a lookup over the server's own records.
+
+    All must hold:
+
+    1. ``tool_class`` says ``external_read`` from the name rule or the egress
+       table, never from a declared label (declarations are respected).
+    2. A lookup word (``search``) is the only external-read token in the name;
+       no fetch / http / web / url / crawl / scrape / download / rss / news /
+       blog / social / feed token.
+    3. No input property is URL- or host-shaped (``url``, ``uri``, ``link``,
+       ``host``, ``domain``, ``website``, ``site``, ``endpoint``, ``feed``).
+    4. The description names no open or third-party content (web, URLs, links,
+       posts, news, reviews, comments, articles, papers, feeds, media ...).
+    5. Either the description names a bounded own record set (catalog,
+       database, documentation, directory, CRM, accounts, contacts, members,
+       inventory, index, stations, stops, "our", internal), or the tool is an
+       ID resolver: the description mentions IDs / identifiers / slugs / keys
+       AND names another tool of the same listing (``siblings``), so it
+       resolves the server's own keys for a sibling call. The generic word
+       "records" is deliberately not a scope marker: it says nothing about who
+       authored the content (it wrongly cleared two plausible PR #40 hits).
+    """
+    from agent_gateway.toxic_combinations import _label
+
+    if _label(tool) or tool_class(tool) != "external_read":
+        return False
+    basis = classification_basis(tool)
+    if basis not in ("name_rule", "egress_table"):
+        return False
+    norm = _name_norm(str(tool.get("name") or ""))
+
+    def has(word: str) -> bool:
+        return "_" + word in norm
+
+    if not any(has(w) for w in _LOOKUP_WORDS):
+        return False
+    if any(has(w) for w in _EXTERNAL_NAME_WORDS):
+        return False
+    for prop in _prop_names(tool.get("inputSchema")):
+        pnorm = _name_norm(prop)
+        if any("_" + w in pnorm for w in _URL_PARAM_WORDS):
+            return False
+    desc = str(tool.get("description") or "")[:2000]
+    if not desc or _OPEN_CONTENT_RE.search(desc):
+        return False
+    if _OWN_SCOPE_RE.search(desc):
+        return True
+    own_name = str(tool.get("name") or "")
+    return bool(_ID_WORD_RE.search(desc)) and _names_sibling(desc, siblings, own_name)
+
+
+def apply_own_data_rule(tools: list[dict]) -> list[dict]:
+    """Copy of ``tools`` with own-data lookups declared ``internal_read``."""
+    siblings = frozenset(str(t.get("name") or "") for t in tools)
+    out = []
+    for tool in tools:
+        if own_data_lookup(tool, siblings):
+            copy = dict(tool)
+            copy["class"] = "internal_read"
+            out.append(copy)
+        else:
+            out.append(tool)
+    return out
+
+
+def toxic_2hop_own_data_refined(record: dict) -> str:
+    """``toxic_2hop`` after the own-data rule: ``hit``, ``miss``, or ``na``."""
+    if record.get("schema_policy") != "published":
+        return "na"
+    from agent_gateway.toxic_combinations import MAX_TOOLS
+
+    tools = apply_own_data_rule(_tools(record)[:MAX_TOOLS])
+    hop2, _ = toxic_path_exists(tools)
+    return "hit" if hop2 else "miss"
+
+
 def _r_reason(tool: dict) -> str | None:
     schema = tool.get("inputSchema")
     if not isinstance(schema, dict):

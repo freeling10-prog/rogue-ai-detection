@@ -1,0 +1,275 @@
+{
+  "caveats": [
+    "In-sample: the rule was written after reading these 28 PR #40 cases.",
+    "Reviewer labels are one rater (the project author); no inter-rater agreement.",
+    "A remaining flag is a static reading of a published listing, not a confirmed vulnerability.",
+    "score_server is unchanged; the rule is opt-in via toxic_2hop_own_data_refined."
+  ],
+  "corpus_effect": {
+    "smithery_list_order": {
+      "n": 150,
+      "toxic_2hop_after": 65,
+      "toxic_2hop_before": 79
+    },
+    "smithery_uniform": {
+      "n": 250,
+      "toxic_2hop_after": 118,
+      "toxic_2hop_before": 121
+    }
+  },
+  "hand_checked": {
+    "cases": [
+      {
+        "case_id": "p01",
+        "label": "false_positive",
+        "stratum": "smithery_list_order",
+        "tools_relabelled": 0,
+        "toxic_2hop_after": "hit",
+        "toxic_2hop_before": "hit"
+      },
+      {
+        "case_id": "p02",
+        "label": "false_positive",
+        "stratum": "smithery_list_order",
+        "tools_relabelled": 5,
+        "toxic_2hop_after": "miss",
+        "toxic_2hop_before": "hit"
+      },
+      {
+        "case_id": "p03",
+        "label": "plausible",
+        "stratum": "smithery_list_order",
+        "tools_relabelled": 0,
+        "toxic_2hop_after": "hit",
+        "toxic_2hop_before": "hit"
+      },
+      {
+        "case_id": "p04",
+        "label": "plausible",
+        "stratum": "smithery_list_order",
+        "tools_relabelled": 0,
+        "toxic_2hop_after": "hit",
+        "toxic_2hop_before": "hit"
+      },
+      {
+        "case_id": "p05",
+        "label": "plausible",
+        "stratum": "smithery_list_order",
+        "tools_relabelled": 0,
+        "toxic_2hop_after": "hit",
+        "toxic_2hop_before": "hit"
+      },
+      {
+        "case_id": "p06",
+        "label": "false_positive",
+        "stratum": "smithery_list_order",
+        "tools_relabelled": 1,
+        "toxic_2hop_after": "hit",
+        "toxic_2hop_before": "hit"
+      },
+      {
+        "case_id": "p07",
+        "label": "plausible",
+        "stratum": "smithery_list_order",
+        "tools_relabelled": 0,
+        "toxic_2hop_after": "hit",
+        "toxic_2hop_before": "hit"
+      },
+      {
+        "case_id": "p08",
+        "label": "false_positive",
+        "stratum": "smithery_list_order",
+        "tools_relabelled": 1,
+        "toxic_2hop_after": "miss",
+        "toxic_2hop_before": "hit"
+      },
+      {
+        "case_id": "p09",
+        "label": "false_positive",
+        "stratum": "smithery_list_order",
+        "tools_relabelled": 1,
+        "toxic_2hop_after": "miss",
+        "toxic_2hop_before": "hit"
+      },
+      {
+        "case_id": "p10",
+        "label": "false_positive",
+        "stratum": "smithery_list_order",
+        "tools_relabelled": 1,
+        "toxic_2hop_after": "miss",
+        "toxic_2hop_before": "hit"
+      },
+      {
+        "case_id": "p11",
+        "label": "plausible",
+        "stratum": "smithery_list_order",
+        "tools_relabelled": 3,
+        "toxic_2hop_after": "hit",
+        "toxic_2hop_before": "hit"
+      },
+      {
+        "case_id": "p12",
+        "label": "false_positive",
+        "stratum": "smithery_list_order",
+        "tools_relabelled": 2,
+        "toxic_2hop_after": "miss",
+        "toxic_2hop_before": "hit"
+      },
+      {
+        "case_id": "p13",
+        "label": "plausible",
+        "stratum": "smithery_list_order",
+        "tools_relabelled": 0,
+        "toxic_2hop_after": "hit",
+        "toxic_2hop_before": "hit"
+      },
+      {
+        "case_id": "p14",
+        "label": "plausible",
+        "stratum": "smithery_list_order",
+        "tools_relabelled": 0,
+        "toxic_2hop_after": "hit",
+        "toxic_2hop_before": "hit"
+      },
+      {
+        "case_id": "p15",
+        "label": "plausible",
+        "stratum": "smithery_uniform",
+        "tools_relabelled": 0,
+        "toxic_2hop_after": "hit",
+        "toxic_2hop_before": "hit"
+      },
+      {
+        "case_id": "p16",
+        "label": "plausible",
+        "stratum": "smithery_uniform",
+        "tools_relabelled": 0,
+        "toxic_2hop_after": "hit",
+        "toxic_2hop_before": "hit"
+      },
+      {
+        "case_id": "p17",
+        "label": "plausible",
+        "stratum": "smithery_uniform",
+        "tools_relabelled": 0,
+        "toxic_2hop_after": "hit",
+        "toxic_2hop_before": "hit"
+      },
+      {
+        "case_id": "p18",
+        "label": "plausible",
+        "stratum": "smithery_uniform",
+        "tools_relabelled": 0,
+        "toxic_2hop_after": "hit",
+        "toxic_2hop_before": "hit"
+      },
+      {
+        "case_id": "p19",
+        "label": "plausible",
+        "stratum": "smithery_uniform",
+        "tools_relabelled": 0,
+        "toxic_2hop_after": "hit",
+        "toxic_2hop_before": "hit"
+      },
+      {
+        "case_id": "p20",
+        "label": "false_positive",
+        "stratum": "smithery_uniform",
+        "tools_relabelled": 0,
+        "toxic_2hop_after": "hit",
+        "toxic_2hop_before": "hit"
+      },
+      {
+        "case_id": "p21",
+        "label": "plausible",
+        "stratum": "smithery_uniform",
+        "tools_relabelled": 0,
+        "toxic_2hop_after": "hit",
+        "toxic_2hop_before": "hit"
+      },
+      {
+        "case_id": "p22",
+        "label": "plausible",
+        "stratum": "smithery_uniform",
+        "tools_relabelled": 0,
+        "toxic_2hop_after": "hit",
+        "toxic_2hop_before": "hit"
+      },
+      {
+        "case_id": "p23",
+        "label": "plausible",
+        "stratum": "smithery_uniform",
+        "tools_relabelled": 0,
+        "toxic_2hop_after": "hit",
+        "toxic_2hop_before": "hit"
+      },
+      {
+        "case_id": "p24",
+        "label": "false_positive",
+        "stratum": "smithery_uniform",
+        "tools_relabelled": 0,
+        "toxic_2hop_after": "hit",
+        "toxic_2hop_before": "hit"
+      },
+      {
+        "case_id": "p25",
+        "label": "plausible",
+        "stratum": "smithery_uniform",
+        "tools_relabelled": 0,
+        "toxic_2hop_after": "hit",
+        "toxic_2hop_before": "hit"
+      },
+      {
+        "case_id": "p26",
+        "label": "false_positive",
+        "stratum": "smithery_uniform",
+        "tools_relabelled": 0,
+        "toxic_2hop_after": "hit",
+        "toxic_2hop_before": "hit"
+      },
+      {
+        "case_id": "p27",
+        "label": "plausible",
+        "stratum": "smithery_uniform",
+        "tools_relabelled": 0,
+        "toxic_2hop_after": "hit",
+        "toxic_2hop_before": "hit"
+      },
+      {
+        "case_id": "p28",
+        "label": "plausible",
+        "stratum": "smithery_uniform",
+        "tools_relabelled": 0,
+        "toxic_2hop_after": "hit",
+        "toxic_2hop_before": "hit"
+      }
+    ],
+    "eliminated_case_ids": [
+      "p02",
+      "p08",
+      "p09",
+      "p10",
+      "p12"
+    ],
+    "false_positives": 10,
+    "false_positives_eliminated": 5,
+    "plausible": 18,
+    "plausible_preserved": 18,
+    "precision_among_still_flagged": {
+      "hits": 18,
+      "n": 23,
+      "prevalence": "0.782609",
+      "wilson95": [
+        "0.580965",
+        "0.903360"
+      ]
+    },
+    "relabelled_tools_vs_reviewer": {
+      "reviewer_agreed_external_read": 3,
+      "reviewer_disagreed_to_internal_read": 11,
+      "reviewer_other_or_none": 0
+    }
+  },
+  "rule": "own_data_lookup/1",
+  "schema": "agentgate.wild-mcp-own-data-rule-check/1"
+}

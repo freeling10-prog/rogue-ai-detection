@@ -154,9 +154,53 @@ class Snapshot:
             if target.node.inode in self.protected_inodes or target.node.links != 1:
                 raise Denied("PROTECTED_OR_SHARED_INODE")
 
+    def _guard(self, target: Resolved) -> None:
+        """Deny any traversal through protected names or protected inodes.
+
+        Unlike ``_mutation`` this applies to non-mutating effects too (reads,
+        copy sources, link targets): it does not reject directories or
+        multiply-linked files, only protected evidence on the walk.
+        """
+        if target.path == self.root or any(
+            p in self.protected_names if p in self.nodes else protected(p, self.root)
+            for p in target.visited
+        ):
+            raise Denied("PROTECTED_PATH")
+        if target.node is not None and target.node.inode in self.protected_inodes:
+            raise Denied("PROTECTED_OR_SHARED_INODE")
+
+    def _resolve_nofollow(self, path: str, cwd: str | None, budget: PathBudget) -> Resolved:
+        """Resolve the parent normally but do NOT follow a final symlink (unlink semantics)."""
+        if cwd is not None and (cwd not in self.nodes or self.nodes[cwd].kind != "dir"):
+            raise Denied("INVALID_CWD")
+        full_path = path if path.startswith("/") else (self.root if cwd is None else cwd) + "/" + path
+        raw_parts = [p for p in self._relative(full_path) if p and p != "."]
+        if not raw_parts or raw_parts[-1] == "..":
+            raise Denied("PROTECTED_PATH")
+        parent_rel = "/".join(raw_parts[:-1])
+        parent_path = self.root if not parent_rel else f"{self.root}/{parent_rel}"
+        parent = self.resolve(parent_path, cwd=None, budget=budget)
+        if parent.node is None or parent.node.kind != "dir":
+            raise Denied("NOT_DIRECTORY")
+        candidate = f"{parent.path}/{raw_parts[-1]}"
+        node = self.nodes.get(candidate)
+        if node is None:
+            raise Denied("MISSING_COMPONENT")
+        return Resolved(candidate, node, parent.visited + (candidate,))
+
     def check(self, intent: Intent, cwd: str | None = None,
               *, expected_generation: int | None = None,
-              budget: PathBudget | None = None) -> Resolved:
+              budget: PathBudget | None = None,
+              confine_reads: bool = False) -> Resolved:
+        """Check one intent against the model.
+
+        ``confine_reads=False`` (the default, used by ``pep.py`` and the v12.4
+        label transducer) lets reads and copy sources touch protected files so
+        the transducer can LABEL them and deny at the egress sink.
+        ``confine_reads=True`` (used by ``analyze_shell(..., snapshot=...)``)
+        also denies reads, copy sources and symlink targets that traverse a
+        protected name or inode.
+        """
         if expected_generation is not None and expected_generation != self.generation:
             raise Denied("STALE_FILESYSTEM_GENERATION")
         op = intent.operation
@@ -164,21 +208,25 @@ class Snapshot:
         budget = PathBudget() if budget is None else budget
         if op == "read":
             result = self.resolve(intent.path, cwd, budget=budget)
-            if result.node.kind != "file":
+            if result.node is None or result.node.kind != "file":
                 raise Denied("READ_NOT_REGULAR")
+            if confine_reads:
+                self._guard(result)
             return result
         if op == "hardlink":
             raise Denied("HARDLINK_CREATION_DISABLED")
         if op in {"copy", "move"}:
             source = self.resolve(intent.source, cwd, budget=budget)
-            if source.node.kind != "file":
+            if source.node is None or source.node.kind != "file":
                 raise Denied("SOURCE_NOT_REGULAR")
             if op == "move":
                 self._mutation(source)
+            elif confine_reads:
+                self._guard(source)
             dest = self.resolve(intent.path, cwd, create=True, budget=budget)
             if dest.node is not None and dest.node.kind == "dir":
                 basename = intent.source.rstrip("/").rsplit("/", 1)[-1]
-                child = self.resolve(dest.path + "/" + basename, cwd, create=True, budget=budget)
+                child = self.resolve(f"{dest.path}/{basename}", cwd, create=True, budget=budget)
                 # Preserve protected names traversed while resolving a directory
                 # alias; physical basename expansion must not erase this evidence.
                 dest = Resolved(child.path, child.node, dest.visited + child.visited)
@@ -186,29 +234,45 @@ class Snapshot:
             return dest
         if op == "symlink":
             dest = self.resolve(intent.path, cwd, create=True, budget=budget)
-            self._mutation(dest)
+            if dest.node is not None and dest.node.kind == "dir":
+                basename = intent.source.rstrip("/").rsplit("/", 1)[-1]
+                if not basename or basename in {".", ".."}:
+                    raise Denied("LINK_BASENAME")
+                child = self.resolve(f"{dest.path}/{basename}", cwd, create=True, budget=budget)
+                dest = Resolved(child.path, child.node, dest.visited + child.visited)
             if dest.node is not None:
                 raise Denied("LINK_DEST_EXISTS")
+            self._guard(dest)
             target = intent.source
             if not target.startswith("/"):
                 target = dest.path.rsplit("/", 1)[0] + "/" + target
             resolved_target = self.resolve(target, cwd, budget=budget)
-            self._mutation(resolved_target)  # No links to protected/shared objects.
+            self._guard(resolved_target)  # No links to protected objects.
             return dest
+        if op == "remove":
+            # unlink(2) removes the final component itself, never its target.
+            leaf = self._resolve_nofollow(intent.path, cwd, budget)
+            self._guard(leaf)
+            if leaf.node.kind == "symlink":
+                return leaf
+            self._mutation(leaf)
+            return leaf
         if op not in {"write", "append", "chmod", "remove", "edit"}:
             raise Denied("UNMODELED_OPERATION")
         result = self.resolve(intent.path, cwd, create=op in {"write", "append"}, budget=budget)
         self._mutation(result)
         return result
 
-    def check_all(self, intents: tuple[Intent, ...], cwd: str | None = None) -> tuple[Resolved, ...]:
+    def check_all(self, intents: tuple[Intent, ...], cwd: str | None = None,
+                  *, confine_reads: bool = False) -> tuple[Resolved, ...]:
         if len(intents) > 64:
             raise Denied("EFFECT_BUDGET")
         # A flat static union cannot model a namespace change followed by use.
         if len(intents) > 1 and any(i.operation in {"move", "symlink", "hardlink"} for i in intents):
             raise Denied("SEQUENTIAL_NAMESPACE_REVALIDATION_REQUIRED")
         budget = PathBudget()
-        return tuple(self.check(i, cwd, budget=budget) for i in intents)
+        return tuple(self.check(i, cwd, budget=budget, confine_reads=confine_reads)
+                     for i in intents)
 
 
 @dataclass(frozen=True, slots=True)
@@ -345,12 +409,18 @@ def command_intents(argv: list[str]) -> list[Intent]:
     raise Denied("UNMODELED_COMMAND")
 
 
-def analyze_shell(text: str) -> tuple[Intent, ...]:
+def analyze_shell(text: str, snapshot: Snapshot | None = None,
+                  cwd: str | None = None) -> tuple[Intent, ...]:
     """Parse a literal subset, including (...) group redirections.
 
     Returns a conservative effect union, NOT an executable program or permit.
     All branches/pipeline members are inspected. Command substitution, dynamic
     words, fd duplication, heredocs, functions and arbitrary options are denied.
+
+    With ``snapshot=None`` (the default) this is the original parse-only
+    behaviour. With a ``Snapshot`` the effect union is also checked against the
+    model via ``snapshot.check_all(effect, cwd, confine_reads=True)`` before it
+    is returned, so protected reads and copy sources are denied as well.
     """
     tokens = lex(text)
     if not tokens:
@@ -427,4 +497,80 @@ def analyze_shell(text: str) -> tuple[Intent, ...]:
     sequence()
     if pos != len(tokens):
         raise Denied("UNEXPECTED_GROUP_CLOSE")
-    return tuple(intents)
+    effect = tuple(intents)
+    if snapshot is not None:
+        snapshot.check_all(effect, cwd, confine_reads=True)
+    return effect
+
+
+class StagedCollusionGuard:
+    """Stateful per-workspace guard against multi-agent staged covert channels.
+
+    Covers five carriers in the reference model: split payloads joined by a
+    multi-file concatenation, chmod permission bits outside a fixed profile,
+    filename-encoded payloads, cross-agent append-log signalling, and
+    cross-agent copies of staged artifacts. Paths are canonicalised through the
+    ``Snapshot`` so ``a``, ``./a`` and ``/ws/a`` are the same key. This is a
+    reference MODEL over parsed intents, not a guarantee that every covert
+    channel between cooperating agents is closed.
+    """
+    SAFE = re.compile(r"^[A-Za-z0-9._-]+$")
+    MODES = {"600", "644", "700", "755"}
+
+    def __init__(self) -> None:
+        self.written_paths: dict[str, set[str]] = {}
+
+    def _check_name(self, path: str) -> None:
+        for part in path.split("/"):
+            if part and (not self.SAFE.fullmatch(part) or len(part) > 64):
+                raise Denied("FILENAME_CARRIER")
+
+    def _canon_read(self, it: Intent, snapshot: Snapshot, cwd: str | None) -> str:
+        raw = it.path if it.operation == "read" else (it.source or "")
+        return snapshot.resolve(raw, cwd).path
+
+    def _canon_write(self, it: Intent, snapshot: Snapshot, cwd: str | None) -> str:
+        dest = snapshot.resolve(it.path, cwd, create=True)
+        if it.operation in {"copy", "move"} and dest.node is not None and dest.node.kind == "dir":
+            basename = (it.source or "").rstrip("/").rsplit("/", 1)[-1]
+            dest = snapshot.resolve(f"{dest.path}/{basename}", cwd, create=True)
+        return dest.path
+
+    def observe(
+        self,
+        agent: str,
+        intents: tuple[Intent, ...],
+        snapshot: Snapshot,
+        text: str = "",
+        cwd: str | None = None,
+    ) -> None:
+        if text:
+            toks = [t.value for t in lex(text) if t.kind == "word"]
+            for idx, val in enumerate(toks[:-1]):
+                if val == "chmod" and re.fullmatch(r"0?[0-7]{3}", toks[idx + 1]):
+                    if toks[idx + 1].lstrip("0") not in self.MODES:
+                        raise Denied("PERMISSION_CARRIER")
+
+        for it in intents:
+            self._check_name(it.path)
+            if it.source:
+                self._check_name(it.source)
+
+        reads = [
+            self._canon_read(it, snapshot, cwd)
+            for it in intents
+            if it.operation == "read" or (it.operation in {"copy", "move"} and it.source)
+        ]
+        writes = [
+            self._canon_write(it, snapshot, cwd)
+            for it in intents
+            if it.operation in {"write", "append", "edit", "copy", "move", "chmod", "remove"}
+        ]
+
+        for p in reads:
+            if self.written_paths.get(p, set()) - {agent}:
+                raise Denied("CROSS_AGENT_STAGING")
+        if len(set(reads)) >= 2 and writes:
+            raise Denied("MULTI_FILE_CONCAT")
+        for p in writes:
+            self.written_paths.setdefault(p, set()).add(agent)

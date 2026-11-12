@@ -145,7 +145,7 @@ def test_sarif_declares_the_confinement_rule() -> None:
 # --- Round-2 red-team: strict raw-wire parsing on Flask /mcp and the stdio proxy ------
 
 from agent_gateway.mcp_proxy import CLIENT_TO_SERVER, McpWireProxy  # noqa: E402
-from agent_gateway.pep import create_app  # noqa: E402
+from agent_gateway.http_app import create_app  # noqa: E402
 
 PRICE_POLICY = Policy((
     FieldPolicy("order_id", "number", required=True),

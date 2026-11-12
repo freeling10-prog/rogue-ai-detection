@@ -1,7 +1,8 @@
 """HTTP-path resource limits (lab). In-process PolicyEngine use is not limited."""
 from __future__ import annotations
 
-from agent_gateway.pep import PepConfig, create_app
+from agent_gateway.http_app import create_app
+from agent_gateway.pep import PepConfig
 from tests.conftest import KEY_A, REG
 
 

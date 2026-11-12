@@ -143,12 +143,20 @@ def egress_class(tool_name: str) -> str:
     return TOOL_EGRESS.get(tool_name, EGRESS_WRITE)  # unknown tools treated as write (fail closed)
 
 
-def places_params_on_external_boundary(tool_name: str, arguments: Optional[dict]) -> bool:
+def places_params_on_external_boundary(
+    tool_name: str,
+    arguments: Optional[dict],
+    secret_in_text: Optional[Any] = None,
+) -> bool:
     """True when tool *parameters* cross an external boundary (query/URL search params).
 
     Bare ingest URLs without a query string (e.g. read_external_url of a page) establish
     TAINTED but are not themselves treated as exfil channels. search_* tools and URLs with
     ?q=... / query= fields are gated under the lethal-trifecta policy (AML.T0086).
+
+    ``secret_in_text``, when given, is asked about the pre-query part of each
+    ``url`` / ``href`` / ``endpoint`` value. A fingerprinted secret in that path
+    is the same channel as a query parameter. A benign path is not.
     """
     args = arguments or {}
     if tool_name in ("search_external_kb", "search_docs", "web.search"):
@@ -159,5 +167,8 @@ def places_params_on_external_boundary(tool_name: str, arguments: Optional[dict]
     for key in ("url", "href", "endpoint"):
         val = str(args.get(key) or "")
         if "?" in val and "=" in val.split("?", 1)[-1]:
+            return True
+        head = val.split("?", 1)[0]
+        if secret_in_text is not None and head and secret_in_text(head):
             return True
     return False

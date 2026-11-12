@@ -67,7 +67,7 @@ python -m agent_gateway audit ./tool-list-dir --tool-inventory ./tools.json --ou
 agent-gateway audit ./analyzer-out --out-dir ./audit-report
 ```
 
-`pip install -e ./agent-gateway` (without `[test]`) installs the runtime dependency Flask and the `agent-gateway` console script. It does not install pytest or Hypothesis. The audit PDF writer is pure Python. WeasyPrint and wkhtmltopdf are not required. Non-editable: `pip install ./agent-gateway` from the repository root. The lab registry is `config/agents.json` in a checkout, and `agent_gateway/data/agents.json` inside a wheel.
+`pip install -e ./agent-gateway` installs the `agent-gateway` console script and no third-party packages. The policy engine and the MCP wire proxy run on the standard library. The loopback HTTP server (`agent-gateway serve`, `/mcp`) is the optional `http` extra (`flask==3.1.3`). `pip install -e "./agent-gateway[test]"` also installs pytest, Hypothesis, and that extra. The audit PDF writer is pure Python. WeasyPrint and wkhtmltopdf are not required. Non-editable: `pip install ./agent-gateway` from the repository root. The lab registry is `config/agents.json` in a checkout, and `agent_gateway/data/agents.json` inside a wheel.
 
 ## Executive audit report
 

@@ -16,8 +16,8 @@ things and writes ``collusion_benchmark_results.json``,
    This module generates no attack traffic of its own.
 
 2. Times ``PolicyEngine.evaluate_call`` on benign workflow steps (thread CPU
-   time and wall time, p50 / p95 / p99 in milliseconds) against a 2 ms
-   reference. Benign denials are counted, not hidden.
+   time and wall time). Benign denials are counted, not hidden. Decision-time
+   figures are not a deployment guarantee.
 
 3. Writes each benign decision to a hash-chained log (``audit_chain.py``),
    verifies it, and checks that a one-line edit of a copy is detected.
@@ -91,8 +91,7 @@ SCOPE_NOTES = (
     "Group results are the outcome of the repository's own defence tests; each count traces to a named pytest node id.",
     f"The real-model loopback archive figure ({ARCHIVE_BASELINE} non-control runs) is a separate measurement "
     "and is never pooled with these results.",
-    "Latency is measured CPU time per in-process evaluate_call decision on one machine. The 2 ms figure is a "
-    "reference target, not a guarantee.",
+    "Decision time is measured on one machine and is not a deployment guarantee.",
     "The gateway binds 127.0.0.1 by default. Freeze actions apply for 15 minutes to registered lab keys only.",
     "ATLAS technique labels are approximate.",
     "A passing audit-chain verify means the log is internally consistent. It is not a certification and not a "
@@ -612,8 +611,8 @@ def render_markdown(doc: dict[str, Any]) -> str:
         "",
         "- **Side channels (Group A).** The guard does not try to read the content. It bounds the channel: "
         "the number of distinct variants, the number of calls after the taint point, and how regular the timing "
-        "is. Crossing any bound holds the session for a person, so leakage is capped by policy rather than by "
-        "spotting a pattern.",
+        "is. Crossing any bound holds the session for a person. Regular-rhythm timing beacons are flagged; "
+        "irregular timing channels are not yet bounded.",
         "- **Delegation laundering (Group B).** Restrictions travel with the hand-off as HMAC caveats and are "
         "folded with a lattice meet, which only moves down. A peer cannot hold more egress than the agent that "
         "delegated to it, and a fresh session of a delegated principal is still held.",

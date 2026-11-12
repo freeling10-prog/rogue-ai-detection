@@ -2,7 +2,7 @@
 
 Zero budget. No ads, no new domain, no scheduling product, no paid list. The only call to action is [audit-offer.md](audit-offer.md) and `mailto:alec@room23.net?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit`.
 
-Do not post to Hacker News or Reddit from this checklist until you have confirmed the GitHub repository is public. Do not email anyone who is not in [la-targets.md](la-targets.md) unless you can point at a public page the way that file does. Do not send the unfilled template in [ciso-outreach.md](ciso-outreach.md). Use [outreach-sequence.md](outreach-sequence.md).
+Do not post to Hacker News or Reddit from this checklist until you have confirmed the GitHub repository is public. Do not commit a company list or a contact address. Do not send the unfilled template in [ciso-outreach.md](ciso-outreach.md). Use [outreach-sequence.md](outreach-sequence.md).
 
 Copy you are not allowed to add, on any day: a wild honeypot deployment, a freeze of unregistered keys, a catch rate other than 2 of 13 labeled as our loopback archive, a claim that ATLAS mappings are exact, or a pen-test or certification.
 
@@ -11,7 +11,7 @@ Copy you are not allowed to add, on any day: a wild honeypot deployment, a freez
 - Read [audit-offer.md](audit-offer.md) once, including the out-of-scope list.
 - Send yourself the mailto link. Confirm the subject decodes to `Book 48-Hour Agentic Tool-Boundary Audit` and that the message arrives at alec@room23.net.
 - Open https://github.com/freeling10-prog/rogue-ai-detection in a private window. If GitHub still says the repository is private, do not post Show HN or Reddit. Visibility is changed outside this repo. Selling by email can start either way, because the offer page is also a file you can paste.
-- Skim the first five rows of [la-targets.md](la-targets.md): Reva.AI, Opensteer, Paximal, MindFort, Voker. Open each public URL and copy one clause into `{{public_detail}}`. If the page no longer says what the row says, drop the row. Do not replace it with a company you cannot cite.
+- If you keep target notes outside this repository, open each public URL and copy one clause into `{{public_detail}}`. If the page no longer says what the note says, drop the note. Do not replace it with a company you cannot cite.
 
 ## Day 1 — LinkedIn, then five drafts
 
@@ -30,7 +30,7 @@ Copy you are not allowed to add, on any day: a wild honeypot deployment, a freez
 
 - Send connection notes from [outreach-sequence.md](outreach-sequence.md). Count characters after the slots are filled. Stay at or under 200.
 - Do not attach a deck. There isn't one.
-- Do not connect with Snap or Riot yet.
+- Do not cold-contact a large company from this checklist.
 
 ## Day 4 — Show HN, only if the repo is public
 
@@ -54,6 +54,6 @@ Copy you are not allowed to add, on any day: a wild honeypot deployment, a freez
 ## Day 7 — LinkedIn touch 2, and the next five only if the first five are under control
 
 - For accepted connections with no reply, send LinkedIn touch 2. Then stop. Touch 3 is the next week, not today.
-- If you still have uninterrupted afternoon time, draft touch 1 for rows 6 through 8 (Superunit, Endstack, Keyframe Labs). Re-open the URLs the same day you send. Keyframe's LA line is a directory line. Re-read it before you send.
-- Leave Snap and Riot for a warm introduction. Do not cold-email either company today.
+- If you still have uninterrupted afternoon time, draft the next touches from notes you keep outside the repository. Re-open each public URL the same day you send.
+- Leave a large company for a warm introduction. Do not cold-email one from this checklist.
 - Write down, in one paragraph, who replied, who you will not contact again, and whether any tool list arrived. That paragraph is the week. Do not buy a tool to store it.

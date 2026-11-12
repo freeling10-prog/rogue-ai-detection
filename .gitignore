@@ -20,3 +20,17 @@ htmlcov/
 
 # Local run output
 out/
+
+# Prospect lists, lead batches, and per-company outreach pitches.
+# Generic templates that use {{company}} placeholders may stay under marketing/.
+marketing/la-targets.md
+marketing/*-targets.md
+marketing/*targets*
+docs/outreach_snippet_review.md
+outreach/
+prospects/
+**/lead-batch*
+**/lead_batch*
+*prospect-list*
+*prospects.md
+benchmarks/wild_mcp_corpus/outreach_round*_listings.jsonl

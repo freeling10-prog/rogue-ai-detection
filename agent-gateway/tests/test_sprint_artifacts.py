@@ -57,16 +57,17 @@ def test_slides_pdf_has_six_landscape_pages():
     assert pdf.count(b"/MediaBox [0 0 960 540]") == 6
     text = pdf.decode("latin-1")
     for needle in ("Zero-Compute Deterministic Interception", "TRACK 3", "TRACK 2", "hash-chained",
-                   "Hypothesis", "p99", "2 of 13", "never pooled", "127.0.0.1", "15 minutes",
-                   "DelegationDagMachine", "120 x 24 steps", "262"):
+                   "Hypothesis", "2 of 13", "never pooled", "127.0.0.1", "15 minutes",
+                   "DelegationDagMachine", "120 x 24 steps", "not yet bounded"):
         assert needle in text, needle
     assert "not a Merkle tree" in text  # linear chain, stated plainly
 
 
-def test_slides_show_failures_and_slow_max():
+def test_slides_show_failures_without_a_latency_claim():
     text = sa.render_slides_pdf(_doc(failed=1, max_ms=3.1)).decode("latin-1")
     assert "7 of 8 tests pass" in text
-    assert "3.10 ms" in text and "shown, not hidden" in text
+    assert "not yet bounded" in text
+    assert "3.10 ms" not in text
 
 
 def test_card_png_dimensions_and_pixels():

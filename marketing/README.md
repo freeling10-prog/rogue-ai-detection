@@ -7,8 +7,7 @@ Nothing in this folder has been posted or emailed by adding it to the tree. Show
 | Piece | Audience | File |
 | --- | --- | --- |
 | Paid offer | Security reviewer at a B2B agent or MCP team | [audit-offer.md](audit-offer.md) |
-| Email and LinkedIn sequence | LA companies in [la-targets.md](la-targets.md) | [outreach-sequence.md](outreach-sequence.md) |
-| First 10 LA targets | Alec, before anyone is emailed | [la-targets.md](la-targets.md) |
+| Email and LinkedIn sequence | Generic templates. Company lists stay out of the repo | [outreach-sequence.md](outreach-sequence.md) |
 | Day 0–7 checklist | Zero-budget week | [7-day-execution-checklist.md](7-day-execution-checklist.md) |
 | Show HN title and post | Hacker News, optional, after the repo is public | [show-hn.md](show-hn.md) |
 | Technical write-up | Reddit, r/LocalLLaMA, optional, after the repo is public | [reddit-localllama.md](reddit-localllama.md) |
@@ -37,12 +36,11 @@ These are the limits already recorded in the root README, [docs/phase1-tier2-rep
 - **No wild-deployment result** is recorded. Do not add one.
 - **ATLAS mappings are approximate** (AML.M0030, T0051, T0053, T0080, T0086, T0118). They are not a certification. OWASP ASI notes on the Sigma rules are orientation, not a compliance claim.
 - **`agw1.` is macaroon-style chained HMAC attenuation**, not a full macaroon library (no third-party caveats, no discharges). A worker that holds `AGENT_GATEWAY_HMAC_KEY` can mint a fresh allowing token. A holder who does not have that key cannot strip `allow_egress=false`.
-- **Post-sprint `main` (29 October 2026).** `agent-gateway` **874 passed** with **13** stateful Hypothesis machines (389 at v11, plus 48 Claude Code hook and 20 MCP blueprint tests in v11.1, plus 49 PHP Defense Guard tests, plus 146 v12 evasion-guard tests, plus 144 v12.1 tests, plus 78 v12.2 reference-validator tests); `agent-watch` **512 passed, 2 skipped**; `agentwatch-analyzer` **10 passed**: **1396** passing across the workspace. The 127 new gateway tests cover the four v11 guards and their wiring and are reported as a separate Group D, never added to 57/57. Quote 874 for `main` and 262 for the sprint snapshot.
-- **Recorded tests (re-run 25 October 2026 at commit `cefec0d`).** `agent-gateway` **262 passed** (7/7 ATLAS falsification and 5 stateful Hypothesis machines inside), `agent-watch` **512 passed, 2 skipped** (514 collected), `agentwatch-analyzer` **10 passed**: **784** passing across the workspace. Breakdown by file: [docs/phase2-gateway.md](../docs/phase2-gateway.md) and the root README. Earlier floors (35, then 40, then 240 on the v10 tree) are history; quote 262 for this tree. Hypothesis pin in those tests is `hypothesis==6.170.9`.
+- **Gateway tests.** The test suite currently passes 1,250 tests. Do not quote an earlier suite total, and do not quote a decision-time figure.
 
 ## Before anyone posts or sends
 
 - Show HN and the Reddit draft are **ready to post after the repository is public**. They have not been posted. If the remote is still private when you sit down to post, do not submit them. The link line is already https://github.com/freeling10-prog/rogue-ai-detection. Apache 2.0 describes the code. It does not by itself change repository visibility.
 - Send [outreach-sequence.md](outreach-sequence.md), not the body of [ciso-outreach.md](ciso-outreach.md). The sequence uses the mailto above. Do not invent a domain to fill a gap.
-- [la-targets.md](la-targets.md) is the first ten companies. Re-open the cited URL the day you send. Drop a row when the page no longer says what the row says.
+- Do not commit a company list, a contact email, or a per-company pitch. Re-open the public page the day you send, and drop a line the page no longer supports.
 - Leave the numbers as fractions (`2 of 13`, `1 to 3` calls). Do not round them into a percentage in a title.

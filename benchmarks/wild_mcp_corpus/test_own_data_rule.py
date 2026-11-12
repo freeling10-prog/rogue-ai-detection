@@ -85,9 +85,15 @@ def test_rule_on_the_pr40_hand_checked_servers():
         assert json.loads(stored.read_text(encoding="utf-8"))["hand_checked"] == got
 
 
-def test_outreach_listing_is_names_only_and_scored_as_such():
-    rows = S.load_jsonl(HERE / "outreach_round1_listings.jsonl")
-    assert len(rows) == 1 and rows[0]["schema_policy"] == "not_published_as_json"
-    verdicts = S.score_server(rows[0])
+def test_names_only_listing_skips_schema_predicates():
+    row = {
+        "schema_policy": "not_published_as_json",
+        "server_id": "names-only-example",
+        "tools": [
+            {"name": "list_items", "description": "list items."},
+            {"name": "get_item", "description": "one item."},
+        ],
+    }
+    verdicts = S.score_server(row)
     assert verdicts["toxic_2hop"] == "na" and verdicts["R_cold_path"] == "na"
-    assert not any("inputSchema" in t for t in rows[0]["tools"])
+    assert not any("inputSchema" in t for t in row["tools"])

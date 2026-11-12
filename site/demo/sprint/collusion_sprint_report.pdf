@@ -12,7 +12,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /Font << /F1 3 0 R >> >> >>
 endobj
 5 0 obj
-<< /Length 3159 >>
+<< /Length 3115 >>
 stream
 BT
 /F1 10 Tf
@@ -52,11 +52,9 @@ T*
 T*
 (canary watermarks for provenance. In this run the repository's defence tests for the three) Tj
 T*
-(carrier groups passed 57 of 57. Benign policy decisions took a p50 of 0.1264 ms and a p99) Tj
+(carrier groups passed 57 of 57. The hash-chained decision log verified clean over 750) Tj
 T*
-(of 0.9987 ms of CPU time \(reference target 2.0 ms\). The hash-chained decision log verified) Tj
-T*
-(clean over 750 entries.) Tj
+(entries. Decision-time figures are not quoted.) Tj
 T*
 () Tj
 T*
@@ -113,6 +111,8 @@ T*
 (- deobfuscate.py: protected values are stored only as salted SHA-256 digests of 8-character) Tj
 T*
 (n-grams of the raw value and its encoded forms, matched against a per-session sliding) Tj
+T*
+(window of released arguments.) Tj
 ET
 endstream
 endobj
@@ -120,14 +120,12 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 7 0 R /Resources << /Font << /F1 3 0 R >> >> >>
 endobj
 7 0 obj
-<< /Length 2581 >>
+<< /Length 2545 >>
 stream
 BT
 /F1 10 Tf
 13 TL
 54 738 Td
-(window of released arguments.) Tj
-T*
 (- canary_watermark.py: sensitive reads carry a zero-width HMAC watermark bound to \(session,) Tj
 T*
 (step, tool\), plus credential-format digests, so a hit names the originating step.) Tj
@@ -190,9 +188,9 @@ T*
 T*
 () Tj
 T*
-(python -m pytest --collect-only -q collects 262 tests in 20 files. The CI job runs all of) Tj
+(The CI job runs the gateway suite. Earlier snapshot totals are not quoted. Stateful) Tj
 T*
-(them. Stateful Hypothesis machines, with settings read from the test files:) Tj
+(Hypothesis machines, with settings read from the test files:) Tj
 T*
 () Tj
 T*
@@ -210,15 +208,17 @@ T*
 T*
 () Tj
 T*
-(Benign decision latency \(CPU time per evaluate_call\)) Tj
+(Benign decisions) Tj
 T*
 () Tj
 T*
-(Measure | p50 ms | p95 ms | p99 ms | mean ms | max ms) Tj
+(Benign denials: 0 of 750 decisions. Decision-time figures from this run are not quoted.) Tj
 T*
-(CPU | 0.1264 | 0.892 | 0.9987 | 0.2073 | 3.8371) Tj
+(Regular-rhythm timing beacons are flagged; irregular timing channels are not yet bounded.) Tj
 T*
-(Wall | 0.1246 | 0.888 | 1.0025 | 0.2098 | 4.2646) Tj
+() Tj
+T*
+(Audit-chain verification) Tj
 T*
 () Tj
 ET
@@ -228,40 +228,12 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 9 0 R /Resources << /Font << /F1 3 0 R >> >> >>
 endobj
 9 0 obj
-<< /Length 2708 >>
+<< /Length 2908 >>
 stream
 BT
 /F1 10 Tf
 13 TL
 54 738 Td
-(750 decisions. Reference target 2.0 ms: p99 CPU within target. Timing includes decision-log) Tj
-T*
-(I/O.) Tj
-T*
-() Tj
-T*
-(Benign workflow | Steps | Denied | p50 CPU ms | p99 CPU ms) Tj
-T*
-(order_status_triage | 200 | 0 | 0.1027 | 0.2548) Tj
-T*
-(status_report | 100 | 0 | 0.117 | 0.1903) Tj
-T*
-(clean_delegation | 150 | 0 | 0.1198 | 0.647) Tj
-T*
-(scratchpad_handoff | 150 | 0 | 0.1317 | 0.3121) Tj
-T*
-(loopback_docs_fetch | 150 | 0 | 0.1534 | 1.0616) Tj
-T*
-() Tj
-T*
-(Benign denials: 0 of 750 decisions \(rate 0.0\).) Tj
-T*
-() Tj
-T*
-(Audit-chain verification) Tj
-T*
-() Tj
-T*
 (Check | Result) Tj
 T*
 (Benign decision log chain | verified) Tj
@@ -284,9 +256,9 @@ T*
 T*
 (channel: the number of distinct variants, the number of calls after the taint point, and) Tj
 T*
-(how regular the timing is. Crossing any bound holds the session for a person, so leakage is) Tj
+(how regular the timing is. Crossing any bound holds the session for a person.) Tj
 T*
-(capped by policy rather than by spotting a pattern.) Tj
+(Regular-rhythm timing beacons are flagged; irregular timing channels are not yet bounded.) Tj
 T*
 (- Delegation laundering \(Group B\). Restrictions travel with the hand-off as HMAC caveats) Tj
 T*
@@ -324,24 +296,10 @@ T*
 T*
 (measurement and is never pooled with these results.) Tj
 T*
-(- Latency is measured CPU time per in-process evaluate_call decision on one machine. The 2) Tj
-T*
-(ms figure is a reference target, not a guarantee.) Tj
+(- Decision time is measured on one machine and is not a deployment guarantee.) Tj
 T*
 (- The gateway binds 127.0.0.1 by default. Freeze actions apply for 15 minutes to registered) Tj
-ET
-endstream
-endobj
-10 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 11 0 R /Resources << /Font << /F1 3 0 R >> >> >>
-endobj
-11 0 obj
-<< /Length 981 >>
-stream
-BT
-/F1 10 Tf
-13 TL
-54 738 Td
+T*
 (lab keys only.) Tj
 T*
 (- ATLAS technique labels are approximate.) Tj
@@ -371,7 +329,19 @@ T*
 (export AGENT_GATEWAY_HMAC_KEY=$\(python -c 'import secrets; print\(secrets.token_hex\(32\)\)'\)) Tj
 T*
 (python -m agent_gateway evaluate-collusion --report ../sprint_submission) Tj
-T*
+ET
+endstream
+endobj
+10 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 11 0 R /Resources << /Font << /F1 3 0 R >> >> >>
+endobj
+11 0 obj
+<< /Length 160 >>
+stream
+BT
+/F1 10 Tf
+13 TL
+54 738 Td
 () Tj
 T*
 (Environment: Python 3.13.17 on Linux-6.18.44-fc-v153-x86_64-with-glibc2.39. Total) Tj
@@ -388,14 +358,14 @@ xref
 0000000134 00000 n 
 0000000204 00000 n 
 0000000330 00000 n 
-0000003541 00000 n 
-0000003667 00000 n 
-0000006300 00000 n 
-0000006426 00000 n 
-0000009186 00000 n 
-0000009314 00000 n 
+0000003497 00000 n 
+0000003623 00000 n 
+0000006220 00000 n 
+0000006346 00000 n 
+0000009306 00000 n 
+0000009434 00000 n 
 trailer
 << /Size 12 /Root 1 0 R >>
 startxref
-10347
+9646
 %%EOF

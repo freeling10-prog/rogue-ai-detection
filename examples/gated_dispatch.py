@@ -52,7 +52,8 @@ def _selftest() -> int:
     sys.path.insert(0, str(root))
     os.environ.setdefault("AGENT_GATEWAY_STATE_DIR", tempfile.mkdtemp(prefix="agw-gd-"))
     from agent_gateway.capability import hmac_key
-    from agent_gateway.pep import PepConfig, create_app
+    from agent_gateway.http_app import create_app
+    from agent_gateway.pep import PepConfig
 
     try:
         hmac_key()

@@ -5,7 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from agent_gateway.pep import PepConfig, PolicyEngine, create_app
+from agent_gateway.http_app import create_app
+from agent_gateway.pep import PepConfig, PolicyEngine
 from agent_gateway.registry import Registry
 from agent_gateway.taint import SharedState
 

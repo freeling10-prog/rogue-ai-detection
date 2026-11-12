@@ -117,7 +117,16 @@ def main(argv: list[str] | None = None) -> int:
             print(f"agent-gateway: {exc}", file=sys.stderr)
             return 2
     if args.cmd == "serve":
-        from .pep import PepConfig, run_server
+        try:
+            from .http_app import run_server
+        except ImportError:
+            print(
+                "agent-gateway serve needs the optional HTTP extra: "
+                "pip install 'agent-gateway[http]'",
+                file=sys.stderr,
+            )
+            return 2
+        from .pep import PepConfig
 
         reg = args.registry or default_registry_path()
         cfg = PepConfig(

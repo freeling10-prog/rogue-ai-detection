@@ -111,35 +111,6 @@ section { padding: 56px 0 0; }
 .ink-pass { color: var(--pass); }
 .ink-deny { color: var(--deny); }
 
-/* ---------- latency scale (HTML so labels keep their size on phones) ---------- */
-.scale { margin: 22px 0 6px; border: 1px solid var(--rule); padding: 14px 16px 10px; }
-.scale figcaption { font-size: 13px; color: var(--muted); margin-top: 10px; max-width: var(--measure); }
-.lat { position: relative; height: 112px; margin: 0 6px; }
-.lat-budget { position: absolute; left: 0; top: 54px; height: 14px; background: var(--paper-2); border: 1px solid var(--rule); border-right: 0; }
-.lat-axis { position: absolute; left: 0; right: 0; top: 68px; border-top: 1px solid var(--ink); }
-.lat-tick { position: absolute; top: 0; height: 69px; border-left: 1px solid var(--ink); }
-.lat-tick.ref { border-left: 1px dashed var(--ink); }
-.lat-tick.max { border-left-color: var(--deny); }
-.lat-tick span { position: absolute; left: 4px; font: 400 11.5px/1.2 var(--mono); white-space: nowrap; }
-.lat-tick span.r1 { top: 0; } .lat-tick span.r2 { top: 16px; } .lat-tick span.r3 { top: 32px; }
-.lat-tick span.left { left: auto; right: 4px; }
-.lat-tick.max span { color: var(--deny); }
-.lat-x { position: absolute; top: 74px; font: 400 11px/1 var(--mono); color: var(--muted); transform: translateX(-50%); }
-.lat-x:first-child { transform: none; }
-.lat-x.end { transform: translateX(-100%); }
-.lat-legend { display: none; list-style: none; margin: 8px 0 0; padding: 0; font: 400 12px/1.6 var(--mono); }
-.lat-legend li { display: inline-block; margin-right: 14px; }
-.lat-legend .ink-deny { color: var(--deny); }
-@media (max-width: 600px) {
-  .lat { height: 70px; }
-  .lat-tick { top: 34px; height: 35px; }
-  .lat-tick span { display: none; }
-  .lat-budget { top: 54px; }
-  .lat-unit { top: 90px; }
-  .lat-legend { display: block; margin-top: 22px; }
-}
-.lat-unit { position: absolute; top: 92px; right: 0; font: 400 11px/1 var(--mono); color: var(--muted); }
-
 /* ---------- schematic ---------- */
 .schematic { display: grid; grid-template-columns: minmax(0, 1fr) 28px minmax(0, 1.05fr) 28px minmax(0, 2.2fr) 28px minmax(0, 1.2fr); align-items: stretch; }
 .node { border: 1px solid var(--ink); background: var(--paper); padding: 12px; min-width: 0; }

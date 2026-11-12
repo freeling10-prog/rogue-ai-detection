@@ -399,78 +399,6 @@
       }
     ]
   },
-  "benign_latency": {
-    "iterations": 50,
-    "decisions": 750,
-    "workflows": {
-      "order_status_triage": {
-        "steps": 200,
-        "denied": 0,
-        "p50_ms": 0.1027,
-        "p95_ms": 0.1919,
-        "p99_ms": 0.2548,
-        "mean_ms": 0.1193,
-        "max_ms": 0.4981
-      },
-      "status_report": {
-        "steps": 100,
-        "denied": 0,
-        "p50_ms": 0.117,
-        "p95_ms": 0.1757,
-        "p99_ms": 0.1903,
-        "mean_ms": 0.1255,
-        "max_ms": 0.1984
-      },
-      "clean_delegation": {
-        "steps": 150,
-        "denied": 0,
-        "p50_ms": 0.1198,
-        "p95_ms": 0.5409,
-        "p99_ms": 0.647,
-        "mean_ms": 0.2283,
-        "max_ms": 0.7938
-      },
-      "scratchpad_handoff": {
-        "steps": 150,
-        "denied": 0,
-        "p50_ms": 0.1317,
-        "p95_ms": 0.21,
-        "p99_ms": 0.3121,
-        "mean_ms": 0.1412,
-        "max_ms": 0.4546
-      },
-      "loopback_docs_fetch": {
-        "steps": 150,
-        "denied": 0,
-        "p50_ms": 0.1534,
-        "p95_ms": 0.9987,
-        "p99_ms": 1.0616,
-        "mean_ms": 0.4244,
-        "max_ms": 3.8371
-      }
-    },
-    "cpu": {
-      "p50_ms": 0.1264,
-      "p95_ms": 0.892,
-      "p99_ms": 0.9987,
-      "mean_ms": 0.2073,
-      "max_ms": 3.8371
-    },
-    "wall": {
-      "p50_ms": 0.1246,
-      "p95_ms": 0.888,
-      "p99_ms": 1.0025,
-      "mean_ms": 0.2098,
-      "max_ms": 4.2646
-    },
-    "target_ms": 2.0,
-    "p99_cpu_within_target": true,
-    "benign_denials": 0,
-    "benign_denial_rate": 0.0,
-    "benign_denial_examples": [],
-    "llm_calls": 0,
-    "clock": "time.thread_time_ns (CPU) and time.perf_counter_ns (wall), in-process, includes decision-log I/O"
-  },
   "audit_chain": {
     "file": "benign-decision-log.jsonl",
     "chain_ok": true,
@@ -491,10 +419,8 @@
     "Same-author scripted synthetic lab scenarios. Not a benchmark and not a measure of any product in the wild.",
     "Group results are the outcome of the repository's own defence tests; each count traces to a named pytest node id.",
     "The real-model loopback archive figure (2 of 13 non-control runs) is a separate measurement and is never pooled with these results.",
-    "Latency is measured CPU time per in-process evaluate_call decision on one machine. The 2 ms figure is a reference target, not a guarantee.",
     "The gateway binds 127.0.0.1 by default. Freeze actions apply for 15 minutes to registered lab keys only.",
     "ATLAS technique labels are approximate.",
     "A passing audit-chain verify means the log is internally consistent. It is not a certification and not a penetration test."
-  ],
-  "seconds": 4.946
+  ]
 }

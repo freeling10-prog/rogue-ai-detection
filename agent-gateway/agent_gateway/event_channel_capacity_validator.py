@@ -19,9 +19,15 @@ sticky-tainted, the calling branch is tainted, or live secret pins exist
 (Predicates D, Z, I). Untainted calls with nothing to protect charge 0.
 
 Two-phase: ``reserve`` checks and holds the charge, denying with
-``E_CAPACITY`` when ``spent + reserved + charge >= max_quarter_bits``;
-``commit`` spends it once the call is allowed; ``abort`` releases it when a
-later gate denies the call. Event ids are single-use (``E_REPLAY``).
+``E_CAPACITY`` when ``spent + reserved + charge >= max_quarter_bits``.
+The effective ceiling is therefore ``max_quarter_bits - 1`` (one quarter bit
+under the configured limit). ``commit`` spends the charge once the call is
+allowed; ``abort`` releases it when a later gate denies the call. Event ids
+are single-use (``E_REPLAY``).
+
+A budget is one object. Sessions share it only when the caller passes that
+same object to each of them. The engine does not join sessions onto one E
+budget by root, sink, or delegation. P3's coalitions are a separate ledger.
 
 This is support accounting, not KL divergence or a Shannon-rate measurement:
 it upper-bounds the bits an adversary can choose to send through selection,
@@ -45,7 +51,7 @@ MAX_DIMENSION = 1024
 MAX_PENDING = 32
 MAX_COMMITTED = 256
 MAX_ID = 128
-DEFAULT_LIMIT = 32  # quarter bits: 8 bits per (root, sink)
+DEFAULT_LIMIT = 32  # quarter bits configured per (root, sink). Effective ceiling is 31.
 
 
 def quarter_bits(choice_count: int) -> int:

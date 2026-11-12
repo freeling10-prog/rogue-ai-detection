@@ -18,8 +18,12 @@ _SCRIPT = textwrap.dedent(
     sys.modules["werkzeug"] = None
     sys.modules["werkzeug.exceptions"] = None
 
+    import agent_gateway.leakage_budget as leakage
     import agent_gateway.mcp_proxy as proxy
     import agent_gateway.pep as pep
+    assert "hypothesis" not in sys.modules
+    assert "flask" not in open(leakage.__file__, encoding="utf-8").read()
+    assert "hypothesis" not in open(leakage.__file__, encoding="utf-8").read()
     from agent_gateway.registry import Registry
     from agent_gateway.taint import SharedState
 

@@ -3,6 +3,11 @@
 The policy engine (``pep.py``) and the MCP wire proxy (``mcp_proxy.py``) do not
 import this module. Flask is imported only here. Install it with the ``http``
 extra: ``pip install 'agent-gateway[http]'``.
+
+``/mcp`` and ``/v1/call`` return the engine's decision, including
+``release_at_ms`` when a leakage budget assigned a slot. They do not perform
+the backend call. The caller must not forward that call before
+``release_at_ms``.
 """
 from __future__ import annotations
 

@@ -563,11 +563,13 @@ An agent can signal through which eligible tool it calls and which structural ch
 
 $$\mathrm{qb}(N)=(N^4-1).\mathrm{bit\_length}()=\lceil 4\log_2 N\rceil\ (N>1),\quad \mathrm{qb}(1)=0;\qquad \text{admit}\iff \mathit{spent}+\mathit{reserved}+c<B,$$
 
-with charge c = qb(N) when the (root, sink) budget is sticky-tainted, the branch is tainted, or live secret pins exist, else 0.
+with charge c = qb(N) when the (root, sink) budget is sticky-tainted, the branch is tainted, or live secret pins exist, else 0. The comparison is strict, so a configured limit of B quarter bits has effective ceiling B−1. The default limit is 32 qb; the effective ceiling is 31 qb, one quarter bit under 8 bits. P3 uses ``<=`` and does not change this.
 
 ### Hot path and wiring
 
-`reserve` is O(pending) with at most 32 pending and 256 committed ids; `commit` and `abort` are O(1). `PolicyEngine.attach_event_budget(session_id, budget, manifest)` checks every write, send and credential call: the tool must be eligible (E_INELIGIBLE), and the reservation is committed only when the call is allowed and released when a later gate denies it. Denials use EVENT_CHANNEL_CAPACITY_DENIED (-32078, approximate AML.T0086).
+`reserve` is O(pending) with at most 32 pending and 256 committed ids; `commit` and `abort` are O(1). `PolicyEngine.attach_event_budget(session_id, budget, manifest)` checks every outbound call from `_is_outbound_event` (writes, sends, credential calls, external sinks, and non-core MCP reads). The tool must be eligible (E_INELIGIBLE). The reservation is committed when the call is allowed to run, including when a later result-side check withholds the result, and released when an earlier gate denies the call. Denials use EVENT_CHANNEL_CAPACITY_DENIED (-32078, approximate AML.T0086).
+
+The budget is one object keyed by the session the caller attaches. Two sessions share that budget only when the caller passes the same object to both. The label `(root, sink)` on the object is not a join the engine performs. `scope` is not a parameter of E. P3 (section 15) is the ledger that joins sessions.
 
 ### Limits
 
@@ -626,6 +628,28 @@ Candidates are `forward[step] & viable[tainted][obligations] & ~revoked`: three 
 ### Tests
 
 A Hypothesis property checks `live_paths` against brute-force path enumeration over random DAGs. Unit cases cover policy validation, the discharge-after-intermediate case, taint pruning, sticky revocation and a pure `check`. ReachabilityStateMachine boots random DAGs and moves through them against the brute-force oracle, including the sticky revocation set. Wiring tests cover viable paths, taint pruning a forbidden sink, a denied call not advancing the workflow, and C taint reaching A before it authorizes.
+
+## 15. leakage_budget.py (P3)
+
+### What it counts
+
+P3 is one ledger per engine process. A coalition is a set of sessions that only merges: same root principal, delegation, spawn, a shared fork/join ledger, the internal bus, a scratchpad note, file provenance, a cross-agent provenance edge, a shared causality validator, or an explicit control-plane link. The default budget is 128 quarter bits (32 bits) for the whole coalition, across sinks. `scope="coalition_sink"` is weaker: each sink has its own budget, so an observer who can use m sinks gets m budgets. The slot clock stays one per coalition either way.
+
+Charging starts, and stays on, once any member is tainted, has a sensitive read, or has live pins (the same pin test as E, plus the sensitive-read bit). Before that, outbound events cost 0 and slots are not enforced. Protected material that reaches an agent outside a tracked read is out of scope.
+
+An outbound event is whatever `_is_outbound_event` says, including a non-core `resources/read` or `prompts/get`. The charge is an integer in quarter bits: a continuation bit, the Elias gamma length of the slot gap, member choice when the coalition has more than one member, manifest selection when a manifest is attached, and either a typed field code or a raw DEFLATE length with a gamma length header. There is no floating point in the module. Admission is `spent + charge <= budget`. E's stricter `<` comparison is unchanged.
+
+A charge that would exceed the budget holds the event for a person (`leakage_budget_hold`, JSON-RPC -32082, approximate AML.T0086). It does not freeze a key and it does not set a review hold. The approval releases that one event onto a separate overdraft; it does not refill the budget. `mode="log_only"` computes and logs every charge and every would-be budget hold, and does not hold or deny for a budget reason.
+
+The bytes charged are the bytes the caller forwards. In-process calls pass the canonical argument body; the ledger folds destination and tool into the raw coder when no manifest covers the pair. The MCP proxy passes the re-serialised `params`. `FilterResult.release_at_ms` and the same field on an allow result are the earliest slot the caller may forward. The proxy and the HTTP lab handlers do not wait and do not open the backend call.
+
+`zlib.ZLIB_RUNTIME_VERSION` is recorded on attach and on each decision. `zlib_version_pin`, default unset, refuses to attach when the runtime zlib does not match. The dictionary is fixed at attach by the control plane.
+
+E and P3 are independent ceilings. The side-channel guard's timing rule stays: it still flags a regular rhythm after taint and a sensitive read. Irregular gaps are counted by P3's slot code once P3 is attached and charging, and are not counted by the side-channel guard.
+
+### Bound
+
+Within the E2 bounds, a coalition with budget B bits can produce at most 2^(B+1) distinct externally observable transcripts without a person's approval. That statement is checked by bounded enumeration within the E2 bounds. Person-approved events are outside it. Channels the gateway does not mediate, and a transport that forwards before `release_at_ms`, are outside it. Several gateway processes do not share a coalition.
 
 ## Validation and deployment criteria
 

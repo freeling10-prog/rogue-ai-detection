@@ -200,6 +200,10 @@ RULES: dict[str, tuple[str, str, tuple[str, ...], str]] = {
                                         "A call was not a successor on a path that can still reach a terminal "
                                         "with every obligation discharged (and, once tainted, without a "
                                         "forbidden step), or the workflow tried to stop early."),
+    "LEAKAGE_BUDGET_HOLD": ("warning", "Session leakage budget held for approval", ("AML.T0086",),
+                            "An outbound event would take its coalition's committed quarter-bit cost over "
+                            "the leakage budget, or the event exceeded the size or replay-id bound. "
+                            "One approval releases that one event. The budget does not refill on its own."),
     "analyzer_match": ("warning", "Offline analyzer match", (),
                        "A match reported by the offline agentwatch-analyzer."),
 }
@@ -246,6 +250,7 @@ OWASP_ASI: dict[str, tuple[str, ...]] = {
     "EVENT_CHANNEL_CAPACITY_DENIED": ("ASI07",),
     "BLINDFOLD_PERTURBATION_DENIED": ("ASI01",),
     "REACHABILITY_CONFINEMENT_DENIED": ("ASI02",),
+    "LEAKAGE_BUDGET_HOLD": ("ASI02",),
 }
 # Rule id -> approximate OWASP Top 10 for LLM Applications (2025) category.
 OWASP_LLM: dict[str, tuple[str, ...]] = {
@@ -284,6 +289,7 @@ OWASP_LLM: dict[str, tuple[str, ...]] = {
     "EVENT_CHANNEL_CAPACITY_DENIED": ("LLM02:2025",),
     "BLINDFOLD_PERTURBATION_DENIED": ("LLM01:2025",),
     "REACHABILITY_CONFINEMENT_DENIED": ("LLM06:2025",),
+    "LEAKAGE_BUDGET_HOLD": ("LLM02:2025",),
 }
 # Rule id -> CWE ids and OWASP Top 10 (2021) category, for web-application rules.
 CWE: dict[str, tuple[str, ...]] = {
@@ -327,6 +333,7 @@ CWE: dict[str, tuple[str, ...]] = {
     "EVENT_CHANNEL_CAPACITY_DENIED": ("CWE-514", "CWE-770"),
     "BLINDFOLD_PERTURBATION_DENIED": ("CWE-204", "CWE-209"),
     "REACHABILITY_CONFINEMENT_DENIED": ("CWE-863", "CWE-841"),
+    "LEAKAGE_BUDGET_HOLD": ("CWE-514", "CWE-770"),
 }
 OWASP_WEB: dict[str, tuple[str, ...]] = {
     "PHP_PATH_TRAVERSAL": ("A01:2021",),
@@ -358,7 +365,7 @@ _LOG_KIND_RULES = frozenset({
     "FS_LABEL_FLOW_DENIED", "ARGUMENT_CONFINEMENT_DENIED", "FORK_JOIN_LEDGER_DENIED",
     "DYNAMIC_INGRESSION_DENIED", "TRANSFORM_INVARIANT_DENIED",
     "CAUSALITY_LAUNDERING_DENIED", "EVENT_CHANNEL_CAPACITY_DENIED", "BLINDFOLD_PERTURBATION_DENIED",
-    "REACHABILITY_CONFINEMENT_DENIED",
+    "REACHABILITY_CONFINEMENT_DENIED", "LEAKAGE_BUDGET_HOLD",
 })
 
 

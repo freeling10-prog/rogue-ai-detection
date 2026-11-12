@@ -9,7 +9,9 @@ for another path) and adds one ``PreToolUse`` command hook that runs this
 module. Running it again does not add a second entry.
 
 Hook contract: Claude Code writes ``{"session_id", "tool_name",
-"tool_input", ...}`` to stdin before each tool call. The adapter evaluates
+"tool_input", ...}`` to stdin before each tool call. If a caller instead
+uses ``PolicyEngine`` and the decision carries ``release_at_ms``, it must
+not forward the call before that clock reading. The adapter evaluates
 three workspace policy rules, appends one SHA-256 hash-chained JSONL entry
 to ``~/.claude/agentgate_audit.jsonl`` (``--audit-log`` for another path),
 and, when a rule denies the call, writes the Claude Code block response to

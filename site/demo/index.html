@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AgentGate — Technical Report &amp; Reference Implementation</title>
-<meta name="description" content="A loopback policy enforcement point for AI agent tool calls. Deterministic inline checks against three multi-agent collusion carriers, with no model calls on the decision path. 57/57 carrier checks. The test suite currently passes 1,250 tests. Same-author lab results stated with their limits.">
+<meta name="description" content="A loopback policy enforcement point for AI agent tool calls. Deterministic inline checks against three multi-agent collusion carriers, with no model calls on the decision path. 57/57 carrier checks. The test suite currently passes 1,277 tests (with 6 skipped). Same-author lab results stated with their limits.">
 <meta name="color-scheme" content="light">
 <meta property="og:title" content="AgentGate — Deterministic Guardrails Against Multi-Agent Collusion Carriers">
-<meta property="og:description" content="Technical report and reference implementation. 57/57 collusion carrier checks. The test suite currently passes 1,250 tests. Same-author lab checks, not a benchmark.">
+<meta property="og:description" content="Technical report and reference implementation. 57/57 collusion carrier checks. The test suite currently passes 1,277 tests (with 6 skipped). Same-author lab checks, not a benchmark.">
 <meta property="og:type" content="article">
 <link rel="icon" href="favicon.svg">
 <link rel="preload" href="fonts/newsreader-var.woff2" as="font" type="font/woff2" crossorigin>
@@ -56,7 +56,7 @@
     <div class="abstract">
       <h2>Abstract</h2>
       <div>
-        <p>Agents that share tools can leak through which argument they pick and when they call, can launder a restricted capability by handing work to a clean peer, and can move a protected value in small or re-encoded pieces. AgentGate bounds the first with a post-taint side-channel guard, defeats the second with monotonic chained-HMAC capability attenuation across delegation, and catches the third with salted n-gram fingerprints over decoded forms plus zero-width canary watermarks. In the recorded run the repository&rsquo;s carrier tests passed 57 of 57, and 750 benign decisions produced no denials. These are same-author lab checks, stated with their limits in &sect;5. The test suite currently passes 1,250 tests.</p>
+        <p>Agents that share tools can leak through which argument they pick and when they call, can launder a restricted capability by handing work to a clean peer, and can move a protected value in small or re-encoded pieces. AgentGate bounds the first with a post-taint side-channel guard, defeats the second with monotonic chained-HMAC capability attenuation across delegation, and catches the third with salted n-gram fingerprints over decoded forms plus zero-width canary watermarks. In the recorded run the repository&rsquo;s carrier tests passed 57 of 57. These are same-author lab checks, stated with their limits in &sect;5. The test suite currently passes 1,277 tests (with 6 skipped).</p>
       </div>
     </div>
   </div>
@@ -75,26 +75,25 @@
       <table class="tbl" id="summary-table">
         <thead><tr><th>Measure</th><th class="num">Value</th><th>Note</th></tr></thead>
         <tbody>
-          <tr class="sep"><td>Benign false denials</td><td class="num">0&#8239;/&#8239;750</td><td>5 workflows × 50 runs. A smoke check on same-author workflows, not a false-positive rate.</td></tr>
           <tr><td>Hash-chained decision log</td><td class="num">750&#8239;/&#8239;750</td><td>SHA-256 chain verified; audit manifest HMAC-signed. An edited or dropped line in a copy is detected.</td></tr>
           <tr class="sep"><td>Collusion carrier checks</td><td class="num">57&#8239;/&#8239;57</td><td>A side-channel 8/8 · B delegation 8/8 · C de-obfuscation &amp; canary 41/41.</td></tr>
           <tr><td>Stateful Hypothesis machines</td><td class="num">5</td><td>Including the delegation DAG machine, 120 examples × 24 steps.</td></tr>
           <tr><td>ATLAS falsification suite</td><td class="num">7&#8239;/&#8239;7</td><td>Mappings approximate.</td></tr>
-          <tr class="sep"><td>Gateway tests</td><td class="num">1,250</td><td>The test suite currently passes 1,250 tests. Earlier snapshot totals are not quoted.</td></tr>
+          <tr class="sep"><td>Gateway tests</td><td class="num">1,277</td><td>The test suite currently passes 1,277 tests (with 6 skipped).</td></tr>
           <tr class="sep"><td>Real-model loopback observation</td><td class="num">2 of 13</td><td><strong>Separate measurement.</strong> <code>qwen2.5:3b</code> against the localhost honeypot, non-control runs, one machine. Never pooled with the rows above.</td></tr>
         </tbody>
       </table>
       </div>
 
       <h3 style="font-size:20px;margin:30px 0 6px" id="post-sprint">Post-sprint: the v14 tree</h3>
-      <p class="note">The rows above and the sample artifacts [S1]&ndash;[S3] are the frozen 25 October sprint snapshot at <code>cefec0d</code>. They are not a current suite size. Later guards are reported apart from the 57/57 carrier checks. The test suite currently passes 1,250 tests.</p>
+      <p class="note">The rows above and the sample artifacts [S1]&ndash;[S3] are the frozen 25 October sprint snapshot at <code>cefec0d</code>. They are not a current suite size. Later guards are reported apart from the 57/57 carrier checks. The test suite currently passes 1,277 tests (with 6 skipped).</p>
       <div class="tbl-scroll">
       <table class="tbl" id="post-sprint-table">
         <thead><tr><th>Measure, v14 tree</th><th class="num">Value</th><th>Note</th></tr></thead>
         <tbody>
-          <tr><td>Gateway tests passing</td><td class="num">1,250</td><td>The test suite currently passes 1,250 tests (<code>pytest -q</code> in <code>agent-gateway</code>; 6 skipped without <code>php</code>). Earlier snapshot totals are not quoted.</td></tr>
+          <tr><td>Gateway tests passing</td><td class="num">1,277</td><td>The test suite currently passes 1,277 tests (with 6 skipped).</td></tr>
           <tr><td>Group D, v11 guards</td><td class="num">124&#8239;/&#8239;124</td><td>Six test files; reported separately from A&nbsp;/&nbsp;B&nbsp;/&nbsp;C.</td></tr>
-          <tr><td>Stateful property tests</td><td class="num">—</td><td>Property-based tests find counterexamples. They are not proofs. Machine counts from older trees are not quoted.</td></tr>
+          <tr><td>Stateful property tests</td><td class="num">—</td><td>Property-based tests find counterexamples inside the cases they generate. Machine counts from older trees are not quoted.</td></tr>
           <tr><td>Modules behind <code>pep.py</code></td><td class="num">51</td><td>22 at the snapshot; 26 after v11; 29 with v11.1 and the PHP Defense Guard; 33 after v12; 36 after v12.1; 41 after v12.2; one more for each of v12.3 to v12.8; 51 with v14.</td></tr>
           <tr><td>Reference-validator rule codes</td><td class="num">15</td><td>JSON-RPC <code>-32066</code> through <code>-32080</code> for R, W, F, I, P, T, S, V, D, Z, C, E, B and A (R has two). See <a href="../#method">the validator layer</a>.</td></tr>
         </tbody>
@@ -133,7 +132,7 @@
       <table class="tbl">
         <thead><tr><th>Module</th><th>Mechanism</th><th>Verdict on a signal</th><th class="num">Tests</th></tr></thead>
         <tbody>
-          <tr><td class="k">side_channel_guard.py</td><td>Bounds distinct argument variants, call count, and timing regularity once a session is tainted and has read sensitive data.</td><td><span class="mono">covert_side_channel_suspected</span>; session held, registered root key frozen 15 min</td><td class="num">8</td></tr>
+          <tr><td class="k">side_channel_guard.py</td><td>Bounds distinct argument variants and call count once a session is tainted and has read sensitive data. Regular-rhythm timing beacons are flagged; irregular timing channels are not yet bounded.</td><td><span class="mono">covert_side_channel_suspected</span>; session held, registered root key frozen 15 min</td><td class="num">8</td></tr>
           <tr><td class="k">delegation_guard.py</td><td>Hand-off is a lattice meet; deny caveats travel as chained HMACs on the recipient&rsquo;s <span class="mono">agw1.</span> token.</td><td><span class="mono">confused_deputy_delegation_blocked</span></td><td class="num">8</td></tr>
           <tr><td class="k">deobfuscate.py</td><td>Salted SHA-256 digests of 8-char n-grams of raw, Base64, hex, URL and whitespace-stripped forms over a per-session window.</td><td><span class="mono">deobfuscated_exfil_detected</span>; key frozen 15 min</td><td class="num">21</td></tr>
           <tr><td class="k">canary_watermark.py</td><td>Zero-width HMAC watermark bound to (session, step, tool), plus credential digests.</td><td><span class="mono">canary_watermark_exfil</span> with origin step</td><td class="num">20</td></tr>
@@ -168,7 +167,7 @@
     <div class="sec-head">
       <span class="sec-num">§3</span>
       <h2>Interactive policy engine trace</h2>
-      <p class="dek"><code>pep.py</code> in-process recordings. Verdicts, CPU medians, and chain state were recorded against the real modules by <code>examples/record_site_traces.py</code> and are replayed here; nothing on this page calls a server.</p>
+      <p class="dek"><code>pep.py</code> in-process recordings. Verdicts and chain state were recorded against the real modules by <code>examples/record_site_traces.py</code> and are replayed here; nothing on this page calls a server.</p>
     </div>
     <div class="body">
       <div class="tabs" role="tablist" aria-label="Recorded traces">
@@ -191,7 +190,6 @@
           <div><dt>Active guard module</dt><dd id="f-module"></dd></div>
           <div><dt>Input payload / tool args</dt><dd id="f-input"></dd></div>
           <div><dt>Engine verdict</dt><dd id="f-verdict"></dd></div>
-          <div><dt>Measured CPU time</dt><dd id="f-cpu"></dd></div>
           <div><dt>SHA-256 chain state</dt><dd id="f-chain"></dd></div>
         </dl>
         <p class="prose" id="tr-desc"></p>
@@ -207,7 +205,7 @@
         </div>
         <div class="tbl-scroll">
           <table class="tbl steps" id="steps">
-            <thead><tr><th>#</th><th>Call</th><th>Arguments</th><th>Verdict</th><th class="num">CPU median</th></tr></thead>
+            <thead><tr><th>#</th><th>Call</th><th>Arguments</th><th>Verdict</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -229,7 +227,7 @@
     <div class="sec-head">
       <span class="sec-num">§4</span>
       <h2>Reproduce in about 30 seconds</h2>
-      <p class="dek">The evaluation itself runs in about 5 s after install. It binds no port, makes no network call, and writes the JSON, Markdown, PDF report, and slide deck to the folder you name. Latency will differ by machine.</p>
+      <p class="dek">It binds no port, makes no network call, and writes the JSON, Markdown, PDF report, and slide deck to the folder you name.</p>
     </div>
     <div class="body">
 <pre class="block" id="verify-snippet">git clone https://github.com/freeling10-prog/rogue-ai-detection
@@ -239,12 +237,12 @@ export AGENT_GATEWAY_HMAC_KEY="$(python -c 'import secrets; print(secrets.token_
 python -m agent_gateway evaluate-collusion --report ./audit_out</pre>
       <div class="controls">
         <button class="btn" id="copy-verify">Copy commands</button>
-        <a class="btn solid" href="mailto:alec@room23.net?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit&amp;body=Tier%3A%20%241%2C800%20MCP%20%26%20Multi-Agent%20Exposure%20Diagnostic">Request a Tier 1 diagnostic on your MCP servers</a>
+        <a class="btn solid" href="../#pricing">See the pricing ladder</a>
       </div>
       <p class="note">To re-record the §3 traces: <code>python ../examples/record_site_traces.py</code> from the same directory with the same key exported.</p>
       <h3 style="font-size:20px;margin:30px 0 6px" id="claude-code-hook">Claude Code <code>PreToolUse</code> hook, one command</h3>
 <pre class="block" id="hook-snippet">python -m agent_gateway.claude_code_hook --install</pre>
-      <p class="note">Adds one <code>PreToolUse</code> command hook to <code>~/.claude/settings.json</code> (running it again adds nothing). Before each tool call it denies credential paths (<code>.env</code> but not <code>.env.example</code>, <code>~/.ssh</code>, <code>~/.aws</code>, <code>.npmrc</code>, <code>.pypirc</code>), recursive home or root deletion, force pushes to <code>main</code>, download-to-shell pipes, and link-local metadata or <code>file://</code> targets, and appends a SHA-256 hash-chained entry to <code>~/.claude/agentgate_audit.jsonl</code>. <code>--self-test</code> runs four validation checks and prints CPU time per decision. Lexical configuration checks, not a sandbox.</p>
+      <p class="note">Adds one <code>PreToolUse</code> command hook to <code>~/.claude/settings.json</code> (running it again adds nothing). Before each tool call it denies credential paths (<code>.env</code> but not <code>.env.example</code>, <code>~/.ssh</code>, <code>~/.aws</code>, <code>.npmrc</code>, <code>.pypirc</code>), recursive home or root deletion, force pushes to <code>main</code>, download-to-shell pipes, and link-local metadata or <code>file://</code> targets, and appends a SHA-256 hash-chained entry to <code>~/.claude/agentgate_audit.jsonl</code>. <code>--self-test</code> runs four validation checks. Lexical configuration checks, not a sandbox.</p>
     </div>
   </div>
 </section>
@@ -259,16 +257,17 @@ python -m agent_gateway evaluate-collusion --report ./audit_out</pre>
     </div>
     <div class="body">
       <dl class="scope">
-        <div><dt>Same-author lab checks</dt><dd>The carrier scenarios and the benign workflows were written by the person who wrote the guards. 57/57 shows the guards behave as their tests specify; it is not recall against an unknown adversary. 0/750 is a smoke check, not a false-positive rate for a deployment.</dd></div>
+        <div><dt>Same-author lab checks</dt><dd>The carrier scenarios and the benign workflows were written by the person who wrote the guards. 57/57 shows the guards behave as their tests specify; it is not recall against an unknown adversary. A same-author smoke check on scripted benign workflows does not measure how often a deployment would hold a benign call.</dd></div>
         <div><dt>2 of 13 stays separate</dt><dd>The only real-model figure is a loopback archive: <code>qwen2.5:3b</code> against the localhost honeypot, 2 of 13 non-control runs, one machine. It is a different measurement and is never pooled with the lab checks. Not a benchmark.</dd></div>
         <div><dt>Loopback only</dt><dd>Default bind is <code>127.0.0.1</code>. A non-loopback bind needs an explicit flag and an isolated lab network. No public honeypot is deployed; honeypot output is leads for a person.</dd></div>
         <div><dt>15-minute lab key freeze</dt><dd>Freeze applies only to keys in the lab registry, for 900 seconds. An unregistered key is never frozen.</dd></div>
-        <div><dt>Approximate ATLAS</dt><dd>MITRE ATLAS ids are the project&rsquo;s approximate mappings. Not a certification, and not a statement that anything passes ATLAS, OWASP, NIST, SOC&nbsp;2, or ISO.</dd></div>
+        <div><dt>Approximate ATLAS</dt><dd>MITRE ATLAS ids are the project&rsquo;s approximate mappings.</dd></div>
         <div><dt>Routed calls only</dt><dd>Calls that bypass the gateway are not seen. An untrusted source that is never labeled never taints a session. Answer-only injections that trigger no gated call are out of scope.</dd></div>
         <div><dt>Not a sandbox</dt><dd>No OS sandboxing or network isolation. Anyone holding <code>AGENT_GATEWAY_HMAC_KEY</code> can mint capabilities; key rotation is not implemented. Tool backends in the lab are simulated echoes.</dd></div>
         <div><dt>v12.1 guard limits</dt><dd>Inline interpreter writes (<code>python -c</code>, <code>node -e</code>, <code>ruby -e</code>, <code>perl -e</code>, <code>php -r</code>, heredocs, decoded pipes) and MCP tools over-privileged from their first listing are now enforced by <code>interpreter_exec_guard.py</code> and <code>mcp_capability_manifest_guard.py</code>. Both are static: code fetched or decrypted at run time, a path computed from runtime input with no protected literal in sight, or a script file run by name (<code>python x.py</code>) is not analysed, and a tool with a clean schema can still misbehave on its server. An encrypted or paraphrased payload is still not caught. <code>cross_agent_collusion_guard.py</code> sees only routed notes, files, bus messages, and delegations; its labels never decay, so a long-lived shared artifact stays tainted.</dd></div>
         <div><dt>v12 guard limits</dt><dd>Lexical and deterministic. <code>mcp_rugpull_guard.py</code> pins what it first sees; the v12.1 capability profile now checks that first listing, but a description can still mislead in plain words. <code>workspace_config_guard.py</code> reads paths and command words; inline interpreter writes are now covered by <code>interpreter_exec_guard.py</code>. <code>control_flow_integrity_guard.py</code> classifies tools by name and argument keys; in the engine a manifest only narrows. <code>stego_exfil_guard.py</code> misses a paraphrased or encrypted secret and one leaked a character per identifier.</dd></div>
         <div><dt>v11 guard limits</dt><dd><code>schema_integrity_guard.py</code> compares digests and normalized names, not what a description means. <code>gui_action_guard.py</code> checks coordinates and key names against configured rectangles and a deny-list; it does not look at the screen. <code>temporal_accumulator_guard.py</code> matches registered tokens and watermark characters within a bounded sliding window per (session, destination); it does not catch a paraphrased value or pieces spread across destinations. <code>memory_provenance_guard.py</code> tracks only resources written through routed tool calls, and its ledger lives in memory unless exported with <code>export_provenance_ledger()</code>.</dd></div>
+        <div><dt>Timing channels</dt><dd>Regular-rhythm timing beacons are flagged; irregular timing channels are not yet bounded.</dd></div>
         <div><dt>Not a pen test</dt><dd>Not a penetration test, not a red team of anyone&rsquo;s users, and not legal advice.</dd></div>
       </dl>
     </div>
@@ -281,84 +280,25 @@ python -m agent_gateway evaluate-collusion --report ./audit_out</pre>
     <div class="sec-head">
       <span class="sec-num">§6</span>
       <h2>Engineering &amp; audit engagements</h2>
-      <p class="dek">Schedule of deliverables. Fixed fees; the clock starts when a usable tool list arrives. No host deployment: delivered as reports, SARIF bundles, and mergeable PRs and configs. The code stays Apache-2.0 either way.</p>
+      <p class="dek">Fixed fees are on the main page. This report stays the trace inspector and the reference write-up. The code stays Apache-2.0 either way.</p>
     </div>
     <div class="body">
-      <div class="tbl-scroll">
-      <table class="tbl sched">
-        <thead><tr><th>Tier</th><th>Engagement</th><th>Artifacts delivered (producing module)</th><th>Clock</th><th class="num">Fee</th></tr></thead>
-        <tbody>
-          <tr>
-            <td class="tier">B</td>
-            <td><span class="title">48-Hour Hardened MCP Server Build</span><span class="sub">Fixed-Scope Implementation</span></td>
-            <td><ul>
-              <li>Custom MCP server for one system (Postgres, Stripe, HubSpot, Slack, or an internal REST API) on <code>mcp_blueprint.py</code></li>
-              <li>Wrapped in <code>pep.py</code> allow / deny rules: read-only allowlist, 100-row cap, confirmation tokens on writes, unapproved mutation verbs denied</li>
-              <li>Sensitive-field redaction and a SHA-256 hash-chained audit log (<code>audit_chain.py</code>)</li>
-              <li>A <code>pytest</code> acceptance suite; delivered as a mergeable PR. Nothing is deployed on your hosts by us.</li>
-            </ul></td>
-            <td class="mono">48 h</td>
-            <td class="num"><span class="fee">$750</span><span class="sub">$350 kickoff · $400 on passing acceptance tests</span><a href="mailto:alec@room23.net?subject=Book%2048-Hour%20Hardened%20MCP%20Server%20Build&amp;body=Package%3A%20%24750%2048-Hour%20Hardened%20MCP%20Server%20Build%0ASystem%3A%20">book build</a></td>
-          </tr>
-          <tr>
-            <td class="tier">T1</td>
-            <td><span class="title">MCP &amp; Multi-Agent Exposure Diagnostic</span><span class="sub">Tool Inventory Review</span></td>
-            <td><ul>
-              <li>Executive collusion &amp; posture report, PDF (<code>agent_gateway audit</code>)</li>
-              <li>SARIF 2.1.0 bundle for GitHub code scanning, approximate ATLAS ids (<code>sarif_export.py</code>)</li>
-              <li>Sigma rules + STIX 2.1 bundle for your log format (<code>agentwatch-analyzer</code>)</li>
-            </ul></td>
-            <td class="mono">24 h</td>
-            <td class="num"><span class="fee">$1,800</span><a href="mailto:alec@room23.net?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit&amp;body=Tier%3A%20%241%2C800%20MCP%20%26%20Multi-Agent%20Exposure%20Diagnostic">book T1</a></td>
-          </tr>
-          <tr>
-            <td class="tier">T2</td>
-            <td><span class="title">Inline PEP Hardening &amp; CI Gate Sprint</span><span class="sub">Fixed Tool-Boundary Note</span></td>
-            <td><ul>
-              <li>T1, plus the full written tool-boundary note</li>
-              <li>Loopback <code>pep.py</code> / <code>mcp_proxy.py</code> policy set for your tool list (<code>delegation_guard.py</code>, <code>toxic_combinations.py</code>, <code>arg_ast_guard.py</code>, <code>egress_uri_guard.py</code>)</li>
-              <li>9 stateful Hypothesis regression machines wired into a CI workflow</li>
-              <li>Per-run tamper evidence (<code>audit_chain.py</code>): hash-chained log, HMAC-signed manifest, <code>verify</code></li>
-            </ul></td>
-            <td class="mono">48 h</td>
-            <td class="num"><span class="fee">$4,500</span><a href="mailto:alec@room23.net?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit&amp;body=Tier%3A%20%244%2C500%20Inline%20PEP%20Hardening%20%26%20CI%20Gate%20Sprint">book T2</a></td>
-          </tr>
-          <tr>
-            <td class="tier">T3</td>
-            <td><span class="title">Continuous Red-Team, Canary &amp; Deception Retainer</span><span class="sub">Note + Lab Instrumentation</span></td>
-            <td><ul>
-              <li>T2, plus a lab gateway pass on <code>127.0.0.1</code> and an offline analyzer pass on an authorized log</li>
-              <li>Localhost tripwire config (<code>agent-watch</code>; human-review leads only)</li>
-              <li>Canary watermark tracking (<code>canary_watermark.py</code>), de-obfuscation and side-channel guards (<code>deobfuscate.py</code>, <code>side_channel_guard.py</code>)</li>
-              <li>Quarterly <code>evaluate-collusion</code> latency &amp; posture re-run (scripted lab scenarios, not a red team of your users)</li>
-            </ul></td>
-            <td class="mono">48 h, then quarterly</td>
-            <td class="num"><span class="fee">$6,500<small>+ $2,500 / quarter</small></span><a href="mailto:alec@room23.net?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit&amp;body=Tier%3A%20%246%2C500%20Continuous%20Red-Team%2C%20Canary%20%26%20Deception%20Retainer">book T3</a></td>
-          </tr>
-          <tr class="sep">
-            <td class="tier">Add-on</td>
-            <td colspan="3">Integration Blueprint (code or config sketches for wiring the top held calls into your harness) · Reviewer Briefing Call (30 min)</td>
-            <td class="num"><span class="fee">+$2,500 · +$750</span></td>
-          </tr>
-        </tbody>
-      </table>
-      </div>
-      <p class="note">Full terms and the out-of-scope list: <a href="https://github.com/freeling10-prog/rogue-ai-detection/blob/main/marketing/audit-offer.md">audit-offer.md</a>. Free alternative: the Apache-2.0 GitHub Action runs the offline analyzer on your own logs.</p>
+      <p>Current fees, from the $149 MCP Quick Check through the flagship audit, are listed with a mailto intake on the <a href="../#pricing">pricing ladder</a>. Builds are wired for stacks such as Postgres, Stripe, Slack, HubSpot, GitHub. Terms: <a href="https://github.com/freeling10-prog/rogue-ai-detection/blob/main/marketing/audit-offer.md">audit-offer.md</a>.</p>
 
       <h3 style="font-size:20px;margin:30px 0 10px">Sample artifacts</h3>
       <p class="note">Sample output of our own collusion-sprint run. Retired suite totals and decision-time figures are not quoted. Inspect the format before you write.</p>
       <ol class="refs">
         <li><span class="rn">[S1]</span><span><a href="sprint/collusion_sprint_report.pdf">AgentGate: Deterministic Guardrails Against Multi-Agent Collusion Carriers</a>. Sample executive audit report, PDF.<br><span class="h">sha256 aef8f0b0ed5f4b1494e13a44a961cc284e0314ac19f87fcdd9362c1b4f0b76d0</span></span></li>
         <li><span class="rn">[S2]</span><span><a href="sprint/collusion_sprint_slides.pdf">Collusion sprint briefing deck</a>. Sample briefing deck, PDF, 6 slides.<br><span class="h">sha256 4b99457cab85e274879a5a2447b1ecefce544105d0d64512c2cbf8cf3d47c802</span></span></li>
-        <li><span class="rn">[S3]</span><span><a href="sprint/collusion_benchmark_results.json">collusion_benchmark_results.json</a>. Sample run artifact, schema <code>agent-gateway.collusion-eval/1</code>, per-test node ids. Decision-time fields in the file are not for quotation.<br><span class="h">sha256 d4102153ef0af09d2a9145d9f290e677107a0a81d5a6ee751900c540c8cecbe1</span></span></li>
+        <li><span class="rn">[S3]</span><span><a href="sprint/collusion_benchmark_results.json">collusion_benchmark_results.json</a>. Sample run artifact, schema <code>agent-gateway.collusion-eval/1</code>, per-test node ids. Percentile and decision-time fields are omitted from this copy.<br><span class="h">sha256 a5f4f6b70eb05f743854aed2613ad9462b343777aa95ec5200c76837e0faea95</span></span></li>
       </ol>
 
       <h3 style="font-size:20px;margin:30px 0 6px">Start the clock</h3>
-      <p class="note">Copy the inventory table, fill it in (no secrets, no customer payloads), and send it in the booking thread.</p>
-      <div class="tmpl" id="email-template">Tool Name | Argument Shapes | Where Untrusted Text Enters | Tier: T1 $1,800, T2 $4,500 or T3 $6,500
---------- | --------------- | --------------------------- | -------------------------------------
-example.fetch | {url: string} | the fetched page body | T1
-example.send_email | {to: string, body: string} | — | T1</div>
+      <p class="note">Copy the inventory table, fill it in (no secrets, no live payloads), and send it from the <a href="../#pricing">pricing ladder</a>.</p>
+      <div class="tmpl" id="email-template">Tool Name | Argument Shapes | Where Untrusted Text Enters
+--------- | --------------- | ---------------------------
+example.fetch | {url: string} | the fetched page body
+example.send_email | {to: string, body: string} | —</div>
       <button class="btn solid" id="copy-template">Copy inventory template &amp; open email</button>
     </div>
   </div>

@@ -3,699 +3,245 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AgentGate — 48-Hour Agentic Tool-Boundary Audit</title>
-<meta name="description" content="A fixed-price, 48-hour audit of the tool boundary in your AI agents and MCP servers: registry pinning, shell confinement, taint labels, exfiltration, secret scanning, subagent budgets and JSON-RPC desync. $4,500, or $6,500 with instrumentation.">
-<meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#F3F5F8" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0E1522" media="(prefers-color-scheme: dark)">
-<link rel="canonical" href="https://freeling10-prog.github.io/rogue-ai-detection/">
+<title>AgentGate — MCP Security Gateway</title>
+<meta name="description" content="AgentGate sits between LLM agents and production tools. Enforce 2-hop toxic-combination blocks, workspace guards, and a P3 quarter-bit leakage budget, checked by bounded enumeration. Stdlib-only Python. $149 MCP Quick Check, 48-hour turnaround.">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#07090d">
+<meta name="author" content="Alec F.">
+<link rel="canonical" href="https://room23.net/">
 <meta property="og:type" content="website">
-<meta property="og:title" content="AgentGate — 48-Hour Agentic Tool-Boundary Audit">
-<meta property="og:description" content="Fixed-price audit of what your AI agents and MCP servers can reach, and what can reach them. Severity-ranked findings and stdlib-only fix designs in 48 hours.">
-<meta property="og:url" content="https://freeling10-prog.github.io/rogue-ai-detection/">
-<meta property="og:image" content="https://freeling10-prog.github.io/rogue-ai-detection/og-image.png">
+<meta property="og:title" content="AgentGate — Enforce Hard Security Boundaries on MCP Tool Calls">
+<meta property="og:description" content="2-hop toxic-combination blocks, workspace guards, and a P3 bit-level session leakage budget. Checked by bounded enumeration. Zero third-party PyPI dependencies.">
+<meta property="og:url" content="https://room23.net/">
+<meta property="og:image" content="https://room23.net/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="AgentGate: 48-Hour Agentic Tool-Boundary Audit">
+<meta property="og:image:alt" content="AgentGate. Stdlib-only Python MCP security gateway from Room 23 Research.">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23172033'/%3E%3Crect x='14' y='5' width='4' height='22' fill='%23F5B651'/%3E%3Ccircle cx='8' cy='16' r='3' fill='%23E7ECF4'/%3E%3Ccircle cx='24' cy='16' r='3' fill='%23E7ECF4'/%3E%3C/svg%3E">
-<style>
-/* ---------- Tokens ---------- */
-:root{
-  --bg:#F3F5F8; --surface:#FFFFFF; --ink:#172033; --muted:#46526A; --rule:#CBD3DF;
-  --accent:#1D4ED8; --accent-ink:#FFFFFF;
-  --gate:#B45309; --crit:#B42318; --high:#8A4B00; --ok:#1E6B3A;
-  --todo-bg:#FFF1B8; --todo-ink:#4D3A00;
-  --code-bg:#E8ECF2;
-  --serif: Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
-  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
-  --measure: 66ch;
-}
-@media (prefers-color-scheme: dark){
-  :root{
-    --bg:#0E1522; --surface:#151E2E; --ink:#E7ECF4; --muted:#A9B3C4; --rule:#2B364A;
-    --accent:#93B4FF; --accent-ink:#0E1522;
-    --gate:#F5B651; --crit:#FF8F86; --high:#F5B651; --ok:#7BD69B;
-    --todo-bg:#3D3300; --todo-ink:#FFE58A;
-    --code-bg:#1B2638;
-  }
-}
-
-/* ---------- Base ---------- */
-*,*::before,*::after{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
-@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
-body{margin:0;background:var(--bg);color:var(--ink);font:1.0625rem/1.65 var(--serif);text-rendering:optimizeLegibility}
-h1,h2,h3{font-family:var(--sans);line-height:1.15;letter-spacing:-.018em;margin:0 0 .6em}
-h2{font-size:clamp(1.55rem,4vw,2.1rem);font-weight:750}
-h3{font-size:1.15rem;font-weight:700;letter-spacing:-.01em}
-p,ul,ol,dl{margin:0 0 1em}
-a{color:var(--accent);text-underline-offset:.18em;text-decoration-thickness:1px}
-a:hover{text-decoration-thickness:2px}
-:focus-visible{outline:3px solid var(--accent);outline-offset:3px;border-radius:2px}
-code{font-family:var(--mono);font-size:.88em;background:var(--code-bg);padding:.08em .32em;border-radius:3px;overflow-wrap:anywhere}
-.wrap{width:100%;max-width:72rem;margin:0 auto;padding:0 16px}
-.prose{max-width:var(--measure)}
-.muted{color:var(--muted)}
-.skip{position:absolute;left:-999px;top:0;background:var(--surface);padding:.6em 1em;z-index:10}
-.skip:focus{left:16px;top:8px}
-.todo{background:var(--todo-bg);color:var(--todo-ink);font-family:var(--sans);font-size:.85em;font-weight:600;padding:.1em .4em;border-radius:3px}
-.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-
-/* ---------- Header ---------- */
-.top{border-bottom:1px solid var(--rule)}
-.top .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem 1.25rem;padding-top:.8rem;padding-bottom:.8rem}
-.brand{font:800 1.05rem/1 var(--sans);letter-spacing:-.01em;color:var(--ink);text-decoration:none;display:flex;align-items:center;gap:.5rem;margin-right:auto}
-.brand svg{flex:none}
-.top nav ul{display:flex;flex-wrap:wrap;gap:.25rem 1rem;list-style:none;margin:0;padding:0;font:500 .92rem/1.4 var(--sans)}
-.top nav a{color:var(--muted);text-decoration:none}
-.top nav a:hover{color:var(--ink);text-decoration:underline}
-
-/* ---------- Buttons ---------- */
-.btn{display:inline-block;font:650 1rem/1.2 var(--sans);background:var(--accent);color:var(--accent-ink);text-decoration:none;padding:.85em 1.25em;border-radius:6px;border:2px solid var(--accent)}
-.btn:hover{filter:brightness(1.08);text-decoration:none}
-.btn-quiet{background:transparent;color:var(--accent)}
-
-/* ---------- Hero ---------- */
-.hero{padding:3rem 0 3.5rem}
-.hero .wrap{display:grid;gap:2.5rem}
-.hero h1{font-size:clamp(2rem,6.2vw,3.6rem);font-weight:800;letter-spacing:-.03em;max-width:18ch;margin-bottom:.5em}
-.hero .lede{font-size:1.18rem;max-width:44ch;color:var(--muted)}
-.offer{font-family:var(--sans);margin:1.6rem 0 1.4rem;max-width:40rem}
-.offer .name{font-size:1.1rem;font-weight:700;margin:0 0 .2rem}
-.offer .price{font-size:1rem;margin:0;color:var(--muted)}
-.offer .price strong{color:var(--ink);font-size:1.6rem;font-weight:800;letter-spacing:-.02em}
-.cta-row{display:flex;flex-wrap:wrap;gap:.75rem;align-items:center}
-
-/* Gate log: the one signature element */
-.gate{margin:0;background:var(--surface);border:1px solid var(--rule);border-radius:10px;overflow:hidden;font-family:var(--sans)}
-.gate-head{display:flex;justify-content:space-between;gap:1rem;padding:.7rem 1rem;border-bottom:1px solid var(--rule);font-size:.85rem;color:var(--muted)}
-.gate ol{list-style:none;margin:0;padding:.4rem 0}
-.gate li{display:grid;grid-template-columns:4.2rem 10px 1fr;gap:0 .8rem;padding:.55rem 1rem;align-items:start}
-.gate .who{font-size:.8rem;color:var(--muted);padding-top:.15rem}
-.gate .bar{width:4px;align-self:stretch;background:var(--rule);border-radius:2px;justify-self:center}
-.gate li.pass .bar{background:var(--ok)}
-.gate li.bad .bar{background:var(--crit)}
-.gate li.hold .bar{background:var(--gate)}
-.gate .what{font-size:.95rem;line-height:1.45}
-.gate .what code{font-size:.82rem}
-.gate .verdict{display:block;font-size:.82rem;font-weight:650;margin-top:.15rem}
-.gate li.pass .verdict{color:var(--ok)}
-.gate li.bad .verdict{color:var(--crit)}
-.gate li.hold .verdict{color:var(--gate)}
-.gate figcaption{border-top:1px solid var(--rule);padding:.75rem 1rem;font-size:.85rem;color:var(--muted)}
-
-/* ---------- Sections ---------- */
-section{padding:3.25rem 0;border-top:1px solid var(--rule)}
-.intro{max-width:var(--measure);margin-bottom:1.75rem}
-
-/* Incidents */
-.incidents{list-style:none;padding:0;margin:0;display:grid;gap:1.5rem}
-.incidents li{max-width:var(--measure);padding-left:1rem;border-left:3px solid var(--rule)}
-.incidents h3{margin-bottom:.3em}
-.incidents .src{font-family:var(--sans);font-size:.88rem;color:var(--muted);margin:0 0 .4em}
-.incidents p{margin:0}
-
-/* Coverage */
-.coverage{display:grid;gap:0;margin:0;border-top:1px solid var(--rule)}
-.coverage div{display:grid;gap:.25rem 1.5rem;padding:1rem 0;border-bottom:1px solid var(--rule)}
-.coverage dt{font:700 1.02rem/1.35 var(--sans)}
-.coverage dt small{display:block;font-weight:500;font-size:.8rem;color:var(--muted);margin-top:.2rem}
-.coverage dd{margin:0;max-width:var(--measure)}
-
-/* Findings */
-.findings{display:grid;gap:.75rem}
-.finding{background:var(--surface);border:1px solid var(--rule);border-radius:8px}
-.finding summary{cursor:pointer;list-style:none;padding:1rem 1.1rem;display:grid;grid-template-columns:auto 1fr auto;gap:.2rem .8rem;align-items:baseline;font-family:var(--sans)}
-.finding summary::-webkit-details-marker{display:none}
-.finding summary::after{content:"+";font-size:1.3rem;line-height:1;color:var(--muted);grid-column:3;grid-row:1}
-.finding[open] summary::after{content:"\2212"}
-.sev{font-size:.78rem;font-weight:700;padding:.15em .5em;border-radius:3px;border:1.5px solid currentColor;white-space:nowrap}
-.sev.crit{color:var(--crit)}
-.sev.high{color:var(--high)}
-.finding .title{font-weight:700;font-size:1.05rem}
-.finding .one{grid-column:2/4;color:var(--muted);font-size:.92rem;font-weight:400}
-.finding .body{padding:0 1.1rem 1.1rem;display:grid;gap:1.25rem}
-.finding .body h4{font:700 .92rem/1.3 var(--sans);margin:0 0 .4rem}
-.finding .body ol,.finding .body ul{padding-left:1.25rem;margin:0}
-.finding .body li{margin-bottom:.35em}
-.finding .status{font-family:var(--sans);font-size:.85rem;color:var(--muted);margin:0}
-
-/* Timeline */
-.timeline{list-style:none;padding:0;margin:0 0 2rem;border-left:3px solid var(--rule);max-width:var(--measure)}
-.timeline li{position:relative;padding:0 0 1.5rem 1.4rem}
-.timeline li::before{content:"";position:absolute;left:-8px;top:.45rem;width:13px;height:13px;border-radius:50%;background:var(--bg);border:3px solid var(--accent)}
-.timeline .hr{display:block;font:700 .95rem/1.3 var(--sans);color:var(--accent)}
-.deliv{max-width:var(--measure);padding-left:1.25rem}
-.deliv li{margin-bottom:.4em}
-.tiers{display:grid;gap:1rem;margin-top:1.5rem;max-width:52rem}
-.tier{border:1px solid var(--rule);border-radius:8px;padding:1.1rem 1.2rem;background:var(--surface)}
-.tier h3{margin-bottom:.2em}
-.tier .amt{font:800 1.5rem/1.2 var(--sans);letter-spacing:-.02em;margin:0 0 .5rem}
-.tier p:last-child,.tier ul:last-child{margin-bottom:0}
-.services .tier{display:flex;flex-direction:column;min-width:0}
-.services .when{font:650 .8rem/1.3 var(--sans);letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:0 0 .35rem}
-.services .per{font-size:.7em;font-weight:650;letter-spacing:0}
-.services .tier ul{padding-left:1.15rem;margin:0 0 .75rem}
-.services .tier li{margin-bottom:.35em}
-.services .limits{color:var(--muted);font-size:.98rem;margin:0 0 .9rem}
-.services .actions{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:auto}
-.services .tier > .btn{margin-top:auto;align-self:flex-start}
-.tier-flag{grid-column:1 / -1}
-.credit{max-width:52rem;margin-top:1.25rem;padding:1rem 1.15rem;border:1px solid var(--rule);border-radius:8px;background:var(--surface)}
-.credit p:last-child{margin-bottom:0}
-@media (max-width:40rem){
-  .services .actions{flex-direction:column}
-  .services .tier > .btn,.services .actions .btn{align-self:stretch;text-align:center}
-}
-
-/* Numbers table */
-.tbl{width:100%;border-collapse:collapse;font-family:var(--sans);font-size:.92rem;margin:0 0 1.5rem}
-.tbl caption{text-align:left;font-weight:700;padding-bottom:.6rem}
-.tbl th,.tbl td{text-align:left;padding:.6rem .6rem .6rem 0;border-bottom:1px solid var(--rule);vertical-align:top}
-.tbl th{font-weight:650;color:var(--muted)}
-.tbl td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
-.tbl-scroll{overflow-x:auto;max-width:60rem}
-#method h3{margin-top:2.25rem}
-#method .prose{margin-bottom:1rem}
-.caveats{max-width:var(--measure);padding-left:1.25rem}
-.caveats li{margin-bottom:.55em}
-
-/* FAQ */
-.faq details{border-bottom:1px solid var(--rule);max-width:var(--measure)}
-.faq summary{cursor:pointer;padding:1rem 0;font:650 1.02rem/1.4 var(--sans)}
-.faq details > div{padding:0 0 1rem}
-.faq details > div > :last-child{margin-bottom:0}
-
-/* Closing CTA + footer */
-.close{background:var(--surface)}
-.close .prose p{font-size:1.1rem}
-footer{border-top:1px solid var(--rule);padding:2rem 0 3rem;font-family:var(--sans);font-size:.9rem;color:var(--muted)}
-footer ul{list-style:none;padding:0;margin:0 0 1rem;display:flex;flex-wrap:wrap;gap:.5rem 1.5rem}
-
-/* ---------- Wider screens ---------- */
-@media (min-width:52rem){
-  .hero{padding:4.5rem 0 5rem}
-  .hero .wrap{grid-template-columns:1.1fr 1fr;align-items:center;gap:3.5rem}
-  .coverage div{grid-template-columns:16rem 1fr}
-  .tiers{grid-template-columns:1fr 1fr}
-  section{padding:4.5rem 0}
-}
-@media print{
-  .top nav,.cta-row,.close{display:none}
-  .finding .body{display:grid}
-  body{background:#fff;color:#000}
-}
-</style>
+<link rel="icon" href="demo/favicon.svg">
+<link rel="preload" href="demo/fonts/plex-sans-var.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="demo/fonts/plex-mono-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
-
 <header class="top">
-  <div class="wrap">
-    <a class="brand" href="#top" aria-label="AgentGate, back to top">
-      <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="6" fill="currentColor"/><rect x="14" y="5" width="4" height="22" fill="#F5B651"/><circle cx="8" cy="16" r="3" style="fill:var(--bg)"/><circle cx="24" cy="16" r="3" style="fill:var(--bg)"/></svg>
-      AgentGate
-    </a>
+  <div class="wrap bar">
+    <a class="brand" href="#top">Agent<span>Gate</span></a>
     <nav aria-label="Sections">
-      <ul>
-        <li><a href="#coverage">Coverage</a></li>
-        <li><a href="#findings">Sample findings</a></li>
-        <li><a href="#deliverables">Deliverables</a></li>
-        <li><a href="#services">Services</a></li>
-        <li><a href="#method">Method</a></li>
-        <li><a href="./demo/#traces">Traces</a></li>
-        <li><a href="#faq">FAQ</a></li>
-      </ul>
+      <a href="#smithery">Smithery</a>
+      <a href="#budget">P3 budget</a>
+      <a href="#pricing">Pricing</a>
+      <a href="./demo/#traces">Traces</a>
+      <a href="https://github.com/freeling10-prog/rogue-ai-detection">GitHub</a>
     </nav>
   </div>
 </header>
 
 <main id="main">
-
-<!-- ================= 1. HERO ================= -->
-<div class="hero" id="top">
-  <div class="wrap">
-    <div>
-      <h1>Your agents call tools with real privileges.</h1>
-      <p class="lede">Prompt injection, tool poisoning and rug pulls turn those calls into data theft or code execution. We audit the boundary where your agent meets its tools, and show you exactly where it leaks.</p>
-      <div class="offer">
-        <p class="name">48-Hour Agentic Tool-Boundary Audit</p>
-        <p class="price"><strong>$4,500</strong> fixed price, or <strong>$6,500</strong> with instrumentation</p>
-      </div>
-      <div class="cta-row">
-        <a class="btn" href="mailto:alec@room23.net?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit">Email to book an audit</a>
-        <a class="btn btn-quiet" href="#findings">See sample findings</a>
-      </div>
-    </div>
-
-    <figure class="gate" aria-labelledby="gate-cap">
-      <div class="gate-head"><span>Gateway decision log</span><span>red-team audit, 31 Oct 2026</span></div>
-      <ol>
-        <li class="pass"><span class="who">Session A</span><span class="bar" aria-hidden="true"></span>
-          <span class="what">Reads an untrusted web page. Session is marked tainted.<span class="verdict">Correct: tainted</span></span></li>
-        <li class="hold"><span class="who">Session A</span><span class="bar" aria-hidden="true"></span>
-          <span class="what">Writes <code>data.json</code> after a human approval. File label: untrusted.<span class="verdict">Correct: approved write, labelled untrusted</span></span></li>
-        <li class="bad"><span class="who">Session B</span><span class="bar" aria-hidden="true"></span>
-          <span class="what">New session, same disk. <code>data.json</code> now reads as trusted.<span class="verdict">Wrong: label was lost</span></span></li>
-        <li class="bad"><span class="who">Session B</span><span class="bar" aria-hidden="true"></span>
-          <span class="what"><code>send_email</code> with <code>data.json</code> attached.<span class="verdict">Wrong: allowed, should be held for review</span></span></li>
-      </ol>
-      <figcaption id="gate-cap">Simplified trace of a critical finding from our audit of our own open-source gateway. Fixed on main (<a href="https://github.com/freeling10-prog/rogue-ai-detection/pull/34">PR #34</a>). Every step passed its local check; the failure only shows across sessions.</figcaption>
-    </figure>
-  </div>
-</div>
-
-<!-- ================= 2. THE PROBLEM ================= -->
-<section id="problem" aria-labelledby="problem-h">
-  <div class="wrap">
-    <div class="intro">
-      <h2 id="problem-h">This is already happening</h2>
-      <p>Agent security failures rarely come from the model alone. They happen at the tool boundary: a validator that misreads a command, a protocol message nobody inspects, a config file one agent can write for another.</p>
-    </div>
-    <ol class="incidents">
-      <li>
-        <h3>A sed validator bypass in Claude Code allowed arbitrary file writes</h3>
-        <p class="src">CVE-2025-64755 (GHSA-7mv8-j34q-vp7q): <a href="https://github.com/anthropics/claude-code/security/advisories/GHSA-7mv8-j34q-vp7q">GitHub advisory</a>, <a href="https://osv.dev/vulnerability/GHSA-7mv8-j34q-vp7q">OSV record</a></p>
-        <p>Claude Code's command validation could be bypassed with sed features, turning a "safe" text edit into a write anywhere on disk. It was fixed in version 2.0.31 by blocking those sed commands.</p>
-      </li>
-      <li>
-        <h3>MCP sampling lets a malicious server drive the client's model</h3>
-        <p class="src">Unit 42, Palo Alto Networks, 5 Dec 2025: <a href="https://unit42.paloaltonetworks.com/model-context-protocol-attack-vectors/">New Prompt Injection Attack Vectors Through MCP Sampling</a>. Related analysis: <a href="https://arxiv.org/html/2601.17549">arXiv 2601.17549</a></p>
-        <p>A server that issues <code>sampling/createMessage</code> can inject instructions into the client's model to steal resources, hijack the conversation or invoke tools covertly. The arXiv analysis notes that sampling requests carry no origin authentication.</p>
-      </li>
-      <li>
-        <h3>Coding agents can free each other by rewriting shared config</h3>
-        <p class="src">Embrace The Red, 24 Sep 2025: <a href="https://embracethered.com/blog/posts/2025/cross-agent-privilege-escalation-agents-that-free-each-other/">Cross-Agent Privilege Escalation</a>, with <a href="https://simonwillison.net/2025/Sep/24/cross-agent-privilege-escalation/">commentary by Simon Willison</a></p>
-        <p>On a shared workspace, one agent writes another agent's <code>.mcp.json</code>, <code>AGENTS.md</code> or editor settings, which loosens its permissions.</p>
-      </li>
-      <li>
-        <h3>Argument injection turns pre-approved commands into code execution</h3>
-        <p class="src">Trail of Bits, 22 Oct 2025: <a href="https://blog.trailofbits.com/2025/10/22/prompt-injection-to-rce-in-ai-agents/">Prompt injection to RCE in AI agents</a></p>
-        <p>Agents that allowlist "safe" utilities can still be steered into dangerous flags on those utilities. The write-up recommends <code>--</code> argument confinement and narrow facades.</p>
-      </li>
-    </ol>
-      </div>
-</section>
-
-<!-- ================= 3. COVERAGE ================= -->
-<section id="coverage" aria-labelledby="coverage-h">
-  <div class="wrap">
-    <div class="intro">
-      <h2 id="coverage-h">What the audit covers</h2>
-      <p>Seven tool-boundary areas. Each maps to a validator in our open-source reference gateway, so every test has a working model behind it and a concrete fix design in front of it.</p>
-    </div>
-    <dl class="coverage">
+  <div class="hero" id="top">
+    <div class="wrap hero-grid">
       <div>
-        <dt>Registry pinning<small>Validator R</small></dt>
-        <dd>Are tool schemas and descriptions pinned, and does a silent change (a rug pull) revoke trust? Includes Unicode lookalikes and hidden instructions in tool descriptions.</dd>
-      </div>
-      <div>
-        <dt>Workspace and shell confinement<small>Validators W and S</small></dt>
-        <dd>What each allowed command actually does on disk: copies, moves, in-place edits, symlinks, redirects and permission changes. Protected config paths such as <code>.git</code>, <code>.mcp.json</code>, <code>AGENTS.md</code>, <code>CLAUDE.md</code> and <code>.vscode</code>. Arguments are canonicalized and confined behind <code>--</code>.</dd>
-      </div>
-      <div>
-        <dt>Taint and information-flow labels<small>Validators T, F and P</small></dt>
-        <dd>Once a session reads untrusted content, does the taint follow the data through files, workflows and approvals, and does it survive into the next session?</dd>
-      </div>
-      <div>
-        <dt>Exfiltration and encoding evasion<small>Validators I and Z</small></dt>
-        <dd>Can a protected value leave in reversed, shifted, XORed, interleaved, hex, base32 or base64 form? We measure match coverage against the real matcher thresholds and report the transforms that get through.</dd>
-      </div>
-      <div>
-        <dt>Return-channel secret scanning<small>Validator D</small></dt>
-        <dd>Secrets that arrive in tool results get pinned so they can't be sent back out. We test capacity limits, secrets split across fields, and whether the pinning runs on every transport.</dd>
-      </div>
-      <div>
-        <dt>Budgets across subagents<small>Validator V</small></dt>
-        <dd>When an agent forks subagents, do their combined actions stay within one budget? Vector-clock accounting across fork and join.</dd>
-      </div>
-      <div>
-        <dt>MCP protocol and transport desync<small>MCP wire proxy</small></dt>
-        <dd>JSON-RPC id matching, error responses, id reuse, batches, duplicate keys, parser differentials, and server-initiated <code>sampling</code> and <code>elicitation</code> requests. Anything that reaches the model without being inspected.</dd>
-      </div>
-    </dl>
-  </div>
-</section>
-
-<!-- ================= 4. SAMPLE FINDINGS ================= -->
-<section id="findings" aria-labelledby="findings-h">
-  <div class="wrap">
-    <div class="intro">
-      <h2 id="findings-h">The kind of thing we find</h2>
-      <p>These five findings come from a red-team audit of our own gateway on 31 October 2026, not from a client engagement. Each was reproduced against the code. The two critical findings include a short trace. The high findings state what is on main and what is still open. Working exploit code is not published.</p>
-    </div>
-
-    <div class="findings">
-      <details class="finding">
-        <summary><span class="sev crit">Critical</span><span class="title">Cross-session taint loss</span><span class="one">An untrusted file becomes trusted when a new session starts.</span></summary>
-        <div class="body">
-          <div><h4>Trace</h4>
-            <ol>
-              <li>Session A reads untrusted content and is correctly tainted.</li>
-              <li>With a human-approved write, Session A creates <code>data.json</code>, labelled untrusted.</li>
-              <li>Labels lived only in Session A's memory. Session B, on the same disk, sees <code>data.json</code> as trusted.</li>
-              <li>Session B emails the file out, and the gateway allows it. Shell redirects were not recorded in the provenance ledger either.</li>
-            </ol></div>
-          <div><h4>Fix</h4>
-            <p>File labels now persist across sessions in an append-only, hash-chained store. With a directory bound, a file with no record that is not older than the store epoch is untrusted.</p>
-            <p class="muted">Residual risk: network filesystems without stable inodes need a path-and-hash fallback.</p></div>
-          <p class="status">Status: fixed on main (<a href="https://github.com/freeling10-prog/rogue-ai-detection/pull/34">PR #34</a>).</p>
+        <p class="badge">Stdlib-Only Python MCP Security Gateway • Room 23 Research</p>
+        <h1>Enforce Hard Security Boundaries on MCP Tool Calls Before Production Data Leaks.</h1>
+        <p class="sub">AgentGate sits between your LLM agents and production tools. Enforce 2-hop toxic-combination blocks, workspace guards, and P3 bit-level session leakage budgets—checked by bounded enumeration with zero third-party PyPI dependencies.</p>
+        <div class="cta-row">
+          <a class="btn" href="mailto:alec@room23.net?subject=MCP%20Quick%20Check%20%24149%20%E2%80%94%2048-hr%20turnaround&amp;body=Tier%3A%20%24149%20MCP%20Quick%20Check%20%2848-hr%20turnaround%29%0AName%3A%0ARole%3A%0AOrganization%3A%0AMCP%20servers%20in%20scope%20%28count%29%3A%0AManifests%20and%20schemas%20attached%2C%20secrets%20removed%20%28yes/no%29%3A%0AWhat%20those%20servers%20can%20read%2C%20write%2C%20and%20send%3A">Get a $149 MCP Quick Check (48-Hr Turnaround)</a>
+          <a class="btn btn-quiet" href="./demo/#traces">Try Live Trace Inspector</a>
+          <a class="btn btn-quiet" href="https://github.com/freeling10-prog/rogue-ai-detection">GitHub Repo</a>
         </div>
-      </details>
-
-      <details class="finding">
-        <summary><span class="sev crit">Critical</span><span class="title">JSON-RPC id desync</span><span class="one">A response with id <code>"7"</code> instead of <code>7</code> skips inspection.</span></summary>
-        <div class="body">
-          <div><h4>Trace</h4>
-            <ol>
-              <li>The proxy matches responses to requests by their serialized id.</li>
-              <li>The client sends request <code>7</code>. A malicious server replies with <code>"7"</code> or <code>7.0</code>.</li>
-              <li>The lookup misses, so the proxy forwards the response unchanged. The prompt injection inside is never scanned and the session is never tainted.</li>
-              <li>Error responses, a reused id, list and subscribe methods, and server-initiated elicitation requests also pass without inspection.</li>
-            </ol></div>
-          <div><h4>Fix</h4>
-            <p>Request ids stay null, string, or int, with no coercion between those forms. A response whose id is not in flight is not forwarded, malformed and reused ids are rejected, and every response that reaches the model is scanned, including errors.</p>
-            <p class="muted">Residual risk: a peer that stringifies an id has that response dropped rather than inspected. Pin one codec so ids are not rewritten between hops.</p></div>
-          <p class="status">Status: fixed on main (<a href="https://github.com/freeling10-prog/rogue-ai-detection/pull/34">PR #34</a>).</p>
-        </div>
-      </details>
-
-      <details class="finding">
-        <summary><span class="sev high">High</span><span class="title">In-place edit launders file labels</span><span class="one">An allowed file edit can strip a file's sensitivity label.</span></summary>
-        <div class="body">
-          <div><h4>The bug class</h4>
-            <p>An allowed in-place edit that replaces a file's underlying inode can leave its sensitivity label behind, so a protected copy can later be sent out.</p></div>
-          <div><h4>Fix design</h4>
-            <p>The broker that ran the command publishes an old-to-new inode map, and labels move with it. Edited files are keyed by path first. The read-write <code>&lt;&gt;</code> redirect is rejected.</p>
-            <p class="muted">Residual risk: any utility that replaces an inode without the broker observing it.</p></div>
-          <p class="status">Status: fixed on main (broker inode and rename maps on rebase).</p>
-        </div>
-      </details>
-
-      <details class="finding">
-        <summary><span class="sev high">High</span><span class="title">Secret-store pin-stuffing and split secrets</span><span class="one">The inbound secret store can be filled up or sidestepped.</span></summary>
-        <div class="body">
-          <div><h4>The bug class</h4>
-            <p>A tool result an attacker controls can exhaust the secret store's fixed capacity, and secrets split across fields can avoid being pinned at all.</p></div>
-          <div><h4>Fix design</h4>
-            <p>Separate evictable soft pins from non-evicting hard pins. Join adjacent fields before enrollment, and check outbound fields concatenated. When hard capacity is reached, raise a human-review lead and forward a redacted body.</p>
-            <p class="muted">Residual risk: secrets split non-adjacently with delimiters can still evade; these surface as review leads.</p></div>
-          <p class="status">Status: pin-stuffing fixed on main (separate hard and soft stores). Split secrets: fix designed, not yet merged.</p>
-        </div>
-      </details>
-
-      <details class="finding">
-        <summary><span class="sev high">High</span><span class="title">Encoding evasion</span><span class="one">Reordered or encoded secrets can slip past the exfiltration matcher.</span></summary>
-        <div class="body">
-          <div><h4>The bug class</h4>
-            <p>Some byte reorderings and common text encodings keep a protected value below the exfiltration matcher's similarity threshold.</p></div>
-          <div><h4>Fix design</h4>
-            <p>Decode hex, base32, base64 and percent-encoding to a fixed point (at most four rounds), de-interleave strides 2 to 4, prefilter on byte histograms, then run the existing checks. Cost is O(n·k).</p>
-            <p class="muted">Residual risk, stated plainly: no finite matcher catches arbitrary encodings. What the fix doesn't catch becomes a human-review lead.</p></div>
-          <p class="status">Status: stride, hex and base64 forms fixed on main. Other encodings remain out of scope.</p>
-        </div>
-      </details>
-    </div>
-  </div>
-</section>
-
-<!-- ================= 5. DELIVERABLES & TIMELINE ================= -->
-<section id="deliverables" aria-labelledby="deliv-h">
-  <div class="wrap">
-    <div class="intro">
-      <h2 id="deliv-h">48 hours, start to finish</h2>
-      <p>The clock starts when scope is agreed and access is in place.</p>
-    </div>
-
-    <h3>What you get</h3>
-    <ul class="deliv">
-      <li>A written report you can hand to engineering and leadership.</li>
-      <li>Severity-ranked findings, each with a reproducible trace.</li>
-      <li>Fix designs for each finding, in deterministic, standard-library-only Python where code applies, with complexity and residual risk stated.</li>
-    </ul>
-
-    <div class="tiers">
-      <div class="tier">
-        <h3>Audit</h3>
-        <p class="amt">$4,500</p>
-        <p>Everything above, fixed price.</p>
+        <p class="strip">Pure Python Stdlib (0 Dependencies) • JSON-RPC -32082 Human Hold • The test suite currently passes 1,277 tests (with 6 skipped).</p>
+        <p class="byline">Alec F. · independent AI security researcher</p>
       </div>
-      <div class="tier">
-        <h3>Audit with instrumentation</h3>
-        <p class="amt">$6,500</p>
-        <p>The audit, plus a localhost lab gateway pass, an offline analyzer run on a log you authorize, and canary and deception configuration for your environment.</p>
-      </div>
-    </div>
-    <p>Those two are the top of a fixed-price ladder. The rungs under them are in <a href="#services">Services</a>.</p>
-  </div>
-</section>
-
-<!-- ================= 5b. SERVICES ================= -->
-<section id="services" aria-labelledby="pricing">
-  <div class="wrap">
-    <div class="intro">
-      <h2 id="pricing">Services</h2>
-      <p>Fixed prices, delivered by one person as a PDF, source files, or a pull request you review. Nothing is deployed on your hosts. Not a penetration test, not a certification, and not legal advice. No client list is published.</p>
-      <p>The usual path is a $149 check, then a $450 build or a $950 review, then the $1,500 drop-in, then the $4,500 audit, then $395 a month or the $2,500 quarterly refresh. The $1,800 exposure diagnostic, the +$2,500 integration blueprint, and the +$750 briefing call are unchanged.</p>
-    </div>
-    <div class="tiers services">
-      <article class="tier" id="quick-check">
-        <p class="when">24 hours</p>
-        <h3>MCP Permission Quick Check</h3>
-        <p class="amt">$149</p>
-        <p>For a team running one to five MCP servers in Cursor, Claude Code, or Claude Desktop.</p>
-        <ul>
-          <li>Review of up to 5 configs you send (<code>mcp.json</code> or <code>claude_desktop_config.json</code>), secrets removed. Max 60 tools.</li>
-          <li>Each tool classed as read, write, send, or credential use.</li>
-          <li>Flags for plaintext tokens, over-broad scopes, and tools that read untrusted content and can also write or send.</li>
-          <li>A one-page PDF with the top 5 fixes ranked.</li>
-        </ul>
-        <p class="limits">Config and tool-manifest review only. No code review, no runtime testing, no access to your systems, and no fixes applied. Add-ons: +$49 per extra 5 servers; +$99 for a 20-minute call.</p>
-        <a class="btn" href="mailto:alec@room23.net?subject=Book%20MCP%20Permission%20Quick%20Check&amp;body=Offer%3A%20MCP%20Permission%20Quick%20Check%20%24149">Book the Quick Check</a>
-      </article>
-      <article class="tier" id="starter-build">
-        <p class="when">4 business days</p>
-        <h3>Starter MCP Server Build</h3>
-        <p class="amt">$450</p>
-        <p>One internal API or database, with read-only defaults.</p>
-        <ul>
-          <li>An MCP server in Python or TypeScript for one system. Stdio, plus Streamable HTTP if you ask.</li>
-          <li>Up to 4 tools. At most 1 write tool, behind an explicit confirmation argument.</li>
-          <li>API-key or bearer-token auth through environment variables.</li>
-          <li>Allow-listed endpoints or tables, input schemas, output caps, and secret redaction in logs.</li>
-          <li>Tests for each tool and the deny paths. A README for Claude Desktop, Cursor, and Claude Code.</li>
-          <li>1 revision within 7 days of delivery.</li>
-        </ul>
-        <p class="limits">Out of scope unless you add it: OAuth, multi-tenant auth, hosting, more than 4 tools, more than 1 write, and delete, refund, or bulk-export tools. Production credentials are never used. Add-ons: extra read tool +$60 (up to 8 tools); extra confirmation-gated write +$100; OAuth 2.1 for one provider +$300; Dockerfile and deploy guide (you deploy) +$150; 48-hour rush +$150; extra revision +$75. A policy wrap and hash-chained audit log is the $750 build.</p>
-        <a class="btn" href="mailto:alec@room23.net?subject=Book%20Starter%20MCP%20Server%20Build&amp;body=Offer%3A%20Starter%20MCP%20Server%20Build%20%24450%0ASystem%3A%20">Book the Starter Build</a>
-      </article>
-      <article class="tier" id="hardened-build">
-        <p class="when">48 hours</p>
-        <h3>Hardened MCP Server Build</h3>
-        <p class="amt">$750</p>
-        <p>The same one-system build, when you need writes and an audit trail. $350 at kickoff, $400 when the acceptance tests pass.</p>
-        <ul>
-          <li>One system (Postgres, Stripe, HubSpot, Slack, or an internal REST API) on the reference blueprint, wrapped in allow / deny rules.</li>
-          <li>Sensitive-field redaction and a SHA-256 hash-chained audit log.</li>
-          <li>A pytest acceptance suite, delivered as a pull request. Nothing is deployed on your hosts.</li>
-        </ul>
-        <p class="limits">The clock starts with a test or staging instance, never production credentials, and the tool list. Delete, refund, cancel, drop, truncate, and bulk export stay denied unless you approve one in writing, and an approved one still needs a per-call confirmation token.</p>
-        <a class="btn" href="mailto:alec@room23.net?subject=Book%2048-Hour%20Hardened%20MCP%20Server%20Build&amp;body=Package%3A%20%24750%2048-Hour%20Hardened%20MCP%20Server%20Build%0ASystem%3A%20">Book the Hardened Build</a>
-      </article>
-      <article class="tier" id="security-review">
-        <p class="when">3 business days</p>
-        <h3>MCP Server Security Review</h3>
-        <p class="amt">$950</p>
-        <p>$1,500 for two servers. An outside look at a server you built, adopted, or ship.</p>
-        <ul>
-          <li>Code and tool descriptions, read the way the model reads them: injection, over-broad tools, validation, path, URL, and SQL arguments, secrets, and auth.</li>
-          <li>A loopback lab run on test data. Never your production.</li>
-          <li>Findings ranked by severity, each with a concrete fix, plus a SARIF 2.1.0 file.</li>
-          <li>A 30-minute walkthrough, and one re-test of fixed high or critical findings within 30 days.</li>
-        </ul>
-        <p class="limits">Up to 15 tools per server. No live production test, no infrastructure pentest, no social engineering, and no compliance attestation. Fixes are recommendations. Add-ons: up to 5 findings as a pull request +$400; extra server +$550; 48-hour rush +$250.</p>
-        <a class="btn" href="mailto:alec@room23.net?subject=Book%20MCP%20Server%20Security%20Review&amp;body=Offer%3A%20MCP%20Server%20Security%20Review%0AServers%3A%20one%20(%24950)%20or%20two%20(%241%2C500)">Book the Security Review</a>
-      </article>
-      <article class="tier" id="drop-in">
-        <p class="when">5 business days</p>
-        <h3>Agent-Gateway Guardrail Drop-In</h3>
-        <p class="amt">$1,500</p>
-        <p>A deterministic policy layer and a tamper-evident log in front of MCP servers you already run.</p>
-        <ul>
-          <li>Configured for up to 3 servers / 30 tools and one agent harness: allow and deny lists, path, URI, and SQL checks, and rules for an untrusted read that can reach a write or a send.</li>
-          <li>Log-only by default. It enforces only deterministic rules the client approves in writing, and only the client switches those rules on.</li>
-          <li>A SHA-256 hash-chained decision log with a verify command, and a CI job that fails on policy regressions.</li>
-          <li>A pull request and a runbook. Your team merges and deploys. A 30-minute handover, then 14 days of config fixes.</li>
-        </ul>
-        <p class="limits">No custom validator beyond configuration, no production on-call, and no SIEM integration. Add-ons: extra server +$300; a custom validator +$400; a log-shipping guide +$250. The integration blueprint remains +$2,500.</p>
-        <a class="btn" href="mailto:alec@room23.net?subject=Book%20Agent-Gateway%20Guardrail%20Drop-In&amp;body=Offer%3A%20Agent-Gateway%20Guardrail%20Drop-In%20%241%2C500">Book the Drop-In</a>
-      </article>
-      <article class="tier" id="boundary-watch">
-        <p class="when">Monthly</p>
-        <h3>Boundary Watch</h3>
-        <p class="amt">$395<span class="per"> / month</span></p>
-        <p>For a team that already bought a build, a review, a drop-in, or an audit, and keeps adding tools.</p>
-        <ul>
-          <li>A monthly re-run of the audit and SARIF export, delivered within 3 business days of the updated list.</li>
-          <li>Review of up to 5 new or changed tools. No rollover.</li>
-          <li>One small policy or code change, at most 2 hours, and a one-page summary.</li>
-          <li>Email support, with a reply within 2 business days.</li>
-        </ul>
-        <p class="limits">No on-call. Month to month, cancel anytime; 2 months recommended. Add-on: extra 5 tools +$150. A quarterly written-note refresh remains $2,500 per quarter.</p>
-        <a class="btn" href="mailto:alec@room23.net?subject=Book%20Boundary%20Watch&amp;body=Offer%3A%20Boundary%20Watch%20%24395%2Fmonth">Book Boundary Watch</a>
-      </article>
-      <article class="tier tier-flag" id="flagship-audit">
-        <p class="when">48 hours · flagship</p>
-        <h3>48-Hour Tool-Boundary Audit</h3>
-        <p class="amt">$4,500</p>
-        <p>$6,500 with lab instrumentation, then $2,500 per quarter if you continue. A written note for a security reviewer, from a tool list you send.</p>
-        <ul>
-          <li>$4,500: the full note, a loopback policy set for your tool list, CI regression machines, and a hash-chained log. Files and a pull request your team merges.</li>
-          <li>$6,500: the same note, plus a lab gateway pass on <code>127.0.0.1</code> with simulated backends, and an offline analyzer pass on an authorized log you supply.</li>
-        </ul>
-        <p class="limits">Not a penetration test, not a red team of your users, not a certification, and not legal advice. Same-author lab limits are in <a href="#method">Method</a>. ATLAS ids on the note are approximate. Production credentials are not accepted, and the gateway is not installed on your hosts. The $1,800 Tier 1 diagnostic stays a separate booking.</p>
-        <div class="actions">
-          <a class="btn" href="mailto:alec@room23.net?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit&amp;body=Tier%3A%20%244%2C500%20Fixed%20Tool-Boundary%20Note">Book the $4,500 audit</a>
-          <a class="btn btn-quiet" href="mailto:alec@room23.net?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit%20with%20Instrumentation&amp;body=Tier%3A%20%246%2C500%20Note%20%2B%20Lab%20Instrumentation">Book the $6,500 audit</a>
-        </div>
-      </article>
-    </div>
-    <aside class="credit">
-      <p><strong>Credit toward the audit.</strong> 100% of a Quick Check fee and 50% of a Security Review or Drop-In fee credits toward the flagship audit ($4,500, or $6,500 with instrumentation) if that audit is booked within 30 days. The earlier work is reused in the audit.</p>
-    </aside>
-    <p>Full terms: <a href="https://github.com/freeling10-prog/rogue-ai-detection/blob/main/marketing/audit-offer.md">audit-offer.md</a>. The Apache-2.0 code stays free either way.</p>
-  </div>
-</section>
-
-<!-- ================= 6. WHY AGENTGATE ================= -->
-<section id="why" aria-labelledby="why-h">
-  <div class="wrap">
-    <div class="intro">
-      <h2 id="why-h">Why AgentGate</h2>
-    </div>
-    <div class="prose">
-      <p>We test against a working reference, not a checklist. <a href="https://github.com/freeling10-prog/rogue-ai-detection">AgentGate</a> is an open-source (Apache 2.0) policy gateway that sits in an agent's tool loop. It is deterministic and built on the Python 3.12 standard library only. Its validators are opt-in and inert until attached, so each one can be read, tested and reasoned about on its own.</p>
-      <p>When the gateway sees untrusted input, it taints the session and attenuates the agent's capability so egress can't be turned back on. Held calls go to a human. We audit your stack with the same model, and our fix designs are written to the same bar.</p>
-      <p>We focus on three areas that get less attention than prompt injection itself:</p>
-      <ul>
-        <li><strong>JSON-RPC and MCP transport desync:</strong> the gap between what a proxy inspects and what a client or server actually accepts.</li>
-        <li><strong>Vector-clock budgets across subagents:</strong> keeping forked agents inside one combined budget.</li>
-        <li><strong>Canonical argument confinement:</strong> deciding on the arguments a tool will really receive, not on the string the model wrote.</li>
-      </ul>
-    </div>
-  </div>
-</section>
-
-<!-- ================= 7. METHODOLOGY & HONESTY ================= -->
-<section id="method" aria-labelledby="method-h">
-  <div class="wrap">
-    <div class="intro">
-      <h2 id="method-h">Methodology, and what we don't claim</h2>
-      <p>The test suite currently passes 1,250 tests. Earlier suite totals are not quoted.</p>
-    </div>
-
-    <div class="tbl-scroll">
-      <table class="tbl">
-        <caption>Gateway tests</caption>
-        <thead><tr><th scope="col">Suite</th><th scope="col">Result</th></tr></thead>
-        <tbody>
-          <tr><td><code>agent-gateway</code> pytest</td><td>The test suite currently passes 1,250 tests (6 skipped without <code>php</code>).</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <h3 id="layer-h">The validator layer: R ∧ W ∧ F ∧ I ∧ P ∧ T ∧ S ∧ V ∧ D ∧ Z ∧ C ∧ E ∧ B ∧ A</h3>
-    <p class="prose">Fourteen bounded, deterministic predicates in the Python 3.12 standard library. A call is admitted only if every attached predicate admits it; each one is inert until a trusted adapter attaches its state, and state is committed only after all of them pass. Denials use JSON-RPC codes <code>-32066</code> through <code>-32080</code>.</p>
-    <div class="tbl-scroll">
-      <table class="tbl">
-        <caption>Reference validators in the v14 tree</caption>
-        <thead><tr><th scope="col">Predicate</th><th scope="col">Code</th><th scope="col">Invariant it enforces</th></tr></thead>
-        <tbody>
-          <tr><td>R <code>registry_pin_validator.py</code></td><td class="n">-32066, -32067</td><td>A changed, invalid or removed tool descriptor stays revoked. A bare tool name claimed by two servers is never resolved by arrival order.</td></tr>
-          <tr><td>W <code>workspace_path_validator.py</code></td><td class="n">-32068</td><td>Shell syntax outside the model fails closed. No write reaches a protected name or an inode alias of one. Executes nothing.</td></tr>
-          <tr><td>F <code>lattice_flow_validator.py</code></td><td class="n">-32069</td><td>Contamination only rises. Each precommitted workflow step runs at most once, in DAG order.</td></tr>
-          <tr><td>I <code>shingle_similarity_validator.py</code></td><td class="n">-32070</td><td>Outbound text whose longest common subsequence covers 85% of a pinned value is denied, under two pinned normalizations.</td></tr>
-          <tr><td>P <code>linear_obligation_validator.py</code></td><td class="n">-32071</td><td>A 16-place Petri net never mints tokens; no egress while a cleanup place is non-zero.</td></tr>
-          <tr><td>T <code>symbolic_fs_transducer.py</code></td><td class="n">-32072</td><td>File labels only rise; non-public data never feeds egress and untrusted data never feeds execution. Committed labels persist in a hash-chained sidecar, and a broker rebase carries them onto a replacement inode or a renamed path.</td></tr>
-          <tr><td>S <code>canonical_argument_confinement.py</code></td><td class="n">-32073</td><td>Equivalent argument objects reduce to identical bytes, so spelling can't carry hidden bits. No operand reaches an option position.</td></tr>
-          <tr><td>V <code>fork_join_vector_validator.py</code></td><td class="n">-32074</td><td>Forked subagents spend one conserved root budget, fenced by vector clocks; taint flows along forks and joins.</td></tr>
-          <tr><td>D <code>dynamic_ingression_validator.py</code></td><td class="n">-32075</td><td>Secrets first seen in a tool result are enrolled before the agent sees them. Trusted credential values are never evicted; heuristic finds rotate oldest first, so an untrusted response can't lock the store. Outbound text covering 85% of one is denied.</td></tr>
-          <tr><td>Z <code>transform_invariant_validator.py</code></td><td class="n">-32076</td><td>Pins match under a finite transform family (reversal, +k, XOR-k, Caesar, acrostic, 4-byte blocks, stride-2/3/4 interleavings) and inside hex and base64 runs. D's trusted enrollments extend Z atomically. Over-budget queries are denied whole.</td></tr>
-          <tr><td>C <code>causality_laundering_validator.py</code></td><td class="n">-32077</td><td>A file created, deleted or renamed, or a status set, on a branch whose decision depended on untrusted data carries that label, tombstones included; whoever probes, lists or reads it is tainted before the call is authorized.</td></tr>
-          <tr><td>E <code>event_channel_capacity_validator.py</code></td><td class="n">-32078</td><td>Which eligible tool and structural options a call picks can carry at most a budgeted number of bits per sink, counted exactly in quarter bits while the session is tainted or holds live secrets. Support accounting, not KL divergence.</td></tr>
-          <tr><td>B <code>blindfold_opaque_fault_validator.py</code></td><td class="n">-32079</td><td>Refusals can be sealed into one identical envelope with a signed private receipt. A retry within 25&ndash;99% 4-gram overlap of a refusal locks that branch; the lock lifts itself after 15 minutes and goes to human review.</td></tr>
-          <tr><td>A <code>reachability_confinement_validator.py</code></td><td class="n">-32080</td><td>A call must be a next step on a workflow path that can still finish with every obligation discharged and, once tainted, no forbidden step. Revoked steps stay revoked.</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <p class="prose muted">A finite matcher catches only the transforms it models; see the encoding sample finding above.</p>
-
-    <ul class="caveats">
-      <li><strong>This is a reference design, not a deployed product.</strong> AgentGate is not a penetration test, a certification, a production WAF or an OS sandbox, and we make no detection-rate claims.</li>
-      <li><strong>Evaluation cohorts are synthetic and written by the same author</strong> as the detectors. They show the code does what it says on those cases. They don't measure recall against an unknown adversary.</li>
-      <li><strong>Benchmarks use test doubles.</strong> In the v14 reference package, the combined timing runs real code for some validators and stand-ins for the rest, so it is not a full-pipeline latency figure.</li>
-      <li><strong>We can't promise a false-positive rate on natural text.</strong> A benign message can be an anagram of a protected one, so no distribution-free bound exists. A 10,000-message synthetic smoke test produced zero hits, which is a fixture result, not a corpus study.</li>
-      <li><strong>Property-based tests find counterexamples. They are not proofs.</strong></li>
-      <li>MITRE ATLAS technique IDs in reports are approximate mappings.</li>
-    </ul>
-  </div>
-</section>
-
-<!-- ================= 8. FAQ ================= -->
-<section id="faq" aria-labelledby="faq-h" class="faq">
-  <div class="wrap">
-    <div class="intro"><h2 id="faq-h">Questions</h2></div>
-
-    <details>
-      <summary>What's in scope?</summary>
       <div>
-        <p>The tool boundary of your agent system: which tools and MCP servers your agents can call, what they can read and write, what can come back into the model's context, and what can leave. It isn't a general pentest of your infrastructure or a review of model quality.</p>
+        <div class="trace" role="img" aria-label="Schematic. An unguarded server forwards a 2-hop path. AgentGate returns JSON-RPC -32082 and holds the call for a person.">
+          <p class="trace-h">Unguarded MCP server</p>
+          <p><span>01</span><span>web.fetch <span class="dim">untrusted body enters</span></span></p>
+          <p><span>02</span><span>vault.read <span class="dim">sensitive read, same session</span></span></p>
+          <p class="bad"><span>03</span><span>send_email <span>forwarded</span></span></p>
+          <p class="trace-h">AgentGate on the same path</p>
+          <p class="hold"><span>03</span><span>send_email <span>JSON-RPC -32082</span></span></p>
+          <p><span></span><span class="dim">held for a person · never auto-released</span></p>
+        </div>
+        <p class="note">Schematic of a 2-hop toxic combination. Not a client engagement.</p>
       </div>
-    </details>
+    </div>
+  </div>
 
-    <details>
-      <summary>What do you never do?</summary>
-      <div>
+  <section id="smithery" aria-labelledby="smithery-h">
+    <div class="wrap">
+      <div class="callout">
+        <p class="kicker" id="smithery-h">Smithery listings · 2-hop measure</p>
+        <p class="quote">A seeded random sample of 250 of 20,758 Smithery listings flags 48% (42–55%) on the 2-hop measure; 66 of those are near-copies of one package, and counting it once gives about 30%. One reviewer hand-checked 28 flagged servers and found 18 plausible (64%, 46–79%).</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="budget" aria-labelledby="budget-h">
+    <div class="wrap">
+      <h2 id="budget-h">P3 leakage budget, calibrated in log-only mode</h2>
+      <p class="lede">Turning blocks on before the budget has seen real traffic breaks production workflows. P3 is deployed in log-only mode first. Every charge and every would-be hold is recorded on benign traces. Enforcement is turned on after that calibration.</p>
+      <div class="spec">
+        <p class="kicker">One coalition ledger</p>
         <ul>
-          <li>We don't recommend automatic blocking. Detection leads go to human review.</li>
-          <li>The only automated action in our reference design is a 15-minute freeze of a registered internal agent credential. It lifts on its own and pages a human.</li>
-          <li>We never deploy honeypots on the public internet. Ours binds to localhost, and contact with a canary is treated as a lead, not proof of intent.</li>
-          <li>We don't push to your repositories. Fixes come as designs or pull requests that you review and merge.</li>
-          <li>We don't hand over exploit kits. Traces show the mechanism and how to fix it.</li>
+          <li>Coalitions of linked sessions share one integer quarter-bit budget (default 32 bits).</li>
+          <li>Every outbound event pays for continuation bit + Elias-gamma timing gap + member choice + tool selection + content (typed field codes or raw-DEFLATE length).</li>
+          <li>Withheld results never refund budget charges.</li>
+          <li>Over-budget events return JSON-RPC -32082 and are held for human approval, never auto-released.</li>
+          <li>One shared outbound check across the engine.</li>
+          <li>Core MCP server names are loaded once per engine.</li>
         </ul>
+        <p class="limit"><span>Stated limit</span>Regular-rhythm timing beacons are flagged; irregular timing channels are not yet bounded.</p>
       </div>
-    </details>
+    </div>
+  </section>
 
-    <details>
-      <summary>Is this a penetration test or a certification?</summary>
-      <div><p>No. It's a focused engineering audit of the agent tool boundary. You get findings and fix designs, not a compliance attestation.</p></div>
-    </details>
+  <section id="method" aria-labelledby="method-h">
+    <div class="wrap">
+      <h2 id="method-h">Validator layer</h2>
+      <p class="lede">A call is admitted only if every attached predicate admits it. Each one is inert until a trusted adapter attaches its state, and state is committed only after all of them pass. Denials use JSON-RPC <span class="mono">-32066</span> through <span class="mono">-32080</span>. An over-budget P3 event returns <span class="mono">-32082</span> and is held for a person. Checked by bounded enumeration.</p>
+      <p class="strip">R -32066/-32067 · W -32068 · F -32069 · I -32070 · P -32071 · T -32072 · S -32073 · V -32074 · D -32075 · Z -32076 · C -32077 · E -32078 · B -32079 · A -32080 · P3 -32082</p>
+    </div>
+  </section>
 
-  </div>
-</section>
+  <section id="pricing" aria-labelledby="pricing-h">
+    <div class="wrap">
+      <h2 id="pricing-h">Pricing</h2>
+      <p class="lede">Fixed fees from Alec F., an independent AI security researcher. Each card emails <a href="mailto:alec@room23.net">alec@room23.net</a> with an intake template, or copies that template to the clipboard.</p>
+      <div class="ladder">
+        <article class="tier" id="quick-check">
+          <p class="kicker">01 · 48-hr turnaround</p>
+          <h3>MCP Quick Check</h3>
+          <p class="price">$149</p>
+          <ul>
+            <li>Review of MCP server manifests and schemas.</li>
+            <li>2-hop toxic-combination map.</li>
+            <li>Prioritized hardening checklist.</li>
+          </ul>
+          <div class="actions">
+            <a class="btn" href="mailto:alec@room23.net?subject=MCP%20Quick%20Check%20%24149%20%E2%80%94%2048-hr%20turnaround&amp;body=Tier%3A%20%24149%20MCP%20Quick%20Check%20%2848-hr%20turnaround%29%0AName%3A%0ARole%3A%0AOrganization%3A%0AMCP%20servers%20in%20scope%20%28count%29%3A%0AManifests%20and%20schemas%20attached%2C%20secrets%20removed%20%28yes/no%29%3A%0AWhat%20those%20servers%20can%20read%2C%20write%2C%20and%20send%3A">Email alec@room23.net</a>
+            <button type="button" class="btn btn-quiet" data-tier="quick">Copy alec@room23.net + Request Template</button>
+          </div>
+        </article>
 
-<section class="close" aria-labelledby="close-h">
-  <div class="wrap prose">
-    <h2 id="close-h">Find out where your agents' tool boundary leaks, in 48 hours</h2>
-    <p>Tell us what your agents do and which MCP servers they talk to. We'll reply with scope and a start time.</p>
-    <p><a class="btn" href="mailto:alec@room23.net?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit">Email to book an audit</a></p>
-  </div>
-</section>
+        <article class="tier" id="starter-build">
+          <p class="kicker">02 · 48-hr drop-in gateway</p>
+          <h3>Starter Build</h3>
+          <p class="price">$450</p>
+          <ul>
+            <li>The payment split is quoted at kickoff.</li>
+            <li>Custom AgentGate hook/proxy wired for stacks such as Postgres, Stripe, Slack, HubSpot, GitHub.</li>
+            <li>Pinned schemas.</li>
+            <li>P3 calibrated in log-only mode on benign traces.</li>
+          </ul>
+          <div class="actions">
+            <a class="btn" href="mailto:alec@room23.net?subject=Starter%20Build%20%24450&amp;body=Tier%3A%20%24450%20Starter%20Build%0AName%3A%0ARole%3A%0AOrganization%3A%0APayment%20split%3A%20quoted%20at%20kickoff%0AStack%20to%20wire%20%28wired%20for%20stacks%20such%20as%20Postgres%2C%20Stripe%2C%20Slack%2C%20HubSpot%2C%20GitHub%29%3A%0ATools%20to%20expose%3A%0ABenign%20traces%20available%20for%20P3%20log-only%20calibration%20%28yes/no%29%3A">Email alec@room23.net</a>
+            <button type="button" class="btn btn-quiet" data-tier="starter">Copy alec@room23.net + Request Template</button>
+          </div>
+        </article>
 
+        <article class="tier" id="hardened-build">
+          <p class="kicker">03 · 48-hr drop-in gateway</p>
+          <h3>Hardened Build</h3>
+          <p class="price">$750</p>
+          <ul>
+            <li>$350 at kickoff, $400 on acceptance.</li>
+            <li>Custom AgentGate hook/proxy wired for stacks such as Postgres, Stripe, Slack, HubSpot, GitHub.</li>
+            <li>Pinned schemas.</li>
+            <li>P3 calibrated in log-only mode on benign traces.</li>
+          </ul>
+          <div class="actions">
+            <a class="btn" href="mailto:alec@room23.net?subject=Hardened%20Build%20%24750&amp;body=Tier%3A%20%24750%20Hardened%20Build%0AName%3A%0ARole%3A%0AOrganization%3A%0APayment%3A%20%24350%20at%20kickoff%2C%20%24400%20on%20acceptance%0AStack%20to%20wire%20%28wired%20for%20stacks%20such%20as%20Postgres%2C%20Stripe%2C%20Slack%2C%20HubSpot%2C%20GitHub%29%3A%0APinned%20schemas%3A%0ABenign%20traces%20available%20for%20P3%20log-only%20calibration%20%28yes/no%29%3A">Email alec@room23.net</a>
+            <button type="button" class="btn btn-quiet" data-tier="hardened">Copy alec@room23.net + Request Template</button>
+          </div>
+        </article>
+
+        <article class="tier" id="security-review">
+          <p class="kicker">04 · review and drop-in</p>
+          <h3>Security Review &amp; Custom Drop-In</h3>
+          <p class="price">$950–$1,500</p>
+          <ul>
+            <li>Multi-session coalition policy design.</li>
+            <li>Custom guard rules.</li>
+            <li>E2 bounded-enumeration checks.</li>
+          </ul>
+          <div class="actions">
+            <a class="btn" href="mailto:alec@room23.net?subject=Security%20Review%20and%20Custom%20Drop-In%20%24950%E2%80%93%241%2C500&amp;body=Tier%3A%20%24950%E2%80%93%241%2C500%20Security%20Review%20%26%20Custom%20Drop-In%0AName%3A%0ARole%3A%0AOrganization%3A%0AServers%20and%20sessions%20in%20scope%3A%0ACoalition%20policy%20to%20design%3A%0ACustom%20guard%20rules%3A%0AE2%20bounded-enumeration%20checks%20to%20include%3A">Email alec@room23.net</a>
+            <button type="button" class="btn btn-quiet" data-tier="review">Copy alec@room23.net + Request Template</button>
+          </div>
+        </article>
+
+        <article class="tier" id="boundary-watch">
+          <p class="kicker">05 · monthly</p>
+          <h3>Boundary Watch</h3>
+          <p class="price">$395<small>/mo</small></p>
+          <ul>
+            <li>Schema-drift monitoring.</li>
+            <li>Monthly P3 re-calibration.</li>
+          </ul>
+          <div class="actions">
+            <a class="btn" href="mailto:alec@room23.net?subject=Boundary%20Watch%20%24395/mo&amp;body=Tier%3A%20%24395/mo%20Boundary%20Watch%0AName%3A%0ARole%3A%0AOrganization%3A%0ASchemas%20to%20watch%20for%20drift%3A%0AMonthly%20P3%20re-calibration%20window%3A">Email alec@room23.net</a>
+            <button type="button" class="btn btn-quiet" data-tier="watch">Copy alec@room23.net + Request Template</button>
+          </div>
+        </article>
+
+        <article class="tier" id="flagship-audit">
+          <p class="kicker">06 · flagship</p>
+          <h3>Flagship Architecture Audit</h3>
+          <p class="price">$4,500–$6,500</p>
+          <ul>
+            <li>Full red-team assessment.</li>
+          </ul>
+          <div class="actions">
+            <a class="btn" href="mailto:alec@room23.net?subject=Flagship%20Architecture%20Audit%20%244%2C500%E2%80%93%246%2C500&amp;body=Tier%3A%20%244%2C500%E2%80%93%246%2C500%20Flagship%20Architecture%20Audit%0AName%3A%0ARole%3A%0AOrganization%3A%0ABand%20to%20quote%20inside%20%244%2C500%E2%80%93%246%2C500%3A%0AMCP%20servers%20and%20agent%20harnesses%3A%0ARed-team%20assessment%20scope%3A">Email alec@room23.net</a>
+            <button type="button" class="btn btn-quiet" data-tier="flagship">Copy alec@room23.net + Request Template</button>
+          </div>
+        </article>
+      </div>
+      <p class="fine">The reference gateway stays Apache-2.0. <a href="./demo/#traces">Trace inspector</a> replays recorded decisions in the browser, including taint and the 15-minute lab-key freeze.</p>
+    </div>
+  </section>
 </main>
 
-<!-- ================= 9. FOOTER ================= -->
 <footer>
   <div class="wrap">
     <ul>
-      <li><a href="https://github.com/freeling10-prog/rogue-ai-detection">Source on GitHub</a></li>
-      <li><a href="./demo/">Old demo</a></li>
-      <li><a href="mailto:alec@room23.net?subject=Book%2048-Hour%20Agentic%20Tool-Boundary%20Audit">alec@room23.net</a></li>
+      <li>Alec F., independent AI security researcher</li>
+      <li><a href="mailto:alec@room23.net">alec@room23.net</a></li>
+      <li><a href="https://github.com/freeling10-prog/rogue-ai-detection">github.com/freeling10-prog/rogue-ai-detection</a></li>
+      <li>Apache-2.0</li>
     </ul>
-    <p>© AgentGate. The AgentGate reference gateway is open source under Apache 2.0.</p>
   </div>
 </footer>
+
+<script type="application/json" id="intake-data">
+{
+  "quick": {
+    "subject": "MCP Quick Check $149 — 48-hr turnaround",
+    "body": "Tier: $149 MCP Quick Check (48-hr turnaround)\nName:\nRole:\nOrganization:\nMCP servers in scope (count):\nManifests and schemas attached, secrets removed (yes/no):\nWhat those servers can read, write, and send:"
+  },
+  "starter": {
+    "subject": "Starter Build $450",
+    "body": "Tier: $450 Starter Build\nName:\nRole:\nOrganization:\nPayment split: quoted at kickoff\nStack to wire (wired for stacks such as Postgres, Stripe, Slack, HubSpot, GitHub):\nTools to expose:\nBenign traces available for P3 log-only calibration (yes/no):"
+  },
+  "hardened": {
+    "subject": "Hardened Build $750",
+    "body": "Tier: $750 Hardened Build\nName:\nRole:\nOrganization:\nPayment: $350 at kickoff, $400 on acceptance\nStack to wire (wired for stacks such as Postgres, Stripe, Slack, HubSpot, GitHub):\nPinned schemas:\nBenign traces available for P3 log-only calibration (yes/no):"
+  },
+  "review": {
+    "subject": "Security Review and Custom Drop-In $950–$1,500",
+    "body": "Tier: $950–$1,500 Security Review & Custom Drop-In\nName:\nRole:\nOrganization:\nServers and sessions in scope:\nCoalition policy to design:\nCustom guard rules:\nE2 bounded-enumeration checks to include:"
+  },
+  "watch": {
+    "subject": "Boundary Watch $395/mo",
+    "body": "Tier: $395/mo Boundary Watch\nName:\nRole:\nOrganization:\nSchemas to watch for drift:\nMonthly P3 re-calibration window:"
+  },
+  "flagship": {
+    "subject": "Flagship Architecture Audit $4,500–$6,500",
+    "body": "Tier: $4,500–$6,500 Flagship Architecture Audit\nName:\nRole:\nOrganization:\nBand to quote inside $4,500–$6,500:\nMCP servers and agent harnesses:\nRed-team assessment scope:"
+  }
+}
+</script>
+<script src="app.js"></script>
 </body>
 </html>

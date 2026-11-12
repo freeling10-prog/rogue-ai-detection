@@ -13,11 +13,13 @@ flags ``covert_side_channel_suspected`` when any of these holds:
 
 - ``branching``: more than ``max_distinct`` distinct argument variants
   (tool + canonical argument hash), the alphabet an oracle encodes into
-- ``cardinality``: more than ``max_calls`` outbound calls in total (a
-  two-URL oracle leaks at most ``max_calls`` bits before it is held)
+- ``cardinality``: more than ``max_calls`` outbound calls in total. With two
+  variants that is at most ``max_calls`` bits before the call is held; with
+  the default ``max_distinct`` of 4 it is up to 2 bits per call.
 - ``timing_beacon``: at least ``beacon_min_intervals`` inter-call intervals
   with a mean of at least ``beacon_min_mean_s`` and a coefficient of
-  variation at or below ``beacon_max_cv`` (a regular rhythm, not a burst)
+  variation at or below ``beacon_max_cv`` (a regular rhythm, not a burst).
+  Irregular gaps are not counted by this rule.
 
 A call a person released with a bound one-time OOB token is not counted.
 On a signal the PEP denies the call, holds the session for review, and

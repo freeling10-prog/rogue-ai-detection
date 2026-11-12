@@ -60,6 +60,12 @@ stays pending. Elicitation and other held server requests use -32081, not
 OOB approval for a held call travels in ``params._meta``:
 ``{"agentgate/approval_token": "...", "agentgate/bound_step_index": N}``.
 The proxy strips ``agentgate/*`` keys before forwarding.
+
+``FilterResult.release_at_ms`` is the earliest gateway slot at which the
+caller may forward the message. The proxy does not open sockets. Forwarding
+sooner leaks sub-slot timing that the leakage budget has already charged.
+The charged bytes are the re-serialised ``params`` (sorted keys, compact
+separators) of the message that is forwarded.
 """
 from __future__ import annotations
 
@@ -72,7 +78,6 @@ from typing import Any, Optional
 from .canonical_argument_confinement import loads_strict, plain_numbers
 from .common import Denied
 from .pep import PolicyEngine
-from .taint import CORE_MCP_SERVERS
 
 JSONRPC = "2.0"
 CLIENT_TO_SERVER = "client_to_server"
@@ -178,11 +183,13 @@ class FilterResult:
 
     ``forward``: messages to deliver in the original direction.
     ``reply``: messages to send back to the sender instead.
+    ``release_at_ms``: do not forward before this gateway clock reading.
     """
     decision: str
     forward: list[dict] = field(default_factory=list)
     reply: list[dict] = field(default_factory=list)
     detail: dict = field(default_factory=dict)
+    release_at_ms: Optional[int] = None
 
 
 @dataclass
@@ -224,14 +231,7 @@ class McpWireProxy:
 
     @property
     def is_core_server(self) -> bool:
-        core = {c.lower() for c in CORE_MCP_SERVERS}
-        reg = self.engine.cfg.registry_path
-        if reg.is_file():
-            try:
-                core |= {str(c).lower() for c in json.loads(reg.read_text()).get("core_mcp_servers") or []}
-            except (ValueError, OSError):
-                pass
-        return self.server_name.lower() in core
+        return self.server_name.lower() in self.engine._core_mcp_names()
 
     def _cap(self, params: Optional[dict] = None) -> Optional[str]:
         """A token the client presents in ``_meta``, else the constructor token once.
@@ -355,9 +355,14 @@ class McpWireProxy:
             return FilterResult("deny", reply=[error_response(rid, ERR_INVALID, "id reuse")])
         if method in GATED_CLIENT_METHODS:
             return self._gate_client_call(msg, method, params)
+        release_at = None
+        if not self.is_core_server and self.engine.leakage_attached(self.session_id):
+            charged, release_at = self._charge_passthrough(method, params, rid if has_id else None)
+            if charged is not None:
+                return charged
         if has_id:
             self._pending[self._key(rid)] = _Pending(method=str(method), params=params)
-        return FilterResult("pass", forward=[self._strip_meta(msg)])
+        return FilterResult("pass", forward=[self._strip_meta(msg)], release_at_ms=release_at)
 
     def _gate_client_call(self, msg: dict, method: str, params: dict) -> FilterResult:
         rid = msg.get("id")
@@ -380,12 +385,17 @@ class McpWireProxy:
                 self._track(drift)
                 reply = error_response(rid, drift["code"], drift["message"], self._deny_data(drift))
                 return FilterResult("deny", reply=[reply] if rid is not None else [], detail=drift)
+        forwarded = self._strip_meta(msg)
+        params_out = forwarded.get("params") if isinstance(forwarded.get("params"), dict) else {}
+        payload = json.dumps(params_out, sort_keys=True, separators=(",", ":"),
+                             ensure_ascii=False).encode("utf-8")
         out = self.engine.evaluate_call(
             self.agent_key, self.session_id, tool, arguments,
             approval_token=meta.get(META_APPROVAL),
             bound_step_index=int(bound) if bound is not None else None,
             capability_token=self._cap(params),
             destination=self.destination,
+            outbound_payload=payload,
         )
         self._track(out)
         if not out.get("ok"):
@@ -394,7 +404,22 @@ class McpWireProxy:
             return FilterResult("deny", reply=[reply] if "id" in msg else [], detail=out)
         if "id" in msg:
             self._pending[self._key(rid)] = _Pending(method=method, params=params, tool_name=tool)
-        return FilterResult("allow", forward=[self._strip_meta(msg)], detail=out)
+        return FilterResult("allow", forward=[forwarded], detail=out,
+                            release_at_ms=out.get("release_at_ms"))
+
+    def _charge_passthrough(self, method: str, params: dict, rid: Any) -> tuple[Optional[FilterResult], Optional[int]]:
+        """List and cursor params on a non-core server are outbound bytes."""
+        payload = json.dumps(params, sort_keys=True, separators=(",", ":"),
+                             ensure_ascii=False).encode("utf-8")
+        out = self.engine.account_passthrough(
+            self.session_id, str(method), self.destination, payload,
+        )
+        self._track(out)
+        if not out.get("ok", True) or out.get("allowed") is False:
+            reply = error_response(rid, out.get("code", -32082),
+                                   out.get("message") or str(out.get("error")), self._deny_data(out))
+            return FilterResult("deny", reply=[reply] if rid is not None else [], detail=out), None
+        return None, out.get("release_at_ms")
 
     # --- server -> client -----------------------------------------------------
 

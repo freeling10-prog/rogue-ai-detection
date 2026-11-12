@@ -40,6 +40,9 @@ class GatedDispatcher:
         if status != 200 or not out.get("ok"):
             # Held or denied: do NOT run the backend. Surface it to the person/harness.
             return {"executed": False, "reason": out.get("error") or out.get("message"), "gateway": out}
+        # If the gateway set release_at_ms, do not run the backend before that
+        # clock reading. Sub-slot forwarding leaks timing the leakage budget
+        # already charged. This lab loop does not sleep.
         # Fail closed on anything not explicitly registered here.
         backend = self.backends.get(tool)
         if backend is None:

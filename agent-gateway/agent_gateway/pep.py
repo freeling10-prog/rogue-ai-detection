@@ -96,6 +96,11 @@ Safety:
   +k and XOR-k byte masks, Caesar shifts, word-initial acrostics and
   reordered 4-byte blocks, under a precharged work budget
   (``transform_invariant_validator.py``).
+- P3: one quarter-bit leakage budget per coalition of sessions that could
+  have coordinated. It charges selection, content and release slot, holds
+  for a person when the budget would be exceeded, and does not freeze a key
+  (``leakage_budget.py``). The transcript bound is checked by bounded
+  enumeration within the E2 bounds.
 """
 from __future__ import annotations
 
@@ -150,8 +155,14 @@ from .fork_join_vector_validator import (
 from .blindfold_opaque_fault_validator import BlindfoldSealer
 from .causality_laundering_validator import CausalityValidator
 from .event_channel_capacity_validator import EventChannelBudget, EventManifest
+from .leakage_budget import (
+    Bool as P3Bool, FieldSchema as P3FieldSchema, Hold as LeakageHold, LeakageLedger,
+    List as P3List, Optional as P3Optional, P3Config, SelectionManifest as P3Manifest,
+    Str as P3Str,
+)
 from .reachability_confinement_validator import CapabilityPruner, ReachabilityPolicy
 from .canonical_argument_confinement import (
+    MAX_SET as P3_MAX_SET,
     Policy as ArgumentPolicy, command_from_arguments, confine, encode_arguments, loads_strict,
     plain_numbers,
 )
@@ -210,6 +221,7 @@ _AWAITING_APPROVAL = frozenset({
     "mcp_rug_pull_hold",
     "session_review_hold",
     "ssrf_internal_target_hold",
+    "leakage_budget_hold",
 })
 # Default sink names for cross-tool shadowing when a session has no tools/list.
 _GUI_ACTIONS = POINTER_ACTIONS | KEY_ACTIONS | TEXT_ACTIONS
@@ -271,6 +283,8 @@ CAUSALITY_LAUNDERING_DENIED = "CAUSALITY_LAUNDERING_DENIED"
 EVENT_CHANNEL_CAPACITY_DENIED = "EVENT_CHANNEL_CAPACITY_DENIED"
 BLINDFOLD_PERTURBATION_DENIED = "BLINDFOLD_PERTURBATION_DENIED"
 REACHABILITY_CONFINEMENT_DENIED = "REACHABILITY_CONFINEMENT_DENIED"
+# P3 leakage budget. -32081 is the proxy's elicitation hold.
+LEAKAGE_BUDGET_HOLD = "LEAKAGE_BUDGET_HOLD"
 # The opaque envelope reuses B's code: every sealed refusal looks the same.
 BLINDFOLD_ENVELOPE = {"ok": False, "allowed": False, "error": "request_refused", "code": -32079,
                       "message": "request refused"}
@@ -295,7 +309,7 @@ _V12_CODES.update({
     FORK_JOIN_LEDGER_DENIED: -32074, DYNAMIC_INGRESSION_DENIED: -32075,
     TRANSFORM_INVARIANT_DENIED: -32076, CAUSALITY_LAUNDERING_DENIED: -32077,
     EVENT_CHANNEL_CAPACITY_DENIED: -32078, BLINDFOLD_PERTURBATION_DENIED: -32079,
-    REACHABILITY_CONFINEMENT_DENIED: -32080,
+    REACHABILITY_CONFINEMENT_DENIED: -32080, LEAKAGE_BUDGET_HOLD: -32082,
 })
 _V12_ATLAS.update({REGISTRY_PIN_DRIFT: "AML.T0051", REGISTRY_ALIAS_AMBIGUOUS: "AML.T0051",
                    WORKSPACE_EFFECT_DENIED: "AML.T0053", FLOW_MANIFEST_DENIED: "AML.T0051",
@@ -304,7 +318,7 @@ _V12_ATLAS.update({REGISTRY_PIN_DRIFT: "AML.T0051", REGISTRY_ALIAS_AMBIGUOUS: "A
                    FORK_JOIN_LEDGER_DENIED: "AML.T0086", DYNAMIC_INGRESSION_DENIED: "AML.T0086",
                    TRANSFORM_INVARIANT_DENIED: "AML.T0086", CAUSALITY_LAUNDERING_DENIED: "AML.T0086",
                    EVENT_CHANNEL_CAPACITY_DENIED: "AML.T0086", BLINDFOLD_PERTURBATION_DENIED: "AML.T0043",
-                   REACHABILITY_CONFINEMENT_DENIED: "AML.T0053"})
+                   REACHABILITY_CONFINEMENT_DENIED: "AML.T0053", LEAKAGE_BUDGET_HOLD: "AML.T0086"})
 _EXEC_TOOL_RE = re.compile(r"(?:^|[._\-])(?:shell|bash|exec|terminal|run_command|run_script)(?:$|[._\-])")
 _DEFAULT_SINK_TOOLS = tuple(sorted(
     name for name, ec in TOOL_EGRESS.items() if ec in (EGRESS_WRITE, EGRESS_SEND, EGRESS_CREDS)
@@ -514,6 +528,11 @@ class PolicyEngine:
         self.reachability: dict[str, CapabilityPruner] = {}
         self._staged_v14: dict[str, list] = {}
         self._event_ids = _count(1)
+        # P3 is inert until attach_leakage_budget. One ledger per engine.
+        self.leakage: LeakageLedger | None = None
+        self._core_names: frozenset[str] | None = None
+        # artifact id -> writer session, for the collusion link source.
+        self._p3_writers: dict[str, str] = {}
         self.poisoned_tools: dict[tuple[str, str], dict] = {}
         self.interpreter = InterpreterExecGuard(allow=self.cfg.workspace_allow)
         core = set(CORE_MCP_SERVERS)
@@ -535,6 +554,13 @@ class PolicyEngine:
     def now(self) -> float:
         return self._clock()
 
+    def _now_ms(self) -> int:
+        """Engine clock scaled to integer milliseconds, floored once."""
+        seconds = self.now()
+        if type(seconds) is int:
+            return seconds * 1000
+        return int(seconds * 1000)
+
     @property
     def provenance(self) -> MemoryProvenanceGuard:
         """Lineage ledger, keyed from the gateway HMAC key on first use (fails closed without one)."""
@@ -554,6 +580,7 @@ class PolicyEngine:
         if not s.capability_token:
             self._install_fresh_capability(s)
         self._fork_join_sync(s)
+        self._p3_autolink_session(s)
         return s
 
     def _install_fresh_capability(self, sess: SessionState) -> None:
@@ -566,6 +593,7 @@ class PolicyEngine:
         safe = capability.sanitize_source(source_id) if source_id else ""
         sess.mark_tainted(reason, source_id=safe)
         self._attenuate_session(sess)
+        self._p3_observe(sess.session_id)
 
     def _attenuate_session(self, sess: SessionState) -> None:
         """Append deny-egress caveats. The previous tag cannot strip them."""
@@ -667,10 +695,7 @@ class PolicyEngine:
         if rejected:
             return self._deny(sess, sess.step_index, "tools/list", {}, rejected, -32040, atlas="AML.M0030")
         sess.step_index += 1
-        core = CORE_MCP_SERVERS | set(
-            json.loads(self.cfg.registry_path.read_text()).get("core_mcp_servers") or []
-            if self.cfg.registry_path.is_file() else []
-        )
+        core = self._core_mcp_names()
         if (server_name or "").lower() not in {c.lower() for c in core}:
             # capability pinning: non-core description ingest = untrusted
             src = f"tools.list:{server_name or 'unknown'}"
@@ -699,6 +724,7 @@ class PolicyEngine:
         capability_token: Optional[str] = None,
         destination: Optional[str] = None,
         wire_arguments: Optional[dict] = None,
+        outbound_payload: Optional[bytes] = None,
     ) -> dict:
         """Evaluate one tools/call.
 
@@ -714,13 +740,66 @@ class PolicyEngine:
             approval_token=approval_token, delegation_depth=delegation_depth,
             parent_key=parent_key, bound_step_index=bound_step_index,
             capability_token=capability_token, destination=destination,
-            wire_arguments=wire_arguments,
+            wire_arguments=wire_arguments, outbound_payload=outbound_payload,
         )
+        # E and P3 commit at forward time. A later result-side withhold
+        # (Predicate D) must not refund a charge for a call that already ran.
+        out = self._commit_forward_charges(session_id, tool_name, arguments, out)
         out = self._ingress_result(session_id, tool_name, arguments, out)
         out = self._settle_v14(session_id, tool_name, arguments, out)
         out = self._settle_ledger(session_id, tool_name, arguments, out)
         out = self._seal_refusal(session_id, tool_name, arguments, out)
         return self._attach_capability(session_id, out)
+
+    _FORWARD_CHARGE_RULES = frozenset({EVENT_CHANNEL_CAPACITY_DENIED, LEAKAGE_BUDGET_HOLD})
+
+    def _commit_forward_charges(self, session_id: str, tool_name: str, arguments: Optional[dict],
+                                out: dict) -> dict:
+        """Commit E and P3 once the call is allowed, before result-side checks.
+
+        A denial inside ``_evaluate_call`` still aborts both in ``_settle_v14``.
+        A withhold of a result that already came back does not.
+        """
+        if not out.get("allowed"):
+            return out
+        staged = self._staged_v14.get(session_id)
+        if not staged:
+            return out
+        kept = []
+        release_at = None
+        for index, (rule, commit, abort) in enumerate(staged):
+            if rule not in self._FORWARD_CHARGE_RULES:
+                kept.append((rule, commit, abort))
+                continue
+            try:
+                result = commit()
+            except ReferenceDenied as exc:
+                if abort is not None:
+                    try:
+                        abort()
+                    except ReferenceDenied:
+                        pass
+                for _rule, _commit, later in list(kept) + list(staged[index + 1:]):
+                    if later is not None:
+                        try:
+                            later()
+                        except ReferenceDenied:
+                            pass
+                self._staged_v14.pop(session_id, None)
+                sess = self.sessions[session_id]
+                step = int(out.get("step_index") or sess.step_index)
+                return self._v12_deny(sess, step, tool_name, dict(arguments or {}), rule,
+                                      {"v14": {"reason": str(exc), "phase": "commit"}})
+            if isinstance(result, dict) and result.get("release_at_ms") is not None:
+                release_at = result["release_at_ms"]
+        if kept:
+            self._staged_v14[session_id] = kept
+        else:
+            self._staged_v14.pop(session_id, None)
+        if release_at is not None:
+            out = dict(out)
+            out["release_at_ms"] = release_at
+        return out
 
     def _settle_v14(self, session_id: str, tool_name: str, arguments: Optional[dict],
                     out: dict) -> dict:
@@ -839,6 +918,7 @@ class PolicyEngine:
         capability_token: Optional[str] = None,
         destination: Optional[str] = None,
         wire_arguments: Optional[dict] = None,
+        outbound_payload: Optional[bytes] = None,
     ) -> dict:
         self._label_effects.pop(session_id, None)
         self.registry.lift_expired(self.now())
@@ -861,6 +941,7 @@ class PolicyEngine:
             if pref:
                 sess.root_parent_key = pref.principal_key
                 sess.delegation_depth = max(sess.delegation_depth, 1)
+                self._p3_autolink_session(sess)
         sess.delegation_depth = max(sess.delegation_depth, int(delegation_depth or 0))
         # Retries with a bound OOB token reuse the denied step_index (no re-increment)
         if approval_token and bound_step_index is not None:
@@ -942,7 +1023,8 @@ class PolicyEngine:
                 return self._v12_deny(sess, step, tool_name, args, cfi.rule_code, {"cfi": cfi.as_dict()})
 
         # --- Reference middleware validators (v12.2) ---------------------------------
-        ref = self._reference_middleware(sess, step, tool_name, args, eclass, wire_arguments)
+        ref = self._reference_middleware(
+            sess, step, tool_name, args, eclass, wire_arguments, destination=destination)
         if ref is not None:
             return ref
 
@@ -1013,6 +1095,7 @@ class PolicyEngine:
             child_session = str(args.get("child_session_id") or f"{session_id}:child")
             if child_key:
                 self.delegate(agent_key, session_id, child_key, child_session)
+            self._p3_try_link(session_id, child_session, "spawn")
             # propagate taint intent into result for caller
             result = {
                 "ok": True,
@@ -1056,6 +1139,9 @@ class PolicyEngine:
             out = []
             for m in self.shared.bus:
                 out.append(m)
+                writer = str(m.get("session_id") or "")
+                if writer:
+                    self._p3_try_link(session_id, writer, "internal_bus")
                 if m.get("tainted"):
                     self._taint(sess, "bus_taint_propagation", source_id=str(m.get("taint_source_id") or "bus"))
             return {"ok": True, "allowed": True, "tool": tool_name, "egress_class": eclass,
@@ -1093,6 +1179,10 @@ class PolicyEngine:
                     return denied
             if entry is not None:
                 self.collusion.record_read(self._agent_node(sess), artifact_id("mem", entry.note_id))
+                if entry.source_session:
+                    self._p3_try_link(session_id, entry.source_session, "scratchpad")
+                    self._p3_note_writer(artifact_id("mem", entry.note_id), entry.source_session)
+                    self._p3_try_link(session_id, entry.source_session, "collusion")
             if entry and entry.taint_inherited:
                 self._taint(sess, "scratchpad_taint_inherited", source_id=f"scratchpad:{entry.note_id}")
             return {"ok": True, "allowed": True, "tool": tool_name, "egress_class": eclass,
@@ -1111,6 +1201,7 @@ class PolicyEngine:
         if tool_name in SENSITIVE_READ_TOOLS or eclass == EGRESS_CREDS:
             # reading creds is both sensitive and blocked while tainted without OOB
             sess.mark_sensitive()
+            self._p3_observe(sess.session_id)
 
         # --- Lethal trifecta gate (AML.T0086): TAINTED + SENSITIVE_READ + external param egress ---
         # allow_egress is the capability-chain view of the same gate (monotonic caveat).
@@ -1130,7 +1221,9 @@ class PolicyEngine:
         # --- Allowlisted constrained sink (falsification test 7 / usability DoS fix) ---
         if egress_closed and tool_name == "update_ticket_status" and _is_constrained_ticket_status(args) and not _has_free_text_sink(args):
             return self._release(sess, step, tool_name, args, eclass, constrained=True,
-                                 approved=oob_memo.get("ok", False), destination=destination)
+                                 approved=oob_memo.get("ok", False), destination=destination,
+                                 outbound_payload=outbound_payload, oob=oob,
+                                 approval_token=approval_token)
 
         # --- Confused-deputy: a clean-looking session whose principal was barred upstream ---
         if not egress_closed and eclass in BLOCKED_EGRESS_WHILE_TAINTED:
@@ -1160,19 +1253,44 @@ class PolicyEngine:
             return self._deny(sess, step, tool_name, args, "credentials_pass_through_refused", -32012)
 
         return self._release(sess, step, tool_name, args, eclass, approved=oob_memo.get("ok", False),
-                             destination=destination)
+                             destination=destination, outbound_payload=outbound_payload, oob=oob,
+                             approval_token=approval_token)
 
-    def _core_mcp_names(self) -> set[str]:
-        """Lowercased core server names. Same rule as ``McpWireProxy.is_core_server``."""
-        names = {c.lower() for c in CORE_MCP_SERVERS}
-        path = self.cfg.registry_path
-        if path.is_file():
-            try:
-                extra = json.loads(path.read_text()).get("core_mcp_servers") or []
-                names |= {str(item).lower() for item in extra}
-            except (ValueError, OSError):
-                pass
-        return names
+    def _core_mcp_names(self) -> frozenset[str]:
+        """Lowercased core server names, loaded once per engine.
+
+        A later edit of the registry file does not change a live engine.
+        ``reload_core_mcp_names`` reads it again.
+        """
+        cached = self._core_names
+        if cached is None:
+            names = {c.lower() for c in CORE_MCP_SERVERS}
+            path = self.cfg.registry_path
+            if path.is_file():
+                try:
+                    extra = json.loads(path.read_text()).get("core_mcp_servers") or []
+                    names |= {str(item).lower() for item in extra}
+                except (ValueError, OSError):
+                    pass
+            cached = frozenset(names)
+            self._core_names = cached
+        return cached
+
+    def reload_core_mcp_names(self) -> frozenset[str]:
+        """Read the registry's core server list again. Explicit, not per decision."""
+        self._core_names = None
+        return self._core_mcp_names()
+
+    def _is_outbound_event(self, tool_name: str, eclass: str, args: dict,
+                           destination: Optional[str]) -> bool:
+        """One outbound test for ``_release``, Predicate E and P3.
+
+        An internal read stays local unless its arguments go to a non-core
+        MCP server, or the call is an external sink.
+        """
+        return (eclass != EGRESS_INTERNAL_READ
+                or self._mcp_read_is_egress(tool_name, destination)
+                or self._sink_stage(tool_name, eclass, args) == EXTERNAL_SINK)
 
     def _mcp_read_is_egress(self, tool_name: str, destination: Optional[str]) -> bool:
         """True when an internal read's arguments leave for a non-core MCP server.
@@ -1191,16 +1309,17 @@ class PolicyEngine:
         return False
 
     def _release(self, sess: SessionState, step: int, tool_name: str, args: dict, eclass: str,
-                 constrained: bool = False, approved: bool = False, destination: Optional[str] = None) -> dict:
+                 constrained: bool = False, approved: bool = False, destination: Optional[str] = None,
+                 outbound_payload: Optional[bytes] = None, oob=None,
+                 approval_token: Optional[str] = None) -> dict:
         """Last gate before an allowed call leaves: cross-step / encoded exfil (approximate AML.T0086).
 
         Arguments are appended to the session window only when the call is
         released, so the window holds what actually left the gateway.
         """
         # Internal reads stay local, except reads whose arguments are sent to a
-        # non-core or unknown MCP server. Those arguments, including the URI,
-        # are an egress channel.
-        outbound = eclass != EGRESS_INTERNAL_READ or self._mcp_read_is_egress(tool_name, destination)
+        # non-core or unknown MCP server, and calls that are an external sink.
+        outbound = self._is_outbound_event(tool_name, eclass, args, destination)
         if outbound and self.canary.has_canaries(sess.session_id):
             prov = self.canary.scan_outbound(sess.session_id, args)
             if prov is not None:
@@ -1272,6 +1391,11 @@ class PolicyEngine:
                 col = self._collusion_write(sess, artifact_id("file", uri))
             if col is not None:
                 return self._v12_deny(sess, step, tool_name, args, col.rule_code, {"collusion": col.as_dict()})
+        if approval_token and not approved and oob is not None:
+            approved = bool(oob())
+        held = self._p3_reserve(sess, step, tool_name, args, eclass, approved, destination, outbound_payload)
+        if held is not None:
+            return held
         return self._allow(sess, step, tool_name, args, eclass, constrained=constrained)
 
     # --- Multi-agent delegation, argument class -----------------------------------
@@ -1311,6 +1435,8 @@ class PolicyEngine:
         if sender is not None and recipient is not None:
             self._collusion_sync(sender)
             self.collusion.record_delegation(self._agent_node(sender), self._agent_node(recipient))
+            self._p3_try_link(sender_session, recipient_session, "delegation")
+            self._p3_try_link(sender_session, recipient_session, "collusion")
         if recipient is not None:
             self.delegation.observe(recipient_principal,
                                     profile_from_token(recipient.capability_token,
@@ -1366,7 +1492,10 @@ class PolicyEngine:
         """Fingerprint a canary secret. ``session_id=None`` watches every session."""
         self.accumulator.register_protected_token(value, session_id=session_id)
         self.stego.register_secret(value, label=label, session_id=session_id)
-        return self.deob.register(value, label=label, session_id=session_id)
+        registered = self.deob.register(value, label=label, session_id=session_id)
+        if session_id:
+            self._p3_observe(session_id)
+        return registered
 
     def ingest_tool_result(self, agent_key: str, session_id: str, tool_name: str, result: Any) -> int:
         """Fingerprint data returned by a sensitive read. Returns secrets registered."""
@@ -1374,6 +1503,7 @@ class PolicyEngine:
             return 0
         sess = self.get_session(session_id, agent_key)
         sess.mark_sensitive()
+        self._p3_observe(session_id)
         for _key, value in iter_strings(result):
             for candidate in secret_candidates(value):
                 self.accumulator.register_protected_token(candidate, session_id=session_id)
@@ -1514,6 +1644,9 @@ class PolicyEngine:
                                                            "tool": tool_name, **detail})
             self._taint(sess, "provenance_taint_inherited",
                         source_id=f"provenance:{res.writer_session_id or detail['resource_hash']}")
+        if res.writer_session_id:
+            self._p3_try_link(sess.session_id, res.writer_session_id, "provenance")
+            self._p3_try_link(sess.session_id, res.writer_session_id, "collusion")
         return None
 
     def export_provenance_ledger(self) -> dict:
@@ -1765,6 +1898,9 @@ class PolicyEngine:
         branch = branch_id or session_id
         validator.branch(branch)
         self.causality[session_id] = (validator, branch)
+        for other, (other_validator, _branch) in self.causality.items():
+            if other != session_id and other_validator is validator:
+                self._p3_try_link(session_id, other, "causality")
         return validator
 
     def causality_push_pc(self, session_id: str, condition_tainted: bool) -> None:
@@ -1776,12 +1912,255 @@ class PolicyEngine:
         validator, branch = self.causality[session_id]
         validator.pop_pc(branch)
 
+    # --- P3 leakage budget ---------------------------------------------------
+
+    def attach_leakage_budget(self, session_id: str, cfg: P3Config | None = None, *,
+                              zdict: bytes = b"", manifest: P3Manifest | None = None,
+                              schemas: dict | None = None) -> object:
+        """Attach ``session_id`` to a coalition ledger. Inert until this is called.
+
+        One ledger per engine. Sessions that share a root principal are linked
+        when that source is enabled (the default). The transport must not
+        forward an allowed call before ``release_at_ms`` on the result: the
+        slot charge does not cover sub-slot timing. In-process callers,
+        including ``examples/gated_dispatch.py`` and the Claude Code hook,
+        have the same contract. ``scope="coalition_sink"`` gives one budget
+        per sink and is weaker. ``mode="log_only"`` logs charges and would-be
+        budget holds and does not hold or deny for a budget reason.
+        """
+        if self.leakage is None:
+            self.leakage = LeakageLedger()
+        cfg = cfg or P3Config()
+        if type(cfg) is not P3Config:
+            raise TypeError("cfg must be a P3Config")
+        coalition = self.leakage.attach(session_id, cfg, zdict=zdict, manifest=manifest,
+                                        schemas=schemas)
+        sess = self.sessions.get(session_id)
+        if sess is not None:
+            self._p3_autolink_session(sess)
+            self._p3_observe(session_id)
+        return coalition
+
+    def p3_link(self, session_a: str, session_b: str, source: str = "control_plane") -> str:
+        """Link two sessions. Returns the coalition id."""
+        if self.leakage is None:
+            raise ReferenceDenied("P3_UNKNOWN_SESSION")
+        cid = self.leakage.link(session_a, session_b, source)
+        if cid is None:
+            raise ReferenceDenied("P3_UNKNOWN_SESSION")
+        self._alert("P3_MERGE", {"cid": cid, "source": source})
+        return cid
+
+    def p3_grant(self, cid: str, add_qb: int, approver_id: str) -> int:
+        """Control plane only. Raises the coalition budget. Returns the new budget."""
+        if self.leakage is None:
+            raise ReferenceDenied("P3_UNKNOWN_SESSION")
+        updated = self.leakage.grant(cid, add_qb, approver_id)
+        self._alert("P3_GRANT", {"cid": cid, "add_qb": add_qb, "approver_id": approver_id,
+                                 "budget_qb": updated})
+        return updated
+
+    def p3_state(self, session_id: str) -> dict:
+        """Spent, overdraft, budget, members and last slot. No payload."""
+        if self.leakage is None or not self.leakage.contains(session_id):
+            return {}
+        return self.leakage.state(session_id)
+
+    def leakage_attached(self, session_id: str) -> bool:
+        return self.leakage is not None and self.leakage.contains(session_id)
+
+    def account_passthrough(self, session_id: str, tool_name: str, destination: str,
+                            payload: bytes, approved: bool = False) -> dict:
+        """Charge a proxied request that does not go through ``evaluate_call``.
+
+        List and cursor params on a non-core server are adversary-chosen bytes.
+        The caller must not forward them before ``release_at_ms``.
+        """
+        if not self.leakage_attached(session_id):
+            return {"ok": True, "allowed": True}
+        self._p3_observe(session_id)
+        event_id = f"{session_id}:{next(self._event_ids)}"
+        try:
+            self.leakage.reserve(
+                session_id, event_id, destination or "", tool_name, payload,
+                self._now_ms(), approved, fold_names=False,
+            )
+            record = self.leakage.commit(session_id, event_id)
+        except LeakageHold as exc:
+            sess = self.sessions.get(session_id)
+            if sess is None:
+                raise
+            return self._v12_deny(sess, sess.step_index, tool_name, {}, LEAKAGE_BUDGET_HOLD,
+                                  {"leakage": exc.detail})
+        except ReferenceDenied as exc:
+            sess = self.sessions.get(session_id)
+            if sess is None:
+                raise
+            return self._v12_deny(sess, sess.step_index, tool_name, {}, LEAKAGE_BUDGET_HOLD,
+                                  {"leakage": {"reason": str(exc), "retryable": str(exc) == "P3_BUSY"}})
+        self._alert("P3_COMMIT", {k: v for k, v in record.items() if k != "kind"})
+        out = {"ok": True, "allowed": True}
+        if record.get("release_at_ms") is not None:
+            out["release_at_ms"] = record["release_at_ms"]
+        return out
+
+    def _p3_slot(self, session_id: str) -> int:
+        if self.leakage is None or not self.leakage.contains(session_id):
+            return 0
+        coalition = self.leakage.coalition(session_id)
+        now_ms = self._now_ms()
+        if now_ms < coalition.epoch_ms:
+            return 0
+        return (now_ms - coalition.epoch_ms) // coalition.slot_ms
+
+    def _p3_observe(self, session_id: str) -> None:
+        """Start charging once taint, a sensitive read, or a live pin exists."""
+        if self.leakage is None or not self.leakage.contains(session_id):
+            return
+        sess = self.sessions.get(session_id)
+        holder = self.ingressions.get(session_id)
+        index = self.transform_indexes.get(session_id)
+        live = bool(
+            (sess is not None and (sess.tainted or sess.sensitive_read))
+            or (holder is not None and holder.used)
+            or (index is not None and index.used)
+            or self.deob.has_secrets(session_id)
+            or self.similarity is not None
+        )
+        if live:
+            self.leakage.mark_charging(session_id, self._p3_slot(session_id))
+
+    def _p3_try_link(self, session_a: str, session_b: str, source: str) -> None:
+        if self.leakage is None or session_a == session_b or not session_a or not session_b:
+            return
+        before = len(self.leakage.decision_log)
+        try:
+            merged = self.leakage.link(session_a, session_b, source)
+        except ReferenceDenied as exc:
+            if str(exc) == "P3_BUSY":
+                return
+            raise
+        if merged is None or len(self.leakage.decision_log) == before:
+            return
+        self._alert("P3_MERGE", {"cid": merged, "source": source})
+
+    def _p3_autolink_session(self, sess: SessionState) -> None:
+        if self.leakage is None or not sess.root_parent_key:
+            return
+        for other_id, other in list(self.sessions.items()):
+            if other_id != sess.session_id and other.root_parent_key == sess.root_parent_key:
+                self._p3_try_link(sess.session_id, other_id, "root_principal")
+
+    def _p3_link_fork_siblings(self, session_id: str) -> None:
+        ledger = self.fork_ledgers.get(session_id)
+        if ledger is None:
+            return
+        owner = ledger[0]
+        for other, (other_owner, _slot) in self.fork_ledgers.items():
+            if other != session_id and other_owner is owner:
+                self._p3_try_link(session_id, other, "fork_join")
+
+    def _p3_note_writer(self, artifact: str, session_id: str) -> None:
+        self._p3_writers[artifact] = session_id
+
+    def _p3_argument_schema(self, tool_name: str) -> P3FieldSchema | None:
+        """A pinned S policy, when every field is a finite or free-text type.
+
+        A ``number`` field has no finite range here, so the whole payload uses
+        the raw coder. Omitted defaults are a constant (cost 0) only when S
+        drops them; a missing optional field is an ``Optional``.
+        """
+        policy = self.argument_policies.get(tool_name)
+        if policy is None:
+            return None
+        fields = []
+        for fp in sorted(policy.fields, key=lambda item: item.name.encode("utf-8")):
+            if fp.kind == "number":
+                return None
+            if fp.kind == "bool":
+                inner: object = P3Bool()
+            elif fp.kind == "text":
+                inner = P3Str()
+            elif fp.kind == "set":
+                inner = P3List(P3Str(), P3_MAX_SET)
+            else:
+                return None
+            if fp.default is not None:
+                fields.append((fp.name, P3Optional(inner)))
+            elif not fp.required:
+                fields.append((fp.name, P3Optional(inner)))
+            else:
+                fields.append((fp.name, inner))
+        if not fields:
+            return None
+        return P3FieldSchema(tool_name, tuple(fields))
+
+    def _p3_body(self, sess: SessionState, tool_name: str, args: dict,
+                 outbound_payload: Optional[bytes]) -> tuple[bytes, bool]:
+        """Forwarded body and whether the ledger should fold destination and tool.
+
+        ``fold_names`` is false when ``outbound_payload`` is already the
+        re-serialised params (the tool name is inside those bytes).
+        """
+        if outbound_payload is not None:
+            return outbound_payload, False
+        confined = self._confined.get(sess.session_id)
+        if confined and confined.get("kind") == "arguments" and confined.get("canonical_arguments"):
+            return confined["canonical_arguments"].encode("utf-8"), True
+        body = json.dumps(args, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+                          default=str).encode("utf-8", "surrogatepass")
+        return body, True
+
+    def _p3_reserve(self, sess: SessionState, step: int, tool_name: str, args: dict, eclass: str,
+                    approved: bool, destination: Optional[str],
+                    outbound_payload: Optional[bytes]) -> Optional[dict]:
+        """Reserve at the end of ``_release``. A hold does not freeze the root."""
+        if self.leakage is None or not self.leakage.contains(sess.session_id):
+            return None
+        if not self._is_outbound_event(tool_name, eclass, args, destination):
+            return None
+        self._p3_observe(sess.session_id)
+        body, fold_names = self._p3_body(sess, tool_name, args, outbound_payload)
+        schema = self._p3_argument_schema(tool_name)
+        event_id = f"{sess.session_id}:{next(self._event_ids)}"
+        dest = destination or ""
+        try:
+            self.leakage.reserve(
+                sess.session_id, event_id, dest, tool_name, body, self._now_ms(), bool(approved),
+                arguments=args, schema=schema, fold_names=fold_names,
+            )
+        except LeakageHold as exc:
+            return self._v12_deny(sess, step, tool_name, args, LEAKAGE_BUDGET_HOLD,
+                                  {"leakage": exc.detail})
+        except ReferenceDenied as exc:
+            return self._v12_deny(sess, step, tool_name, args, LEAKAGE_BUDGET_HOLD,
+                                  {"leakage": {"reason": str(exc), "retryable": str(exc) == "P3_BUSY"}})
+        sid = sess.session_id
+
+        def _commit(e=event_id, s=sid):
+            record = self.leakage.commit(s, e)
+            self._alert("P3_COMMIT", {k: v for k, v in record.items() if k != "kind"})
+            return record
+
+        def _abort(e=event_id, s=sid):
+            self.leakage.abort(s, e)
+
+        self._staged_v14.setdefault(sid, []).append((LEAKAGE_BUDGET_HOLD, _commit, _abort))
+        return None
+
     def attach_event_budget(self, session_id: str, budget: EventChannelBudget,
                             manifest: EventManifest) -> EventChannelBudget:
         """Bound the selection channel of this session's outbound calls into one sink.
 
-        Every write, send or credential call must be an eligible tool of
-        ``manifest``; it is charged ``quarter_bits(manifest.combinations)``
+        The budget object is per session. Colluding sessions share it only when
+        the caller passes the same object into each ``attach_event_budget``.
+        The ``(root, sink)`` pair is the label stored on that object, not a
+        join the engine performs. Admission uses ``spent + reserved + charge
+        >= max_quarter_bits``, so the effective ceiling is one quarter bit
+        under the configured limit.
+
+        Every outbound call (see ``_is_outbound_event``) must be an eligible
+        tool of ``manifest``; it is charged ``quarter_bits(manifest.combinations)``
         when the session is tainted or live secret pins exist.
         """
         if session_id in self.event_budgets:
@@ -1835,7 +2214,7 @@ class PolicyEngine:
         return {"ok": True, "allowed": True, "terminal": pruner.policy.nodes[pruner.step].name}
 
     def _v14_prepare(self, sess: SessionState, step: int, tool_name: str, args: dict,
-                     eclass: str) -> Optional[dict]:
+                     eclass: str, destination: Optional[str] = None) -> Optional[dict]:
         """C, then A, then E: check now, stage the state change, commit on allow."""
         staged: list = []
         sid = sess.session_id
@@ -1864,8 +2243,7 @@ class PolicyEngine:
                            lambda i=index, t=bool(sess.tainted): pruner.transition(i, incoming_taint=t),
                            None))
         budget_entry = self.event_budgets.get(sid)
-        outbound = (eclass in (EGRESS_WRITE, EGRESS_SEND, EGRESS_CREDS)
-                    or self._sink_stage(tool_name, eclass, args) == EXTERNAL_SINK)
+        outbound = self._is_outbound_event(tool_name, eclass, args, destination)
         if budget_entry is not None and outbound:
             budget, manifest = budget_entry
             event_id = f"{sid}:{next(self._event_ids)}"
@@ -1933,7 +2311,10 @@ class PolicyEngine:
         """
         index = self.transform_indexes.get(session_id)
         if index is None:
-            return holder.receive(fields)
+            enrolled = holder.receive(fields)
+            if holder.used:
+                self._p3_observe(session_id)
+            return enrolled
 
         def soft_into_z(values: tuple) -> None:
             for v in values:
@@ -1942,7 +2323,10 @@ class PolicyEngine:
                 except ReferenceDenied:
                     return  # Z is full: soft values stay D-only.
 
-        return holder.receive(fields, on_commit=index.add, on_soft=soft_into_z)
+        enrolled = holder.receive(fields, on_commit=index.add, on_soft=soft_into_z)
+        if holder.used or (index is not None and index.used):
+            self._p3_observe(session_id)
+        return enrolled
 
     def ingest_dynamic_result(self, agent_key: str, session_id: str, tool_name: str, result: Any) -> int:
         """Proxy entry point: enroll a real tool result before it reaches the agent.
@@ -1996,6 +2380,7 @@ class PolicyEngine:
             raise ValueError("session already belongs to a fork/join ledger")
         owner = LedgerOwner(root, transitions)
         self.fork_ledgers[session_id] = (owner, 0)
+        self._p3_link_fork_siblings(session_id)
         return owner
 
     def fork_branch(self, parent_session: str, child_session: str,
@@ -2006,6 +2391,7 @@ class PolicyEngine:
             raise ValueError("child session already belongs to a fork/join ledger")
         (child,) = owner.apply(slot, owner.clock(slot), [(LEDGER_FORK, tuple(grant))])
         self.fork_ledgers[child_session] = (owner, child)
+        self._p3_link_fork_siblings(child_session)
         return child
 
     def join_branch(self, parent_session: str, child_session: str) -> None:
@@ -2177,7 +2563,8 @@ class PolicyEngine:
                         resources, args_digest)
 
     def _reference_middleware(self, sess: SessionState, step: int, tool_name: str, args: dict,
-                              eclass: str, wire_arguments: Optional[dict] = None) -> Optional[dict]:
+                              eclass: str, wire_arguments: Optional[dict] = None,
+                              destination: Optional[str] = None) -> Optional[dict]:
         """Shell effects, manifest admission and outbound identifier matching.
 
         Returns a denial dict, or None when every applicable validator passed.
@@ -2230,7 +2617,7 @@ class PolicyEngine:
                                                  "generation": transducer.state.base.generation,
                                                  "via": "fs_transducer"}})
 
-        denial = self._v14_prepare(sess, step, tool_name, args, eclass)
+        denial = self._v14_prepare(sess, step, tool_name, args, eclass, destination)
         if denial is not None:
             return denial
 
@@ -2351,6 +2738,7 @@ class PolicyEngine:
     def _collusion_write(self, sess: SessionState, artifact: str):
         self._collusion_sync(sess)
         d = self.collusion.record_write(self._agent_node(sess), artifact)
+        self._p3_note_writer(artifact, sess.session_id)
         return None if d.allowed else d
 
     def _collusion_sink(self, sess: SessionState, sink: str):
@@ -2560,7 +2948,11 @@ class PolicyEngine:
             "scrubbed_args": scrub_obj(args),
             "message": f"policy gate denied {tool_name}: {error}",
         }
-        if error in _AWAITING_APPROVAL and (sess.tainted or not sess.allow_egress):
+        # A leakage hold is for a person even when the session is not tainted:
+        # charging can start from a sensitive read or a live pin alone.
+        if error in _AWAITING_APPROVAL and (
+            sess.tainted or not sess.allow_egress or error == "leakage_budget_hold"
+        ):
             out["approval_webhook"] = self._emit_approval_webhook(sess, step, tool_name, args, atlas)
         return out
 
@@ -2568,12 +2960,17 @@ class PolicyEngine:
                constrained: bool = False, delegation: Optional[dict] = None) -> dict:
         sess.history.append({"step": step, "tool": tool_name, "ok": True, "constrained": constrained})
         if eclass in (EGRESS_INTERNAL_READ, EGRESS_EXTERNAL_READ) and (uri := _resource_uri(tool_name, args)):
-            self.collusion.record_read(self._agent_node(sess), artifact_id("file", uri))
+            artifact = artifact_id("file", uri)
+            self.collusion.record_read(self._agent_node(sess), artifact)
+            writer = self._p3_writers.get(artifact)
+            if writer:
+                self._p3_try_link(sess.session_id, writer, "collusion")
         # Simulated tool results for lab (no real egress)
         result: dict[str, Any] = {"echo": True, "tool": tool_name}
         if tool_name in ("read_internal_secrets", "credentials.get", "secrets.get"):
             result["secret"] = "secret_value_123"
             sess.mark_sensitive()
+            self._p3_observe(sess.session_id)
             self.deob.register(result["secret"], label=tool_name, session_id=sess.session_id)
             self.accumulator.register_protected_token(result["secret"], session_id=sess.session_id)
             self.stego.register_secret(result["secret"], label=tool_name, session_id=sess.session_id)

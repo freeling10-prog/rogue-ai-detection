@@ -15,7 +15,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 960 540] /Contents 6 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
 endobj
 6 0 obj
-<< /Length 2077 >>
+<< /Length 2003 >>
 stream
 0.051 0.067 0.090 rg 0.0 0.0 960.0 540.0 re f
 0.176 0.831 0.749 rg 0.0 534.0 960.0 6.0 re f
@@ -34,9 +34,8 @@ BT /F1 12 Tf 0.545 0.580 0.620 rg 68.0 124.4 Td (A, B, C\)) Tj ET
 0.188 0.212 0.239 rg 341.7 99.0 276.7 112.0 re f
 0.086 0.106 0.133 rg 342.7 100.0 274.7 110.0 re f
 0.176 0.831 0.749 rg 342.7 100.0 5.0 110.0 re f
-BT /F2 30 Tf 0.176 0.831 0.749 rg 362.7 164.0 Td (1.00 ms) Tj ET
-BT /F1 12 Tf 0.545 0.580 0.620 rg 362.7 140.0 Td (p99 CPU per benign decision \(reference 2) Tj ET
-BT /F1 12 Tf 0.545 0.580 0.620 rg 362.7 124.4 Td (ms\)) Tj ET
+BT /F2 30 Tf 0.176 0.831 0.749 rg 362.7 164.0 Td (0) Tj ET
+BT /F1 12 Tf 0.545 0.580 0.620 rg 362.7 140.0 Td (benign decisions denied in this run) Tj ET
 0.188 0.212 0.239 rg 636.3 99.0 276.7 112.0 re f
 0.086 0.106 0.133 rg 637.3 100.0 274.7 110.0 re f
 0.247 0.725 0.314 rg 637.3 100.0 5.0 110.0 re f
@@ -51,7 +50,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 960 540] /Contents 8 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
 endobj
 8 0 obj
-<< /Length 3888 >>
+<< /Length 3922 >>
 stream
 0.051 0.067 0.090 rg 0.0 0.0 960.0 540.0 re f
 0.176 0.831 0.749 rg 0.0 534.0 960.0 6.0 re f
@@ -70,10 +69,10 @@ BT /F1 12 Tf 0.545 0.580 0.620 rg 68.0 339.7 Td (argument variants is chosen, or
 BT /F1 12 Tf 0.545 0.580 0.620 rg 68.0 324.1 Td (rhythm, so no fragment of the value) Tj ET
 BT /F1 12 Tf 0.545 0.580 0.620 rg 68.0 308.5 Td (appears.) Tj ET
 BT /F1 12 Tf 0.902 0.929 0.953 rg 68.0 282.9 Td (side_channel_guard.py: after the taint) Tj ET
-BT /F1 12 Tf 0.902 0.929 0.953 rg 68.0 267.3 Td (point, caps distinct variants, call) Tj ET
-BT /F1 12 Tf 0.902 0.929 0.953 rg 68.0 251.7 Td (count, and regular rhythm; a signal holds) Tj ET
-BT /F1 12 Tf 0.902 0.929 0.953 rg 68.0 236.1 Td (the session and freezes the lab key 15) Tj ET
-BT /F1 12 Tf 0.902 0.929 0.953 rg 68.0 220.5 Td (min.) Tj ET
+BT /F1 12 Tf 0.902 0.929 0.953 rg 68.0 267.3 Td (point, regular-rhythm timing beacons are) Tj ET
+BT /F1 12 Tf 0.902 0.929 0.953 rg 68.0 251.7 Td (flagged. Irregular timing channels are) Tj ET
+BT /F1 12 Tf 0.902 0.929 0.953 rg 68.0 236.1 Td (not yet bounded. A signal holds the) Tj ET
+BT /F1 12 Tf 0.902 0.929 0.953 rg 68.0 220.5 Td (session and freezes the lab key 15 min.) Tj ET
 BT /F2 13 Tf 0.247 0.725 0.314 rg 68.0 79.0 Td (8 of 8 tests pass) Tj ET
 0.188 0.212 0.239 rg 341.0 57.0 278.0 372.0 re f
 0.086 0.106 0.133 rg 342.0 58.0 276.0 370.0 re f
@@ -154,7 +153,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 960 540] /Contents 12 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
 endobj
 12 0 obj
-<< /Length 3720 >>
+<< /Length 3718 >>
 stream
 0.051 0.067 0.090 rg 0.0 0.0 960.0 540.0 re f
 0.176 0.831 0.749 rg 0.0 534.0 960.0 6.0 re f
@@ -166,9 +165,9 @@ BT /F1 10 Tf 0.545 0.580 0.620 rg 870.0 22.0 Td (4 / 6) Tj ET
 0.188 0.212 0.239 rg 47.0 317.0 252.0 112.0 re f
 0.086 0.106 0.133 rg 48.0 318.0 250.0 110.0 re f
 0.176 0.831 0.749 rg 48.0 318.0 5.0 110.0 re f
-BT /F2 30 Tf 0.176 0.831 0.749 rg 68.0 382.0 Td (262) Tj ET
-BT /F1 12 Tf 0.545 0.580 0.620 rg 68.0 358.0 Td (gateway tests collected \(pytest) Tj ET
-BT /F1 12 Tf 0.545 0.580 0.620 rg 68.0 342.4 Td (--collect-only\)) Tj ET
+BT /F2 30 Tf 0.176 0.831 0.749 rg 68.0 382.0 Td (pytest) Tj ET
+BT /F1 12 Tf 0.545 0.580 0.620 rg 68.0 358.0 Td (gateway suite; earlier totals are not) Tj ET
+BT /F1 12 Tf 0.545 0.580 0.620 rg 68.0 342.4 Td (quoted) Tj ET
 0.188 0.212 0.239 rg 47.0 189.0 252.0 112.0 re f
 0.086 0.106 0.133 rg 48.0 190.0 250.0 110.0 re f
 0.247 0.725 0.314 rg 48.0 190.0 5.0 110.0 re f
@@ -215,44 +214,24 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 960 540] /Contents 14 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
 endobj
 14 0 obj
-<< /Length 2536 >>
+<< /Length 1331 >>
 stream
 0.051 0.067 0.090 rg 0.0 0.0 960.0 540.0 re f
 0.176 0.831 0.749 rg 0.0 534.0 960.0 6.0 re f
 BT /F2 11 Tf 0.176 0.831 0.749 rg 48.0 499.0 Td (OVERHEAD) Tj ET
-BT /F2 26 Tf 0.902 0.929 0.953 rg 48.0 464.0 Td (Measured benign CPU latency and zero-LLM-compute architecture) Tj ET
+BT /F2 26 Tf 0.902 0.929 0.953 rg 48.0 464.0 Td (What the timing check does, and what it does not) Tj ET
 0.188 0.212 0.239 rg 48.0 39.0 864.0 1.0 re f
 BT /F1 10 Tf 0.545 0.580 0.620 rg 48.0 22.0 Td (AgentGate  |  Apart Research AI Collusion Research Sprint) Tj ET
 BT /F1 10 Tf 0.545 0.580 0.620 rg 870.0 22.0 Td (5 / 6) Tj ET
-0.188 0.212 0.239 rg 47.0 317.0 204.5 112.0 re f
-0.086 0.106 0.133 rg 48.0 318.0 202.5 110.0 re f
-0.176 0.831 0.749 rg 48.0 318.0 5.0 110.0 re f
-BT /F2 30 Tf 0.176 0.831 0.749 rg 68.0 382.0 Td (0.126 ms) Tj ET
-BT /F1 12 Tf 0.545 0.580 0.620 rg 68.0 358.0 Td (p50 CPU per decision) Tj ET
-0.188 0.212 0.239 rg 267.5 317.0 204.5 112.0 re f
-0.086 0.106 0.133 rg 268.5 318.0 202.5 110.0 re f
-0.176 0.831 0.749 rg 268.5 318.0 5.0 110.0 re f
-BT /F2 30 Tf 0.176 0.831 0.749 rg 288.5 382.0 Td (0.892 ms) Tj ET
-BT /F1 12 Tf 0.545 0.580 0.620 rg 288.5 358.0 Td (p95 CPU per decision) Tj ET
-0.188 0.212 0.239 rg 488.0 317.0 204.5 112.0 re f
-0.086 0.106 0.133 rg 489.0 318.0 202.5 110.0 re f
-0.176 0.831 0.749 rg 489.0 318.0 5.0 110.0 re f
-BT /F2 30 Tf 0.176 0.831 0.749 rg 509.0 382.0 Td (0.999 ms) Tj ET
-BT /F1 12 Tf 0.545 0.580 0.620 rg 509.0 358.0 Td (p99 CPU \(reference 2 ms\)) Tj ET
-0.188 0.212 0.239 rg 708.5 317.0 204.5 112.0 re f
-0.086 0.106 0.133 rg 709.5 318.0 202.5 110.0 re f
-0.824 0.600 0.133 rg 709.5 318.0 5.0 110.0 re f
-BT /F2 30 Tf 0.824 0.600 0.133 rg 729.5 382.0 Td (3.84 ms) Tj ET
-BT /F1 12 Tf 0.545 0.580 0.620 rg 729.5 358.0 Td (slowest single decision) Tj ET
-0.176 0.831 0.749 rg 48.0 279.1 6.0 6.0 re f
-BT /F1 14 Tf 0.902 0.929 0.953 rg 64.0 276.0 Td (750 benign evaluate_call decisions across 5 multi-agent workflows x 50 runs; 0 denied.) Tj ET
-0.176 0.831 0.749 rg 48.0 252.9 6.0 6.0 re f
-BT /F1 14 Tf 0.902 0.929 0.953 rg 64.0 249.8 Td (LLM calls on the decision path: 0. Checks are hashing, HMAC, set lookups and interval arithmetic.) Tj ET
-0.176 0.831 0.749 rg 48.0 226.7 6.0 6.0 re f
-BT /F1 14 Tf 0.902 0.929 0.953 rg 64.0 223.6 Td (Thread CPU time, in process, on one machine, including the decision-log write. The 2 ms figure is a reference target, not a) Tj ET
-BT /F1 14 Tf 0.902 0.929 0.953 rg 64.0 205.4 Td (guarantee.) Tj ET
-0.176 0.831 0.749 rg 48.0 182.3 6.0 6.0 re f
-BT /F1 14 Tf 0.902 0.929 0.953 rg 64.0 179.2 Td (p99 CPU is within the reference target; the slowest single decision is shown, not hidden.) Tj ET
+0.176 0.831 0.749 rg 48.0 398.4 6.0 6.0 re f
+BT /F1 16 Tf 0.902 0.929 0.953 rg 64.0 394.0 Td (750 benign evaluate_call decisions across 5 multi-agent workflows x 50 runs; 0 denied.) Tj ET
+0.176 0.831 0.749 rg 48.0 369.6 6.0 6.0 re f
+BT /F1 16 Tf 0.902 0.929 0.953 rg 64.0 365.2 Td (LLM calls on the decision path: 0. Checks are hashing, HMAC, set lookups and interval arithmetic.) Tj ET
+0.176 0.831 0.749 rg 48.0 340.8 6.0 6.0 re f
+BT /F1 16 Tf 0.902 0.929 0.953 rg 64.0 336.4 Td (Decision time is measured on one machine and is not a deployment guarantee. Decision-time figures are not) Tj ET
+BT /F1 16 Tf 0.902 0.929 0.953 rg 64.0 315.6 Td (quoted.) Tj ET
+0.176 0.831 0.749 rg 48.0 291.2 6.0 6.0 re f
+BT /F1 16 Tf 0.902 0.929 0.953 rg 64.0 286.8 Td (Regular-rhythm timing beacons are flagged; irregular timing channels are not yet bounded.) Tj ET
 endstream
 endobj
 15 0 obj
@@ -295,18 +274,18 @@ xref
 0000000245 00000 n 
 0000000347 00000 n 
 0000000483 00000 n 
-0000002612 00000 n 
-0000002748 00000 n 
-0000006688 00000 n 
-0000006825 00000 n 
-0000009714 00000 n 
-0000009852 00000 n 
-0000013625 00000 n 
-0000013763 00000 n 
-0000016352 00000 n 
-0000016490 00000 n 
+0000002538 00000 n 
+0000002674 00000 n 
+0000006648 00000 n 
+0000006785 00000 n 
+0000009674 00000 n 
+0000009812 00000 n 
+0000013583 00000 n 
+0000013721 00000 n 
+0000015105 00000 n 
+0000015243 00000 n 
 trailer
 << /Size 17 /Root 1 0 R >>
 startxref
-18549
+17302
 %%EOF

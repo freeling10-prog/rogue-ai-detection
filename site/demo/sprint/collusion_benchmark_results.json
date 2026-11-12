@@ -364,7 +364,6 @@
   },
   "gateway_suite": {
     "command": "python -m pytest --collect-only -q",
-    "collected": 262,
     "files": 20,
     "returncode": 0,
     "hypothesis_stateful": [

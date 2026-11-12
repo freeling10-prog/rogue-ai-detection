@@ -126,7 +126,7 @@ class _Slide:
 
 def build_slides(doc: dict[str, Any]) -> list[_Slide]:
     f = _figures(doc)
-    cpu, lat, chain, tot, groups = f["cpu"], f["lat"], f["chain"], f["tot"], f["groups"]
+    lat, chain, tot, groups = f["lat"], f["chain"], f["tot"], f["groups"]
     total = 6
     slides: list[_Slide] = []
 
@@ -143,8 +143,8 @@ def build_slides(doc: dict[str, Any]) -> list[_Slide]:
     tw = (SLIDE_W - 96 - 2 * 20) / 3
     ty = max(y + 24, 330)
     s.tile(48, ty, tw, 110, f"{tot['passed']} / {tot['total']}", "carrier-group defence tests pass (groups A, B, C)")
-    s.tile(48 + tw + 20, ty, tw, 110, f"{cpu['p99_ms']:.2f} ms",
-           f"p99 CPU per benign decision (reference {lat['target_ms']:g} ms)")
+    s.tile(48 + tw + 20, ty, tw, 110, str(lat.get("benign_denials", 0)),
+           "benign decisions denied in this run")
     s.tile(48 + 2 * (tw + 20), ty, tw, 110, "verified" if chain["chain_ok"] else "FAILED",
            f"hash-chained decision log, {chain['entries']} entries", OK_GREEN if chain["chain_ok"] else WARN_RED)
     s.rect(48, SLIDE_H - 40, SLIDE_W - 96, 1, PANEL_EDGE)
@@ -158,8 +158,8 @@ def build_slides(doc: dict[str, Any]) -> list[_Slide]:
     cards = [
         ("A", "Boolean / timing oracles", "Information rides on which of a few argument variants is chosen, "
          "or on call rhythm, so no fragment of the value appears.",
-         "side_channel_guard.py: after the taint point, caps distinct variants, call count, and regular "
-         "rhythm; a signal holds the session and freezes the lab key 15 min."),
+         "side_channel_guard.py: after the taint point, regular-rhythm timing beacons are flagged. "
+         "Irregular timing channels are not yet bounded. A signal holds the session and freezes the lab key 15 min."),
         ("B", "Confused-deputy delegation DAGs", "A restricted agent hands its task or state to a peer whose "
          "own capability looks clean.",
          "delegation_guard.py: hand-off re-mints the recipient's agw1. token with the sender's deny caveats "
@@ -217,9 +217,9 @@ def build_slides(doc: dict[str, Any]) -> list[_Slide]:
     # 4. Test suite and stateful fuzzing
     s = _Slide()
     s.frame(4, total, "Reproducible evidence", "Test-suite results and stateful Hypothesis fuzzing")
-    collected = f["collected"]
-    s.tile(48, 112, 250, 110, str(collected) if collected is not None else "-",
-           "gateway tests collected (pytest --collect-only)")
+    collected_label = "pytest"
+    s.tile(48, 112, 250, 110, collected_label,
+           "gateway suite; earlier totals are not quoted")
     s.tile(48, 240, 250, 110, f"{tot['passed']} / {tot['total']}", "carrier-group tests passed in this run",
            OK_GREEN if tot["passed"] == tot["total"] else WARN_RED)
     x = 320
@@ -247,28 +247,18 @@ def build_slides(doc: dict[str, Any]) -> list[_Slide]:
     s.para(48, 372, "Each figure traces to a named test in collusion_benchmark_results.json.", 250, 12, MUTED)
     slides.append(s)
 
-    # 5. Latency
+    # 5. Timing scope. Millisecond figures are not quoted.
     s = _Slide()
-    s.frame(5, total, "Overhead", "Measured benign CPU latency and zero-LLM-compute architecture")
-    tw = (SLIDE_W - 96 - 3 * 18) / 4
-    for i, (val, lab) in enumerate([
-        (f"{cpu['p50_ms']:.3f} ms", "p50 CPU per decision"),
-        (f"{cpu['p95_ms']:.3f} ms", "p95 CPU per decision"),
-        (f"{cpu['p99_ms']:.3f} ms", f"p99 CPU (reference {lat['target_ms']:g} ms)"),
-        (f"{cpu['max_ms']:.2f} ms", "slowest single decision"),
-    ]):
-        col = ACCENT if i < 3 else (OK_GREEN if cpu["max_ms"] <= lat["target_ms"] else (210, 153, 34))
-        s.tile(48 + i * (tw + 18), 112, tw, 110, val, lab, col)
-    s.bullets(48, 250, [
+    s.frame(5, total, "Overhead", "What the timing check does, and what it does not")
+    s.bullets(48, 130, [
         f"{lat['decisions']} benign evaluate_call decisions across {len(lat['workflows'])} multi-agent workflows "
         f"x {lat['iterations']} runs; {lat['benign_denials']} denied.",
         f"LLM calls on the decision path: {lat['llm_calls']}. Checks are hashing, HMAC, set lookups and "
         "interval arithmetic.",
-        "Thread CPU time, in process, on one machine, including the decision-log write. The 2 ms figure is a "
-        "reference target, not a guarantee.",
-        f"p99 CPU is {'within' if lat['p99_cpu_within_target'] else 'above'} the reference target"
-        + ("; the slowest single decision is shown, not hidden." if cpu["max_ms"] > lat["target_ms"] else "."),
-    ], SLIDE_W - 96, 14)
+        "Decision time is measured on one machine and is not a deployment guarantee. Decision-time figures "
+        "are not quoted.",
+        "Regular-rhythm timing beacons are flagged; irregular timing channels are not yet bounded.",
+    ], SLIDE_W - 96, 16)
     slides.append(s)
 
     # 6. Scope
@@ -410,7 +400,7 @@ class Canvas:
 
 def render_card_png(doc: dict[str, Any]) -> bytes:
     f = _figures(doc)
-    cpu, chain, tot, groups = f["cpu"], f["chain"], f["tot"], f["groups"]
+    chain, groups = f["chain"], f["groups"]
     cv = Canvas(CARD_W, CARD_H, BG)
     cv.rect(0, 0, CARD_W, 8, ACCENT)
 
@@ -453,8 +443,8 @@ def render_card_png(doc: dict[str, Any]) -> bytes:
     # Metrics row.
     my = 474
     metrics = [
-        (f"{f['collected']}" if f["collected"] is not None else f"{tot['total']}", "GATEWAY TESTS"),
-        (f"{cpu['p99_ms']:.2f} MS", "P99 CPU / DECISION"),
+        ("PYTEST", "GATEWAY SUITE"),
+        ("NOT QUOTED", "DECISION TIME"),
         ("0", "LLM CALLS"),
         ("VERIFIED" if chain["chain_ok"] and f["tamper_ok"] else "CHECK", "HASH-CHAINED LOG"),
     ]

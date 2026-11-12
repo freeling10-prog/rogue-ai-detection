@@ -4,13 +4,13 @@ Copy-paste blocks for sending from a phone. Each block is complete on its own: s
 
 Links used below:
 
-- Trace inspector (8 recorded scenarios, no login): <https://freeling10-prog.github.io/rogue-ai-detection/#traces>
-- Sample sprint report PDF: <https://freeling10-prog.github.io/rogue-ai-detection/sprint/collusion_sprint_report.pdf>
+- Trace inspector (8 recorded scenarios, no login): <https://freeling10-prog.github.io/rogue-ai-detection/demo/#traces>
+- Sample sprint report PDF: <https://freeling10-prog.github.io/rogue-ai-detection/demo/sprint/collusion_sprint_report.pdf>
 - Source (Apache 2.0): <https://github.com/freeling10-prog/rogue-ai-detection>
 
 Standing rules (same as [outreach-sequence.md](outreach-sequence.md)): figures are same-author lab checks, not a benchmark or a detection rate for the recipient. Never pool them with the separate **2 of 13** loopback archive figure. Not a penetration test and not a certification; ATLAS ids are approximate. No scare copy and no deadline copy. We do not deploy on their hosts and never take production credentials.
 
-Figures you may quote: **874** gateway tests passing on `main` across **41** modules behind `pep.py`; **57/57** collusion defence checks and **0** denials in **750** benign decisions at the sprint snapshot; CPU **p50 0.126 ms** per decision (slowest **3.84 ms**).
+Figures you may quote: the test suite currently passes 1,250 tests; **57/57** collusion defence checks and **0** denials in **750** benign decisions at the sprint snapshot. Do not quote a decision-time figure.
 
 ---
 
@@ -29,8 +29,8 @@ If you want Claude to answer questions from your Postgres data and Stripe accoun
 - Every call, allowed or denied, goes into a SHA-256 hash-chained audit log you can verify.
 - Delivered as a mergeable PR with a pytest acceptance suite. Nothing is deployed on your hosts by me, and I only need staging access.
 
-It runs on the open-source gateway behind this trace inspector: https://freeling10-prog.github.io/rogue-ai-detection/#traces
-Sample report: https://freeling10-prog.github.io/rogue-ai-detection/sprint/collusion_sprint_report.pdf
+It runs on the open-source gateway behind this trace inspector: https://freeling10-prog.github.io/rogue-ai-detection/demo/#traces
+Sample report: https://freeling10-prog.github.io/rogue-ai-detection/demo/sprint/collusion_sprint_report.pdf
 
 If useful, reply with the tables and Stripe objects you want exposed (names only, no data).
 
@@ -52,8 +52,8 @@ For agencies running an AI ops agent across client Slack and HubSpot, I build on
 - Tool calls pass through a policy engine that holds outbound writes once a session has read untrusted content.
 - Hash-chained audit log per call and a pytest acceptance suite, delivered as a mergeable PR. Nothing is deployed on your hosts by me.
 
-Recorded traces of the policy engine (no login): https://freeling10-prog.github.io/rogue-ai-detection/#traces
-Sample report: https://freeling10-prog.github.io/rogue-ai-detection/sprint/collusion_sprint_report.pdf
+Recorded traces of the policy engine (no login): https://freeling10-prog.github.io/rogue-ai-detection/demo/#traces
+Sample report: https://freeling10-prog.github.io/rogue-ai-detection/demo/sprint/collusion_sprint_report.pdf
 
 Reply with the Slack channels and HubSpot objects in scope and I will confirm the tool list.
 
@@ -75,8 +75,8 @@ If your team wants Claude or another agent to use an internal REST or GraphQL AP
 - URLs pointing at cloud metadata or internal-only hosts are refused before any request is made.
 - SHA-256 hash-chained audit log and a pytest acceptance suite, delivered as a mergeable PR against staging. Nothing is deployed on your hosts by me.
 
-The policy engine and its recorded traces: https://freeling10-prog.github.io/rogue-ai-detection/#traces
-Sample report: https://freeling10-prog.github.io/rogue-ai-detection/sprint/collusion_sprint_report.pdf
+The policy engine and its recorded traces: https://freeling10-prog.github.io/rogue-ai-detection/demo/#traces
+Sample report: https://freeling10-prog.github.io/rogue-ai-detection/demo/sprint/collusion_sprint_report.pdf
 
 Send an OpenAPI file or the operation names you want exposed and I will reply with a fixed tool list.
 
@@ -108,8 +108,8 @@ What you get:
 - A pytest acceptance suite; nothing deployed on your hosts by me, staging access only
 
 Open-source engine (Apache 2.0), 874 tests passing: https://github.com/freeling10-prog/rogue-ai-detection
-Recorded policy traces: https://freeling10-prog.github.io/rogue-ai-detection/#traces
-Sample report: https://freeling10-prog.github.io/rogue-ai-detection/sprint/collusion_sprint_report.pdf
+Recorded policy traces: https://freeling10-prog.github.io/rogue-ai-detection/demo/#traces
+Sample report: https://freeling10-prog.github.io/rogue-ai-detection/demo/sprint/collusion_sprint_report.pdf
 
 Not a penetration test or a certification. DM or email alec@room23.net with the system and the tools you want.
 ```
@@ -135,13 +135,13 @@ It adds a single PreToolUse command hook to ~/.claude/settings.json (running it 
 - SHELL_POLICY_DENIED: recursive rm of / or ~, force push to main/master, curl | sh style pipes
 - METADATA_URI_DENIED: 169.254.169.254 (also hex / decimal / IPv6-mapped), metadata.google.internal, file:// URIs
 
-Each decision, allowed or denied, is appended to a SHA-256 hash-chained ~/.claude/agentgate_audit.jsonl, and the chain can be re-verified. `--self-test` runs four checks and prints CPU time per decision; on my machine each decision takes well under 1 ms. Standard library only.
+Each decision, allowed or denied, is appended to a SHA-256 hash-chained ~/.claude/agentgate_audit.jsonl, and the chain can be re-verified. `--self-test` runs four checks and prints CPU time per decision. Standard library only. Do not quote a decision-time figure.
 
 These are lexical configuration checks, not a sandbox: anything run outside Claude Code is out of scope, and a determined user can get around them.
 
-The same repo has the gateway itself: a loopback policy engine with taint tracking, capability attenuation, and split-exfiltration checks. 874 gateway tests pass on main. You can step through 8 recorded scenarios in the browser (rug-pull, split-chunk exfil, confused deputy, schema drift, memory lineage, and more): https://freeling10-prog.github.io/rogue-ai-detection/#traces
+The same repo has the gateway itself: a loopback policy engine with taint tracking, capability attenuation, and split-exfiltration checks. The test suite currently passes 1,250 tests. You can step through 8 recorded scenarios in the browser (rug-pull, split-chunk exfil, confused deputy, schema drift, memory lineage, and more): https://freeling10-prog.github.io/rogue-ai-detection/demo/#traces
 
-Sample lab report (same-author scripted checks, not a benchmark): https://freeling10-prog.github.io/rogue-ai-detection/sprint/collusion_sprint_report.pdf
+Sample lab report (same-author scripted checks, not a benchmark): https://freeling10-prog.github.io/rogue-ai-detection/demo/sprint/collusion_sprint_report.pdf
 Source: https://github.com/freeling10-prog/rogue-ai-detection
 
 Bypasses and false positives welcome as issues.

@@ -18,8 +18,8 @@ Release.
   - Host-less `file:` URIs are denied when the path traverses or is sensitive (`file:///etc/passwd`). `file:///lab/readme.md` stays allowed.
 - `arg_ast_guard.py`:
   - `canonicalize_path` flags `nested_traversal_sequence` (`....//`, which becomes `../` after one naive strip) and `invisible_format_character` (Unicode `Cf`, e.g. U+200D), and analyzes the NFKC form.
-- `benchmarks/wild_mcp_corpus/score.py`: opt-in `own_data_lookup` / `toxic_2hop_own_data_refined`. `score_server` is unchanged, so the v1 and v2 figures reproduce. On the 28 PR #40 servers (in-sample, one rater) it eliminates **5 of 10** false positives and keeps **18 of 18** plausible hits. Corpus-wide `toxic_2hop` goes **79 → 65** (list-order) and **121 → 118** (uniform). See `own_data_rule_check.json` and the v3 section of `docs/wild_mcp_corpus_report.md`.
-- `docs/outreach_snippet_review.md`: draft one-line notes on five round 1 leads for manual review. Only Onplana publishes tool names, and none of the five publishes input schemas. None is a customer.
+- `benchmarks/wild_mcp_corpus/score.py`: opt-in `own_data_lookup` / `toxic_2hop_own_data_refined`. `score_server` is unchanged, so the v1 and v2 figures reproduce. See `own_data_rule_check.json` and the v3 section of `docs/wild_mcp_corpus_report.md`. A seeded random sample of 250 of 20,758 Smithery listings flags 48% (42–55%) on the 2-hop measure; 66 of those are near-copies of one package, and counting it once gives about 30%. One reviewer hand-checked 28 flagged servers and found 18 plausible (64%, 46–79%).
+- Lead notes that named specific companies were removed from the tree. None of those notes is a customer, a confirmed vulnerability, or a certification.
 - Tests: `tests/test_pr42_shell_collusion.py` (37) and `tests/test_pr42_parser_differentials.py` (30). Gateway, Python 3.12.3, 2 November 2026: **1,245 collected; 1,239 passed, 6 skipped** without `php` (the skips are the PHP parity tests), and **1,245 passed** with `php` (the same machine gave 1,178 passed before this change). `agent-watch`: **512 passed, 2 skipped**; `agentwatch-analyzer`: **10 passed** (both unchanged). Corpus (`benchmarks/wild_mcp_corpus`): **42 passed** (28 before, plus 14 in `test_own_data_rule.py`).
 
 ## [Unreleased] - cross-session file labels and canonical MCP ids on main (1 November 2026)
@@ -102,13 +102,12 @@ commit only when the whole call is allowed, abort otherwise.
   `CausalityStateMachine`, `EventCapacityStateMachine`,
   `BlindfoldStateMachine` and `ReachabilityStateMachine`, against
   brute-force paths, exact Fractions and explicit models. There are 16
-  wiring tests in `tests/test_v14_wiring.py`. Gateway tests 1122 ->
-  **1165**; Hypothesis state machines 19 -> **23**; modules behind
-  `pep.py` 47 -> **51**; reference-validator rule codes 11 -> **15**. All
-  four new machines also ran clean at 300 examples.
+  wiring tests in `tests/test_v14_wiring.py`. Earlier suite totals and
+  Hypothesis-machine counts are not quoted. All four new machines also ran
+  clean at 300 examples.
 - `benchmarks/benchmark.py`: six v14 cases plus a fourteen-check combined
-  case; `benchmark_results.json` regenerated. B measured 2.37 ms p99 at its
-  bounds and the combined case 8.28 ms p99, above the 5 ms reference.
+  case; `benchmark_results.json` regenerated. Decision-time figures from that
+  run are not quoted.
 - Docs: DESIGN.md and the validator specification gain a round-2 section,
   sections 11-14 and a results table. README, site `#method` and the lab
   report are updated.
@@ -116,8 +115,8 @@ commit only when the whole call is allowed, abort otherwise.
 ## [Unreleased] - Round-2 red-team fixes for V, S, T, D and Z (31 October 2026)
 
 Five confirmed findings from the round-2 audit of the R-Z implementation,
-fixed in the recommended order. Gateway tests 1082 -> **1122** (40 new
-regression tests); Hypothesis state machines stay at **19**; the D and Z
+fixed in the recommended order. This pass adds 40 regression tests. Earlier
+suite totals and Hypothesis-machine counts are not quoted. The D and Z
 machines were extended to the new behavior and run clean at 300 examples.
 
 - V (`pep.py`): two-phase prepare/commit for the fork/join ledger. The
@@ -178,22 +177,16 @@ No gateway code changes. Predicate D (`dynamic_ingression_validator.py`,
   were carried into `site/demo/index.html`.
 - `site/index.html` `#method`: the ten-predicate validator layer
   (R, W, F, I, P, T, S, V, D, Z; JSON-RPC -32066 to -32076) with one
-  invariant and the isolated-case p99 from `docs/DESIGN.md` per predicate,
-  plus the combined ten-check p99 (8.08 ms, above the 5 ms reference). A
-  2025-2026 literature crosswalk against CaMeL, FIDES, Progent, ToolGate,
-  Whispering Agents, Memory Provenance Laundering and Blindfold, compared
-  against each paper's abstract; not a systematic review.
+  invariant per predicate. Paper citations are not an endorsement. Decision-time
+  figures are not quoted.
 - `site/demo/` `#traces`: two new recorded traces, 09 (D: learned values
   denied outbound) and 10 (Z: reversed, XOR-masked and block-reordered
   values, and a D-learned value caught reversed). Recorded by
   `examples/record_site_traces.py` scenarios 9 and 10 against the real
   engine, Python 3.12.3, 30 runs each; both decision-log chains verify.
-- Counts for the v12.8 tree: gateway tests **1082** (re-run 31 October,
-  Python 3.12.3, Hypothesis 6.140.0 because PyPI was unreachable for the
-  pinned 6.170.9); Hypothesis state machines **19**; modules behind
-  `pep.py` **47**; reference-validator rule codes **11**; workspace
-  **1604** (1082 + 512 `agent-watch` + 10 `agentwatch-analyzer`; the last
-  two are CI figures, and `agent-watch` ran 510 passed / 4 skipped here).
+- The v12.8 tree was re-run on 31 October (Python 3.12.3, Hypothesis 6.140.0
+  because PyPI was unreachable for the pinned 6.170.9). Those suite totals
+  are retired and are not quoted.
 - README: badge, headline counts and the "use this count" list.
 
 ## [Unreleased] - v12.8 transform-invariant pins (31 October 2026)
@@ -217,8 +210,8 @@ No gateway code changes. Predicate D (`dynamic_ingression_validator.py`,
   audit-report counts.
 - Tests: 10 new cases in `tests/test_validators.py` (including
   `TransformMachine` and an independent oracle) and
-  `tests/test_v12_8_transform_wiring.py` (8). Gateway tests 1064 ->
-  **1082**; Hypothesis state machines 18 -> **19**.
+  `tests/test_v12_8_transform_wiring.py` (8). The suite total and the
+  Hypothesis-machine count from this pass are retired and are not quoted.
 - `benchmarks/benchmark.py`: two credit-limit transform cases and a
   ten-check combined case; `benchmark_results.json` regenerated.
 - Known limits, documented in DESIGN.md section 10: the work budget denies
@@ -388,15 +381,12 @@ No gateway code changes. Predicate D (`dynamic_ingression_validator.py`,
   `tests/test_v12_2_validator_wiring.py` (14, including the JSON-RPC code
   assignment that follows v12.1) covers the decision path, both hooks, the
   SARIF rule set and the inert-until-configured property.
-  Gateway tests 796 -> **874** (33 files); modules behind `pep.py`
-  36 -> **41**; Hypothesis state machines 9 -> **13**; workspace **1396**;
-  CI floor 780 -> **860**. Every validator is inert until a trusted adapter
+  Earlier suite totals are not quoted. Every validator is inert until a trusted adapter
   attaches its state, so a session without pins, a snapshot, a manifest, or
   a matcher keeps the v12.1 decision path.
 - `benchmarks/benchmark.py` and `benchmarks/artifacts/`: the reference
-  microbenchmark and its measured output (5000 samples per case, combined
-  p99 **4.833856 ms** on Python 3.12.14, retained matcher allocations
-  1,426,200 bytes), plus the reference `validation_results.json` and the
+  microbenchmark and its measured output (5000 samples per case; decision-time
+  figures are not quoted), plus the reference `validation_results.json` and the
   package manifest under `docs/reference-package/`.
 
 ## [Unreleased] - v12.1 interpreter, first-listing, and collusion guards (29 October 2026)
@@ -620,9 +610,8 @@ No gateway code changes. Predicate D (`dynamic_ingression_validator.py`,
 - `collusion_eval.POST_SPRINT_GROUPS["D"]` and `run_post_sprint_suite()`.
   Groups A / B / C (57/57) and `evaluate-collusion` output are unchanged;
   `sprint_submission/` and `site/sprint/` are untouched.
-- Gateway tests 262 -> **369** (Group D: 104); Hypothesis state machines
-  5 -> **7**; modules behind `pep.py` 22 -> **26**; CI floor 250 -> 345.
-  Workspace: **891** passing (agent-watch 512 passed, 2 skipped; analyzer 10).
+- Group D is reported apart from groups A / B / C. Earlier suite totals are
+  not quoted.
 - Site: trace 08 (schema drift across sessions and a cross-server name
   collision), recorded in-process by `examples/record_site_traces.py 8`;
   post-sprint figures and v11 scope notes added beside the sprint figures.
@@ -631,8 +620,8 @@ No gateway code changes. Predicate D (`dynamic_ingression_validator.py`,
 
 - `site/` rebuilt as a technical report: archival palette, hairline grid,
   self-hosted Newsreader and IBM Plex (SIL OFL 1.1, `site/fonts/`), no
-  gradients, shadows, or blur. Sections: empirical summary with a latency
-  scale that shows the 3.84 ms maximum, architecture schematic, trace
+  gradients, shadows, or blur. Sections: empirical summary, architecture
+  schematic, trace
   inspector, reproduce, scope and non-goals, and a schedule of deliverables
   with hashed sample artifacts.
 - `examples/record_site_traces.py` records the six inspector traces against
@@ -646,12 +635,10 @@ No gateway code changes. Predicate D (`dynamic_ingression_validator.py`,
 ## [Unreleased] - docs, site, and offer sync (25 October 2026)
 
 - README: sprint-submission callout near the top (report, slides, JSON,
-  reproduction command, headline figures with the 3.84 ms max and the scope
-  note). Gateway count 240 -> **262** (244 before the sprint: 240 for v10
-  plus 4 HTTP resource-limit tests; then 11 `evaluate-collusion` and 7
-  sprint-artifact tests). agent-watch: 514 collected, 512 passed, 2 skipped.
-- Site (`site/`): metrics bar synced (262 gateway, 784 passing in all,
-  57/57, p50 0.126 ms / p99 0.999 ms, 0 of 750 benign denials), a "Verify in
+  reproduction command, and the scope note). Earlier suite totals and
+  decision-time figures are not quoted.
+- Site (`site/`): metrics bar synced (57/57 carrier checks, 0 of 750 benign
+  denials), a "Verify in
   30 seconds" box, deliverable-backed tier names, sample-deliverable links,
   and two v10 simulator presets (confused-deputy delegation; obfuscated
   canary exfiltration). Copies of the sprint report, slides, and JSON are in
@@ -667,7 +654,7 @@ No gateway code changes. Predicate D (`dynamic_ingression_validator.py`,
   evaluate-collusion [--report OUT_DIR] [--iterations N]`: aggregates the
   existing side-channel (A), delegation (B), and de-obfuscation / canary (C)
   defence tests by group from pytest JUnit XML, times benign `evaluate_call`
-  decisions (CPU p50 / p95 / p99 against a 2 ms reference), and verifies a
+  decisions, and verifies a
   hash-chained benign decision log including edit and drop detection. Writes
   `collusion_benchmark_results.json`, `collusion_sprint_report.md`, and
   `collusion_sprint_report.pdf`, a 6-slide `collusion_sprint_slides.pdf`, and
@@ -695,7 +682,8 @@ No gateway code changes. Predicate D (`dynamic_ingression_validator.py`,
 - Offer page, README, and site pricing now show the Tool Inventory Review
   ($1,800), Fixed Note ($4,500), Note + Lab Instrumentation ($6,500), and
   the add-ons. The marketing drafts (`outreach-sequence.md`, `ciso-outreach.md`,
-  `marketing/README.md`, `la-targets.md`) were aligned to the same tiers.
+  `marketing/README.md`) were aligned to the same tiers. The company list was
+  later removed from the tree.
   `show-hn.md`, `reddit-localllama.md`, and the checklist quote no prices
   and are unchanged.
 - README: "What this is not" box, boundary replay command, and a "Known

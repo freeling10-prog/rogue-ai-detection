@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AgentGate — Technical Report &amp; Reference Implementation</title>
-<meta name="description" content="A loopback policy enforcement point for AI agent tool calls. Deterministic inline checks against three multi-agent collusion carriers, with no model calls on the decision path. 57/57 carrier checks. The test suite currently passes 1,277 tests (with 6 skipped). Same-author lab results stated with their limits.">
+<meta name="description" content="A loopback policy enforcement point for AI agent tool calls. Deterministic inline checks against three multi-agent collusion carriers, with no model calls on the decision path. 57/57 carrier checks. The test suite currently passes 1,418 tests (with 0 skipped). Same-author lab results stated with their limits.">
 <meta name="color-scheme" content="light">
 <meta property="og:title" content="AgentGate — Deterministic Guardrails Against Multi-Agent Collusion Carriers">
-<meta property="og:description" content="Technical report and reference implementation. 57/57 collusion carrier checks. The test suite currently passes 1,277 tests (with 6 skipped). Same-author lab checks, not a benchmark.">
+<meta property="og:description" content="Technical report and reference implementation. 57/57 collusion carrier checks. The test suite currently passes 1,418 tests (with 0 skipped). Same-author lab checks, not a benchmark.">
 <meta property="og:type" content="article">
 <link rel="icon" href="favicon.svg">
 <link rel="preload" href="fonts/newsreader-var.woff2" as="font" type="font/woff2" crossorigin>
@@ -56,7 +56,7 @@
     <div class="abstract">
       <h2>Abstract</h2>
       <div>
-        <p>Agents that share tools can leak through which argument they pick and when they call, can launder a restricted capability by handing work to a clean peer, and can move a protected value in small or re-encoded pieces. AgentGate bounds the first with a post-taint side-channel guard, defeats the second with monotonic chained-HMAC capability attenuation across delegation, and catches the third with salted n-gram fingerprints over decoded forms plus zero-width canary watermarks. In the recorded run the repository&rsquo;s carrier tests passed 57 of 57. These are same-author lab checks, stated with their limits in &sect;5. The test suite currently passes 1,277 tests (with 6 skipped).</p>
+        <p>Agents that share tools can leak through which argument they pick and when they call, can launder a restricted capability by handing work to a clean peer, and can move a protected value in small or re-encoded pieces. AgentGate bounds the first with a post-taint side-channel guard, defeats the second with monotonic chained-HMAC capability attenuation across delegation, and catches the third with salted n-gram fingerprints over decoded forms plus zero-width canary watermarks. In the recorded run the repository&rsquo;s carrier tests passed 57 of 57. These are same-author lab checks, stated with their limits in &sect;5. The test suite currently passes 1,418 tests (with 0 skipped).</p>
       </div>
     </div>
   </div>
@@ -79,19 +79,19 @@
           <tr class="sep"><td>Collusion carrier checks</td><td class="num">57&#8239;/&#8239;57</td><td>A side-channel 8/8 · B delegation 8/8 · C de-obfuscation &amp; canary 41/41.</td></tr>
           <tr><td>Stateful Hypothesis machines</td><td class="num">5</td><td>Including the delegation DAG machine, 120 examples × 24 steps.</td></tr>
           <tr><td>ATLAS falsification suite</td><td class="num">7&#8239;/&#8239;7</td><td>Mappings approximate.</td></tr>
-          <tr class="sep"><td>Gateway tests</td><td class="num">1,277</td><td>The test suite currently passes 1,277 tests (with 6 skipped).</td></tr>
+          <tr class="sep"><td>Gateway tests</td><td class="num">1,418</td><td>The test suite currently passes 1,418 tests (with 0 skipped).</td></tr>
           <tr class="sep"><td>Real-model loopback observation</td><td class="num">2 of 13</td><td><strong>Separate measurement.</strong> <code>qwen2.5:3b</code> against the localhost honeypot, non-control runs, one machine. Never pooled with the rows above.</td></tr>
         </tbody>
       </table>
       </div>
 
       <h3 style="font-size:20px;margin:30px 0 6px" id="post-sprint">Post-sprint: the v14 tree</h3>
-      <p class="note">The rows above and the sample artifacts [S1]&ndash;[S3] are the frozen 25 October sprint snapshot at <code>cefec0d</code>. They are not a current suite size. Later guards are reported apart from the 57/57 carrier checks. The test suite currently passes 1,277 tests (with 6 skipped).</p>
+      <p class="note">The rows above and the sample artifacts [S1]&ndash;[S3] are the frozen 25 October sprint snapshot at <code>cefec0d</code>. They are not a current suite size. Later guards are reported apart from the 57/57 carrier checks. The test suite currently passes 1,418 tests (with 0 skipped).</p>
       <div class="tbl-scroll">
       <table class="tbl" id="post-sprint-table">
         <thead><tr><th>Measure, v14 tree</th><th class="num">Value</th><th>Note</th></tr></thead>
         <tbody>
-          <tr><td>Gateway tests passing</td><td class="num">1,277</td><td>The test suite currently passes 1,277 tests (with 6 skipped).</td></tr>
+          <tr><td>Gateway tests passing</td><td class="num">1,418</td><td>The test suite currently passes 1,418 tests (with 0 skipped).</td></tr>
           <tr><td>Group D, v11 guards</td><td class="num">124&#8239;/&#8239;124</td><td>Six test files; reported separately from A&nbsp;/&nbsp;B&nbsp;/&nbsp;C.</td></tr>
           <tr><td>Stateful property tests</td><td class="num">—</td><td>Property-based tests find counterexamples inside the cases they generate. Machine counts from older trees are not quoted.</td></tr>
           <tr><td>Modules behind <code>pep.py</code></td><td class="num">51</td><td>22 at the snapshot; 26 after v11; 29 with v11.1 and the PHP Defense Guard; 33 after v12; 36 after v12.1; 41 after v12.2; one more for each of v12.3 to v12.8; 51 with v14.</td></tr>

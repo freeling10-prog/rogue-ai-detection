@@ -55,7 +55,7 @@ RULES: dict[str, tuple[str, str, tuple[str, ...], str]] = {
     "arg_firewall_violation": ("error", "Argument firewall", ("AML.T0051", "AML.T0053"),
                                "A tool argument attempted path, command, header, or query escalation."),
     "schema_drift_denied": ("error", "MCP schema digest drift", ("AML.T0051",),
-                            "A pinned tool schema's SHA-256 digest changed without a signed manifest update."),
+                            "A pinned tool schema's SHA-256 digest changed without an HMAC-SHA256 sealed manifest update."),
     "tool_shadowing_denied": ("error", "MCP tool-name collision", ("AML.T0051",),
                               "A second server registered a tool name within one edit of a pinned tool."),
     "gui_region_denied": ("error", "GUI reserved-region action", ("AML.T0053",),

@@ -4,6 +4,14 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
+## [Unreleased] - vendor-risk proof packet (13 November 2026)
+
+- `agent_gateway/vendor_risk_proof.py`: `VendorRiskProofGenerator` takes an MCP configuration (servers and tool definitions), an optional approved-pin baseline and an optional decision log, and writes `vendor_risk_attestation.json` and `vendor_risk_report.html`. It reuses `schema_integrity_guard` (pins, HMAC-SHA256 sealed updates, name collisions), `toxic_combinations` (exposure matrix and paths), `egress_uri_guard` (server endpoints), `mcp_blueprint` (mutation verbs, read-only SQL templates), `capability_token`, `audit_chain` and `sarif_export`. Standard library only.
+- The JSON carries the facts, a SARIF 2.1.0 run, SHA-256 digests of both and an HMAC-SHA256 seal over the digests. The seal can be checked only by a holder of the issuer key; both outputs say so. It is keyed integrity, not a public-key signature. The page has inline CSS, no script and no external resource.
+- A guard is reported as declared, as seen in a log that verifies, or both. Events from a log that does not verify are not counted. Neither output shows that a guard is running in production, and neither is a certification.
+- `python3 -m agent_gateway.vendor_risk_proof --demo --out-dir docs/` writes `docs/sample_proof_packet.html` and `docs/sample_attestation.json` for a fictional vendor, HMAC-SHA256 sealed with a published demo key and marked as a sample. `--verify FILE` recomputes the digests and, with the key, the seal.
+- Tests: `tests/test_vendor_risk_proof.py` (45, plain `unittest`, also collected by pytest).
+
 ## [Unreleased] - P3 coalition witness, log-only calibration, agw2 token scaffold (13 November 2026)
 
 - `tests/test_p3_e2.py`, E2-C: two linked sessions with one 80 qb event each are under the 128 qb default alone and 160 qb together, and the second is held with `P3_BUDGET_EXHAUSTED`. An enumeration over every schedule of 5 events (two members) and 4 events (three members) compares each admission with one shared integer counter. Both run on the merge path and the adopt path. Checked by bounded enumeration within those bounds.

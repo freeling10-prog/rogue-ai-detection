@@ -14,8 +14,8 @@ What it computes, and from which module:
 
 1. Schema pins (``schema_integrity_guard``): SHA-256 of every tool's pinned
    fields, compared with the approved baseline. A changed digest is drift (a
-   rug pull or an unapproved change) unless a signed manifest entry covers
-   the new digest. A second digest covers the whole descriptor, so a change
+   rug pull or an unapproved change) unless an HMAC-SHA256 sealed manifest
+   entry covers the new digest. A second digest covers the whole descriptor, so a change
    to ``annotations``, ``outputSchema`` or ``title`` is reported too.
 2. Exposure (``toxic_combinations``, ``egress_uri_guard``,
    ``mcp_blueprint``): which tools supply untrusted input, sensitive data,
@@ -34,10 +34,10 @@ Limits, stated in both outputs:
   a supplied log. It does not call the tools. It is not a certification, not
   a penetration test and not a SOC 2 report.
 - A guard is "declared" when the configuration says so and "observed" when a
-  log that verifies contains its events. Nothing here proves a guard is
+  log that verifies contains its events. Nothing here shows that a guard is
   running in production.
-- The signature is an HMAC with the issuer's key. Anyone can recompute the
-  two digests. Only a holder of that key can check the signature: it is not
+- The seal is HMAC-SHA256 with the issuer's key. Anyone can recompute the
+  two digests. Only a holder of that key can check the seal: it is not
   a public-key signature and a third party cannot verify it alone.
 
 Both outputs are deterministic: the same inputs, key and ``generated_at``
@@ -72,7 +72,7 @@ ATTESTATION_NAME = "vendor_risk_attestation.json"
 REPORT_NAME = "vendor_risk_report.html"
 DEMO_ATTESTATION_NAME = "sample_attestation.json"
 DEMO_REPORT_NAME = "sample_proof_packet.html"
-# Public on purpose. A signature made with it shows the format and nothing else.
+# Public on purpose. An HMAC-SHA256 seal made with it shows the format and nothing else.
 DEMO_KEY = b"agentgate-demo-key-public-not-a-secret!!"
 DEMO_GENERATED_AT = "2026-11-13T00:00:00Z"
 _SIGN_LABEL = b"agent-gateway.vendor-risk-proof.attestation/1"
@@ -87,8 +87,8 @@ SCOPE_NOTE = (
     "The tools were not called. This is not a certification, not a penetration test and not a SOC 2 report."
 )
 SIGNATURE_NOTE = (
-    "HMAC-SHA256 with the issuer's key. Anyone can recompute the two SHA-256 digests. "
-    "Only a holder of the issuer key can check the signature; it is not a public-key signature."
+    "HMAC-SHA256 seal with the issuer's key. Anyone can recompute the two SHA-256 digests. "
+    "Only a holder of the issuer key can check the seal; it is not a public-key signature."
 )
 
 # guard id -> (label, decision-log kinds that count as evidence it ran)
@@ -560,7 +560,7 @@ class VendorRiskProofGenerator:
 
         counts = pins["counts"]
         if counts["drift"]:
-            add("SCHEMA_DRIFT", f"{counts['drift']} tool definition(s) differ from the approved digest with no signed update.")
+            add("SCHEMA_DRIFT", f"{counts['drift']} tool definition(s) differ from the approved digest with no HMAC-SHA256 sealed update.")
         if counts["metadata_drift"]:
             add("DESCRIPTOR_METADATA_DRIFT", f"{counts['metadata_drift']} tool(s) changed outside the pinned fields.")
         if pins["removed"]:
@@ -739,7 +739,7 @@ ul{margin:6px 0;padding-left:20px}
 """
 
 _STATUS_PILL = {
-    "pinned": ("ok", "matches approved"), "approved_update": ("ok", "signed update"),
+    "pinned": ("ok", "matches approved"), "approved_update": ("ok", "HMAC-SHA256 sealed"),
     "first_seen": ("muted", "first seen"), "drift": ("bad", "DRIFT"), "metadata_drift": ("warn", "metadata changed"),
     "declared_and_observed": ("ok", "declared, seen in log"), "declared": ("warn", "declared, not seen in log"),
     "observed_only": ("warn", "seen in log, not declared"), "not_declared": ("muted", "not declared"),
@@ -776,7 +776,7 @@ def render_html(doc: dict) -> str:
         f"<title>{_e(title)}</title>", f"<style>{_CSS}</style>", "</head>", "<body>", '<div class="page">',
     ]
     if body.get("sample"):
-        out.append('<div class="sample">SAMPLE. Fictional vendor and data, signed with a public demo key. '
+        out.append('<div class="sample">SAMPLE. Fictional vendor and data, HMAC-SHA256 sealed with a published demo key. '
                    "Not evidence about any real system.</div>")
     out += [
         "<h1>AI &amp; MCP Vendor-Risk Proof</h1>",
@@ -808,7 +808,7 @@ def render_html(doc: dict) -> str:
 
     out.append("<h2>1. Tool schema pins</h2>")
     out.append("<p>SHA-256 over each tool's name, description and input schema, compared with the approved digest. "
-               "A changed digest with no signed update is a rug pull or an unapproved change."
+               "A changed digest with no HMAC-SHA256 sealed update is a rug pull or an unapproved change."
                + ("" if pins["baseline_supplied"] else " No approved baseline was supplied, so every tool is a first observation.")
                + "</p>")
     out.append(_table(
@@ -851,7 +851,7 @@ def render_html(doc: dict) -> str:
         out.append(f"<p>Showing {_e(exp['paths_listed'])} of {_e(totals['toxic'] + totals['protected'])} paths, most severe first.</p>")
     out.append("<h3>Guard status</h3>")
     out.append("<p>Declared means the configuration says the guard is on. Seen in log means a decision log that "
-               "verifies contains its events. Neither proves the guard is running in production.</p>")
+               "verifies contains its events. Neither shows that the guard is running in production.</p>")
     out.append(_table(["Guard", "Status", "Log events"],
                       [[_e(g["label"]), _pill(*_STATUS_PILL[g["status"]]), _e(g["log_events"])] for g in exp["guards"]],
                       "No guards."))
@@ -912,7 +912,7 @@ def render_html(doc: dict) -> str:
     out.append(_table(["Field", "Value"], [
         ["Body SHA-256", f'<code>{_e(att["body_sha256"])}</code>'],
         ["SARIF SHA-256", f'<code>{_e(att["sarif_sha256"])}</code>'],
-        ["Signature", f'<code>{_e(att["signature"])}</code>'],
+        ["HMAC-SHA256 seal", f'<code>{_e(att["signature"])}</code>'],
         ["Algorithm, key id", f'{_e(att["algorithm"])}, <code>{_e(att["key_id"])}</code>'],
         ["SARIF results", _e(body["sarif_summary"]["results"])],
     ], ""))

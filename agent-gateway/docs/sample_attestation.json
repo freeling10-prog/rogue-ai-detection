@@ -1,12 +1,12 @@
 {
   "attestation": {
     "algorithm": "HMAC-SHA256",
-    "body_sha256": "d85031c8276ac14d7e440e7c2b6b7bf8be4763ac02a081bb756406fea4ee8769",
+    "body_sha256": "958339370049f34ec2c9180a5ce1a0be085a0fb90f811cb8e37f0661981a1843",
     "canonicalization": "JSON, keys sorted, no whitespace, UTF-8",
     "key_id": "e1f912221b17e233",
-    "note": "HMAC-SHA256 with the issuer's key. Anyone can recompute the two SHA-256 digests. Only a holder of the issuer key can check the signature; it is not a public-key signature.",
-    "sarif_sha256": "248844504af10a43cde44639195133656e98d4a147e8d7e6df5b04759a4c8520",
-    "signature": "31779c9f6522aa7a8f961dbeca4d3095c412683080c8eb8edc50fd137ed3b93c"
+    "note": "HMAC-SHA256 seal with the issuer's key. Anyone can recompute the two SHA-256 digests. Only a holder of the issuer key can check the seal; it is not a public-key signature.",
+    "sarif_sha256": "61f61771e7f6ccb263eabaee8c497b6d939a8663ce7501f30724e1c4144b5b12",
+    "signature": "c0d2f70ea69def3388e0c861a52c6f1b87a95b98f3dc1fb3ed44f37d959baf5f"
   },
   "body": {
     "audit_chain": {
@@ -793,7 +793,7 @@
       "attention": [
         {
           "code": "SCHEMA_DRIFT",
-          "detail": "1 tool definition(s) differ from the approved digest with no signed update."
+          "detail": "1 tool definition(s) differ from the approved digest with no HMAC-SHA256 sealed update."
         },
         {
           "code": "TOXIC_PATHS_WITHOUT_BOUNDARY",
@@ -1415,7 +1415,7 @@
                   "level": "error"
                 },
                 "fullDescription": {
-                  "text": "A pinned tool schema's SHA-256 digest changed without a signed manifest update."
+                  "text": "A pinned tool schema's SHA-256 digest changed without an HMAC-SHA256 sealed manifest update."
                 },
                 "helpUri": "https://github.com/freeling10-prog/rogue-ai-detection",
                 "id": "schema_drift_denied",

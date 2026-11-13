@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AgentGate — MCP Security Gateway</title>
-<meta name="description" content="AgentGate sits between LLM agents and production tools. Enforce 2-hop toxic-combination blocks, workspace guards, and a P3 quarter-bit leakage budget, checked by bounded enumeration. Stdlib-only Python. $149 MCP Quick Check, 48-hour turnaround.">
+<title>AgentGate — AI &amp; MCP Vendor-Risk Layer</title>
+<meta name="description" content="Vanta and Drata show your static cloud config is SOC 2 compliant. AgentGate checks, by bounded enumeration, that your AI agents and MCP tools can't go rogue at runtime.">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#07090d">
 <meta name="author" content="Alec F.">
 <link rel="canonical" href="https://room23.net/">
 <meta property="og:type" content="website">
-<meta property="og:title" content="AgentGate — Enforce Hard Security Boundaries on MCP Tool Calls">
-<meta property="og:description" content="2-hop toxic-combination blocks, workspace guards, and a P3 bit-level session leakage budget. Checked by bounded enumeration. Zero third-party PyPI dependencies.">
+<meta property="og:title" content="AgentGate — AI &amp; MCP Vendor-Risk Layer">
+<meta property="og:description" content="Vanta and Drata show your static cloud config is SOC 2 compliant. AgentGate checks, by bounded enumeration, that your AI agents and MCP tools can't go rogue at runtime.">
 <meta property="og:url" content="https://room23.net/">
 <meta property="og:image" content="https://room23.net/og-image.png">
 <meta property="og:image:width" content="1200">
@@ -29,6 +29,7 @@
   <div class="wrap bar">
     <a class="brand" href="#top">Agent<span>Gate</span></a>
     <nav aria-label="Sections">
+      <a href="#compare">Compare</a>
       <a href="#smithery">Smithery</a>
       <a href="#budget">P3 budget</a>
       <a href="#pricing">Pricing</a>
@@ -44,6 +45,7 @@
       <div>
         <p class="badge">Stdlib-Only Python MCP Security Gateway • Room 23 Research</p>
         <h1>Enforce Hard Security Boundaries on MCP Tool Calls Before Production Data Leaks.</h1>
+        <p class="hook">Vanta and Drata show your static cloud config is SOC 2 compliant. AgentGate checks, by bounded enumeration, that your AI agents and MCP tools can't go rogue at runtime.</p>
         <p class="sub">AgentGate sits between your LLM agents and production tools. Enforce 2-hop toxic-combination blocks, workspace guards, and P3 bit-level session leakage budgets—checked by bounded enumeration with zero third-party PyPI dependencies.</p>
         <div class="cta-row">
           <a class="btn" href="mailto:alec@room23.net?subject=MCP%20Quick%20Check%20%24149%20%E2%80%94%2048-hr%20turnaround&amp;body=Tier%3A%20%24149%20MCP%20Quick%20Check%20%2848-hr%20turnaround%29%0AName%3A%0ARole%3A%0AOrganization%3A%0AMCP%20servers%20in%20scope%20%28count%29%3A%0AManifests%20and%20schemas%20attached%2C%20secrets%20removed%20%28yes/no%29%3A%0AWhat%20those%20servers%20can%20read%2C%20write%2C%20and%20send%3A">Get a $149 MCP Quick Check (48-Hr Turnaround)</a>
@@ -67,6 +69,49 @@
       </div>
     </div>
   </div>
+
+  <section id="compare" aria-labelledby="compare-h">
+    <div class="wrap">
+      <h2 id="compare-h">Static SOC 2, and the runtime AI &amp; MCP vendor-risk layer</h2>
+      <p class="lede">They sit side by side. One reviews the cloud estate and the written program. The other checks AI agent and MCP tool calls while they run.</p>
+      <div class="compare">
+        <article class="col col-static">
+          <p class="kicker">Static SOC 2</p>
+          <h3>Vanta / Drata</h3>
+          <p>Static and configuration compliance: the cloud settings, the identity controls, and the policy set.</p>
+          <ul>
+            <li>AWS and cloud configuration, such as S3 encryption.</li>
+            <li>Employee 2FA.</li>
+            <li>Policy documents.</li>
+            <li>Not designed to inspect runtime prompt injection, MCP schema rug-pulls, or rogue tool calls.</li>
+            <li>Not designed for runtime MCP tool-call enforcement.</li>
+          </ul>
+        </article>
+        <article class="col col-runtime">
+          <p class="kicker">Runtime AI &amp; MCP vendor-risk layer</p>
+          <h3>AgentGate</h3>
+          <p>Checks on the tool-call path. Checked by bounded enumeration.</p>
+          <ul>
+            <li>SHA-256 pins on each MCP tool’s name, description, and input schema. A listing that changes a pin is denied. A schema-integrity or rug-pull update is accepted only with an HMAC made from the gateway key.</li>
+            <li>Tamper-evident SHA-256 hash-chained decision log. Editing, dropping, or reordering a line breaks the chain. An HMAC-SHA256 audit manifest covers the report files.</li>
+            <li>Argument guard for paths, shell text, and mutating queries. Egress URI guard for internal and cloud-metadata targets, with no DNS lookup. Workspace mutation checks on creates, deletes, and renames.</li>
+            <li>Static 2-hop and 3-hop toxic tool combinations: an untrusted read, then a sensitive or internal read, then a sink. A runtime hold on the lethal trifecta when a tainted or egress-closed session has read sensitive data and then places parameters on an external boundary.</li>
+            <li>HMAC capability tokens (agw1 and agw2). Caveats only narrow what the holder may call.</li>
+            <li>P3 leakage budget, an integer count of quarter-bits, one ledger for a coalition of sessions.</li>
+            <li>HTML audit-report export and OASIS SARIF 2.1.0 export.</li>
+          </ul>
+        </article>
+      </div>
+      <p class="trademark">Vanta and Drata are trademarks of their owners. AgentGate is not affiliated with Vanta or Drata.</p>
+      <!-- TODO: sample_proof_packet.html is not on main. After the generator PR merges, copy that file into site/ and uncomment:
+      <a class="btn" href="sample_proof_packet.html">Inspect Sample CISO Proof Packet</a>
+      -->
+      <div class="cta-row compare-cta">
+        <a class="btn" href="mailto:alec@room23.net">Book via alec@room23.net</a>
+        <a class="btn btn-quiet" href="./demo/#traces">Try Live Trace Inspector</a>
+      </div>
+    </div>
+  </section>
 
   <section id="smithery" aria-labelledby="smithery-h">
     <div class="wrap">
@@ -108,10 +153,15 @@
     <div class="wrap">
       <h2 id="pricing-h">Pricing</h2>
       <p class="lede">Fixed fees from Alec F., an independent AI security researcher. Each card emails <a href="mailto:alec@room23.net">alec@room23.net</a> with an intake template, or copies that template to the clipboard.</p>
-      <div class="ladder">
+
+      <div class="stage-block" id="deal-unblockers">
+        <p class="kicker">Stage 1</p>
+        <h3>Fixed-Price Deal Unblockers</h3>
+        <p class="lede">Deliver an AI &amp; MCP vendor-risk evidence packet to your enterprise buyer's security team in 48 hours.</p>
+        <div class="ladder">
         <article class="tier" id="quick-check">
           <p class="kicker">01 · 48-hr turnaround</p>
-          <h3>MCP Quick Check</h3>
+          <h4>MCP Quick Check</h4>
           <p class="price">$149</p>
           <ul>
             <li>Review of MCP server manifests and schemas.</li>
@@ -126,7 +176,7 @@
 
         <article class="tier" id="starter-build">
           <p class="kicker">02 · 48-hr drop-in gateway</p>
-          <h3>Starter Build</h3>
+          <h4>Starter Build</h4>
           <p class="price">$450</p>
           <ul>
             <li>The payment split is quoted at kickoff.</li>
@@ -142,7 +192,7 @@
 
         <article class="tier" id="hardened-build">
           <p class="kicker">03 · 48-hr drop-in gateway</p>
-          <h3>Hardened Build</h3>
+          <h4>Hardened Build</h4>
           <p class="price">$750</p>
           <ul>
             <li>$350 at kickoff, $400 on acceptance.</li>
@@ -158,7 +208,7 @@
 
         <article class="tier" id="security-review">
           <p class="kicker">04 · review and drop-in</p>
-          <h3>Security Review &amp; Custom Drop-In</h3>
+          <h4>Security Review &amp; Custom Drop-In</h4>
           <p class="price">$950–$1,500</p>
           <ul>
             <li>Multi-session coalition policy design.</li>
@@ -170,13 +220,21 @@
             <button type="button" class="btn btn-quiet" data-tier="review">Copy alec@room23.net + Request Template</button>
           </div>
         </article>
+        </div>
+      </div>
 
+      <div class="stage-block" id="continuous">
+        <p class="kicker">Stage 2</p>
+        <h3>Continuous Attestation</h3>
+        <p class="lede">Boundary Watch, $395/mo. Continuous CI/CD MCP schema-drift and vendor-risk checks.</p>
+        <div class="ladder">
         <article class="tier" id="boundary-watch">
           <p class="kicker">05 · monthly</p>
-          <h3>Boundary Watch</h3>
+          <h4>Boundary Watch</h4>
           <p class="price">$395<small>/mo</small></p>
           <ul>
-            <li>Schema-drift monitoring.</li>
+            <li>Continuous CI/CD checks for MCP schema drift.</li>
+            <li>Vendor-risk checks on the watched schemas.</li>
             <li>Monthly P3 re-calibration.</li>
           </ul>
           <div class="actions">
@@ -184,10 +242,15 @@
             <button type="button" class="btn btn-quiet" data-tier="watch">Copy alec@room23.net + Request Template</button>
           </div>
         </article>
+        </div>
+      </div>
 
+      <div class="stage-block" id="also-available">
+        <p class="kicker">Also available</p>
+        <div class="ladder">
         <article class="tier" id="flagship-audit">
           <p class="kicker">06 · flagship</p>
-          <h3>Flagship Architecture Audit</h3>
+          <h4>Flagship Architecture Audit</h4>
           <p class="price">$4,500–$6,500</p>
           <ul>
             <li>Full red-team assessment.</li>
@@ -197,6 +260,7 @@
             <button type="button" class="btn btn-quiet" data-tier="flagship">Copy alec@room23.net + Request Template</button>
           </div>
         </article>
+        </div>
       </div>
       <p class="fine">The reference gateway stays Apache-2.0. <a href="./demo/#traces">Trace inspector</a> replays recorded decisions in the browser, including taint and the 15-minute lab-key freeze.</p>
     </div>
@@ -210,6 +274,7 @@
       <li><a href="mailto:alec@room23.net">alec@room23.net</a></li>
       <li><a href="https://github.com/freeling10-prog/rogue-ai-detection">github.com/freeling10-prog/rogue-ai-detection</a></li>
       <li>Apache-2.0</li>
+      <li>Vanta and Drata are trademarks of their owners. AgentGate is not affiliated with Vanta or Drata.</li>
     </ul>
   </div>
 </footer>

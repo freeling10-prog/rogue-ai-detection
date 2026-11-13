@@ -113,6 +113,14 @@ h1 {
   max-width: 18ch;
   margin-bottom: 1rem;
 }
+.hook {
+  max-width: 62ch;
+  margin: 0 0 0.85rem;
+  color: var(--ink);
+  font-size: clamp(1.08rem, 2.1vw, 1.28rem);
+  font-weight: 560;
+  line-height: 1.4;
+}
 .sub {
   max-width: 62ch;
   color: var(--muted);
@@ -204,7 +212,7 @@ h2 { font-size: clamp(1.45rem, 3vw, 2rem); margin-bottom: 0.75rem; }
   background: #14110c;
   padding: 1.15rem 1.2rem 1.25rem;
 }
-.callout .kicker, .spec .kicker, .tier .kicker {
+.callout .kicker, .spec .kicker, .tier .kicker, .col .kicker, .stage-block > .kicker {
   font-family: var(--mono);
   font-size: 0.72rem;
   letter-spacing: 0.08em;
@@ -253,6 +261,48 @@ h2 { font-size: clamp(1.45rem, 3vw, 2rem); margin-bottom: 0.75rem; }
   font-size: 0.68rem;
 }
 
+.compare {
+  display: grid;
+  gap: 12px;
+}
+.col {
+  min-width: 0;
+  padding: 1.15rem 1.15rem 0.6rem;
+  border: 1px solid var(--line);
+}
+.col h3 {
+  font-size: clamp(1.25rem, 2.4vw, 1.55rem);
+  margin-bottom: 0.55rem;
+}
+.col > p { margin-bottom: 0.85rem; }
+.col ul { margin: 0; padding-left: 1.15rem; }
+.col li { margin: 0 0 0.6rem; }
+.col-static {
+  background: #0c1118;
+  color: var(--ink);
+}
+.col-static .kicker { color: var(--muted); }
+.col-runtime {
+  background: #f6f3ea;
+  color: #14181f;
+  border: 2px solid var(--amber);
+}
+.col-runtime .kicker { color: #6d4708; }
+.trademark {
+  margin-top: 0.9rem;
+  max-width: 72ch;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+.compare-cta { margin-top: 1.1rem; }
+
+.stage-block { margin-top: 1.85rem; }
+.stage-block > h3 {
+  font-size: clamp(1.2rem, 2.4vw, 1.5rem);
+  margin-bottom: 0.45rem;
+}
+.stage-block > .lede { margin-bottom: 0.95rem; }
+
 .ladder {
   display: grid;
   gap: 12px;
@@ -265,7 +315,7 @@ h2 { font-size: clamp(1.45rem, 3vw, 2rem); margin-bottom: 0.75rem; }
   background: var(--bg-raise);
   padding: 1rem 1rem 1.05rem;
 }
-.tier h3 { font-size: 1.15rem; margin-bottom: 0.35rem; }
+.tier h3, .tier h4 { font-size: 1.15rem; font-weight: 620; letter-spacing: -0.02em; line-height: 1.12; margin: 0 0 0.35rem; }
 .price {
   font-family: var(--mono);
   font-weight: 500;
@@ -320,9 +370,7 @@ footer ul {
 @media (min-width: 52rem) {
   .hero { padding: 3.4rem 0 2.2rem; }
   .hero-grid { grid-template-columns: 1.15fr 0.85fr; align-items: end; gap: 2rem; }
+  .compare { grid-template-columns: 1fr 1fr; align-items: stretch; }
   .ladder { grid-template-columns: 1fr 1fr; }
   section { padding: 3rem 0; }
-}
-@media (min-width: 70rem) {
-  .ladder { grid-template-columns: 1fr 1fr 1fr; }
 }

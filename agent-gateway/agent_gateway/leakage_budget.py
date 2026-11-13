@@ -420,6 +420,8 @@ class Pending:
     approved: bool
     destination: str
     sink_key: str
+    # "typed" (field codes), "raw" (DEFLATE length) or "none" (not charged).
+    content_coder: str = "none"
 
 
 @dataclass(slots=True)
@@ -898,9 +900,11 @@ class LeakageLedger:
             selection_qb = qb_choice(len(coalition.manifest.eligible))
         chosen = schema if schema is not None else coalition.schemas.get(tool)
         content_qb = None
+        content_coder = "typed"
         if manifest_hit and chosen is not None and arguments is not None:
             content_qb = typed_cost(chosen, arguments, coalition.zdict)
         if content_qb is None:
+            content_coder = "raw"
             if manifest_hit:
                 raw = payload
             elif fold_names:
@@ -917,7 +921,7 @@ class LeakageLedger:
             cid=coalition.cid, event_id=event_id, charge_qb=charge, continuation_qb=CONTINUATION_QB,
             gap_qb=gap_qb, gap=gap, member_qb=member_qb, selection_qb=selection_qb,
             content_qb=content_qb, spent_qb=spent, budget_qb=budget, approved=approved,
-            release_slot=release, mode=coalition.mode,
+            release_slot=release, mode=coalition.mode, content_coder=content_coder,
         )
         would_hold = (not approved) and spent + charge > budget
         self._record("P3_CHARGE", **components, would_hold=would_hold)
@@ -938,6 +942,7 @@ class LeakageLedger:
             event_id=event_id, member=session_id, charge_qb=charge, gap_qb=gap_qb, gap=gap,
             member_qb=member_qb, selection_qb=selection_qb, content_qb=content_qb,
             release_slot=release, approved=approved, destination=destination, sink_key=sink_key,
+            content_coder=content_coder,
         )
         coalition.pending = pending
         coalition.shadow_slot = release
@@ -1007,7 +1012,8 @@ class LeakageLedger:
                     member_hash=_member_hash(pending.member), release_slot=release, gap=gap,
                     continuation_qb=CONTINUATION_QB if coalition.charging or charge else 0,
                     gap_qb=gap_qb, member_qb=pending.member_qb, selection_qb=pending.selection_qb,
-                    content_qb=pending.content_qb, charge_qb=charge,
+                    content_qb=pending.content_qb, content_coder=pending.content_coder,
+                    charge_qb=charge,
                     spent_qb=coalition.spent_qb, overdraft_qb=coalition.overdraft_qb,
                     approved=pending.approved, release_at_ms=release_at,
                 )

@@ -21,6 +21,11 @@ flags ``covert_side_channel_suspected`` when any of these holds:
   variation at or below ``beacon_max_cv`` (a regular rhythm, not a burst).
   Irregular gaps are not counted by this rule.
 
+Regular-rhythm timing beacons are flagged; irregular timing channels are not
+yet bounded. Once P3 (``leakage_budget.py``) is attached and charging, its
+slot code charges the gap between released slots; timing inside a slot, and
+a transport that forwards before ``release_at_ms``, stay outside both.
+
 A call a person released with a bound one-time OOB token is not counted.
 On a signal the PEP denies the call, holds the session for review, and
 freezes the registered root key for 15 minutes.

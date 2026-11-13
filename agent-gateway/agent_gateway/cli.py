@@ -1,4 +1,4 @@
-"""CLI: python -m agent_gateway serve|approve|audit|verify|evaluate-collusion|health-check
+"""CLI: python -m agent_gateway serve|approve|audit|verify|evaluate-collusion|p3-calibrate|health-check
 
 ``audit`` reads an agentwatch-analyzer output directory and writes an executive
 HTML report plus a pure-Python text PDF, a scrubbed ``findings.json``, an
@@ -12,6 +12,11 @@ decision-log hash chain. It is offline too.
 times benign policy decisions, verifies a hash-chained benign decision log,
 and with ``--report <dir>`` writes the sprint JSON, Markdown, and PDF. It
 does not bind a port.
+
+``p3-calibrate`` replays a JSONL trace of benign tool calls through the P3
+leakage ledger in log-only mode and prints quarter-bit spend per session and
+per coalition, the split over the cost components, and a budget with a
+margin. It reads one file, holds nothing, and needs no HMAC key.
 """
 from __future__ import annotations
 
@@ -105,6 +110,26 @@ def main(argv: list[str] | None = None) -> int:
                          "collusion_sprint_report.pdf to OUT_DIR (default: current directory)")
     ev.add_argument("--iterations", type=int, default=50, help="Benign workflow repetitions for latency")
 
+    cal = sub.add_parser(
+        "p3-calibrate",
+        help="Replay a benign JSONL trace through the P3 ledger in log-only mode and size the budget",
+    )
+    cal.add_argument("trace", type=Path, help="JSONL trace of tool calls (see agent_gateway/p3_calibrate.py)")
+    cal.add_argument("--manifest", type=Path, default=None,
+                     help="JSON with eligible (destination, tool) rows, typed schemas and zdict_hex")
+    cal.add_argument("--budget-qb", type=int, default=128, help="Candidate budget in quarter bits (default 128)")
+    cal.add_argument("--slot-ms", type=int, default=1000, help="Slot length in milliseconds (default 1000)")
+    cal.add_argument("--margin-pct", type=int, default=25,
+                     help="Safety margin added to the basis, in percent (default 25)")
+    cal.add_argument("--basis", choices=("peak", "p95"), default="peak",
+                     help="Per-coalition figure the recommendation starts from (default peak)")
+    cal.add_argument("--charge", choices=("always", "trace"), default="always",
+                     help="always: charge from each session's first row. trace: from taint or a sensitive read")
+    cal.add_argument("--core-server", action="append", default=None, metavar="NAME",
+                     help="MCP server inside the trust boundary (repeatable; default core, internal, builtin)")
+    cal.add_argument("--show-ids", action="store_true", help="Print session ids instead of their hashes")
+    cal.add_argument("--json", action="store_true", help="Print the full summary as JSON")
+
     sub.add_parser("health-check", help="Print local health path reminder")
 
     args = p.parse_args(argv)
@@ -175,6 +200,23 @@ def main(argv: list[str] | None = None) -> int:
         res = verify_audit_dir(args.audit_dir)
         print(json.dumps(res, indent=2))
         return 0 if res["ok"] else 1
+    if args.cmd == "p3-calibrate":
+        from . import p3_calibrate
+
+        try:
+            extra = {}
+            if args.core_server:
+                extra["core_servers"] = frozenset(name.lower() for name in args.core_server)
+            cfg = p3_calibrate.CalibrationConfig(
+                budget_qb=args.budget_qb, slot_ms=args.slot_ms, margin_pct=args.margin_pct,
+                basis=args.basis, charge=args.charge, show_ids=bool(args.show_ids), **extra,
+            )
+            doc = p3_calibrate.calibrate_file(args.trace, cfg, args.manifest)
+        except (OSError, p3_calibrate.TraceError) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+        print(json.dumps(doc, indent=2) if args.json else p3_calibrate.render_text(doc), end="\n" if args.json else "")
+        return 1 if doc["rows"]["rejected"] else 0
     if args.cmd == "evaluate-collusion":
         from . import collusion_eval
 

@@ -24,7 +24,7 @@ from agent_gateway.leakage_budget import (
     List, Optional, P3Config, SelectionManifest,
 )
 from tests.p3_oracle import (
-    QbSum, deflate_len, fold_destination, fold_observable,
+    QbSum, deflate_len, event_qb, fold_destination, fold_observable,
     gamma_bits as oracle_gamma, qb_choice as oracle_choice,
 )
 from tests.p3_reference import Model
@@ -802,3 +802,295 @@ def test_sampled_beyond_the_bounds():
                                link_pair=(sessions[0], sessions[-1], rng.choice(SOURCES)))
             if err:
                 raise AssertionError(f"seed {seed} index {index}: {err}")
+
+
+# --- E2-C: coalition admission ----------------------------------------------
+#
+# E2-L drives every reserve from ``sessions[0]``, so on its own it sees a
+# coalition's members and cid but never a budget decision that depends on
+# another member's spend. E2-C emits from every member at the default budget
+# and compares each admission with one shared integer counter built from the
+# oracle. The property is checked by bounded enumeration within the bounds
+# next to each case. Nothing outside those bounds is claimed.
+
+DEFAULT_BUDGET_QB = P3Config().budget_qb
+HEAVY_N = 1 << 17  # Enum(2**17): 68 qb of content, 80 qb per event for two members
+LINK_MODES = ("attached", "adopted")
+C_TOOLS = (("t", 1 << 8), ("u", 4))  # two eligible tools, 32 qb and 8 qb of content
+
+
+def _open_coalition(members, link_mode, manifest, schemas, budget_qb=DEFAULT_BUDGET_QB):
+    """One ledger whose ``members`` were linked into one coalition.
+
+    ``attached``: every member has its own ledger entry first, then they are
+    linked (the merge path). ``adopted``: only the first member is attached
+    and the link pulls the others in (the path a root-principal auto-link
+    and a link to a not-yet-attached session take).
+    """
+    ledger = LeakageLedger()
+    cfg = P3Config(budget_qb=budget_qb)
+    first = members[0]
+    attach = members if link_mode == "attached" else members[:1]
+    for member in attach:
+        ledger.attach(member, cfg, manifest=manifest, schemas=schemas)
+        ledger.mark_charging(member, 0)
+    for other in members[1:]:
+        ledger.link(first, other, "delegation")
+    return ledger
+
+
+def coalition_witness(link_mode):
+    """Two linked sessions, one event each. Returns what the ledger did.
+
+    Under one shared budget each event costs 80 qb (20 bits): under the
+    128 qb default alone, 160 qb (40 bits) together.
+    """
+    ledger = _open_coalition(("a", "b"), link_mode, _manifest(), {"t": _schema(HEAVY_N)})
+    first = ledger.reserve("a", "ea", "s", "t", b"", 0, False, arguments={"v": 0})
+    ledger.commit("a", "ea")
+    held = None
+    try:
+        ledger.reserve("b", "eb", "s", "t", b"", 0, False, arguments={"v": 1})
+    except L.Hold as hold:
+        held = hold.detail
+    else:
+        ledger.commit("b", "eb")
+    return {"first_qb": first.charge_qb, "held": held,
+            "a": ledger.state("a"), "b": ledger.state("b")}
+
+
+def check_coalition_witness():
+    each = event_qb(gap=1, members=2, manifest_n=1,
+                    content_qb_value=oracle_choice(HEAVY_N), charge_member=True)["charge_qb"]
+    assert each == 80 and each <= DEFAULT_BUDGET_QB < 2 * each
+    for link_mode in LINK_MODES:
+        seen = coalition_witness(link_mode)
+        held = seen["held"]
+        assert held is not None, f"{link_mode}: the second member was admitted, 160 qb left on a 128 qb budget"
+        assert held["reason"] == "P3_BUDGET_EXHAUSTED", link_mode
+        assert (held["charge_qb"], held["spent_qb"], held["budget_qb"]) == (each, each, 128), link_mode
+        assert held["member_qb"] == 4 and held["content_qb"] == 68, link_mode
+        assert seen["first_qb"] == each, link_mode
+        assert seen["a"] == seen["b"], link_mode
+        assert seen["b"]["spent_qb"] == each and seen["b"]["pending"] is None, link_mode
+
+
+def enumerate_coalition_admission(members, link_mode, depth, budget_qb=DEFAULT_BUDGET_QB):
+    """Every schedule of ``depth`` events over (member, tool, tick 0/1).
+
+    After each event the ledger's decision and spend must equal one shared
+    counter: ``spent + charge <= budget`` admits, anything else is a
+    ``P3_BUDGET_EXHAUSTED`` hold that leaves no spend. Returns
+    ``(schedules, admitted, held)``.
+    """
+    manifest = SelectionManifest(tuple(("s", tool) for tool, _n in C_TOOLS))
+    schemas = {tool: FieldSchema(tool, (("v", Enum(n)),)) for tool, n in C_TOOLS}
+    content = {tool: oracle_choice(n) for tool, n in C_TOOLS}
+    ledger = _open_coalition(members, link_mode, manifest, schemas, budget_qb)
+    alphabet = [(m, tool, tick) for m in members for tool, _n in C_TOOLS for tick in (0, 1)]
+    ids = [0]
+    stats = [0, 0, 0]
+
+    def dfs(level, clock, last, spent):
+        if level == depth:
+            stats[0] += 1
+            return
+        # A session that was never merged has its own entry; restore each one.
+        shots = [(m, ledger.snapshot(m)) for m in members]
+        for member, tool, tick in alphabet:
+            now = clock + tick
+            release = max(now, last + 1)
+            charge = event_qb(gap=release - last, members=len(members), manifest_n=len(C_TOOLS),
+                              content_qb_value=content[tool], charge_member=True)["charge_qb"]
+            admit = spent + charge <= budget_qb
+            eid = f"c{ids[0]}"
+            ids[0] += 1
+            try:
+                got = ledger.reserve(member, eid, "s", tool, b"", now * 1000, False,
+                                     arguments={"v": 0})
+            except L.Hold as hold:
+                if admit or hold.reason != "P3_BUDGET_EXHAUSTED":
+                    raise AssertionError(
+                        f"{link_mode} {member}/{tool}: held with {spent}+{charge} <= {budget_qb}") from None
+                stats[2] += 1
+                after = spent
+                next_last = last
+            else:
+                if not admit:
+                    raise AssertionError(
+                        f"{link_mode} {member}/{tool}: admitted {spent}+{charge} > {budget_qb}")
+                if got.charge_qb != charge:
+                    raise AssertionError(f"{link_mode} {member}/{tool}: charge {got.charge_qb} != {charge}")
+                ledger.commit(member, eid)
+                stats[1] += 1
+                after = spent + charge
+                next_last = release
+            for who in members:
+                if ledger.state(who)["spent_qb"] != after:
+                    raise AssertionError(
+                        f"{link_mode}: {who} sees {ledger.state(who)['spent_qb']} qb, coalition spent {after}")
+            if after > budget_qb:
+                raise AssertionError(f"{link_mode}: spent {after} > {budget_qb}")
+            dfs(level + 1, now, next_last, after)
+            for who, shot in shots:
+                ledger.restore(who, shot)
+
+    dfs(0, 0, -1, 0)
+    return tuple(stats)
+
+
+# (members, depth) -> (schedules, admitted events, held events), same for both
+# link modes. Filled from the enumeration.
+E2C_PINS = {
+    (("a", "b"), 5): (32768, 6904, 30544),
+    (("a", "b", "c"), 4): (20736, 4908, 17712),
+}
+
+
+def check_coalition_enumeration():
+    for (members, depth), pin in E2C_PINS.items():
+        for link_mode in LINK_MODES:
+            assert enumerate_coalition_admission(members, link_mode, depth) == pin, (members, link_mode)
+
+
+def test_e2_c_two_members_under_budget_alone_are_held_together():
+    check_coalition_witness()
+
+
+def test_e2_c_coalition_admission_enumeration():
+    check_coalition_enumeration()
+
+
+# --- Mutants, one at a time --------------------------------------------------
+#
+# Each row is (patches, check). ``check`` raises AssertionError when its
+# property does not hold. A mutant counts as caught only when the same check
+# passes on the unmutated ledger and raises with the patches applied.
+
+def _m5_separate_adopt(self, session_id, root):
+    """M5 on the adopt path: the newcomer gets its own budget and clock."""
+    import dataclasses
+    from threading import RLock
+    like = self.coalitions[root]
+    own = dataclasses.replace(
+        like, cid=session_id, members={session_id}, spent_qb=0, overdraft_qb=0,
+        last_slot=None, pending=None, committed_ids={}, sinks={}, shadow_slot=None,
+        schemas=dict(like.schemas), lock=RLock(),
+    )
+    self.parent[session_id] = session_id
+    self.coalitions[session_id] = own
+    return like.cid
+
+
+def _m4_refund(self, coalition, pending):
+    coalition.spent_qb -= pending.charge_qb
+
+
+def _m6_take_max(self, left, right):
+    return left if left >= right else right
+
+
+def _m9_reset_budget(self, coalition, bucket, charge):
+    coalition.budget_qb += charge
+    coalition.spent_qb = 0
+
+
+def _seq_ok(*args, **kwargs):
+    err = run_sequence(*args, **kwargs)
+    assert err is None, err
+
+
+def _check_k7():
+    assert k7_holds()
+
+
+def _check_m4_abort():
+    _seq_ok(32, ("a",), ENUM4, ["taint", "reserve", "abort"])
+
+
+def _check_m4_commit():
+    _seq_ok(32, ("a",), ENUM4, ["taint", "reserve", "commit"])
+
+
+def _check_m5_transcript_bound():
+    count = count_transcripts(8, 10, ENUM4, ("a", "b"), links=(("a", "b", "delegation"),))
+    assert count == PINS["P4"]["delegation"][8]
+
+
+def _check_m6():
+    assert _two_spent_then_link(LeakageLedger()) is None
+
+
+def _check_m7():
+    _seq_ok(64, ("a",), ENUM4, ["taint", "reserve", "abort", "tick", "reserve", "commit"])
+
+
+def _check_m8():
+    _seq_ok(64, ("a",), ENUM4, ["taint", "reserve", "commit", "reserve", "commit"])
+
+
+def _check_m9():
+    _seq_ok(64, ("a",), ENUM4, ["taint", "reserve", "commit", "approve"])
+
+
+def _check_m10():
+    _seq_ok(64, ("a",), ENUM4, ["taint", "reserve", "commit"])
+
+
+def _check_m11():
+    ledger, _model = _open(16, ("a", "b"), ENUM2)
+    ledger.mark_charging("a", 0)
+    ledger.reserve("a", "e", "s", "t", b"", 0, False, arguments={"v": 0})
+    try:
+        ledger.link("a", "b", "control_plane")
+    except L.Denied as exc:
+        assert str(exc) == "P3_BUSY"
+        return
+    raise AssertionError("a merge went through while a reservation was pending")
+
+
+_LEDGER = L.LeakageLedger
+_M5_LINK = ((_LEDGER, "link_merges", False),)
+_M5_ADOPT = ((_LEDGER, "_adopt", _m5_separate_adopt),)
+MUTANTS = {
+    "M1": (((L, "CONTINUATION_QB", 0),), _check_k7),
+    "M2": (((L, "length_header_bits", lambda length: 0),), test_k3_length_header_covers_the_identity_code),
+    "M3": (((L, "gamma_bits", lambda x: x.bit_length() - 1),), test_k1_gamma_kraft_and_oracle),
+    "M4": (((_LEDGER, "_abort_effect", _m4_refund),), _check_m4_abort),
+    "M5": (_M5_LINK + _M5_ADOPT, check_coalition_witness),
+    "M6": (((_LEDGER, "_combine_spent", _m6_take_max),), _check_m6),
+    "M7": (((_LEDGER, "recompute_on_commit", False),), _check_m7),
+    "M8": (((_LEDGER, "same_slot_ok", True),), _check_m8),
+    "M9": (((_LEDGER, "_approval_effect", _m9_reset_budget),), _check_m9),
+    "M10": (((_LEDGER, "clear_charging_on_commit", True),), _check_m10),
+    "M11": (((_LEDGER, "merge_blocks_on_pending", False),), _check_m11),
+}
+# The same mutants against a second check, and the halves of M4 and M5 alone.
+MUTANT_VARIANTS = {
+    "M4-commit-does-not-add": (((_LEDGER, "commit_adds", False),), _check_m4_commit),
+    "M5-enumeration": (_M5_LINK + _M5_ADOPT, check_coalition_enumeration),
+    "M5-transcript-bound": (_M5_LINK, _check_m5_transcript_bound),
+    "M5-link-path-only": (_M5_LINK, check_coalition_witness),
+    "M5-adopt-path-only": (_M5_ADOPT, check_coalition_witness),
+}
+
+
+def test_the_mutant_table_is_m1_to_m11():
+    assert list(MUTANTS) == [f"M{i}" for i in range(1, 12)]
+
+
+@pytest.mark.parametrize("name", [*MUTANTS, *MUTANT_VARIANTS])
+def test_each_mutant_fails_its_check_and_the_real_ledger_passes(name, monkeypatch):
+    patches, check = {**MUTANTS, **MUTANT_VARIANTS}[name]
+    check()  # unmutated
+    for target, attribute, value in patches:
+        monkeypatch.setattr(target, attribute, value)
+    try:
+        check()
+    except AssertionError:
+        caught = True
+    else:
+        caught = False
+    monkeypatch.undo()
+    assert caught, f"{name} survived {check.__name__}"
+    check()  # unmutated again: the patches are gone

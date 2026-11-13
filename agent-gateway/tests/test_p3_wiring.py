@@ -257,3 +257,59 @@ def test_e_docstring_states_the_effective_ceiling():
     text = Path(E.__file__).read_text(encoding="utf-8")
     assert "effective ceiling" in text
     assert "same object" in text
+
+
+def _linked_pair(engine: PolicyEngine):
+    """Two sessions of different agents, linked, at the default 128 qb budget."""
+    from agent_gateway.leakage_budget import Constant, Enum, FieldSchema, SelectionManifest
+
+    manifest = SelectionManifest((("", "read_internal_secrets"), ("", "report_metric")))
+    schemas = {
+        "read_internal_secrets": FieldSchema("read_internal_secrets", (("unused", Constant()),)),
+        "report_metric": FieldSchema("report_metric", (("v", Enum(1 << 12)),)),
+    }
+    cfg = P3Config(link_sources=frozenset({"control_plane"}))
+    assert cfg.budget_qb == 128
+    for sid in ("pair-a", "pair-b"):
+        engine.attach_leakage_budget(sid, cfg, manifest=manifest, schemas=schemas)
+    engine.p3_link("pair-a", "pair-b", "control_plane")
+
+
+def _pair_calls(engine: PolicyEngine):
+    """A spends 80 qb in two events. B then asks for 64 qb. Returns B's result."""
+    assert engine.evaluate_call(KEY_A, "pair-a", "read_internal_secrets", {})["allowed"]
+    assert engine.evaluate_call(KEY_A, "pair-a", "report_metric", {"v": 7})["allowed"]
+    return engine.evaluate_call(KEY_B, "pair-b", "report_metric", {"v": 9})
+
+
+def test_linked_sessions_share_one_budget_and_the_second_is_held(engine: PolicyEngine):
+    """A and B are each under 32 bits alone. Together they are over, so B is held."""
+    engine._clock = lambda: 0.0
+    _linked_pair(engine)
+    held = _pair_calls(engine)
+    assert held["allowed"] is False
+    assert held["error"] == "leakage_budget_hold" and held["code"] == -32082
+    detail = held["leakage"]
+    assert detail["reason"] == "P3_BUDGET_EXHAUSTED"
+    # 16 + 64 from A. B's own event is 64 qb: under 128 alone, 144 with A's spend.
+    assert (detail["spent_qb"], detail["charge_qb"], detail["budget_qb"]) == (80, 64, 128)
+    assert detail["charge_qb"] <= detail["budget_qb"] < detail["spent_qb"] + detail["charge_qb"]
+    for sid in ("pair-a", "pair-b"):
+        state = engine.p3_state(sid)
+        assert state["members"] == ("pair-a", "pair-b")
+        assert state["spent_qb"] == 80 and state["pending"] is None
+    # A hold is for a person. It does not freeze the key.
+    assert engine.registry.is_frozen_key(KEY_B, engine.now()) is False
+
+
+def test_a_budget_per_session_would_let_the_second_through(engine: PolicyEngine, monkeypatch):
+    """Mutant M5 at the gateway: the same calls are all allowed, so the test above kills it."""
+    from agent_gateway.leakage_budget import LeakageLedger
+
+    monkeypatch.setattr(LeakageLedger, "link_merges", False)
+    engine._clock = lambda: 0.0
+    _linked_pair(engine)
+    out = _pair_calls(engine)
+    assert out["allowed"] is True
+    assert engine.p3_state("pair-a")["spent_qb"] == 72
+    assert engine.p3_state("pair-b")["members"] == ("pair-b",)

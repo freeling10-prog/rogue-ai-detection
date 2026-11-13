@@ -155,6 +155,9 @@ from .fork_join_vector_validator import (
 from .blindfold_opaque_fault_validator import BlindfoldSealer
 from .causality_laundering_validator import CausalityValidator
 from .event_channel_capacity_validator import EventChannelBudget, EventManifest
+from .capability_token import (
+    Request as CapRequest, TokenLedger, extends as cap2_extends, parse as cap2_parse,
+)
 from .leakage_budget import (
     Bool as P3Bool, FieldSchema as P3FieldSchema, Hold as LeakageHold, LeakageLedger,
     List as P3List, Optional as P3Optional, P3Config, SelectionManifest as P3Manifest,
@@ -285,6 +288,8 @@ BLINDFOLD_PERTURBATION_DENIED = "BLINDFOLD_PERTURBATION_DENIED"
 REACHABILITY_CONFINEMENT_DENIED = "REACHABILITY_CONFINEMENT_DENIED"
 # P3 leakage budget. -32081 is the proxy's elicitation hold.
 LEAKAGE_BUDGET_HOLD = "LEAKAGE_BUDGET_HOLD"
+# Module 2 (agw2 capability tokens). Inert until attach_capability_token.
+CAPABILITY_TOKEN_DENIED = "CAPABILITY_TOKEN_DENIED"
 # The opaque envelope reuses B's code: every sealed refusal looks the same.
 BLINDFOLD_ENVELOPE = {"ok": False, "allowed": False, "error": "request_refused", "code": -32079,
                       "message": "request refused"}
@@ -310,6 +315,7 @@ _V12_CODES.update({
     TRANSFORM_INVARIANT_DENIED: -32076, CAUSALITY_LAUNDERING_DENIED: -32077,
     EVENT_CHANNEL_CAPACITY_DENIED: -32078, BLINDFOLD_PERTURBATION_DENIED: -32079,
     REACHABILITY_CONFINEMENT_DENIED: -32080, LEAKAGE_BUDGET_HOLD: -32082,
+    CAPABILITY_TOKEN_DENIED: -32083,
 })
 _V12_ATLAS.update({REGISTRY_PIN_DRIFT: "AML.T0051", REGISTRY_ALIAS_AMBIGUOUS: "AML.T0051",
                    WORKSPACE_EFFECT_DENIED: "AML.T0053", FLOW_MANIFEST_DENIED: "AML.T0051",
@@ -318,7 +324,8 @@ _V12_ATLAS.update({REGISTRY_PIN_DRIFT: "AML.T0051", REGISTRY_ALIAS_AMBIGUOUS: "A
                    FORK_JOIN_LEDGER_DENIED: "AML.T0086", DYNAMIC_INGRESSION_DENIED: "AML.T0086",
                    TRANSFORM_INVARIANT_DENIED: "AML.T0086", CAUSALITY_LAUNDERING_DENIED: "AML.T0086",
                    EVENT_CHANNEL_CAPACITY_DENIED: "AML.T0086", BLINDFOLD_PERTURBATION_DENIED: "AML.T0043",
-                   REACHABILITY_CONFINEMENT_DENIED: "AML.T0053", LEAKAGE_BUDGET_HOLD: "AML.T0086"})
+                   REACHABILITY_CONFINEMENT_DENIED: "AML.T0053", LEAKAGE_BUDGET_HOLD: "AML.T0086",
+                   CAPABILITY_TOKEN_DENIED: "AML.T0051"})
 _EXEC_TOOL_RE = re.compile(r"(?:^|[._\-])(?:shell|bash|exec|terminal|run_command|run_script)(?:$|[._\-])")
 _DEFAULT_SINK_TOOLS = tuple(sorted(
     name for name, ec in TOOL_EGRESS.items() if ec in (EGRESS_WRITE, EGRESS_SEND, EGRESS_CREDS)
@@ -472,6 +479,47 @@ def _log_safe(obj: Any) -> Any:
     return obj
 
 
+def sink_stage(tool_name: str, eclass: str, args: dict) -> Optional[str]:
+    """``PRIVILEGED_EXEC``, ``EXTERNAL_SINK`` or None for one call."""
+    if eclass == EGRESS_SPAWN or _EXEC_TOOL_RE.search(tool_name.casefold()):
+        return PRIVILEGED_EXEC
+    if eclass == EGRESS_SEND or places_params_on_external_boundary(tool_name, args):
+        return EXTERNAL_SINK
+    return None
+
+
+def mcp_read_is_egress(tool_name: str, destination: Optional[str], core_names: frozenset) -> bool:
+    """True when an internal read's arguments leave for a non-core MCP server.
+
+    ``mcp:<server>`` is the proxy channel. A core server stays inside the
+    trust boundary. ``mcp.resources/read`` and ``mcp.prompts/get`` with no
+    named server are untrusted: those calls exist only to reach a server.
+    ``core_names`` is lowercased.
+    """
+    server = None
+    if destination and str(destination).startswith("mcp:"):
+        server = str(destination)[4:]
+    elif tool_name not in ("mcp.resources/read", "mcp.prompts/get"):
+        return False
+    if not server or server.lower() not in core_names:
+        return True
+    return False
+
+
+def is_outbound_event(tool_name: str, eclass: str, args: dict, destination: Optional[str],
+                      core_names: frozenset) -> bool:
+    """The one outbound test. ``_release``, Predicate E, P3 and agw2 tokens use it.
+
+    An internal read stays local unless its arguments go to a non-core MCP
+    server, or the call is an external sink. Offline tools (the P3
+    calibration replay) call this function so they classify a call the same
+    way the engine does.
+    """
+    return (eclass != EGRESS_INTERNAL_READ
+            or mcp_read_is_egress(tool_name, destination, core_names)
+            or sink_stage(tool_name, eclass, args) == EXTERNAL_SINK)
+
+
 class PolicyEngine:
     """In-process policy gate evaluated on every tools/call and tools/list."""
 
@@ -530,6 +578,9 @@ class PolicyEngine:
         self._event_ids = _count(1)
         # P3 is inert until attach_leakage_budget. One ledger per engine.
         self.leakage: LeakageLedger | None = None
+        # agw2 capability tokens are inert until attach_capability_token.
+        self.cap_tokens: TokenLedger | None = None
+        self._cap2_attached: dict[str, str] = {}
         self._core_names: frozenset[str] | None = None
         # artifact id -> writer session, for the collusion link source.
         self._p3_writers: dict[str, str] = {}
@@ -751,7 +802,8 @@ class PolicyEngine:
         out = self._seal_refusal(session_id, tool_name, arguments, out)
         return self._attach_capability(session_id, out)
 
-    _FORWARD_CHARGE_RULES = frozenset({EVENT_CHANNEL_CAPACITY_DENIED, LEAKAGE_BUDGET_HOLD})
+    _FORWARD_CHARGE_RULES = frozenset({EVENT_CHANNEL_CAPACITY_DENIED, LEAKAGE_BUDGET_HOLD,
+                                       CAPABILITY_TOKEN_DENIED})
 
     def _commit_forward_charges(self, session_id: str, tool_name: str, arguments: Optional[dict],
                                 out: dict) -> dict:
@@ -1283,14 +1335,12 @@ class PolicyEngine:
 
     def _is_outbound_event(self, tool_name: str, eclass: str, args: dict,
                            destination: Optional[str]) -> bool:
-        """One outbound test for ``_release``, Predicate E and P3.
+        """One outbound test for ``_release``, Predicate E, P3 and agw2 tokens.
 
         An internal read stays local unless its arguments go to a non-core
-        MCP server, or the call is an external sink.
+        MCP server, or the call is an external sink. See ``is_outbound_event``.
         """
-        return (eclass != EGRESS_INTERNAL_READ
-                or self._mcp_read_is_egress(tool_name, destination)
-                or self._sink_stage(tool_name, eclass, args) == EXTERNAL_SINK)
+        return is_outbound_event(tool_name, eclass, args, destination, self._core_mcp_names())
 
     def _mcp_read_is_egress(self, tool_name: str, destination: Optional[str]) -> bool:
         """True when an internal read's arguments leave for a non-core MCP server.
@@ -1299,14 +1349,7 @@ class PolicyEngine:
         trust boundary. ``mcp.resources/read`` and ``mcp.prompts/get`` with no
         named server are untrusted: those calls exist only to reach a server.
         """
-        server = None
-        if destination and str(destination).startswith("mcp:"):
-            server = str(destination)[4:]
-        elif tool_name not in ("mcp.resources/read", "mcp.prompts/get"):
-            return False
-        if not server or server.lower() not in self._core_mcp_names():
-            return True
-        return False
+        return mcp_read_is_egress(tool_name, destination, self._core_mcp_names())
 
     def _release(self, sess: SessionState, step: int, tool_name: str, args: dict, eclass: str,
                  constrained: bool = False, approved: bool = False, destination: Optional[str] = None,
@@ -1396,6 +1439,11 @@ class PolicyEngine:
         held = self._p3_reserve(sess, step, tool_name, args, eclass, approved, destination, outbound_payload)
         if held is not None:
             return held
+        # After P3, so a budget_qb caveat sees this event's charge. A refusal
+        # here aborts the P3 reservation in _settle_v14.
+        refused = self._cap2_reserve(sess, step, tool_name, args, eclass, destination)
+        if refused is not None:
+            return refused
         return self._allow(sess, step, tool_name, args, eclass, constrained=constrained)
 
     # --- Multi-agent delegation, argument class -----------------------------------
@@ -2148,6 +2196,73 @@ class PolicyEngine:
         self._staged_v14.setdefault(sid, []).append((LEAKAGE_BUDGET_HOLD, _commit, _abort))
         return None
 
+    # --- Module 2: agw2 capability tokens ------------------------------------
+
+    def attach_capability_token(self, session_id: str, token: str) -> dict:
+        """Bind an ``agw2`` token to ``session_id``. Inert until this is called.
+
+        From then on every outbound event of the session (``_is_outbound_event``,
+        the same test ``_release``, Predicate E and P3 use) must be admitted by
+        the token, or it is denied with ``CAPABILITY_TOKEN_DENIED`` (-32083).
+        A session that already has a token can only be given an extension of
+        it: the same chain plus more caveats. A person's approval of one call
+        does not override a token. Calls that are not outbound events are not
+        checked and do not consume a use.
+        """
+        if type(session_id) is not str or not session_id:
+            raise ReferenceDenied("CAP_SCOPE")
+        if self.cap_tokens is None:
+            self.cap_tokens = TokenLedger()
+        verified = self.cap_tokens.verify(token)
+        current = self._cap2_attached.get(session_id)
+        if current is not None and not cap2_extends(cap2_parse(current), verified.token):
+            raise ReferenceDenied("CAP_WIDEN")
+        self._cap2_attached[session_id] = token
+        info = {"tid": verified.token.tid[:16], "scope": verified.token.scope_kind,
+                "caveats": len(verified.token.caveats)}
+        self._alert("CAP_ATTACH", {"session_id": session_id, **info})
+        return info
+
+    def capability_token_attached(self, session_id: str) -> bool:
+        return session_id in self._cap2_attached
+
+    def _cap2_reserve(self, sess: SessionState, step: int, tool_name: str, args: dict, eclass: str,
+                      destination: Optional[str]) -> Optional[dict]:
+        """Check the session's ``agw2`` token at the end of ``_release``.
+
+        Staged like P3: committed when the call is forwarded, aborted when a
+        later gate denies it. The ``budget_qb`` caveat is charged what P3
+        reserved for this event, and 0 when P3 is not attached or not charging.
+        """
+        sid = sess.session_id
+        token = self._cap2_attached.get(sid)
+        if token is None or self.cap_tokens is None:
+            return None
+        if not self._is_outbound_event(tool_name, eclass, args, destination):
+            return None
+        members = frozenset({sid})
+        charge = 0
+        if self.leakage is not None and self.leakage.contains(sid):
+            coalition = self.leakage.coalition(sid)
+            members = frozenset(coalition.members)
+            pending = coalition.pending
+            if pending is not None and pending.member == sid:
+                charge = pending.charge_qb
+        request = CapRequest(session_id=sid, tool=tool_name, destination=destination or "",
+                             arguments=args, now_ms=self._now_ms(), coalition=members, charge_qb=charge)
+        ledger = self.cap_tokens
+        try:
+            reservation = ledger.reserve(token, request)
+        except ReferenceDenied as exc:
+            return self._v12_deny(sess, step, tool_name, args, CAPABILITY_TOKEN_DENIED,
+                                  {"capability": {"reason": str(exc)}})
+        self._staged_v14.setdefault(sid, []).append((
+            CAPABILITY_TOKEN_DENIED,
+            lambda r=reservation: ledger.commit(r),
+            lambda r=reservation: ledger.abort(r),
+        ))
+        return None
+
     def attach_event_budget(self, session_id: str, budget: EventChannelBudget,
                             manifest: EventManifest) -> EventChannelBudget:
         """Bound the selection channel of this session's outbound calls into one sink.
@@ -2748,11 +2863,7 @@ class PolicyEngine:
 
     @staticmethod
     def _sink_stage(tool_name: str, eclass: str, args: dict) -> Optional[str]:
-        if eclass == EGRESS_SPAWN or _EXEC_TOOL_RE.search(tool_name.casefold()):
-            return PRIVILEGED_EXEC
-        if eclass == EGRESS_SEND or places_params_on_external_boundary(tool_name, args):
-            return EXTERNAL_SINK
-        return None
+        return sink_stage(tool_name, eclass, args)
 
     def _v12_deny(self, sess: SessionState, step: int, tool_name: str, args: dict, rule_code: str,
                   extra: dict) -> dict:

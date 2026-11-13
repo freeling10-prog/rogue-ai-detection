@@ -4,6 +4,18 @@ Release notes for the AgentGate lab stack in this repository. This file
 describes the v1.0.0 snapshot. It is not a git tag and it is not a GitHub
 Release.
 
+## [Unreleased] - P3 coalition witness, log-only calibration, agw2 token scaffold (13 November 2026)
+
+- `tests/test_p3_e2.py`, E2-C: two linked sessions with one 80 qb event each are under the 128 qb default alone and 160 qb together, and the second is held with `P3_BUDGET_EXHAUSTED`. An enumeration over every schedule of 5 events (two members) and 4 events (three members) compares each admission with one shared integer counter. Both run on the merge path and the adopt path. Checked by bounded enumeration within those bounds.
+- Mutants: M5 (one budget per session) was already caught, through a transcript count passing 512 at an 8-bit budget. It was not caught on the adopt path, where a per-session budget passed every E2 check. M5 now patches both paths and fails the witness directly. M1 to M11 each have a parametrized case that runs the named check unmutated, mutated, and unmutated again. The old M11 block asserted nothing that failed under the mutant; the new one does.
+- `tests/test_p3_wiring.py`: the same witness through `evaluate_call`, ending in JSON-RPC -32082, and the M5 counterpart where the second call is let through.
+- `agent_gateway/p3_calibrate.py` and `python -m agent_gateway p3-calibrate`: replay a JSONL trace through the ledger in log-only mode; print peak and p95 quarter bits per session and per coalition, the split over the cost components, and a budget with a margin. Integers only.
+- `leakage_budget.py`: `P3_CHARGE` and `P3_COMMIT` records carry `content_coder` (`typed` or `raw`). No change to any charge.
+- `pep.py`: the outbound test is the module-level `is_outbound_event`; `_is_outbound_event` delegates to it. Same decisions.
+- `agent_gateway/capability_token.py` (Module 2 scaffold): `agw2` tokens with a closed caveat vocabulary, counters keyed by chain tag, and an engine hook after the P3 reservation (`CAPABILITY_TOKEN_DENIED`, JSON-RPC -32083). Inert until `attach_capability_token`. Plan and open decisions: `docs/MODULE2_CAPABILITY_TOKENS.md`.
+- `side_channel_guard.py` docstring states: regular-rhythm timing beacons are flagged; irregular timing channels are not yet bounded.
+- Tests: gateway, Python 3.13.18, 13 November 2026, with `php` present: **1,373 passed** (1,283 before this change on the same machine, which is the 1,277 passed and 6 skipped reported without `php`). New: 19 in `test_p3_e2.py`, 2 in `test_p3_wiring.py`, 28 in `test_p3_calibrate.py`, 41 in `test_capability_token.py`.
+
 ## [Unreleased] - PR #42 shell hardening, staged collusion, parser differentials, own-data rule (2 November 2026)
 
 - `workspace_path_validator.py`:

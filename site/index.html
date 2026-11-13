@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AgentGate — AI &amp; MCP Vendor-Risk Layer</title>
-<meta name="description" content="Vanta and Drata show your static cloud config is SOC 2 compliant. AgentGate checks, by bounded enumeration, that your AI agents and MCP tools can't go rogue at runtime.">
+<meta name="description" content="Vanta and Drata monitor your organizational and cloud compliance controls. AgentGate adds runtime boundary evidence, checked by bounded enumeration, showing which AI agent and MCP tool calls were allowed or blocked.">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#07090d">
 <meta name="author" content="Alec F.">
 <link rel="canonical" href="https://room23.net/">
 <meta property="og:type" content="website">
 <meta property="og:title" content="AgentGate — AI &amp; MCP Vendor-Risk Layer">
-<meta property="og:description" content="Vanta and Drata show your static cloud config is SOC 2 compliant. AgentGate checks, by bounded enumeration, that your AI agents and MCP tools can't go rogue at runtime.">
+<meta property="og:description" content="Vanta and Drata monitor your organizational and cloud compliance controls. AgentGate adds runtime boundary evidence, checked by bounded enumeration, showing which AI agent and MCP tool calls were allowed or blocked.">
 <meta property="og:url" content="https://room23.net/">
 <meta property="og:image" content="https://room23.net/og-image.png">
 <meta property="og:image:width" content="1200">
@@ -45,7 +45,7 @@
       <div>
         <p class="badge">Stdlib-Only Python MCP Security Gateway • Room 23 Research</p>
         <h1>Enforce Hard Security Boundaries on MCP Tool Calls Before Production Data Leaks.</h1>
-        <p class="hook">Vanta and Drata show your static cloud config is SOC 2 compliant. AgentGate checks, by bounded enumeration, that your AI agents and MCP tools can't go rogue at runtime.</p>
+        <p class="hook">Vanta and Drata monitor your organizational and cloud compliance controls. AgentGate adds runtime boundary evidence, checked by bounded enumeration, showing which AI agent and MCP tool calls were allowed or blocked.</p>
         <p class="sub">AgentGate sits between your LLM agents and production tools. Enforce 2-hop toxic-combination blocks, workspace guards, and P3 bit-level session leakage budgets—checked by bounded enumeration with zero third-party PyPI dependencies.</p>
         <div class="cta-row">
           <a class="btn" href="mailto:alec@room23.net?subject=MCP%20Quick%20Check%20%24149%20%E2%80%94%2048-hr%20turnaround&amp;body=Tier%3A%20%24149%20MCP%20Quick%20Check%20%2848-hr%20turnaround%29%0AName%3A%0ARole%3A%0AOrganization%3A%0AMCP%20servers%20in%20scope%20%28count%29%3A%0AManifests%20and%20schemas%20attached%2C%20secrets%20removed%20%28yes/no%29%3A%0AWhat%20those%20servers%20can%20read%2C%20write%2C%20and%20send%3A">Get a $149 MCP Quick Check (48-Hr Turnaround)</a>
@@ -72,25 +72,24 @@
 
   <section id="compare" aria-labelledby="compare-h">
     <div class="wrap">
-      <h2 id="compare-h">Static SOC 2, and the runtime AI &amp; MCP vendor-risk layer</h2>
-      <p class="lede">They sit side by side. One reviews the cloud estate and the written program. The other checks AI agent and MCP tool calls while they run.</p>
+      <h2 id="compare-h">Compliance monitoring, and runtime AI &amp; MCP boundary evidence</h2>
+      <p class="lede">They sit side by side. Vanta and Drata monitor organizational and cloud compliance controls continuously. AgentGate adds runtime boundary evidence for AI agent and MCP tool calls.</p>
       <div class="compare">
         <article class="col col-static">
-          <p class="kicker">Static SOC 2</p>
+          <p class="kicker">Compliance monitoring (Vanta / Drata)</p>
           <h3>Vanta / Drata</h3>
-          <p>Static and configuration compliance: the cloud settings, the identity controls, and the policy set.</p>
+          <p>Continuous monitoring of organizational and cloud compliance controls: the cloud settings, the identity controls, and the policy set.</p>
           <ul>
             <li>AWS and cloud configuration, such as S3 encryption.</li>
             <li>Employee 2FA.</li>
             <li>Policy documents.</li>
-            <li>Not designed to inspect runtime prompt injection, MCP schema rug-pulls, or rogue tool calls.</li>
-            <li>Not designed for runtime MCP tool-call enforcement.</li>
+            <li>Kept current as those organizational and cloud controls change.</li>
           </ul>
         </article>
         <article class="col col-runtime">
-          <p class="kicker">Runtime AI &amp; MCP vendor-risk layer</p>
+          <p class="kicker">Runtime AI &amp; MCP boundary evidence (AgentGate)</p>
           <h3>AgentGate</h3>
-          <p>Checks on the tool-call path. Checked by bounded enumeration.</p>
+          <p>Runtime boundary evidence, checked by bounded enumeration, showing which AI agent and MCP tool calls were allowed or blocked.</p>
           <ul>
             <li>SHA-256 pins on each MCP tool’s name, description, and input schema. A listing that changes a pin is denied. A schema-integrity or rug-pull update is accepted only with an HMAC made from the gateway key.</li>
             <li>Tamper-evident SHA-256 hash-chained decision log. Editing, dropping, or reordering a line breaks the chain. An HMAC-SHA256 audit manifest covers the report files.</li>

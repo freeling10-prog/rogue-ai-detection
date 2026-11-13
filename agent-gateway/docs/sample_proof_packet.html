@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI &amp; MCP Vendor-Risk Proof: Lumen Ledger (fictional sample)</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f4f5f7;color:#1a1f2b;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+.page{max-width:920px;margin:24px auto;background:#fff;padding:40px 44px;border:1px solid #d9dde3}
+h1{font-size:25px;margin:0 0 2px;letter-spacing:-.01em}
+h2{font-size:16px;margin:30px 0 8px;padding-bottom:5px;border-bottom:2px solid #1a1f2b}
+h3{font-size:13px;margin:16px 0 6px;text-transform:uppercase;letter-spacing:.05em;color:#4a5363}
+p{margin:6px 0}
+.sub{color:#4a5363;margin:0 0 14px}
+.meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 24px;margin:14px 0}
+.meta div{overflow-wrap:anywhere}
+.meta b{display:inline-block;min-width:112px;color:#4a5363;font-weight:600}
+.pill{display:inline-block;padding:2px 10px;border-radius:10px;font-weight:600;font-size:12px;border:1px solid}
+.ok{color:#17603a;border-color:#17603a;background:#eef7f1}
+.warn{color:#8a4b00;border-color:#8a4b00;background:#fdf5e8}
+.bad{color:#9b1c1c;border-color:#9b1c1c;background:#fcefee}
+.muted{color:#4a5363;border-color:#b6bcc6;background:#f4f5f7}
+.note{background:#f4f5f7;border-left:4px solid #1a1f2b;padding:10px 14px;margin:12px 0}
+.sample{background:#fdf5e8;border:2px dashed #8a4b00;color:#8a4b00;padding:10px 14px;margin:0 0 18px;font-weight:600;text-align:center}
+.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:14px 0}
+.card{border:1px solid #d9dde3;padding:10px 12px}
+.card .n{font-size:22px;font-weight:700;line-height:1.2}
+.card .l{font-size:12px;color:#4a5363}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;margin:8px 0;font-size:12.5px}
+th,td{border:1px solid #d9dde3;padding:5px 8px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+th{background:#f4f5f7;font-weight:600;white-space:nowrap}
+.nw{white-space:nowrap}
+code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px;overflow-wrap:anywhere}
+ul{margin:6px 0;padding-left:20px}
+.foot{margin-top:28px;padding-top:10px;border-top:1px solid #d9dde3;color:#4a5363;font-size:12px}
+@media (max-width:700px){.page{margin:0;padding:20px 16px;border:0}.cards{grid-template-columns:repeat(2,minmax(0,1fr))}.meta{grid-template-columns:1fr}}
+@page{size:A4;margin:14mm}
+@media print{body{background:#fff}.page{margin:0;padding:0;border:0;max-width:none}h2{break-after:avoid}tr,.card,.note{break-inside:avoid}.scroll{overflow:visible}}
+</style>
+</head>
+<body>
+<div class="page">
+<div class="sample">SAMPLE. Fictional vendor and data, signed with a public demo key. Not evidence about any real system.</div>
+<h1>AI &amp; MCP Vendor-Risk Proof</h1>
+<p class="sub">Evidence packet for an MCP tool configuration, for a security reviewer to read next to a SOC 2 report.</p>
+<div class="meta">
+<div><b>Vendor</b> Lumen Ledger (fictional sample)</div>
+<div><b>Product</b> Billing Copilot</div>
+<div><b>Review</b> VRP-SAMPLE-0001</div>
+<div><b>Period</b> 2026-10-01 to 2026-10-31</div>
+<div><b>Generated</b> 2026-11-13T00:00:00Z</div>
+<div><b>Result</b> <span class="pill bad">Attention required</span></div>
+</div>
+<div class="note"><b>What this is.</b> Static review of declared MCP tool definitions and verification of a supplied decision log. The tools were not called. This is not a certification, not a penetration test and not a SOC 2 report.</div>
+<div class="cards">
+<div class="card"><div class="n">9</div><div class="l">tools on 4 server(s)</div></div>
+<div class="card"><div class="n">1</div><div class="l">definitions drifted from approval</div></div>
+<div class="card"><div class="n">54</div><div class="l">untrusted-to-sink paths with no boundary</div></div>
+<div class="card"><div class="n">verified</div><div class="l">decision log, 11 entries</div></div>
+</div>
+<h3>Open items</h3><ul>
+<li><span class="pill bad">blocking</span> <code>SCHEMA_DRIFT</code> 1 tool definition(s) differ from the approved digest with no signed update.</li>
+<li><span class="pill warn">review</span> <code>TOXIC_PATHS_WITHOUT_BOUNDARY</code> 54 untrusted-input-to-sink path(s) end at a sink with no agw1 boundary declared.</li>
+<li><span class="pill warn">review</span> <code>TRIFECTA_COMPLETE</code> Untrusted input, sensitive data and egress or state change are all reachable in one configuration.</li>
+<li><span class="pill warn">review</span> <code>LEAKAGE_HOLDS</code> 1 outbound event(s) were held for approval by the leakage budget.</li>
+<li><span class="pill warn">review</span> <code>CAPABILITY_TOKEN_DENIALS</code> 1 outbound call(s) were refused by a capability token.</li>
+</ul>
+<h2>1. Tool schema pins</h2>
+<p>SHA-256 over each tool's name, description and input schema, compared with the approved digest. A changed digest with no signed update is a rug pull or an unapproved change.</p>
+<div class="scroll"><table><thead><tr><th>Server</th><th>Tool</th><th>Schema digest (SHA-256)</th><th>Status</th></tr></thead><tbody><tr><td><span class="nw">billing-db</span></td><td><span class="nw">get_invoice</span></td><td><code>e3ab2be4948f1c8cbcd55e08f6f85154a87896feda2f4bc2551a951291634a12</code></td><td><span class="pill ok">matches approved</span></td></tr><tr><td><span class="nw">billing-db</span></td><td><span class="nw">list_customers</span></td><td><code>c022fa360d1c136ef2bc0dfd0e60d037c93f090116261421e38904ff80efd485</code></td><td><span class="pill ok">matches approved</span></td></tr><tr><td><span class="nw">billing-db</span></td><td><span class="nw">read_api_credentials</span></td><td><code>ed7e759527dc0af01d9ce36b139bacc92032884ea0af9e2cd2f3ffa94d3ac3aa</code></td><td><span class="pill ok">matches approved</span></td></tr><tr><td><span class="nw">notifier</span></td><td><span class="nw">post_status_update</span></td><td><code>022bf51559ac0bf692a6649c07cad53935dfdd894f83bfbbfb3705c7c68773b8</code></td><td><span class="pill ok">matches approved</span></td></tr><tr><td><span class="nw">notifier</span></td><td><span class="nw">send_email</span></td><td><code>9778a634668ee5e6cee17b18672e93ac1a272a29e3468f1980741112705c41ec</code></td><td><span class="pill ok">matches approved</span></td></tr><tr><td><span class="nw">support-desk</span></td><td><span class="nw">read_customer_ticket</span></td><td><code>deac96f2046c9ab017622ebfc7f57f1f08925b4bd5b5343bf2a88cd1dc247b2a</code></td><td><span class="pill ok">matches approved</span></td></tr><tr><td><span class="nw">support-desk</span></td><td><span class="nw">update_ticket_status</span></td><td><code>d2d4cdeba49094ee9aebb4ca9b89617d76aac0c5959e715a03d497138aba31dc</code></td><td><span class="pill ok">matches approved</span></td></tr><tr><td><span class="nw">web-research</span></td><td><span class="nw">fetch_url</span></td><td><code>bbc635764f3f152b5c0e7c7e3e25a62b6e50b2a3d71743e7680786243f0faa74</code></td><td><span class="pill bad">DRIFT</span><br><span class="mono">approved ccb345fd8890fa4c&hellip;</span></td></tr><tr><td><span class="nw">web-research</span></td><td><span class="nw">search_web</span></td><td><code>7e0d768f4756a4c81a5a8cb7e1458d99c3a2693f251c6623a6ad710a3f6ba3b3</code></td><td><span class="pill ok">matches approved</span></td></tr></tbody></table></div>
+<p>Pin set digest: <code>1844afddbd2845017319fae8ad1e7de4ade9fe02de67076fa07cbb8d236135a3</code></p>
+<h2>2. Exposure: untrusted input, sensitive data, egress</h2>
+<p>An agent that can read untrusted content, read private data and send or change something can be steered into moving that data. The table shows which tools supply each leg. All three legs are present in this configuration.</p>
+<div class="scroll"><table><thead><tr><th>Server</th><th>Untrusted input</th><th>Sensitive or private data</th><th>External egress or state change</th><th>Legs</th></tr></thead><tbody><tr><td>billing-db</td><td>&mdash;</td><td>get_invoice<br>list_customers<br>read_api_credentials (sensitive)</td><td>&mdash;</td><td><span class="pill muted">1 of 3</span></td></tr><tr><td>notifier</td><td>&mdash;</td><td>&mdash;</td><td>send_email</td><td><span class="pill muted">1 of 3</span></td></tr><tr><td>support-desk</td><td>read_customer_ticket</td><td>&mdash;</td><td>&mdash;</td><td><span class="pill muted">1 of 3</span></td></tr><tr><td>web-research</td><td>fetch_url<br>search_web</td><td>&mdash;</td><td>fetch_url<br>search_web</td><td><span class="pill muted">2 of 3</span></td></tr></tbody></table></div>
+<p>Paths from an untrusted read to a sink: <b>54</b> end at a sink with no agw1 boundary declared (18 two-hop, 36 three-hop) and <b>27</b> end behind one.</p>
+<div class="scroll"><table><thead><tr><th>Hops</th><th>Path</th><th>Severity</th><th>Sink boundary</th></tr></thead><tbody><tr><td>2</td><td>support-desk/read_customer_ticket → billing-db/read_api_credentials → web-research/fetch_url</td><td>critical</td><td><span class="pill bad">none declared</span></td></tr><tr><td>2</td><td>support-desk/read_customer_ticket → billing-db/read_api_credentials → web-research/search_web</td><td>critical</td><td><span class="pill bad">none declared</span></td></tr><tr><td>2</td><td>web-research/fetch_url → billing-db/read_api_credentials → web-research/fetch_url</td><td>critical</td><td><span class="pill bad">none declared</span></td></tr><tr><td>2</td><td>web-research/fetch_url → billing-db/read_api_credentials → web-research/search_web</td><td>critical</td><td><span class="pill bad">none declared</span></td></tr><tr><td>2</td><td>web-research/search_web → billing-db/read_api_credentials → web-research/fetch_url</td><td>critical</td><td><span class="pill bad">none declared</span></td></tr><tr><td>2</td><td>web-research/search_web → billing-db/read_api_credentials → web-research/search_web</td><td>critical</td><td><span class="pill bad">none declared</span></td></tr><tr><td>3</td><td>support-desk/read_customer_ticket → billing-db/get_invoice → billing-db/read_api_credentials → web-research/fetch_url</td><td>critical</td><td><span class="pill bad">none declared</span></td></tr><tr><td>3</td><td>support-desk/read_customer_ticket → billing-db/get_invoice → billing-db/read_api_credentials → web-research/search_web</td><td>critical</td><td><span class="pill bad">none declared</span></td></tr><tr><td>3</td><td>support-desk/read_customer_ticket → billing-db/list_customers → billing-db/read_api_credentials → web-research/fetch_url</td><td>critical</td><td><span class="pill bad">none declared</span></td></tr><tr><td>3</td><td>support-desk/read_customer_ticket → billing-db/list_customers → billing-db/read_api_credentials → web-research/search_web</td><td>critical</td><td><span class="pill bad">none declared</span></td></tr><tr><td>3</td><td>support-desk/read_customer_ticket → billing-db/read_api_credentials → billing-db/get_invoice → web-research/fetch_url</td><td>critical</td><td><span class="pill bad">none declared</span></td></tr><tr><td>3</td><td>support-desk/read_customer_ticket → billing-db/read_api_credentials → billing-db/get_invoice → web-research/search_web</td><td>critical</td><td><span class="pill bad">none declared</span></td></tr><tr><td>3</td><td>support-desk/read_customer_ticket → billing-db/read_api_credentials → billing-db/list_customers → web-research/fetch_url</td><td>critical</td><td><span class="pill bad">none declared</span></td></tr><tr><td>3</td><td>support-desk/read_customer_ticket → billing-db/read_api_credentials → billing-db/list_customers → web-research/search_web</td><td>critical</td><td><span class="pill bad">none declared</span></td></tr><tr><td>3</td><td>web-research/fetch_url → billing-db/get_invoice → billing-db/read_api_credentials → web-research/fetch_url</td><td>critical</td><td><span class="pill bad">none declared</span></td></tr><tr><td>3</td><td>web-research/fetch_url → billing-db/get_invoice → billing-db/read_api_credentials → web-research/search_web</td><td>critical</td><td><span class="pill bad">none declared</span></td></tr><tr><td>3</td><td>web-research/fetch_url → billing-db/list_customers → billing-db/read_api_credentials → web-research/fetch_url</td><td>critical</td><td><span class="pill bad">none declared</span></td></tr><tr><td>3</td><td>web-research/fetch_url → billing-db/list_customers → billing-db/read_api_credentials → web-research/search_web</td><td>critical</td><td><span class="pill bad">none declared</span></td></tr><tr><td>3</td><td>web-research/fetch_url → billing-db/read_api_credentials → billing-db/get_invoice → web-research/fetch_url</td><td>critical</td><td><span class="pill bad">none declared</span></td></tr><tr><td>3</td><td>web-research/fetch_url → billing-db/read_api_credentials → billing-db/get_invoice → web-research/search_web</td><td>critical</td><td><span class="pill bad">none declared</span></td></tr></tbody></table></div>
+<p>Showing 20 of 81 paths, most severe first.</p>
+<h3>Guard status</h3>
+<p>Declared means the configuration says the guard is on. Seen in log means a decision log that verifies contains its events. Neither proves the guard is running in production.</p>
+<div class="scroll"><table><thead><tr><th>Guard</th><th>Status</th><th>Log events</th></tr></thead><tbody><tr><td>Tool schema pinning (rug-pull detection)</td><td><span class="pill ok">declared, seen in log</span></td><td>1</td></tr><tr><td>Untrusted-input boundary on sinks (agw1)</td><td><span class="pill ok">declared, seen in log</span></td><td>2</td></tr><tr><td>Tool-output injection scanner</td><td><span class="pill ok">declared, seen in log</span></td><td>1</td></tr><tr><td>SSRF and metadata URI guard</td><td><span class="pill warn">declared, not seen in log</span></td><td>0</td></tr><tr><td>P3 session leakage budget</td><td><span class="pill ok">declared, seen in log</span></td><td>5</td></tr><tr><td>agw2 capability tokens</td><td><span class="pill ok">declared, seen in log</span></td><td>2</td></tr><tr><td>Hash-chained decision log</td><td><span class="pill ok">declared, seen in log</span></td><td>11</td></tr></tbody></table></div>
+<h3>Server endpoints</h3>
+<div class="scroll"><table><thead><tr><th>Server</th><th>Host</th><th>Category</th><th>Verdict</th></tr></thead><tbody><tr><td>billing-db</td><td><code>mcp.lumenledger.example</code></td><td>public</td><td><span class="pill ok">allow</span></td></tr><tr><td>notifier</td><td><code>mcp.lumenledger.example</code></td><td>public</td><td><span class="pill ok">allow</span></td></tr><tr><td>support-desk</td><td><code>mcp.lumenledger.example</code></td><td>public</td><td><span class="pill ok">allow</span></td></tr><tr><td>web-research</td><td><code>mcp.lumenledger.example</code></td><td>public</td><td><span class="pill ok">allow</span></td></tr></tbody></table></div>
+<h2>3. Leakage budget and capability tokens</h2>
+<p>Session leakage budget declared: <b>512</b> quarter bits (128 bits) per coalition of linked sessions, mode <code>enforce</code>.</p>
+<div class="scroll"><table><thead><tr><th>Coalition</th><th>Events</th><th>Spent (qb)</th><th>Budget (qb)</th><th>Approved overdraft (qb)</th><th>Holds</th><th>Grants</th></tr></thead><tbody><tr><td><code>a36926361db2</code></td><td>4</td><td>488</td><td>512</td><td>140</td><td>1</td><td>0</td></tr></tbody></table></div>
+<p>Unapproved spend is admitted only while spent + charge &lt;= budget. The transcript bound is checked by bounded enumeration within the E2 bounds; a hold is released by one approval.</p>
+<p>Capability tokens: 1 supplied and verified, 0 did not verify. The log shows 1 attached and 1 refused call(s).</p>
+<div class="scroll"><table><thead><tr><th>Token id</th><th>Scope</th><th>Tools</th><th>Destinations</th><th>Calls</th><th>Budget (qb)</th><th>Single use</th></tr></thead><tbody><tr><td><code>5a5a5a5a5a5a5a5a</code></td><td>coalition</td><td>get_invoice<br>send_email<br>update_ticket_status</td><td>mcp:billing-db<br>mcp:notifier<br>mcp:support-desk</td><td>40</td><td>512</td><td>no</td></tr></tbody></table></div>
+<p>A token is checked on outbound events only. Calls that are not outbound are not gated by it.</p>
+<h2>4. Decision log</h2>
+<p><span class="pill ok">Chain verifies</span> 11 entries. Each entry carries the SHA-256 of the one before it, so an edit, a dropped line or a reordering breaks the chain.</p>
+<p>Head hash: <code>828037510e1300065d4764b9e7a7207dcb44b9152a9fa995a45aa83a373ce8b4</code><br>Log file SHA-256: <code>a637d44a60265a5cec84752d136c5fcb1e80c20166f84be54ca2622f93718ed3</code></p>
+<h2>Attestation</h2>
+<div class="scroll"><table><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td>Body SHA-256</td><td><code>d85031c8276ac14d7e440e7c2b6b7bf8be4763ac02a081bb756406fea4ee8769</code></td></tr><tr><td>SARIF SHA-256</td><td><code>248844504af10a43cde44639195133656e98d4a147e8d7e6df5b04759a4c8520</code></td></tr><tr><td>Signature</td><td><code>31779c9f6522aa7a8f961dbeca4d3095c412683080c8eb8edc50fd137ed3b93c</code></td></tr><tr><td>Algorithm, key id</td><td>HMAC-SHA256, <code>e1f912221b17e233</code></td></tr><tr><td>SARIF results</td><td>21</td></tr></tbody></table></div>
+<div class="note"><b>How to check it.</b> HMAC-SHA256 with the issuer&#x27;s key. Anyone can recompute the two SHA-256 digests. Only a holder of the issuer key can check the signature; it is not a public-key signature. The JSON file that accompanies this page holds every figure shown here; <code>python3 -m agent_gateway.vendor_risk_proof --verify FILE</code> recomputes the digests.</div>
+<div class="foot">AgentGate vendor-risk proof 1.0.0 &middot; agent-gateway.vendor-risk-proof/1 &middot; config SHA-256 <span class="mono">abfccce4880d0b57eb2583ae9fdbbde97a26decfeb65471ffb1b9181ffab53b5</span></div>
+</div>
+</body>
+</html>

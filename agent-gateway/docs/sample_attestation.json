@@ -1,0 +1,1466 @@
+{
+  "attestation": {
+    "algorithm": "HMAC-SHA256",
+    "body_sha256": "d85031c8276ac14d7e440e7c2b6b7bf8be4763ac02a081bb756406fea4ee8769",
+    "canonicalization": "JSON, keys sorted, no whitespace, UTF-8",
+    "key_id": "e1f912221b17e233",
+    "note": "HMAC-SHA256 with the issuer's key. Anyone can recompute the two SHA-256 digests. Only a holder of the issuer key can check the signature; it is not a public-key signature.",
+    "sarif_sha256": "248844504af10a43cde44639195133656e98d4a147e8d7e6df5b04759a4c8520",
+    "signature": "31779c9f6522aa7a8f961dbeca4d3095c412683080c8eb8edc50fd137ed3b93c"
+  },
+  "body": {
+    "audit_chain": {
+      "entries": 11,
+      "errors": [],
+      "head_hash": "828037510e1300065d4764b9e7a7207dcb44b9152a9fa995a45aa83a373ce8b4",
+      "kinds": {
+        "CAPABILITY_TOKEN_DENIED": 1,
+        "CAP_ATTACH": 1,
+        "LEAKAGE_BUDGET_HOLD": 1,
+        "P3_COMMIT": 4,
+        "oob_consumed": 1,
+        "schema_drift_denied": 1,
+        "taint_tools_list": 1,
+        "tool_output_injection": 1
+      },
+      "log_sha256": "a637d44a60265a5cec84752d136c5fcb1e80c20166f84be54ca2622f93718ed3",
+      "ok": true,
+      "supplied": true
+    },
+    "capability_tokens": {
+      "declared": true,
+      "note": "A token is checked on outbound events only. Calls that are not outbound are not gated by it.",
+      "observed": {
+        "denials": {
+          "CAP_TOOL": 1
+        },
+        "denials_total": 1,
+        "tokens_attached": 1
+      },
+      "tokens": [
+        {
+          "argument_predicates": 0,
+          "caveats": 4,
+          "destinations": [
+            "mcp:billing-db",
+            "mcp:notifier",
+            "mcp:support-desk"
+          ],
+          "max_budget_qb": 512,
+          "max_calls": 40,
+          "not_after_ms": null,
+          "scope": "coalition",
+          "session_bound": false,
+          "single_use": false,
+          "tid": "5a5a5a5a5a5a5a5a",
+          "tools": [
+            "get_invoice",
+            "send_email",
+            "update_ticket_status"
+          ],
+          "verified": true
+        }
+      ],
+      "tokens_invalid": 0,
+      "tokens_verified": 1
+    },
+    "endpoints": [
+      {
+        "category": "public",
+        "field": "url",
+        "host": "mcp.lumenledger.example",
+        "reasons": [],
+        "server": "billing-db",
+        "verdict": "allow"
+      },
+      {
+        "category": "public",
+        "field": "url",
+        "host": "mcp.lumenledger.example",
+        "reasons": [],
+        "server": "notifier",
+        "verdict": "allow"
+      },
+      {
+        "category": "public",
+        "field": "url",
+        "host": "mcp.lumenledger.example",
+        "reasons": [],
+        "server": "support-desk",
+        "verdict": "allow"
+      },
+      {
+        "category": "public",
+        "field": "url",
+        "host": "mcp.lumenledger.example",
+        "reasons": [],
+        "server": "web-research",
+        "verdict": "allow"
+      }
+    ],
+    "exposure": {
+      "blueprint": {
+        "denied_verb_tools": [],
+        "sensitive_fields": [],
+        "sql_templates_not_read_only": []
+      },
+      "classes": {
+        "billing-db/get_invoice": "internal_read",
+        "billing-db/list_customers": "internal_read",
+        "billing-db/read_api_credentials": "sensitive_read",
+        "notifier/post_status_update": "write",
+        "notifier/send_email": "send",
+        "support-desk/read_customer_ticket": "external_read",
+        "support-desk/update_ticket_status": "write",
+        "web-research/fetch_url": "external_read",
+        "web-research/search_web": "external_read"
+      },
+      "guard_evidence_from_verified_log": true,
+      "guards": [
+        {
+          "declared": true,
+          "guard": "schema_pinning",
+          "label": "Tool schema pinning (rug-pull detection)",
+          "log_events": 1,
+          "status": "declared_and_observed"
+        },
+        {
+          "declared": true,
+          "guard": "taint_boundary",
+          "label": "Untrusted-input boundary on sinks (agw1)",
+          "log_events": 2,
+          "status": "declared_and_observed"
+        },
+        {
+          "declared": true,
+          "guard": "output_scanner",
+          "label": "Tool-output injection scanner",
+          "log_events": 1,
+          "status": "declared_and_observed"
+        },
+        {
+          "declared": true,
+          "guard": "egress_uri_guard",
+          "label": "SSRF and metadata URI guard",
+          "log_events": 0,
+          "status": "declared"
+        },
+        {
+          "declared": true,
+          "guard": "leakage_budget",
+          "label": "P3 session leakage budget",
+          "log_events": 5,
+          "status": "declared_and_observed"
+        },
+        {
+          "declared": true,
+          "guard": "capability_tokens",
+          "label": "agw2 capability tokens",
+          "log_events": 2,
+          "status": "declared_and_observed"
+        },
+        {
+          "declared": true,
+          "guard": "audit_chain",
+          "label": "Hash-chained decision log",
+          "log_events": 11,
+          "status": "declared_and_observed"
+        }
+      ],
+      "matrix": [
+        {
+          "complete": false,
+          "egress_or_mutation": [],
+          "legs_present": 1,
+          "sensitive_data": [
+            "get_invoice",
+            "list_customers",
+            "read_api_credentials (sensitive)"
+          ],
+          "server": "billing-db",
+          "untrusted_input": []
+        },
+        {
+          "complete": false,
+          "egress_or_mutation": [
+            "send_email"
+          ],
+          "legs_present": 1,
+          "sensitive_data": [],
+          "server": "notifier",
+          "untrusted_input": []
+        },
+        {
+          "complete": false,
+          "egress_or_mutation": [],
+          "legs_present": 1,
+          "sensitive_data": [],
+          "server": "support-desk",
+          "untrusted_input": [
+            "read_customer_ticket"
+          ]
+        },
+        {
+          "complete": false,
+          "egress_or_mutation": [
+            "fetch_url",
+            "search_web"
+          ],
+          "legs_present": 2,
+          "sensitive_data": [],
+          "server": "web-research",
+          "untrusted_input": [
+            "fetch_url",
+            "search_web"
+          ]
+        }
+      ],
+      "paths": [
+        {
+          "channel": [
+            "url"
+          ],
+          "classes": [
+            "external_read",
+            "sensitive_read",
+            "param_egress"
+          ],
+          "hops": 2,
+          "path": [
+            "support-desk/read_customer_ticket",
+            "billing-db/read_api_credentials",
+            "web-research/fetch_url"
+          ],
+          "protected_by_agw1": false,
+          "severity": "critical",
+          "toxic": true
+        },
+        {
+          "channel": [
+            "query"
+          ],
+          "classes": [
+            "external_read",
+            "sensitive_read",
+            "param_egress"
+          ],
+          "hops": 2,
+          "path": [
+            "support-desk/read_customer_ticket",
+            "billing-db/read_api_credentials",
+            "web-research/search_web"
+          ],
+          "protected_by_agw1": false,
+          "severity": "critical",
+          "toxic": true
+        },
+        {
+          "channel": [
+            "url"
+          ],
+          "classes": [
+            "external_read",
+            "sensitive_read",
+            "param_egress"
+          ],
+          "hops": 2,
+          "path": [
+            "web-research/fetch_url",
+            "billing-db/read_api_credentials",
+            "web-research/fetch_url"
+          ],
+          "protected_by_agw1": false,
+          "severity": "critical",
+          "toxic": true
+        },
+        {
+          "channel": [
+            "query"
+          ],
+          "classes": [
+            "external_read",
+            "sensitive_read",
+            "param_egress"
+          ],
+          "hops": 2,
+          "path": [
+            "web-research/fetch_url",
+            "billing-db/read_api_credentials",
+            "web-research/search_web"
+          ],
+          "protected_by_agw1": false,
+          "severity": "critical",
+          "toxic": true
+        },
+        {
+          "channel": [
+            "url"
+          ],
+          "classes": [
+            "external_read",
+            "sensitive_read",
+            "param_egress"
+          ],
+          "hops": 2,
+          "path": [
+            "web-research/search_web",
+            "billing-db/read_api_credentials",
+            "web-research/fetch_url"
+          ],
+          "protected_by_agw1": false,
+          "severity": "critical",
+          "toxic": true
+        },
+        {
+          "channel": [
+            "query"
+          ],
+          "classes": [
+            "external_read",
+            "sensitive_read",
+            "param_egress"
+          ],
+          "hops": 2,
+          "path": [
+            "web-research/search_web",
+            "billing-db/read_api_credentials",
+            "web-research/search_web"
+          ],
+          "protected_by_agw1": false,
+          "severity": "critical",
+          "toxic": true
+        },
+        {
+          "channel": [
+            "url"
+          ],
+          "classes": [
+            "external_read",
+            "internal_read",
+            "sensitive_read",
+            "param_egress"
+          ],
+          "hops": 3,
+          "path": [
+            "support-desk/read_customer_ticket",
+            "billing-db/get_invoice",
+            "billing-db/read_api_credentials",
+            "web-research/fetch_url"
+          ],
+          "protected_by_agw1": false,
+          "severity": "critical",
+          "toxic": true
+        },
+        {
+          "channel": [
+            "query"
+          ],
+          "classes": [
+            "external_read",
+            "internal_read",
+            "sensitive_read",
+            "param_egress"
+          ],
+          "hops": 3,
+          "path": [
+            "support-desk/read_customer_ticket",
+            "billing-db/get_invoice",
+            "billing-db/read_api_credentials",
+            "web-research/search_web"
+          ],
+          "protected_by_agw1": false,
+          "severity": "critical",
+          "toxic": true
+        },
+        {
+          "channel": [
+            "url"
+          ],
+          "classes": [
+            "external_read",
+            "internal_read",
+            "sensitive_read",
+            "param_egress"
+          ],
+          "hops": 3,
+          "path": [
+            "support-desk/read_customer_ticket",
+            "billing-db/list_customers",
+            "billing-db/read_api_credentials",
+            "web-research/fetch_url"
+          ],
+          "protected_by_agw1": false,
+          "severity": "critical",
+          "toxic": true
+        },
+        {
+          "channel": [
+            "query"
+          ],
+          "classes": [
+            "external_read",
+            "internal_read",
+            "sensitive_read",
+            "param_egress"
+          ],
+          "hops": 3,
+          "path": [
+            "support-desk/read_customer_ticket",
+            "billing-db/list_customers",
+            "billing-db/read_api_credentials",
+            "web-research/search_web"
+          ],
+          "protected_by_agw1": false,
+          "severity": "critical",
+          "toxic": true
+        },
+        {
+          "channel": [
+            "url"
+          ],
+          "classes": [
+            "external_read",
+            "sensitive_read",
+            "internal_read",
+            "param_egress"
+          ],
+          "hops": 3,
+          "path": [
+            "support-desk/read_customer_ticket",
+            "billing-db/read_api_credentials",
+            "billing-db/get_invoice",
+            "web-research/fetch_url"
+          ],
+          "protected_by_agw1": false,
+          "severity": "critical",
+          "toxic": true
+        },
+        {
+          "channel": [
+            "query"
+          ],
+          "classes": [
+            "external_read",
+            "sensitive_read",
+            "internal_read",
+            "param_egress"
+          ],
+          "hops": 3,
+          "path": [
+            "support-desk/read_customer_ticket",
+            "billing-db/read_api_credentials",
+            "billing-db/get_invoice",
+            "web-research/search_web"
+          ],
+          "protected_by_agw1": false,
+          "severity": "critical",
+          "toxic": true
+        },
+        {
+          "channel": [
+            "url"
+          ],
+          "classes": [
+            "external_read",
+            "sensitive_read",
+            "internal_read",
+            "param_egress"
+          ],
+          "hops": 3,
+          "path": [
+            "support-desk/read_customer_ticket",
+            "billing-db/read_api_credentials",
+            "billing-db/list_customers",
+            "web-research/fetch_url"
+          ],
+          "protected_by_agw1": false,
+          "severity": "critical",
+          "toxic": true
+        },
+        {
+          "channel": [
+            "query"
+          ],
+          "classes": [
+            "external_read",
+            "sensitive_read",
+            "internal_read",
+            "param_egress"
+          ],
+          "hops": 3,
+          "path": [
+            "support-desk/read_customer_ticket",
+            "billing-db/read_api_credentials",
+            "billing-db/list_customers",
+            "web-research/search_web"
+          ],
+          "protected_by_agw1": false,
+          "severity": "critical",
+          "toxic": true
+        },
+        {
+          "channel": [
+            "url"
+          ],
+          "classes": [
+            "external_read",
+            "internal_read",
+            "sensitive_read",
+            "param_egress"
+          ],
+          "hops": 3,
+          "path": [
+            "web-research/fetch_url",
+            "billing-db/get_invoice",
+            "billing-db/read_api_credentials",
+            "web-research/fetch_url"
+          ],
+          "protected_by_agw1": false,
+          "severity": "critical",
+          "toxic": true
+        },
+        {
+          "channel": [
+            "query"
+          ],
+          "classes": [
+            "external_read",
+            "internal_read",
+            "sensitive_read",
+            "param_egress"
+          ],
+          "hops": 3,
+          "path": [
+            "web-research/fetch_url",
+            "billing-db/get_invoice",
+            "billing-db/read_api_credentials",
+            "web-research/search_web"
+          ],
+          "protected_by_agw1": false,
+          "severity": "critical",
+          "toxic": true
+        },
+        {
+          "channel": [
+            "url"
+          ],
+          "classes": [
+            "external_read",
+            "internal_read",
+            "sensitive_read",
+            "param_egress"
+          ],
+          "hops": 3,
+          "path": [
+            "web-research/fetch_url",
+            "billing-db/list_customers",
+            "billing-db/read_api_credentials",
+            "web-research/fetch_url"
+          ],
+          "protected_by_agw1": false,
+          "severity": "critical",
+          "toxic": true
+        },
+        {
+          "channel": [
+            "query"
+          ],
+          "classes": [
+            "external_read",
+            "internal_read",
+            "sensitive_read",
+            "param_egress"
+          ],
+          "hops": 3,
+          "path": [
+            "web-research/fetch_url",
+            "billing-db/list_customers",
+            "billing-db/read_api_credentials",
+            "web-research/search_web"
+          ],
+          "protected_by_agw1": false,
+          "severity": "critical",
+          "toxic": true
+        },
+        {
+          "channel": [
+            "url"
+          ],
+          "classes": [
+            "external_read",
+            "sensitive_read",
+            "internal_read",
+            "param_egress"
+          ],
+          "hops": 3,
+          "path": [
+            "web-research/fetch_url",
+            "billing-db/read_api_credentials",
+            "billing-db/get_invoice",
+            "web-research/fetch_url"
+          ],
+          "protected_by_agw1": false,
+          "severity": "critical",
+          "toxic": true
+        },
+        {
+          "channel": [
+            "query"
+          ],
+          "classes": [
+            "external_read",
+            "sensitive_read",
+            "internal_read",
+            "param_egress"
+          ],
+          "hops": 3,
+          "path": [
+            "web-research/fetch_url",
+            "billing-db/read_api_credentials",
+            "billing-db/get_invoice",
+            "web-research/search_web"
+          ],
+          "protected_by_agw1": false,
+          "severity": "critical",
+          "toxic": true
+        }
+      ],
+      "paths_listed": 20,
+      "sinks_behind_agw1": [
+        "notifier/send_email"
+      ],
+      "sinks_without_agw1": [
+        "web-research/fetch_url",
+        "web-research/search_web"
+      ],
+      "totals": {
+        "protected": 27,
+        "protected_2hop": 9,
+        "protected_3hop": 18,
+        "reads": 3,
+        "sinks": 3,
+        "sources": 3,
+        "toxic": 54,
+        "toxic_2hop": 18,
+        "toxic_3hop": 36
+      },
+      "trifecta": {
+        "complete": true,
+        "legs": {
+          "egress_or_mutation": 3,
+          "sensitive_data": 3,
+          "untrusted_input": 3
+        },
+        "servers_complete_alone": []
+      }
+    },
+    "generated_at": "2026-11-13T00:00:00Z",
+    "generator": {
+      "name": "AgentGate vendor-risk proof",
+      "version": "1.0.0"
+    },
+    "inputs": {
+      "audit_log_sha256": "a637d44a60265a5cec84752d136c5fcb1e80c20166f84be54ca2622f93718ed3",
+      "config_sha256": "abfccce4880d0b57eb2583ae9fdbbde97a26decfeb65471ffb1b9181ffab53b5",
+      "servers": 4,
+      "tools": 9
+    },
+    "leakage_budget": {
+      "budget_bits": "128",
+      "budget_qb": 512,
+      "coalitions": [
+        {
+          "budget_qb": 512,
+          "coalition": "a36926361db2",
+          "events": 4,
+          "grants": 0,
+          "holds": 1,
+          "overdraft_qb": 140,
+          "spent_qb": 488
+        }
+      ],
+      "coalitions_over_budget": [],
+      "declared": true,
+      "mode": "enforce",
+      "note": "Unapproved spend is admitted only while spent + charge <= budget. The transcript bound is checked by bounded enumeration within the E2 bounds; a hold is released by one approval.",
+      "observed": true,
+      "totals": {
+        "coalitions": 1,
+        "events": 4,
+        "grants": 0,
+        "holds": 1,
+        "peak_spent_qb": 488
+      }
+    },
+    "review": {
+      "id": "VRP-SAMPLE-0001",
+      "period_end": "2026-10-31",
+      "period_start": "2026-10-01"
+    },
+    "sample": true,
+    "sarif_summary": {
+      "by_rule": {
+        "schema_drift_denied": 1,
+        "toxic_combination": 20
+      },
+      "results": 21,
+      "structurally_valid": true,
+      "toxic_paths_listed": 20
+    },
+    "schema": "agent-gateway.vendor-risk-proof/1",
+    "schema_pins": {
+      "algorithm": "sha256",
+      "baseline_supplied": true,
+      "counts": {
+        "approved_update": 0,
+        "drift": 1,
+        "first_seen": 0,
+        "metadata_drift": 0,
+        "pinned": 8
+      },
+      "name_collisions": [],
+      "pin_set_sha256": "1844afddbd2845017319fae8ad1e7de4ade9fe02de67076fa07cbb8d236135a3",
+      "removed": [],
+      "tools": [
+        {
+          "descriptor_sha256": "e3ab2be4948f1c8cbcd55e08f6f85154a87896feda2f4bc2551a951291634a12",
+          "schema_sha256": "e3ab2be4948f1c8cbcd55e08f6f85154a87896feda2f4bc2551a951291634a12",
+          "server": "billing-db",
+          "status": "pinned",
+          "tool": "get_invoice"
+        },
+        {
+          "descriptor_sha256": "c022fa360d1c136ef2bc0dfd0e60d037c93f090116261421e38904ff80efd485",
+          "schema_sha256": "c022fa360d1c136ef2bc0dfd0e60d037c93f090116261421e38904ff80efd485",
+          "server": "billing-db",
+          "status": "pinned",
+          "tool": "list_customers"
+        },
+        {
+          "descriptor_sha256": "ed7e759527dc0af01d9ce36b139bacc92032884ea0af9e2cd2f3ffa94d3ac3aa",
+          "schema_sha256": "ed7e759527dc0af01d9ce36b139bacc92032884ea0af9e2cd2f3ffa94d3ac3aa",
+          "server": "billing-db",
+          "status": "pinned",
+          "tool": "read_api_credentials"
+        },
+        {
+          "descriptor_sha256": "022bf51559ac0bf692a6649c07cad53935dfdd894f83bfbbfb3705c7c68773b8",
+          "schema_sha256": "022bf51559ac0bf692a6649c07cad53935dfdd894f83bfbbfb3705c7c68773b8",
+          "server": "notifier",
+          "status": "pinned",
+          "tool": "post_status_update"
+        },
+        {
+          "descriptor_sha256": "9778a634668ee5e6cee17b18672e93ac1a272a29e3468f1980741112705c41ec",
+          "schema_sha256": "9778a634668ee5e6cee17b18672e93ac1a272a29e3468f1980741112705c41ec",
+          "server": "notifier",
+          "status": "pinned",
+          "tool": "send_email"
+        },
+        {
+          "descriptor_sha256": "deac96f2046c9ab017622ebfc7f57f1f08925b4bd5b5343bf2a88cd1dc247b2a",
+          "schema_sha256": "deac96f2046c9ab017622ebfc7f57f1f08925b4bd5b5343bf2a88cd1dc247b2a",
+          "server": "support-desk",
+          "status": "pinned",
+          "tool": "read_customer_ticket"
+        },
+        {
+          "descriptor_sha256": "d2d4cdeba49094ee9aebb4ca9b89617d76aac0c5959e715a03d497138aba31dc",
+          "schema_sha256": "d2d4cdeba49094ee9aebb4ca9b89617d76aac0c5959e715a03d497138aba31dc",
+          "server": "support-desk",
+          "status": "pinned",
+          "tool": "update_ticket_status"
+        },
+        {
+          "approved_sha256": "ccb345fd8890fa4c923576e58af58b3f04b5b7467f3ca683bb4f600e4e5085cc",
+          "descriptor_sha256": "bbc635764f3f152b5c0e7c7e3e25a62b6e50b2a3d71743e7680786243f0faa74",
+          "schema_sha256": "bbc635764f3f152b5c0e7c7e3e25a62b6e50b2a3d71743e7680786243f0faa74",
+          "server": "web-research",
+          "status": "drift",
+          "tool": "fetch_url"
+        },
+        {
+          "descriptor_sha256": "7e0d768f4756a4c81a5a8cb7e1458d99c3a2693f251c6623a6ad710a3f6ba3b3",
+          "schema_sha256": "7e0d768f4756a4c81a5a8cb7e1458d99c3a2693f251c6623a6ad710a3f6ba3b3",
+          "server": "web-research",
+          "status": "pinned",
+          "tool": "search_web"
+        }
+      ]
+    },
+    "scope_note": "Static review of declared MCP tool definitions and verification of a supplied decision log. The tools were not called. This is not a certification, not a penetration test and not a SOC 2 report.",
+    "summary": {
+      "attention": [
+        {
+          "code": "SCHEMA_DRIFT",
+          "detail": "1 tool definition(s) differ from the approved digest with no signed update."
+        },
+        {
+          "code": "TOXIC_PATHS_WITHOUT_BOUNDARY",
+          "detail": "54 untrusted-input-to-sink path(s) end at a sink with no agw1 boundary declared."
+        },
+        {
+          "code": "TRIFECTA_COMPLETE",
+          "detail": "Untrusted input, sensitive data and egress or state change are all reachable in one configuration."
+        },
+        {
+          "code": "LEAKAGE_HOLDS",
+          "detail": "1 outbound event(s) were held for approval by the leakage budget."
+        },
+        {
+          "code": "CAPABILITY_TOKEN_DENIALS",
+          "detail": "1 outbound call(s) were refused by a capability token."
+        }
+      ],
+      "audit_chain_head": "828037510e1300065d4764b9e7a7207dcb44b9152a9fa995a45aa83a373ce8b4",
+      "audit_chain_ok": true,
+      "blocking": [
+        "SCHEMA_DRIFT"
+      ],
+      "schema_drift": 1,
+      "servers": 4,
+      "status": "attention_required",
+      "tools": 9,
+      "toxic_paths_behind_boundary": 27,
+      "toxic_paths_without_boundary": 54,
+      "trifecta_complete": true
+    },
+    "vendor": {
+      "name": "Lumen Ledger (fictional sample)",
+      "product": "Billing Copilot"
+    }
+  },
+  "sarif": {
+    "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+    "runs": [
+      {
+        "properties": {
+          "atlas_approximate": true,
+          "lab_only": true,
+          "note": "Lab triage aid. Not a certification and not a penetration test."
+        },
+        "results": [
+          {
+            "level": "warning",
+            "locations": [
+              {
+                "logicalLocations": [
+                  {
+                    "fullyQualifiedName": "support-desk/read_customer_ticket -> billing-db/read_api_credentials -> web-research/fetch_url",
+                    "kind": "tool-flow"
+                  }
+                ]
+              }
+            ],
+            "message": {
+              "text": "[critical] 2-hop toxic flow: support-desk/read_customer_ticket -> billing-db/read_api_credentials -> web-research/fetch_url (classes: external_read -> sensitive_read -> param_egress)"
+            },
+            "partialFingerprints": {
+              "agentgate/v1": "f5598ff453756050"
+            },
+            "properties": {
+              "channel": [
+                "url"
+              ],
+              "hops": 2,
+              "severity": "critical"
+            },
+            "ruleId": "toxic_combination"
+          },
+          {
+            "level": "warning",
+            "locations": [
+              {
+                "logicalLocations": [
+                  {
+                    "fullyQualifiedName": "support-desk/read_customer_ticket -> billing-db/read_api_credentials -> web-research/search_web",
+                    "kind": "tool-flow"
+                  }
+                ]
+              }
+            ],
+            "message": {
+              "text": "[critical] 2-hop toxic flow: support-desk/read_customer_ticket -> billing-db/read_api_credentials -> web-research/search_web (classes: external_read -> sensitive_read -> param_egress)"
+            },
+            "partialFingerprints": {
+              "agentgate/v1": "dbc7ea0eeb716528"
+            },
+            "properties": {
+              "channel": [
+                "query"
+              ],
+              "hops": 2,
+              "severity": "critical"
+            },
+            "ruleId": "toxic_combination"
+          },
+          {
+            "level": "warning",
+            "locations": [
+              {
+                "logicalLocations": [
+                  {
+                    "fullyQualifiedName": "web-research/fetch_url -> billing-db/read_api_credentials -> web-research/fetch_url",
+                    "kind": "tool-flow"
+                  }
+                ]
+              }
+            ],
+            "message": {
+              "text": "[critical] 2-hop toxic flow: web-research/fetch_url -> billing-db/read_api_credentials -> web-research/fetch_url (classes: external_read -> sensitive_read -> param_egress)"
+            },
+            "partialFingerprints": {
+              "agentgate/v1": "4ef770885c591313"
+            },
+            "properties": {
+              "channel": [
+                "url"
+              ],
+              "hops": 2,
+              "severity": "critical"
+            },
+            "ruleId": "toxic_combination"
+          },
+          {
+            "level": "warning",
+            "locations": [
+              {
+                "logicalLocations": [
+                  {
+                    "fullyQualifiedName": "web-research/fetch_url -> billing-db/read_api_credentials -> web-research/search_web",
+                    "kind": "tool-flow"
+                  }
+                ]
+              }
+            ],
+            "message": {
+              "text": "[critical] 2-hop toxic flow: web-research/fetch_url -> billing-db/read_api_credentials -> web-research/search_web (classes: external_read -> sensitive_read -> param_egress)"
+            },
+            "partialFingerprints": {
+              "agentgate/v1": "425826e63c96cac6"
+            },
+            "properties": {
+              "channel": [
+                "query"
+              ],
+              "hops": 2,
+              "severity": "critical"
+            },
+            "ruleId": "toxic_combination"
+          },
+          {
+            "level": "warning",
+            "locations": [
+              {
+                "logicalLocations": [
+                  {
+                    "fullyQualifiedName": "web-research/search_web -> billing-db/read_api_credentials -> web-research/fetch_url",
+                    "kind": "tool-flow"
+                  }
+                ]
+              }
+            ],
+            "message": {
+              "text": "[critical] 2-hop toxic flow: web-research/search_web -> billing-db/read_api_credentials -> web-research/fetch_url (classes: external_read -> sensitive_read -> param_egress)"
+            },
+            "partialFingerprints": {
+              "agentgate/v1": "0a212b7a1371b554"
+            },
+            "properties": {
+              "channel": [
+                "url"
+              ],
+              "hops": 2,
+              "severity": "critical"
+            },
+            "ruleId": "toxic_combination"
+          },
+          {
+            "level": "warning",
+            "locations": [
+              {
+                "logicalLocations": [
+                  {
+                    "fullyQualifiedName": "web-research/search_web -> billing-db/read_api_credentials -> web-research/search_web",
+                    "kind": "tool-flow"
+                  }
+                ]
+              }
+            ],
+            "message": {
+              "text": "[critical] 2-hop toxic flow: web-research/search_web -> billing-db/read_api_credentials -> web-research/search_web (classes: external_read -> sensitive_read -> param_egress)"
+            },
+            "partialFingerprints": {
+              "agentgate/v1": "3f7341ab516111f0"
+            },
+            "properties": {
+              "channel": [
+                "query"
+              ],
+              "hops": 2,
+              "severity": "critical"
+            },
+            "ruleId": "toxic_combination"
+          },
+          {
+            "level": "warning",
+            "locations": [
+              {
+                "logicalLocations": [
+                  {
+                    "fullyQualifiedName": "support-desk/read_customer_ticket -> billing-db/get_invoice -> billing-db/read_api_credentials -> web-research/fetch_url",
+                    "kind": "tool-flow"
+                  }
+                ]
+              }
+            ],
+            "message": {
+              "text": "[critical] 3-hop toxic flow: support-desk/read_customer_ticket -> billing-db/get_invoice -> billing-db/read_api_credentials -> web-research/fetch_url (classes: external_read -> internal_read -> sensitive_read -> param_egress)"
+            },
+            "partialFingerprints": {
+              "agentgate/v1": "6c9046b2e486cdc5"
+            },
+            "properties": {
+              "channel": [
+                "url"
+              ],
+              "hops": 3,
+              "severity": "critical"
+            },
+            "ruleId": "toxic_combination"
+          },
+          {
+            "level": "warning",
+            "locations": [
+              {
+                "logicalLocations": [
+                  {
+                    "fullyQualifiedName": "support-desk/read_customer_ticket -> billing-db/get_invoice -> billing-db/read_api_credentials -> web-research/search_web",
+                    "kind": "tool-flow"
+                  }
+                ]
+              }
+            ],
+            "message": {
+              "text": "[critical] 3-hop toxic flow: support-desk/read_customer_ticket -> billing-db/get_invoice -> billing-db/read_api_credentials -> web-research/search_web (classes: external_read -> internal_read -> sensitive_read -> param_egress)"
+            },
+            "partialFingerprints": {
+              "agentgate/v1": "14445f94b7509e6c"
+            },
+            "properties": {
+              "channel": [
+                "query"
+              ],
+              "hops": 3,
+              "severity": "critical"
+            },
+            "ruleId": "toxic_combination"
+          },
+          {
+            "level": "warning",
+            "locations": [
+              {
+                "logicalLocations": [
+                  {
+                    "fullyQualifiedName": "support-desk/read_customer_ticket -> billing-db/list_customers -> billing-db/read_api_credentials -> web-research/fetch_url",
+                    "kind": "tool-flow"
+                  }
+                ]
+              }
+            ],
+            "message": {
+              "text": "[critical] 3-hop toxic flow: support-desk/read_customer_ticket -> billing-db/list_customers -> billing-db/read_api_credentials -> web-research/fetch_url (classes: external_read -> internal_read -> sensitive_read -> param_egress)"
+            },
+            "partialFingerprints": {
+              "agentgate/v1": "c983afc9ff5bce15"
+            },
+            "properties": {
+              "channel": [
+                "url"
+              ],
+              "hops": 3,
+              "severity": "critical"
+            },
+            "ruleId": "toxic_combination"
+          },
+          {
+            "level": "warning",
+            "locations": [
+              {
+                "logicalLocations": [
+                  {
+                    "fullyQualifiedName": "support-desk/read_customer_ticket -> billing-db/list_customers -> billing-db/read_api_credentials -> web-research/search_web",
+                    "kind": "tool-flow"
+                  }
+                ]
+              }
+            ],
+            "message": {
+              "text": "[critical] 3-hop toxic flow: support-desk/read_customer_ticket -> billing-db/list_customers -> billing-db/read_api_credentials -> web-research/search_web (classes: external_read -> internal_read -> sensitive_read -> param_egress)"
+            },
+            "partialFingerprints": {
+              "agentgate/v1": "d6c7a9931116a44e"
+            },
+            "properties": {
+              "channel": [
+                "query"
+              ],
+              "hops": 3,
+              "severity": "critical"
+            },
+            "ruleId": "toxic_combination"
+          },
+          {
+            "level": "warning",
+            "locations": [
+              {
+                "logicalLocations": [
+                  {
+                    "fullyQualifiedName": "support-desk/read_customer_ticket -> billing-db/read_api_credentials -> billing-db/get_invoice -> web-research/fetch_url",
+                    "kind": "tool-flow"
+                  }
+                ]
+              }
+            ],
+            "message": {
+              "text": "[critical] 3-hop toxic flow: support-desk/read_customer_ticket -> billing-db/read_api_credentials -> billing-db/get_invoice -> web-research/fetch_url (classes: external_read -> sensitive_read -> internal_read -> param_egress)"
+            },
+            "partialFingerprints": {
+              "agentgate/v1": "8df2c3845af74514"
+            },
+            "properties": {
+              "channel": [
+                "url"
+              ],
+              "hops": 3,
+              "severity": "critical"
+            },
+            "ruleId": "toxic_combination"
+          },
+          {
+            "level": "warning",
+            "locations": [
+              {
+                "logicalLocations": [
+                  {
+                    "fullyQualifiedName": "support-desk/read_customer_ticket -> billing-db/read_api_credentials -> billing-db/get_invoice -> web-research/search_web",
+                    "kind": "tool-flow"
+                  }
+                ]
+              }
+            ],
+            "message": {
+              "text": "[critical] 3-hop toxic flow: support-desk/read_customer_ticket -> billing-db/read_api_credentials -> billing-db/get_invoice -> web-research/search_web (classes: external_read -> sensitive_read -> internal_read -> param_egress)"
+            },
+            "partialFingerprints": {
+              "agentgate/v1": "4c5c3046adb8b0c8"
+            },
+            "properties": {
+              "channel": [
+                "query"
+              ],
+              "hops": 3,
+              "severity": "critical"
+            },
+            "ruleId": "toxic_combination"
+          },
+          {
+            "level": "warning",
+            "locations": [
+              {
+                "logicalLocations": [
+                  {
+                    "fullyQualifiedName": "support-desk/read_customer_ticket -> billing-db/read_api_credentials -> billing-db/list_customers -> web-research/fetch_url",
+                    "kind": "tool-flow"
+                  }
+                ]
+              }
+            ],
+            "message": {
+              "text": "[critical] 3-hop toxic flow: support-desk/read_customer_ticket -> billing-db/read_api_credentials -> billing-db/list_customers -> web-research/fetch_url (classes: external_read -> sensitive_read -> internal_read -> param_egress)"
+            },
+            "partialFingerprints": {
+              "agentgate/v1": "d1a3c11f45443120"
+            },
+            "properties": {
+              "channel": [
+                "url"
+              ],
+              "hops": 3,
+              "severity": "critical"
+            },
+            "ruleId": "toxic_combination"
+          },
+          {
+            "level": "warning",
+            "locations": [
+              {
+                "logicalLocations": [
+                  {
+                    "fullyQualifiedName": "support-desk/read_customer_ticket -> billing-db/read_api_credentials -> billing-db/list_customers -> web-research/search_web",
+                    "kind": "tool-flow"
+                  }
+                ]
+              }
+            ],
+            "message": {
+              "text": "[critical] 3-hop toxic flow: support-desk/read_customer_ticket -> billing-db/read_api_credentials -> billing-db/list_customers -> web-research/search_web (classes: external_read -> sensitive_read -> internal_read -> param_egress)"
+            },
+            "partialFingerprints": {
+              "agentgate/v1": "6316f401927c7901"
+            },
+            "properties": {
+              "channel": [
+                "query"
+              ],
+              "hops": 3,
+              "severity": "critical"
+            },
+            "ruleId": "toxic_combination"
+          },
+          {
+            "level": "warning",
+            "locations": [
+              {
+                "logicalLocations": [
+                  {
+                    "fullyQualifiedName": "web-research/fetch_url -> billing-db/get_invoice -> billing-db/read_api_credentials -> web-research/fetch_url",
+                    "kind": "tool-flow"
+                  }
+                ]
+              }
+            ],
+            "message": {
+              "text": "[critical] 3-hop toxic flow: web-research/fetch_url -> billing-db/get_invoice -> billing-db/read_api_credentials -> web-research/fetch_url (classes: external_read -> internal_read -> sensitive_read -> param_egress)"
+            },
+            "partialFingerprints": {
+              "agentgate/v1": "02c91c842543770a"
+            },
+            "properties": {
+              "channel": [
+                "url"
+              ],
+              "hops": 3,
+              "severity": "critical"
+            },
+            "ruleId": "toxic_combination"
+          },
+          {
+            "level": "warning",
+            "locations": [
+              {
+                "logicalLocations": [
+                  {
+                    "fullyQualifiedName": "web-research/fetch_url -> billing-db/get_invoice -> billing-db/read_api_credentials -> web-research/search_web",
+                    "kind": "tool-flow"
+                  }
+                ]
+              }
+            ],
+            "message": {
+              "text": "[critical] 3-hop toxic flow: web-research/fetch_url -> billing-db/get_invoice -> billing-db/read_api_credentials -> web-research/search_web (classes: external_read -> internal_read -> sensitive_read -> param_egress)"
+            },
+            "partialFingerprints": {
+              "agentgate/v1": "34142d7f02b00ca7"
+            },
+            "properties": {
+              "channel": [
+                "query"
+              ],
+              "hops": 3,
+              "severity": "critical"
+            },
+            "ruleId": "toxic_combination"
+          },
+          {
+            "level": "warning",
+            "locations": [
+              {
+                "logicalLocations": [
+                  {
+                    "fullyQualifiedName": "web-research/fetch_url -> billing-db/list_customers -> billing-db/read_api_credentials -> web-research/fetch_url",
+                    "kind": "tool-flow"
+                  }
+                ]
+              }
+            ],
+            "message": {
+              "text": "[critical] 3-hop toxic flow: web-research/fetch_url -> billing-db/list_customers -> billing-db/read_api_credentials -> web-research/fetch_url (classes: external_read -> internal_read -> sensitive_read -> param_egress)"
+            },
+            "partialFingerprints": {
+              "agentgate/v1": "1edeedc092cd36cd"
+            },
+            "properties": {
+              "channel": [
+                "url"
+              ],
+              "hops": 3,
+              "severity": "critical"
+            },
+            "ruleId": "toxic_combination"
+          },
+          {
+            "level": "warning",
+            "locations": [
+              {
+                "logicalLocations": [
+                  {
+                    "fullyQualifiedName": "web-research/fetch_url -> billing-db/list_customers -> billing-db/read_api_credentials -> web-research/search_web",
+                    "kind": "tool-flow"
+                  }
+                ]
+              }
+            ],
+            "message": {
+              "text": "[critical] 3-hop toxic flow: web-research/fetch_url -> billing-db/list_customers -> billing-db/read_api_credentials -> web-research/search_web (classes: external_read -> internal_read -> sensitive_read -> param_egress)"
+            },
+            "partialFingerprints": {
+              "agentgate/v1": "2c2b09ed52da7632"
+            },
+            "properties": {
+              "channel": [
+                "query"
+              ],
+              "hops": 3,
+              "severity": "critical"
+            },
+            "ruleId": "toxic_combination"
+          },
+          {
+            "level": "warning",
+            "locations": [
+              {
+                "logicalLocations": [
+                  {
+                    "fullyQualifiedName": "web-research/fetch_url -> billing-db/read_api_credentials -> billing-db/get_invoice -> web-research/fetch_url",
+                    "kind": "tool-flow"
+                  }
+                ]
+              }
+            ],
+            "message": {
+              "text": "[critical] 3-hop toxic flow: web-research/fetch_url -> billing-db/read_api_credentials -> billing-db/get_invoice -> web-research/fetch_url (classes: external_read -> sensitive_read -> internal_read -> param_egress)"
+            },
+            "partialFingerprints": {
+              "agentgate/v1": "a37451da59589670"
+            },
+            "properties": {
+              "channel": [
+                "url"
+              ],
+              "hops": 3,
+              "severity": "critical"
+            },
+            "ruleId": "toxic_combination"
+          },
+          {
+            "level": "warning",
+            "locations": [
+              {
+                "logicalLocations": [
+                  {
+                    "fullyQualifiedName": "web-research/fetch_url -> billing-db/read_api_credentials -> billing-db/get_invoice -> web-research/search_web",
+                    "kind": "tool-flow"
+                  }
+                ]
+              }
+            ],
+            "message": {
+              "text": "[critical] 3-hop toxic flow: web-research/fetch_url -> billing-db/read_api_credentials -> billing-db/get_invoice -> web-research/search_web (classes: external_read -> sensitive_read -> internal_read -> param_egress)"
+            },
+            "partialFingerprints": {
+              "agentgate/v1": "9f4fc08f4f60d5f7"
+            },
+            "properties": {
+              "channel": [
+                "query"
+              ],
+              "hops": 3,
+              "severity": "critical"
+            },
+            "ruleId": "toxic_combination"
+          },
+          {
+            "level": "error",
+            "locations": [
+              {
+                "logicalLocations": [
+                  {
+                    "fullyQualifiedName": "web-research/fetch_url",
+                    "kind": "tool"
+                  }
+                ]
+              }
+            ],
+            "message": {
+              "text": "schema_drift_denied: approved ccb345fd8890fa4c seen bbc635764f3f152b (tool=web-research/fetch_url)"
+            },
+            "partialFingerprints": {
+              "agentgate/v1": "08d25c6488d42b90"
+            },
+            "properties": {
+              "atlas": null,
+              "session": null
+            },
+            "ruleId": "schema_drift_denied"
+          }
+        ],
+        "tool": {
+          "driver": {
+            "informationUri": "https://github.com/freeling10-prog/rogue-ai-detection",
+            "name": "AgentGate",
+            "rules": [
+              {
+                "defaultConfiguration": {
+                  "level": "error"
+                },
+                "fullDescription": {
+                  "text": "A pinned tool schema's SHA-256 digest changed without a signed manifest update."
+                },
+                "helpUri": "https://github.com/freeling10-prog/rogue-ai-detection",
+                "id": "schema_drift_denied",
+                "name": "SchemaDriftDenied",
+                "properties": {
+                  "atlas_approximate": true,
+                  "tags": [
+                    "security",
+                    "agentgate",
+                    "ATLAS/AML.T0051 (approximate)",
+                    "OWASP-Agentic/ASI04 (approximate)"
+                  ]
+                },
+                "shortDescription": {
+                  "text": "MCP schema digest drift"
+                }
+              },
+              {
+                "defaultConfiguration": {
+                  "level": "warning"
+                },
+                "fullDescription": {
+                  "text": "An untrusted read can reach a data-egress sink with no agw1. capability boundary."
+                },
+                "helpUri": "https://github.com/freeling10-prog/rogue-ai-detection",
+                "id": "toxic_combination",
+                "name": "ToxicCombination",
+                "properties": {
+                  "atlas_approximate": true,
+                  "tags": [
+                    "security",
+                    "agentgate",
+                    "ATLAS/AML.T0086 (approximate)"
+                  ]
+                },
+                "shortDescription": {
+                  "text": "Toxic tool-flow combination"
+                }
+              }
+            ],
+            "version": "1.0.0"
+          }
+        }
+      }
+    ],
+    "version": "2.1.0"
+  }
+}

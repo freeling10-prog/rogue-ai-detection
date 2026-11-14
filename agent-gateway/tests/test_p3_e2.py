@@ -494,8 +494,31 @@ def _bound(budget_bits: int) -> int:
     return 1 << (4 * budget_bits + 4)
 
 
-def count_transcripts(budget_bits, horizon, messages, members, links=(), schema_n=4):
-    """DFS through the real ledger. Abort once the count exceeds the bound."""
+def _transcript_bound(budget_bits: int) -> int:
+    """Distinct observable transcripts a coalition of ``budget_bits`` may emit: 2^(B+1)."""
+    return 1 << (budget_bits + 1)
+
+
+def enumerate_observables(budget_bits, horizon, messages, members, links=(), schema_n=4,
+                          *, bound=None):
+    """DFS through the real ledger on one observation clock.
+
+    Every admitted event is recorded as what an observer of the boundary
+    sees: the slot the ledger released it in, which member emitted it, and
+    which message it carried. The next slot is searched from the latest
+    release slot on the path, whichever coalition produced it. A ledger that
+    keeps one clock per session (mutant M5: linked sessions that never
+    merge) is therefore enumerated on the observer's clock and not on the
+    first member's, so two paths cannot collapse onto the same release
+    slots and be counted twice, and no path is skipped because another
+    session's clock had moved on.
+
+    Returns ``(paths, distinct)``: DFS paths and distinct observable
+    transcripts, the empty transcript included. The two are equal whenever
+    the ledger releases every event in the slot it was asked for; the
+    distinct count is what the bound is about. With ``bound`` set, the
+    search stops with AssertionError once the distinct count exceeds it.
+    """
     ledger = LeakageLedger()
     cfg = _cfg(4 * budget_bits)
     schema = _schema(schema_n) if schema_n else None
@@ -507,36 +530,45 @@ def count_transcripts(budget_bits, horizon, messages, members, links=(), schema_
     for pair in links:
         ledger.link(pair[0], pair[1], pair[2] if len(pair) > 2 else "control_plane")
     raw = not messages or not isinstance(messages[0], dict)
-    count = 0
-    limit = _bound(budget_bits)
+    paths = 0
+    observed = set()
     ids = [0]
 
-    def dfs():
-        nonlocal count
-        count += 1
-        if count ** 4 > limit:
-            raise AssertionError(f"transcript bound exceeded at {count} for B={budget_bits}")
+    def dfs(observed_last, transcript):
+        nonlocal paths
+        paths += 1
+        observed.add(transcript)
+        if bound is not None and len(observed) > bound:
+            raise AssertionError(
+                f"transcript bound exceeded at {len(observed)} for B={budget_bits}")
         shots = [(m, ledger.snapshot(m)) for m in members]
-        last = ledger.coalition(members[0]).last_slot
-        start = 0 if last is None else last + 1
-        for slot in range(start, horizon):
-            for member in members:
-                for message in messages:
+        for slot in range(observed_last + 1, horizon):
+            for index, member in enumerate(members):
+                for choice, message in enumerate(messages):
                     payload, arguments = _body(message) if not raw else (message, None)
                     eid = f"n{ids[0]}"
                     ids[0] += 1
                     try:
-                        ledger.reserve(member, eid, "s", "t", payload, slot * 1000, False,
-                                       arguments=arguments)
+                        pending = ledger.reserve(member, eid, "s", "t", payload, slot * 1000,
+                                                 False, arguments=arguments)
                     except (L.Denied, L.Hold):
                         continue
+                    released = slot if pending.release_slot is None else pending.release_slot
                     ledger.commit(member, eid)
-                    dfs()
+                    dfs(max(observed_last, released), transcript + ((released, index, choice),))
                     for who, shot in shots:
                         ledger.restore(who, shot)
 
-    dfs()
-    return count
+    dfs(-1, ())
+    return paths, len(observed)
+
+
+def count_transcripts(budget_bits, horizon, messages, members, links=(), schema_n=4):
+    """Distinct observable transcripts. Abort once the count exceeds the bound."""
+    _paths, distinct = enumerate_observables(
+        budget_bits, horizon, messages, members, links, schema_n,
+        bound=_transcript_bound(budget_bits))
+    return distinct
 
 
 def test_e2_p_pinned_counts():
@@ -1012,9 +1044,25 @@ def _check_m4_commit():
     _seq_ok(32, ("a",), ENUM4, ["taint", "reserve", "commit"])
 
 
+M5_CASE = dict(budget_bits=8, horizon=10, messages=ENUM4, members=("a", "b"),
+               links=(("a", "b", "delegation"),))
+
+
+def _observables_sound(paths: int, distinct: int, budget_bits: int) -> bool:
+    """The soundness assertion, the same for the real ledger and for a mutant.
+
+    Sound means the enumeration is injective on observables (no two paths
+    collapsed onto the same release slots) and the coalition emitted no more
+    distinct observable transcripts than 2^(B+1).
+    """
+    return paths == distinct and distinct <= _transcript_bound(budget_bits)
+
+
 def _check_m5_transcript_bound():
-    count = count_transcripts(8, 10, ENUM4, ("a", "b"), links=(("a", "b", "delegation"),))
-    assert count == PINS["P4"]["delegation"][8]
+    """M5 on the transcript bound: asserted on distinct observables, not on an aborted search."""
+    paths, distinct = enumerate_observables(**M5_CASE)
+    assert _observables_sound(paths, distinct, 8), (paths, distinct, _transcript_bound(8))
+    assert distinct == PINS["P4"]["delegation"][8], distinct
 
 
 def _check_m6():
@@ -1094,3 +1142,42 @@ def test_each_mutant_fails_its_check_and_the_real_ledger_passes(name, monkeypatc
     monkeypatch.undo()
     assert caught, f"{name} survived {check.__name__}"
     check()  # unmutated again: the patches are gone
+
+
+# --- M5 on observables: baseline and mutant under one assertion -------------
+#
+# The transcript bound is a statement about distinct externally observable
+# transcripts. A DFS that counts paths on one member's clock can double-count
+# (two paths the ledger releases in the same slots) and can miss (a path
+# refused because another session's clock had moved on) once the sessions
+# keep separate clocks, which is exactly what M5 does. These two tests run
+# the same soundness assertion on the real ledger and on the M5 ledger and
+# prove the leak on the counts, not on an aborted search.
+
+@pytest.mark.parametrize("merging", [True, False], ids=["baseline-merged", "M5-unmerged"])
+def test_e2_m5_soundness_assertion_on_both_ledgers(merging, monkeypatch):
+    if not merging:
+        monkeypatch.setattr(L.LeakageLedger, "link_merges", False)
+    paths, distinct = enumerate_observables(**M5_CASE)
+    assert paths == distinct, "one observation clock keeps the enumeration injective on observables"
+    assert _observables_sound(paths, distinct, 8) is merging, (paths, distinct, _transcript_bound(8))
+
+
+def test_e2_m5_unmerged_sessions_emit_more_distinct_observables(monkeypatch):
+    """Two linked sessions that never merge each keep a B-bit budget and a clock.
+
+    Together they emit more distinct observable transcripts than one
+    coalition of budget B may: 1,401 against a bound of 512 at B=8 on this
+    ledger, where the merged coalition emits the pinned 25.
+    """
+    bound = _transcript_bound(8)
+    base_paths, base_distinct = enumerate_observables(**M5_CASE)
+    assert base_paths == base_distinct == PINS["P4"]["delegation"][8]
+    assert base_distinct <= bound
+    monkeypatch.setattr(L.LeakageLedger, "link_merges", False)
+    mutant_paths, mutant_distinct = enumerate_observables(**M5_CASE)
+    monkeypatch.undo()
+    assert mutant_paths == mutant_distinct
+    assert mutant_distinct > bound, f"unmerged sessions stayed within the bound: {mutant_distinct} <= {bound}"
+    assert mutant_distinct > base_distinct
+    assert enumerate_observables(**M5_CASE)[1] == base_distinct  # the patch is gone

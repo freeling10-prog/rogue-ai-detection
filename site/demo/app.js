@@ -338,21 +338,31 @@
     var ta = document.createElement("textarea");
     ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
     document.body.appendChild(ta); ta.select();
-    try { document.execCommand("copy"); } catch (e) { /* no-op */ }
+    var ok = false;
+    try { ok = document.execCommand("copy") === true; } catch (e) { ok = false; }
     document.body.removeChild(ta);
+    return ok;
   }
-  function copy(text, done) {
+  /* done() only after a copy that reported success; failed() when both
+     navigator.clipboard.writeText and execCommand("copy") refused. */
+  function copy(text, done, failed) {
+    var onRefused = function () { if (fallbackCopy(text)) { done(); } else { failed(); } };
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text); done(); });
-    } else { fallbackCopy(text); done(); }
+      navigator.clipboard.writeText(text).then(done, onRefused);
+    } else { onRefused(); }
   }
   $("#copy-verify").addEventListener("click", function () {
-    copy($("#verify-snippet").textContent, function () { toast("Commands copied"); });
+    copy($("#verify-snippet").textContent,
+      function () { toast("Commands copied"); },
+      function () { toast("Copy failed — select the commands above and copy them by hand"); });
   });
   $("#copy-template").addEventListener("click", function () {
     copy($("#email-template").textContent, function () {
       toast("Template copied — opening your email");
       setTimeout(function () { window.location.href = EMAIL; }, 650);
+    }, function () {
+      toast("Copy failed — opening your email; paste the template by hand or write to alec@room23.net");
+      setTimeout(function () { window.location.href = EMAIL; }, 1400);
     });
   });
 

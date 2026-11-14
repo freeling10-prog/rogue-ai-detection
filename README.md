@@ -8,11 +8,11 @@ AgentGate is the lab policy gate in this repository. It sits in the tool loop of
 >
 > - Report: [`sprint_submission/collusion_sprint_report.pdf`](sprint_submission/collusion_sprint_report.pdf) ([Markdown](sprint_submission/collusion_sprint_report.md)) · Slides: [`sprint_submission/collusion_sprint_slides.pdf`](sprint_submission/collusion_sprint_slides.pdf) · Raw data: [`sprint_submission/collusion_benchmark_results.json`](sprint_submission/collusion_benchmark_results.json)
 > - Reproduce (from `agent-gateway/`, with `AGENT_GATEWAY_HMAC_KEY` set): `python -m agent_gateway evaluate-collusion --report ../sprint_submission`
-> - **57/57** collusion defence tests passed: Group A side-channel / timing **8/8**, Group B delegation / confused-deputy **8/8**, Group C de-obfuscation / canary watermarking **41/41**.
+> - **57/57** collusion defence tests passed (a component count at the snapshot, not a suite total): Group A side-channel / timing **8/8**, Group B delegation / confused-deputy **8/8**, Group C de-obfuscation / canary watermarking **41/41**.
 > - **5** stateful Hypothesis machines in the suite, including the delegation DAG machine (`max_examples=120`, `stateful_step_count=24`).
 > - **750** benign policy decisions (5 workflows × 50 runs): **0** false denials; **750/750** SHA-256 hash-chained decision-log entries verified (the audit manifest is HMAC-signed), and an edited or dropped line in a copy is detected.
 >
-> **Frozen snapshot vs. `main`.** The files above are the 25 October sprint snapshot at `cefec0d` (57/57 A/B/C checks) and are not regenerated. `main` has since added further guards behind `pep.py`. Their tests are reported apart from 57/57 and are never folded into that count. The test suite currently passes 1,418 tests.
+> **Frozen snapshot vs. `main`.** The files above are the 25 October sprint snapshot at `cefec0d` (57/57 A/B/C checks) and are not regenerated. `main` has since added further guards behind `pep.py`. Their tests are reported apart from 57/57 and are never folded into that count. The test suite currently passes 1,421 tests.
 >
 > Scope: these are same-author, scripted lab checks of the guards against cases written for them. They are not a benchmark and not an estimate of recall against an unknown adversary. They are never pooled with the separate real-model loopback figure (**2 of 13** non-control runs, `qwen2.5:3b`, one machine).
 
@@ -71,19 +71,19 @@ One-page offer: **[AgentGate — 48-Hour Agentic Tool-Boundary Audit](marketing/
 Labels for results **recorded in this lab tree on 25 October 2026** (the gateway count was re-run on 14 November 2026). They are not a certification, and they are not evidence of a wild deployment. The GitHub Action file is the thing you run; the shields only repeat the recorded counts.
 
 [![GitHub Action atlas-agent-audit.yml](https://img.shields.io/badge/GitHub_Action-atlas--agent--audit.yml-3b5bdb)](.github/workflows/atlas-agent-audit.yml)
-[![gateway tests 1418 passed](https://img.shields.io/badge/gateway_tests-1418_passed-2f6f4e)](agent-gateway/tests)
+[![gateway tests 1421 passed](https://img.shields.io/badge/gateway_tests-1421_passed-2f6f4e)](agent-gateway/tests)
 [![ATLAS 7/7 plus Hypothesis](https://img.shields.io/badge/ATLAS_falsification-7%2F7_%2B_Hypothesis-2f6f4e)](agent-gateway/tests/test_pep_falsification.py)
 [![STIX validator_ok true](https://img.shields.io/badge/STIX_2.1-validator__ok%3Dtrue-2f6f4e)](agentwatch-analyzer/scripts/ci_smoke.py)
 
 | Check | Where | Recorded result |
 | --- | --- | --- |
 | ATLAS agent audit | [`.github/workflows/atlas-agent-audit.yml`](.github/workflows/atlas-agent-audit.yml) | Four jobs: gateway, agent-watch, pipeline, offline analyzer smoke. The smoke job fails unless the STIX bundle parses and `validator_ok` is true. It then runs `python -m agent_gateway audit` and uploads the executive HTML and text PDF with the other artifacts. No honeypot process. |
-| Gateway tests | `agent-gateway` pytest | The test suite currently passes 1,418 tests (`pytest -q` in `agent-gateway`; 6 skipped without `php`). Earlier suite totals are not quoted. |
+| Gateway tests | `agent-gateway` pytest | The test suite currently passes 1,421 tests (`pytest -q` in `agent-gateway`; 6 skipped without `php`). Earlier suite totals are not quoted. |
 | agent-watch tests | `agent-watch` pytest | **514** collected: **512** passed, **2** skipped. |
 | Collusion sprint check | `python -m agent_gateway evaluate-collusion` | **57/57** defence tests (A 8/8, B 8/8, C 41/41); 750 benign decisions, 0 denied; 750/750 chain entries verified. Same-author lab check, not a benchmark. Decision-time figures are not quoted. Artifacts in [`sprint_submission/`](sprint_submission/). |
 | STIX 2.1 | [`agentwatch-analyzer/scripts/ci_smoke.py`](agentwatch-analyzer/scripts/ci_smoke.py) | Recorded smoke on the archived Tier-2 Playwright crawler log reported **`validator_ok=true`**. Known warnings on `x_` properties and approximate ATLAS tags can still appear. |
 
-The test suite currently passes 1,418 tests. Do not quote an earlier suite total.
+The test suite currently passes 1,421 tests. Do not quote an earlier suite total.
 
 ## What you are running
 

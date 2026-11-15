@@ -47,12 +47,13 @@
         <h1>Enforce Hard Security Boundaries on MCP Tool Calls Before Production Data Leaks.</h1>
         <p class="hook">Vanta and Drata monitor your organizational and cloud compliance controls. AgentGate adds runtime boundary evidence, checked by bounded enumeration, showing which AI agent and MCP tool calls were allowed or blocked.</p>
         <p class="sub">AgentGate sits between your LLM agents and production tools. Enforce 2-hop toxic-combination blocks, workspace guards, and P3 bit-level session leakage budgets—checked by bounded enumeration with zero third-party PyPI dependencies.</p>
+        <p class="deliver"><strong>$149 MCP Quick Check, 48-hour turnaround.</strong> Send the <code>mcp.json</code> or <code>claude_desktop_config.json</code> your Claude Code, Claude Desktop, or Cursor agents load (secrets removed). You get SARIF 2.1.0 findings, SHA-256 pins on every tool definition, a 2-hop toxic-combination map, and a prioritized fix list, sealed as one HMAC-SHA256 evidence packet. Manifest review only: no code review, no runtime testing.</p>
         <div class="cta-row">
-          <a class="btn" href="mailto:alec@room23.net?subject=MCP%20Quick%20Check%20%24149%20%E2%80%94%2048-hr%20turnaround&amp;body=Tier%3A%20%24149%20MCP%20Quick%20Check%20%2848-hr%20turnaround%29%0AName%3A%0ARole%3A%0AOrganization%3A%0AMCP%20servers%20in%20scope%20%28count%29%3A%0AManifests%20and%20schemas%20attached%2C%20secrets%20removed%20%28yes/no%29%3A%0AWhat%20those%20servers%20can%20read%2C%20write%2C%20and%20send%3A">Get a $149 MCP Quick Check (48-Hr Turnaround)</a>
+          <a class="btn" href="mailto:alec@room23.net?subject=MCP%20Quick%20Check%20%24149%20%E2%80%94%2048-hr%20turnaround&amp;body=Tier%3A%20%24149%20MCP%20Quick%20Check%20%2848-hr%20turnaround%29%0AName%3A%0ARole%3A%0AOrganization%3A%0AMCP%20servers%20in%20scope%20%28count%29%3A%0AManifests%20and%20schemas%20attached%2C%20secrets%20removed%20%28yes/no%29%3A%0AWhat%20those%20servers%20can%20read%2C%20write%2C%20and%20send%3A">Get the $149 MCP Quick Check — 48-Hr, SARIF Findings + Sealed Packet</a>
           <a class="btn btn-quiet" href="./demo/#traces">Try Live Trace Inspector</a>
           <a class="btn btn-quiet" href="https://github.com/freeling10-prog/rogue-ai-detection">GitHub Repo</a>
         </div>
-        <p class="strip">Pure Python Stdlib (0 Dependencies) • JSON-RPC -32082 Human Hold • The test suite currently passes 1,418 tests (with 0 skipped).</p>
+        <p class="strip">Pure Python Stdlib (0 Dependencies) • JSON-RPC -32082 Human Hold • The test suite currently passes 1,421 tests (with 0 skipped).</p>
         <p class="byline">Alec F. · independent AI security researcher</p>
       </div>
       <div>
@@ -122,14 +123,14 @@
   <section id="budget" aria-labelledby="budget-h">
     <div class="wrap">
       <h2 id="budget-h">P3 leakage budget, calibrated in log-only mode</h2>
-      <p class="lede">Turning blocks on before the budget has seen real traffic breaks production workflows. P3 is deployed in log-only mode first. Every charge and every would-be hold is recorded on benign traces. Enforcement is turned on after that calibration.</p>
+      <p class="lede">Turning blocks on before the budget has seen real traffic breaks production workflows. P3 is deployed in log-only mode first. Every charge and every would-be hold is recorded on benign traces, and log-only calibration produces no P3 budget-triggered holds: a would-be hold is written to the log as <span class="mono">would_hold=true, held=false</span>, never raised. The structural checks stay on throughout and still fail closed: schema pins, SSRF and cloud-metadata URI checks, argument and workspace guards hold or deny as usual whatever the P3 mode. Budget enforcement is turned on after that calibration.</p>
       <div class="spec">
         <p class="kicker">One coalition ledger</p>
         <ul>
           <li>Coalitions of linked sessions share one integer quarter-bit budget (default 32 bits).</li>
           <li>Every outbound event pays for continuation bit + Elias-gamma timing gap + member choice + tool selection + content (typed field codes or raw-DEFLATE length).</li>
           <li>Withheld results never refund budget charges.</li>
-          <li>Over-budget events return JSON-RPC -32082 and are held for human approval, never auto-released.</li>
+          <li>In enforce mode, over-budget events return JSON-RPC -32082 and are held for human approval, never auto-released. In log-only mode the same event is logged and admitted.</li>
           <li>One shared outbound check across the engine.</li>
           <li>Core MCP server names are loaded once per engine.</li>
         </ul>
@@ -157,13 +158,14 @@
         <p class="lede">Deliver an AI &amp; MCP vendor-risk evidence packet to your enterprise buyer's security team in 48 hours.</p>
         <div class="ladder">
         <article class="tier" id="quick-check">
-          <p class="kicker">01 · 48-hr turnaround</p>
+          <p class="kicker">01 · 48-hr turnaround · Claude Code, Claude Desktop, Cursor</p>
           <h4>MCP Quick Check</h4>
           <p class="price">$149</p>
           <ul>
-            <li>Review of MCP server manifests and schemas.</li>
-            <li>2-hop toxic-combination map.</li>
-            <li>Prioritized hardening checklist.</li>
+            <li>48-hour review of up to 5 MCP server configs (<code>mcp.json</code>, <code>claude_desktop_config.json</code>) and 60 tool definitions, secrets removed.</li>
+            <li>SARIF 2.1.0 findings and SHA-256 pins on each tool&rsquo;s name, description, and input schema, in one HMAC-SHA256-sealed evidence packet (<a href="./sample_proof_packet.html">sample</a>).</li>
+            <li>2-hop toxic-combination map and a prioritized hardening checklist, top 5 fixes first.</li>
+            <li>Manifest review only: no code review, no runtime testing, no access to your systems.</li>
           </ul>
           <div class="actions">
             <a class="btn" href="mailto:alec@room23.net?subject=MCP%20Quick%20Check%20%24149%20%E2%80%94%2048-hr%20turnaround&amp;body=Tier%3A%20%24149%20MCP%20Quick%20Check%20%2848-hr%20turnaround%29%0AName%3A%0ARole%3A%0AOrganization%3A%0AMCP%20servers%20in%20scope%20%28count%29%3A%0AManifests%20and%20schemas%20attached%2C%20secrets%20removed%20%28yes/no%29%3A%0AWhat%20those%20servers%20can%20read%2C%20write%2C%20and%20send%3A">Email alec@room23.net</a>
@@ -179,7 +181,7 @@
             <li>The payment split is quoted at kickoff.</li>
             <li>Custom AgentGate hook/proxy wired for stacks such as Postgres, Stripe, Slack, HubSpot, GitHub.</li>
             <li>Pinned schemas.</li>
-            <li>P3 calibrated in log-only mode on benign traces.</li>
+            <li>P3 calibrated in log-only mode on benign traces: charges and would-be holds are logged, no budget-triggered holds.</li>
           </ul>
           <div class="actions">
             <a class="btn" href="mailto:alec@room23.net?subject=Starter%20Build%20%24450&amp;body=Tier%3A%20%24450%20Starter%20Build%0AName%3A%0ARole%3A%0AOrganization%3A%0APayment%20split%3A%20quoted%20at%20kickoff%0AStack%20to%20wire%20%28wired%20for%20stacks%20such%20as%20Postgres%2C%20Stripe%2C%20Slack%2C%20HubSpot%2C%20GitHub%29%3A%0ATools%20to%20expose%3A%0ABenign%20traces%20available%20for%20P3%20log-only%20calibration%20%28yes/no%29%3A">Email alec@room23.net</a>
@@ -188,14 +190,16 @@
         </article>
 
         <article class="tier" id="hardened-build">
-          <p class="kicker">03 · 48-hr drop-in gateway</p>
+          <p class="kicker">03 · 48-hr drop-in gateway · policy wrap + audit chain</p>
           <h4>Hardened Build</h4>
           <p class="price">$750</p>
+          <p class="delta">What the extra $300 over Starter buys: the <code>pep.py</code> policy wrap, the SHA-256 hash-chained audit log, and the acceptance suite the second payment depends on.</p>
           <ul>
-            <li>$350 at kickoff, $400 on acceptance.</li>
-            <li>Custom AgentGate hook/proxy wired for stacks such as Postgres, Stripe, Slack, HubSpot, GitHub.</li>
-            <li>Pinned schemas.</li>
-            <li>P3 calibrated in log-only mode on benign traces.</li>
+            <li>$350 at kickoff, $400 only when the acceptance tests pass.</li>
+            <li>Everything in Starter: custom AgentGate hook/proxy wired for stacks such as Postgres, Stripe, Slack, HubSpot, GitHub; pinned schemas; P3 calibrated in log-only mode on benign traces, no budget-triggered holds.</li>
+            <li><code>pep.py</code> allow / deny policy for your tool list: custom multi-tool toxic-combination holds, taint on untrusted reads with <code>agw1.</code> capability attenuation, and a capability manifest that only narrows.</li>
+            <li>Sensitive-field redaction and a SHA-256 hash-chained log of every decision, exportable as SARIF 2.1.0 for your buyer&rsquo;s security team.</li>
+            <li><code>pytest</code> acceptance suite delivered in a mergeable pull request, re-runnable in your CI as a regression gate. Nothing is deployed on your hosts by us.</li>
           </ul>
           <div class="actions">
             <a class="btn" href="mailto:alec@room23.net?subject=Hardened%20Build%20%24750&amp;body=Tier%3A%20%24750%20Hardened%20Build%0AName%3A%0ARole%3A%0AOrganization%3A%0APayment%3A%20%24350%20at%20kickoff%2C%20%24400%20on%20acceptance%0AStack%20to%20wire%20%28wired%20for%20stacks%20such%20as%20Postgres%2C%20Stripe%2C%20Slack%2C%20HubSpot%2C%20GitHub%29%3A%0APinned%20schemas%3A%0ABenign%20traces%20available%20for%20P3%20log-only%20calibration%20%28yes/no%29%3A">Email alec@room23.net</a>
